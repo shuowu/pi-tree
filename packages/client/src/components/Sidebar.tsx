@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-import type { TreeNodeView, BookOutline, OutlineEntry } from "@pi-reader/shared";
-import { fetchOutline } from "../api";
+import { type TreeNodeView } from "@pi-reader/shared";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -11,14 +9,7 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-export function Sidebar({ bookId, tree, onNavigate, isOpen, onToggle }: SidebarProps) {
-  const [outline, setOutline] = useState<BookOutline | null>(null);
-  const [activeTab, setActiveTab] = useState<"map" | "tree">("map");
-
-  useEffect(() => {
-    fetchOutline(bookId).then(setOutline).catch(() => {});
-  }, [bookId]);
-
+export function Sidebar({ tree, onNavigate, isOpen, onToggle }: SidebarProps) {
   return (
     <>
       <button
@@ -30,84 +21,12 @@ export function Sidebar({ bookId, tree, onNavigate, isOpen, onToggle }: SidebarP
       </button>
 
       <aside className={`sidebar ${isOpen ? "open" : ""}`}>
-        <div className="sidebar-tabs">
-          <button
-            className={`sidebar-tab ${activeTab === "map" ? "active" : ""}`}
-            onClick={() => setActiveTab("map")}
-          >
-            📑 Map
-          </button>
-          <button
-            className={`sidebar-tab ${activeTab === "tree" ? "active" : ""}`}
-            onClick={() => setActiveTab("tree")}
-          >
-            🌳 Tree
-          </button>
-        </div>
-
+        <div className="sidebar-header">🌳 Session Tree</div>
         <div className="sidebar-content">
-          {activeTab === "map" && (
-            <MapView outline={outline} />
-          )}
-          {activeTab === "tree" && (
-            <TreeView tree={tree} onNavigate={onNavigate} />
-          )}
+          <TreeView tree={tree} onNavigate={onNavigate} />
         </div>
       </aside>
     </>
-  );
-}
-
-// ── Map View (Book Outline) ──
-
-function MapView({ outline }: { outline: BookOutline | null }) {
-  if (!outline || outline.entries.length === 0) {
-    return (
-      <div className="sidebar-empty">
-        <p>No outline available</p>
-        <p className="sidebar-empty-hint">Generate one with the book-outline skill</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="map-view">
-      {outline.entries.map((entry, i) => (
-        <OutlineNode key={i} entry={entry} />
-      ))}
-    </div>
-  );
-}
-
-function OutlineNode({ entry }: { entry: OutlineEntry }) {
-  const [expanded, setExpanded] = useState(entry.level <= 1);
-  const hasChildren = entry.children && entry.children.length > 0;
-  const indent = Math.max(0, entry.level - 1) * 16;
-
-  return (
-    <div className="outline-node">
-      <div
-        className={`outline-entry level-${entry.level}`}
-        style={{ paddingLeft: indent + 12 }}
-        onClick={() => hasChildren && setExpanded(!expanded)}
-        role={hasChildren ? "button" : undefined}
-      >
-        {hasChildren && (
-          <span className={`outline-chevron ${expanded ? "expanded" : ""}`}>
-            ›
-          </span>
-        )}
-        <span className="outline-indicator">░</span>
-        <span className="outline-title">{entry.title}</span>
-      </div>
-      {expanded && hasChildren && (
-        <div className="outline-children">
-          {entry.children!.map((child, i) => (
-            <OutlineNode key={i} entry={child} />
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

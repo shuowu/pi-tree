@@ -47,35 +47,15 @@
   color: var(--text-primary);
 }
 
-/* ── Tabs ── */
+/* ── Header ── */
 
-.sidebar-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.sidebar-tab {
-  flex: 1;
+.sidebar-header {
   padding: var(--space-3) var(--space-4);
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border);
   font-size: var(--text-sm);
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  border-bottom: 2px solid transparent;
-}
-
-.sidebar-tab:hover {
   color: var(--text-secondary);
-  background: var(--bg-hover);
-}
-
-.sidebar-tab.active {
-  color: var(--accent-hover);
-  border-bottom-color: var(--accent);
+  font-family: var(--font-sans);
+  flex-shrink: 0;
 }
 
 /* ── Content ── */
