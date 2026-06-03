@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage } from "@pi-reader/shared";
+import type { ChatMessage, BranchOption } from "@pi-reader/shared";
 import { marked } from "marked";
 import "./ChatView.css";
 
@@ -12,9 +12,11 @@ interface ChatViewProps {
   messages: ChatMessage[];
   isLoading: boolean;
   onSendMessage: (message: string) => void;
+  branches: BranchOption[];
+  onDrillDown: (nodeId: string) => void;
 }
 
-export function ChatView({ messages, isLoading, onSendMessage }: ChatViewProps) {
+export function ChatView({ messages, isLoading, onSendMessage, branches, onDrillDown }: ChatViewProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -70,6 +72,27 @@ export function ChatView({ messages, isLoading, onSendMessage }: ChatViewProps) 
                 <span className="dot" />
                 <span className="dot" />
               </div>
+            </div>
+          </div>
+        )}
+
+        {branches.length > 0 && !isLoading && (
+          <div className="chat-branches">
+            <div className="chat-branches-label">Branches</div>
+            <div className="chat-branches-grid">
+              {branches.map((b) => (
+                <button
+                  key={b.nodeId}
+                  className="chat-branch-card"
+                  onClick={() => onDrillDown(b.nodeId)}
+                >
+                  <span className={`branch-dot status-${b.status}`} />
+                  <span className="branch-label">{b.label}</span>
+                  {b.messageCount > 0 && (
+                    <span className="branch-count">{b.messageCount}</span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
         )}

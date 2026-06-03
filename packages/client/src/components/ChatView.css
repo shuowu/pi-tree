@@ -193,6 +193,87 @@
   cursor: not-allowed;
 }
 
+/* ── Branch Fork Indicators ── */
+
+.chat-branches {
+  max-width: var(--chat-max-width);
+  width: 100%;
+  margin: var(--space-4) auto;
+  animation: fadeIn 0.2s ease;
+}
+
+.chat-branches-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+  padding-left: var(--space-1);
+}
+
+.chat-branches-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.chat-branch-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.chat-branch-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.branch-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.branch-dot.status-active {
+  background: var(--accent);
+}
+
+.branch-dot.status-completed {
+  background: var(--green);
+}
+
+.branch-dot.status-abandoned {
+  background: var(--text-muted);
+}
+
+.branch-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-count {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  background: var(--bg-tertiary);
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+}
+
 /* ── Markdown Rendered Content ── */
 
 .chat-content.markdown {

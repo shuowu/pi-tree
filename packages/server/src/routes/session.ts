@@ -6,9 +6,23 @@ export const sessionRoutes = new Hono();
 
 /** Start or resume a reading session for a book */
 sessionRoutes.post("/start", async (c) => {
-  const { bookId } = await c.req.json<{ bookId: string }>();
+  const { bookId, viewNodeId } = await c.req.json<{
+    bookId: string;
+    viewNodeId?: string | null;
+  }>();
   const manager = await getSession(bookId);
-  const state = manager.getSessionState();
+  const state = manager.getSessionState(viewNodeId ?? null);
+  return c.json(state);
+});
+
+/** View a specific scope in the tree (no AI call, just scoped messages) */
+sessionRoutes.post("/view", async (c) => {
+  const { bookId, viewNodeId } = await c.req.json<{
+    bookId: string;
+    viewNodeId: string | null;
+  }>();
+  const manager = await getSession(bookId);
+  const state = manager.getSessionState(viewNodeId);
   return c.json(state);
 });
 
@@ -64,7 +78,9 @@ sessionRoutes.post("/navigate", async (c) => {
   const state = await manager.navigateTo(targetNodeId, {
     summarize: summarizeCurrent ?? true,
   });
-  return c.json(state);
+  // After navigation, scope the view to the target node
+  const scopedState = manager.getSessionState(targetNodeId);
+  return c.json(scopedState);
 });
 
 /** Navigate from a TOC entry (creates node if needed) */

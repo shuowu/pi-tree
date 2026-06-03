@@ -237,9 +237,21 @@ export interface TreeNodeView {
 export interface SessionState {
   bookId: string;
   activeNodeId: string;
+  /** Which tree node the chat view is scoped to (null = root) */
+  viewNodeId: string | null;
   breadcrumb: BreadcrumbItem[];
+  /** Messages in the current scope (linear chain from viewNode to next fork) */
   messages: ChatMessage[];
   tree: TreeNodeView;
+  /** Branches available at the end of the current chain (fork indicator) */
+  branches: BranchOption[];
+}
+
+export interface BranchOption {
+  nodeId: string;
+  label: string;
+  messageCount: number;
+  status: "active" | "completed" | "abandoned";
 }
 
 export interface BreadcrumbItem {

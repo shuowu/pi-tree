@@ -352,30 +352,143 @@ export class TreeManager {
   // State getters — transform Pi's tree into our API format
   // ---------------------------------------------------------------------------
 
-  getSessionState(): SessionState {
+  getSessionState(viewNodeId?: string | null): SessionState {
+    const tree = this.buildTreeView();
+    return this.buildScopedState(tree, viewNodeId ?? null);
+  }
+
+  /**
+   * Build a scoped session state.
+   *
+   * Walk the tree from viewNodeId (or root), collecting messages in the
+   * linear chain until a fork (node with 2+ children). At the fork,
+   * return branch options so the UI can show drill-down indicators.
+   */
+  private buildScopedState(
+    tree: TreeNodeView,
+    viewNodeId: string | null,
+  ): SessionState {
+    // Find the starting node
+    const startNode = viewNodeId ? this.findNode(tree, viewNodeId) : tree;
+    if (!startNode) {
+      return {
+        bookId: this.bookId,
+        activeNodeId: "",
+        viewNodeId,
+        breadcrumb: [],
+        messages: [],
+        tree,
+        branches: [],
+      };
+    }
+
+    // Walk the linear chain from startNode, collecting messages
+    const messages: import("@pi-reader/shared").ChatMessage[] = [];
+    const branches: import("@pi-reader/shared").BranchOption[] = [];
+    this.walkLinearChain(startNode, messages, branches);
+
+    // Build breadcrumb: path from root to viewNode
+    const breadcrumb = viewNodeId
+      ? this.buildBreadcrumbPath(tree, viewNodeId)
+      : [];
+
     return {
       bookId: this.bookId,
       activeNodeId:
         this.piSession.getBreadcrumb().slice(-1)[0]?.entryId ?? "",
-      breadcrumb: this.piSession.getBreadcrumb().map((b) => ({
-        nodeId: b.entryId,
-        label: b.label,
-      })),
-      messages: this.piSession.getCurrentMessages().map((m) => ({
-        id: m.id,
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        timestamp: m.timestamp,
-      })),
-      tree: this.buildTreeView(),
+      viewNodeId,
+      breadcrumb,
+      messages,
+      tree,
+      branches,
     };
+  }
+
+  /**
+   * Walk a linear chain from a tree node, collecting messages.
+   * Stop at forks (2+ children) and populate branches.
+   */
+  private walkLinearChain(
+    node: TreeNodeView,
+    messages: import("@pi-reader/shared").ChatMessage[],
+    branches: import("@pi-reader/shared").BranchOption[],
+  ): void {
+    // Add this node as a message if it represents one
+    // (tree nodes labeled with user text or ✦ assistant text)
+    const isAssistant = node.label.startsWith("✦");
+    if (node.id && node.label) {
+      messages.push({
+        id: node.id,
+        role: isAssistant ? "assistant" : "user",
+        content: isAssistant ? node.label.slice(2).trim() : node.label,
+        timestamp: "",
+      });
+    }
+
+    if (!node.children || node.children.length === 0) {
+      return; // Leaf — done
+    }
+
+    if (node.children.length === 1) {
+      // Linear chain — keep walking
+      this.walkLinearChain(node.children[0], messages, branches);
+    } else {
+      // Fork — stop here and report branches
+      for (const child of node.children) {
+        branches.push({
+          nodeId: child.id,
+          label: child.label,
+          messageCount: child.messageCount,
+          status: child.status,
+        });
+      }
+    }
+  }
+
+  /**
+   * Build breadcrumb path from root to a target node.
+   */
+  private buildBreadcrumbPath(
+    tree: TreeNodeView,
+    targetId: string,
+  ): import("@pi-reader/shared").BreadcrumbItem[] {
+    const path: import("@pi-reader/shared").BreadcrumbItem[] = [];
+
+    const walk = (node: TreeNodeView): boolean => {
+      if (node.id === targetId) {
+        path.push({ nodeId: node.id, label: node.label });
+        return true;
+      }
+      for (const child of node.children ?? []) {
+        if (walk(child)) {
+          path.unshift({ nodeId: node.id, label: node.label });
+          return true;
+        }
+      }
+      return false;
+    };
+
+    walk(tree);
+    return path;
+  }
+
+  /**
+   * Find a node by id in the tree.
+   */
+  private findNode(tree: TreeNodeView, id: string): TreeNodeView | null {
+    if (tree.id === id) return tree;
+    for (const child of tree.children ?? []) {
+      const found = this.findNode(child, id);
+      if (found) return found;
+    }
+    return null;
   }
 
   getTreeView(): TreeNodeView {
     return this.buildTreeView();
   }
 
-  getBreadcrumb(): BreadcrumbItem[] {
+  getBreadcrumb(): import("@pi-reader/shared").BreadcrumbItem[] {
     return this.piSession.getBreadcrumb().map((b) => ({
       nodeId: b.entryId,
       label: b.label,

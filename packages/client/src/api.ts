@@ -142,9 +142,27 @@ export async function navigateTo(
   const res = await fetch(`${API}/session/navigate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, nodeId, ...options }),
+    body: JSON.stringify({ bookId, targetNodeId: nodeId, ...options }),
   });
   if (!res.ok) throw new Error(`Navigate failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Scope the chat view to a specific tree node (no AI call).
+ * Returns messages in the linear chain from that node to the next fork.
+ * Pass null for root view.
+ */
+export async function viewScope(
+  bookId: string,
+  viewNodeId: string | null,
+): Promise<SessionState> {
+  const res = await fetch(`${API}/session/view`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookId, viewNodeId }),
+  });
+  if (!res.ok) throw new Error(`View scope failed: ${res.status}`);
   return res.json();
 }
 
