@@ -43,14 +43,73 @@ export class TreeManager {
     options?: { resumeSession?: string },
   ): Promise<TreeManager> {
     const library = new LibraryService();
+
+    // Auto-resume: if no explicit session given, check the active manifest
+    let resumeSession = options?.resumeSession;
+    if (!resumeSession) {
+      resumeSession = await TreeManager.readActiveSession(
+        library.getLibraryPath(),
+        bookId,
+      );
+    }
+
     const piSession = await PiSession.create(
       bookId,
       library.getLibraryPath(),
-      options,
+      resumeSession ? { resumeSession } : undefined,
     );
+
+    // Persist the active session ID so server restarts resume correctly
+    const sessionId = piSession.getSessionId();
+    if (sessionId) {
+      await TreeManager.writeActiveSession(
+        library.getLibraryPath(),
+        bookId,
+        sessionId,
+      );
+    }
 
     // TODO: Load per-book config from BOOK.md
     return new TreeManager(piSession, bookId, library);
+  }
+
+  /**
+   * Read the active session ID for a book from its manifest file.
+   */
+  private static async readActiveSession(
+    libraryPath: string,
+    bookId: string,
+  ): Promise<string | undefined> {
+    const { readFile } = await import("fs/promises");
+    const { join } = await import("path");
+    const manifestPath = join(libraryPath, bookId, ".sessions", "active.json");
+
+    try {
+      const raw = await readFile(manifestPath, "utf-8");
+      const data = JSON.parse(raw);
+      return data.sessionId ?? undefined;
+    } catch {
+      return undefined; // No manifest yet — first session for this book
+    }
+  }
+
+  /**
+   * Write the active session ID to the book's manifest file.
+   */
+  private static async writeActiveSession(
+    libraryPath: string,
+    bookId: string,
+    sessionId: string,
+  ): Promise<void> {
+    const { writeFile, mkdir } = await import("fs/promises");
+    const { join } = await import("path");
+    const sessionDir = join(libraryPath, bookId, ".sessions");
+
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(
+      join(sessionDir, "active.json"),
+      JSON.stringify({ sessionId, updatedAt: new Date().toISOString() }, null, 2) + "\n",
+    );
   }
 
   // ---------------------------------------------------------------------------
