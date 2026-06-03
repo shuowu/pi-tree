@@ -651,7 +651,8 @@ export class PiSession {
   private inferAssistantLabel(entry: SessionEntry): string {
     if (entry.type === "message" && "message" in entry) {
       const msg = (entry as any).message;
-      return this.extractText(msg.content, 50);
+      const text = this.extractText(msg.content, 50);
+      return text || "Response";
     }
     return "Response";
   }
@@ -663,9 +664,20 @@ export class PiSession {
           .map((c) => c.text ?? "")
           .join("")
       : String(content ?? "");
-    // Take first meaningful line (skip empty lines)
-    const firstLine = text.split("\n").find((l) => l.trim().length > 0) ?? text;
-    const cleaned = firstLine.trim();
+    // Take first meaningful line (skip empty lines, markdown headers, etc.)
+    const firstLine = text
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.length > 0) ?? "";
+    // Strip markdown syntax for clean tree labels
+    const cleaned = firstLine
+      .replace(/^#{1,6}\s+/, "")  // # headers
+      .replace(/\*\*([^*]+)\*\*/g, "$1")  // **bold**
+      .replace(/\*([^*]+)\*/g, "$1")  // *italic*
+      .replace(/`([^`]+)`/g, "$1")  // `code`
+      .replace(/^[-*>]\s+/, "")  // list/quote markers
+      .trim();
+    if (!cleaned) return "";
     return cleaned.slice(0, maxLen) + (cleaned.length > maxLen ? "…" : "");
   }
 
