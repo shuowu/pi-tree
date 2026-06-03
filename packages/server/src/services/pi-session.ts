@@ -322,9 +322,9 @@ export class PiSession {
   /**
    * Walk the Pi tree and build a conversation node.
    * - Skip non-message entries (tool results, custom, compaction, etc.)
-   * - For user messages: create a turn node labeled with the user's text
-   * - For assistant messages: skip (they're part of the previous user's turn)
-   * - For branch points (nodes with multiple children): show as navigation points
+   * - For user messages: show as a turn node labeled with the user's text
+   * - For assistant messages: show as response nodes (these are branch points!)
+   * - Skip tool results, custom entries, compactions, labels (internal)
    */
   private buildConversationNode(piNode: SessionTreeNode): AnnotatedTreeNode | null {
     const entry = piNode.entry;
@@ -347,31 +347,52 @@ export class PiSession {
       };
     }
 
-    // User message → create a turn node
+    // User message → show it
     if (entry.type === "message" && (entry as any).message?.role === "user") {
-      const label = this.inferLabel(entry);
-      // Collect children, but skip the immediate assistant reply (it's part of this turn)
-      const meaningfulChildren = this.collectMeaningfulChildren(piNode.children);
-
       return {
         entryId: entry.id,
         parentId: entry.parentId ?? "",
-        label,
+        label: this.inferLabel(entry),
         source: "user" as const,
         status: "active" as const,
         messageCount: this.countMessages(piNode),
         isCurrent: entry.id === leafId || this.isOnCurrentPath(piNode, leafId),
-        children: meaningfulChildren,
+        children: this.collectMeaningfulChildren(piNode.children),
       };
     }
 
-    // For non-user-message entries (assistant, tool, custom, header, etc.):
+    // Assistant message → show it (this is where branches grow from!)
+    if (entry.type === "message" && (entry as any).message?.role === "assistant") {
+      const children = this.collectMeaningfulChildren(piNode.children);
+      // Only show assistant nodes that are leaves or branch points
+      // (skip intermediate assistants in a chain with a single child)
+      const isLeaf = piNode.children.length === 0;
+      const isBranchPoint = children.length > 1;
+      const isOnPath = entry.id === leafId || this.isOnCurrentPath(piNode, leafId);
+
+      if (isLeaf || isBranchPoint || isOnPath) {
+        return {
+          entryId: entry.id,
+          parentId: entry.parentId ?? "",
+          label: "✦ " + this.inferAssistantLabel(entry),
+          source: "auto" as const,
+          status: isLeaf ? "active" as const : "completed" as const,
+          messageCount: 0,
+          isCurrent: entry.id === leafId,
+          children,
+        };
+      }
+
+      // Single-child assistant → flatten, pass children through
+      if (children.length === 1) return children[0];
+      return null;
+    }
+
+    // For internal entries (tool results, custom, compaction, label, etc.):
     // Don't show this node itself, but propagate its children up
     if (piNode.children.length > 0) {
       const childNodes = this.buildConversationTree(piNode.children);
-      // If exactly one child, return it directly (flatten chain)
       if (childNodes.length === 1) return childNodes[0];
-      // If multiple children, this is a branch point — show it
       if (childNodes.length > 1) {
         return {
           entryId: entry.id,
@@ -391,7 +412,6 @@ export class PiSession {
 
   /**
    * Collect meaningful child nodes, skipping internal entries.
-   * This walks down the chain until finding the next user message or branch point.
    */
   private collectMeaningfulChildren(children: SessionTreeNode[]): AnnotatedTreeNode[] {
     const result: AnnotatedTreeNode[] = [];
@@ -563,16 +583,31 @@ export class PiSession {
     if (entry.type === "message" && "message" in entry) {
       const msg = (entry as any).message;
       if (msg.role === "user") {
-        const text = Array.isArray(msg.content)
-          ? (msg.content as Array<{type: string; text?: string}>)
-              .filter((c) => c.type === "text")
-              .map((c) => c.text ?? "")
-              .join("")
-          : String(msg.content ?? "");
-        return text.slice(0, 60) + (text.length > 60 ? "…" : "");
+        return this.extractText(msg.content, 60);
       }
     }
     return `Entry ${entry.id.slice(0, 8)}`;
+  }
+
+  private inferAssistantLabel(entry: SessionEntry): string {
+    if (entry.type === "message" && "message" in entry) {
+      const msg = (entry as any).message;
+      return this.extractText(msg.content, 50);
+    }
+    return "Response";
+  }
+
+  private extractText(content: unknown, maxLen: number): string {
+    const text = Array.isArray(content)
+      ? (content as Array<{ type: string; text?: string }>)
+          .filter((c) => c.type === "text")
+          .map((c) => c.text ?? "")
+          .join("")
+      : String(content ?? "");
+    // Take first meaningful line (skip empty lines)
+    const firstLine = text.split("\n").find((l) => l.trim().length > 0) ?? text;
+    const cleaned = firstLine.trim();
+    return cleaned.slice(0, maxLen) + (cleaned.length > maxLen ? "…" : "");
   }
 
   private countMessages(node: SessionTreeNode): number {
