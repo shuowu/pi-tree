@@ -129,63 +129,98 @@ function TreeView({
     );
   }
 
+  // Flatten the tree into a visual list with branch-only indentation
+  const flatNodes = flattenTree(tree, 0);
+
   return (
     <div className="tree-view">
-      <TreeNode node={tree} onNavigate={onNavigate} depth={0} />
+      {flatNodes.map((item) => (
+        <TreeEntry
+          key={item.node.id}
+          node={item.node}
+          depth={item.depth}
+          isBranchChild={item.isBranchChild}
+          isLastBranch={item.isLastBranch}
+          onNavigate={onNavigate}
+        />
+      ))}
     </div>
   );
 }
 
-function TreeNode({
+interface FlatItem {
+  node: TreeNodeView;
+  depth: number;
+  isBranchChild: boolean;
+  isLastBranch: boolean;
+}
+
+/**
+ * Flatten a tree into a sequential list.
+ * Only increase depth when a node has multiple children (a branch point).
+ */
+function flattenTree(node: TreeNodeView, depth: number): FlatItem[] {
+  const items: FlatItem[] = [];
+
+  // Add this node at current depth
+  items.push({ node, depth, isBranchChild: false, isLastBranch: false });
+
+  if (!node.children || node.children.length === 0) {
+    return items;
+  }
+
+  if (node.children.length === 1) {
+    // Linear: same depth, no indentation
+    items.push(...flattenTree(node.children[0], depth));
+  } else {
+    // Branch point: indent children
+    node.children.forEach((child, i) => {
+      const childItems = flattenTree(child, depth + 1);
+      // Mark the first item of each branch
+      if (childItems.length > 0) {
+        childItems[0].isBranchChild = true;
+        childItems[0].isLastBranch = i === node.children!.length - 1;
+      }
+      items.push(...childItems);
+    });
+  }
+
+  return items;
+}
+
+function TreeEntry({
   node,
-  onNavigate,
   depth,
+  isBranchChild,
+  isLastBranch,
+  onNavigate,
 }: {
   node: TreeNodeView;
-  onNavigate: (nodeId: string) => void;
   depth: number;
+  isBranchChild: boolean;
+  isLastBranch: boolean;
+  onNavigate: (nodeId: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
-  const hasChildren = node.children && node.children.length > 0;
-  const indent = depth * 16;
+  const indent = depth * 20;
+  const isAssistant = node.label.startsWith("✦");
 
   return (
-    <div className="tree-node">
-      <div
-        className={`tree-entry ${node.isCurrent ? "current" : ""} status-${node.status}`}
-        style={{ paddingLeft: indent + 12 }}
-        onClick={() => onNavigate(node.id)}
-        role="button"
-        tabIndex={0}
-      >
-        {hasChildren && (
-          <span
-            className={`tree-chevron ${expanded ? "expanded" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-          >
-            ›
-          </span>
-        )}
-        <span className={`tree-dot status-${node.status}`} />
-        <span className="tree-label">{node.label}</span>
-        {node.messageCount > 0 && (
-          <span className="tree-count">{node.messageCount}</span>
-        )}
-      </div>
-      {expanded && hasChildren && (
-        <div className="tree-children">
-          {node.children!.map((child) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              onNavigate={onNavigate}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
+    <div
+      className={`tree-entry ${node.isCurrent ? "current" : ""} ${isAssistant ? "assistant" : "user"}`}
+      style={{ paddingLeft: indent + 12 }}
+      onClick={() => onNavigate(node.id)}
+      role="button"
+      tabIndex={0}
+    >
+      {isBranchChild && (
+        <span className="tree-branch-indicator">
+          {isLastBranch ? "└" : "├"}
+        </span>
+      )}
+      <span className={`tree-dot status-${node.status}`} />
+      <span className="tree-label">{node.label}</span>
+      {node.messageCount > 0 && (
+        <span className="tree-count">{node.messageCount}</span>
       )}
     </div>
   );

@@ -162,18 +162,25 @@
   white-space: nowrap;
 }
 
-/* ── Session Tree ── */
+/* ── Session Tree (flat with branch-only indent) ── */
+
+.tree-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
 
 .tree-entry {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) 0;
+  padding: 5px 0;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast);
   font-size: var(--text-sm);
   color: var(--text-secondary);
+  line-height: 1.3;
 }
 
 .tree-entry:hover {
@@ -183,21 +190,27 @@
 .tree-entry.current {
   color: var(--accent-hover);
   font-weight: 500;
+  background: var(--accent-dim);
 }
 
-.tree-chevron {
-  font-size: var(--text-sm);
+.tree-entry.assistant {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.tree-entry.assistant.current {
+  color: var(--accent-hover);
+}
+
+.tree-branch-indicator {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  transition: transform var(--transition-fast);
+  flex-shrink: 0;
   width: 12px;
   display: inline-flex;
   justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.tree-chevron.expanded {
-  transform: rotate(90deg);
+  line-height: 1;
 }
 
 .tree-dot {
@@ -235,3 +248,4 @@
   padding: 0 6px;
   border-radius: var(--radius-full);
 }
+
