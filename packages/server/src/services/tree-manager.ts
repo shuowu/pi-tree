@@ -382,10 +382,13 @@ export class TreeManager {
       };
     }
 
+    // Build a lookup of entryId → full message content from Pi session
+    const contentMap = this.piSession.getMessageContentMap();
+
     // Walk the linear chain from startNode, collecting messages
     const messages: import("@pi-reader/shared").ChatMessage[] = [];
     const branches: import("@pi-reader/shared").BranchOption[] = [];
-    this.walkLinearChain(startNode, messages, branches);
+    this.walkLinearChain(startNode, messages, branches, contentMap);
 
     // Build breadcrumb: path from root to viewNode
     const breadcrumb = viewNodeId
@@ -407,21 +410,22 @@ export class TreeManager {
   /**
    * Walk a linear chain from a tree node, collecting messages.
    * Stop at forks (2+ children) and populate branches.
+   * Uses contentMap for full message text (not truncated tree labels).
    */
   private walkLinearChain(
     node: TreeNodeView,
     messages: import("@pi-reader/shared").ChatMessage[],
     branches: import("@pi-reader/shared").BranchOption[],
+    contentMap: Map<string, { role: string; content: string; timestamp: string }>,
   ): void {
-    // Add this node as a message if it represents one
-    // (tree nodes labeled with user text or ✦ assistant text)
-    const isAssistant = node.label.startsWith("✦");
-    if (node.id && node.label) {
+    // Look up the actual message content from the Pi session
+    const msgData = contentMap.get(node.id);
+    if (msgData) {
       messages.push({
         id: node.id,
-        role: isAssistant ? "assistant" : "user",
-        content: isAssistant ? node.label.slice(2).trim() : node.label,
-        timestamp: "",
+        role: msgData.role as "user" | "assistant",
+        content: msgData.content,
+        timestamp: msgData.timestamp,
       });
     }
 
@@ -431,7 +435,7 @@ export class TreeManager {
 
     if (node.children.length === 1) {
       // Linear chain — keep walking
-      this.walkLinearChain(node.children[0], messages, branches);
+      this.walkLinearChain(node.children[0], messages, branches, contentMap);
     } else {
       // Fork — stop here and report branches
       for (const child of node.children) {

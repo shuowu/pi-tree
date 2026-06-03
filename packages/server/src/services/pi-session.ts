@@ -482,6 +482,44 @@ export class PiSession {
       });
   }
 
+  /**
+   * Build a lookup map: entryId → { role, content } for all message entries.
+   * Walks the entire raw tree to find full message content.
+   */
+  getMessageContentMap(): Map<
+    string,
+    { role: string; content: string; timestamp: string }
+  > {
+    const map = new Map<
+      string,
+      { role: string; content: string; timestamp: string }
+    >();
+    const piTree = this.sm.getTree();
+
+    const walk = (nodes: SessionTreeNode[]) => {
+      for (const node of nodes) {
+        const entry = node.entry;
+        if (entry.type === "message" && "message" in entry) {
+          const msg = (entry as any).message;
+          const content = Array.isArray(msg.content)
+            ? (msg.content as Array<{ type: string; text?: string }>)
+                .filter((c) => c.type === "text")
+                .map((c) => c.text ?? "")
+                .join("")
+            : String(msg.content ?? "");
+          map.set(entry.id, {
+            role: msg.role,
+            content,
+            timestamp: entry.timestamp,
+          });
+        }
+        walk(node.children);
+      }
+    };
+    walk(piTree);
+    return map;
+  }
+
   getSessionFile(): string {
     return this.sm.getSessionFile() ?? "";
   }
