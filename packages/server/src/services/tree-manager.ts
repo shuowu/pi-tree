@@ -1,42 +1,36 @@
+/**
+ * TreeManager — orchestrates reading sessions.
+ *
+ * This is now a thin layer that:
+ * 1. Classifies user intent (branch vs continue)
+ * 2. Delegates tree operations to PiSession (which wraps Pi SDK)
+ * 3. Manages reading-specific metadata (topic labels, book anchors)
+ *
+ * Pi SDK handles: session storage, tree structure, AI responses,
+ * compaction, streaming, context building.
+ */
+
 import type {
-  TopicNode,
   SessionState,
   TreeNodeView,
   BreadcrumbItem,
   ChatMessage,
   UserIntent,
   ReaderConfig,
-  BookAnchor,
 } from "@pi-reader/shared";
 import { DEFAULT_CONFIG } from "@pi-reader/shared";
-import { randomUUID } from "node:crypto";
+import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
+import { LibraryService } from "./library.js";
 
-/**
- * TreeManager — the core engine for tree-structured reading sessions.
- *
- * Responsibilities:
- * 1. Maintain the topic tree for one book
- * 2. Decide when to branch vs continue (intent classification)
- * 3. Manage summaries when zooming out
- * 4. Interface with Pi SDK for AI responses (TODO: integrate)
- *
- * Key principle: conversations flow freely within a node.
- * Branches are only created on semantic shifts (go deeper, next chapter, etc.)
- */
 export class TreeManager {
-  private nodes: Map<string, TopicNode> = new Map();
-  private activeNodeId: string;
-  private messages: Map<string, ChatMessage[]> = new Map(); // nodeId → messages
   private config: ReaderConfig;
 
   private constructor(
+    private piSession: PiSession,
     private bookId: string,
-    rootNode: TopicNode,
+    private library: LibraryService,
     config?: Partial<ReaderConfig>,
   ) {
-    this.nodes.set(rootNode.id, rootNode);
-    this.activeNodeId = rootNode.id;
-    this.messages.set(rootNode.id, []);
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
@@ -44,20 +38,19 @@ export class TreeManager {
   // Factory
   // ---------------------------------------------------------------------------
 
-  static async loadOrCreate(bookId: string): Promise<TreeManager> {
-    // TODO: Load from persistent storage (Pi session file or DB)
-    // For now, create a fresh session
-    const rootNode: TopicNode = {
-      id: randomUUID(),
-      parentId: null,
-      label: bookId, // Will be replaced with actual book title
-      source: "auto",
-      status: "active",
-      messageCount: 0,
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString(),
-    };
-    return new TreeManager(bookId, rootNode);
+  static async loadOrCreate(
+    bookId: string,
+    options?: { resumeSession?: string },
+  ): Promise<TreeManager> {
+    const library = new LibraryService();
+    const piSession = await PiSession.create(
+      bookId,
+      library.getLibraryPath(),
+      options,
+    );
+
+    // TODO: Load per-book config from BOOK.md
+    return new TreeManager(piSession, bookId, library);
   }
 
   // ---------------------------------------------------------------------------
@@ -70,57 +63,13 @@ export class TreeManager {
     // 1. Classify intent
     const intent = await this.classifyIntent(message);
 
-    // 2. Execute tree operation based on intent
-    switch (intent.type) {
-      case "continue":
-        // No tree operation — just append to current node
-        break;
+    // 2. Execute tree operation if needed (via PiSession → Pi SDK)
+    await this.executeTreeOp(intent, message);
 
-      case "go_deeper":
-        await this.createChildNode(intent.topic);
-        break;
+    // 3. Send message to Pi for AI response
+    const { response } = await this.piSession.sendMessage(message);
 
-      case "next_chapter":
-        if (this.config.summary.autoOnChapterChange) {
-          await this.summarizeCurrentNode();
-        }
-        await this.createSiblingChapterNode(intent.chapterLabel);
-        break;
-
-      case "zoom_out":
-        if (this.config.summary.autoOnZoomOut) {
-          await this.summarizeAndZoomOut(intent.targetLevel);
-        } else {
-          this.navigateToParent();
-        }
-        break;
-
-      case "lateral_move":
-        if (this.config.summary.autoOnChapterChange) {
-          await this.summarizeCurrentNode();
-        }
-        await this.navigateToSibling(intent.target);
-        break;
-
-      case "cross_book":
-        await this.createChildNode(
-          `Cross-ref: ${intent.otherBook} — ${intent.topic}`,
-        );
-        break;
-
-      case "toc_navigate":
-        await this.navigateToOutlineEntry(intent.outlineEntry.line);
-        break;
-    }
-
-    // 3. Add user message to current node
-    const userMsg = this.addMessage("user", message);
-
-    // 4. Get AI response (TODO: integrate Pi SDK)
-    const response = await this.getAIResponse(message);
-    const assistantMsg = this.addMessage("assistant", response);
-
-    // 5. Return updated state
+    // 4. Return updated state
     return {
       ...this.getSessionState(),
       response,
@@ -135,198 +84,199 @@ export class TreeManager {
       onDone: (result: Record<string, unknown>) => Promise<void>;
     },
   ): Promise<void> {
-    // TODO: Streaming implementation with Pi SDK
-    // For now, fall back to non-streaming
-    const result = await this.handleMessage(message);
-    await callbacks.onDone(result as unknown as Record<string, unknown>);
+    const intent = await this.classifyIntent(message);
+
+    // If there's a tree operation, notify the client
+    if (intent.type !== "continue") {
+      await callbacks.onTreeUpdate({
+        operation: intent.type,
+        detail: intent,
+      });
+    }
+
+    await this.executeTreeOp(intent, message);
+
+    // Stream the response from Pi
+    const { response } = await this.piSession.sendMessageStreaming(
+      message,
+      callbacks.onToken,
+    );
+
+    await callbacks.onDone({
+      ...this.getSessionState(),
+      response,
+    });
   }
 
   // ---------------------------------------------------------------------------
-  // Intent Classification
+  // Intent Classification — decides branch vs continue
   // ---------------------------------------------------------------------------
 
   private async classifyIntent(message: string): Promise<UserIntent> {
     const lower = message.toLowerCase().trim();
 
-    // Heuristic classification — fast, no LLM call needed for clear signals
-    // TODO: Fall back to lightweight LLM classification for ambiguous cases
-
-    // Zoom out signals
+    // ── Zoom out ──
     if (
       lower.match(
-        /^(go back|zoom out|pull back|return|back to (the )?(chapter|book|overview))/,
+        /^(go back|zoom out|pull back|return to|back to (the )?(chapter|book|overview|part))/,
       )
     ) {
-      const targetLevel = lower.includes("book") || lower.includes("overview")
-        ? "root"
-        : "parent";
+      const targetLevel =
+        lower.includes("book") || lower.includes("overview")
+          ? "root"
+          : "parent";
       return { type: "zoom_out", targetLevel };
     }
 
-    // Go deeper signals
+    // ── Go deeper ──
     if (
       lower.match(
         /^(deep dive|go deeper|explore|dig into|unpack|let me explore)/,
       )
     ) {
-      const topic = message.replace(
-        /^(deep dive into|go deeper on|explore|dig into|unpack|let me explore)\s*/i,
-        "",
-      );
+      const topic = message
+        .replace(
+          /^(deep dive into|go deeper on|explore|dig into|unpack|let me explore)\s*/i,
+          "",
+        )
+        .trim();
       return { type: "go_deeper", topic: topic || "this topic" };
     }
 
-    // Next chapter signals
-    if (lower.match(/^(next chapter|continue|move on|next section)/)) {
+    // ── Next chapter ──
+    if (lower.match(/^(next chapter|continue reading|move on|next section)/)) {
       return { type: "next_chapter" };
     }
 
-    // Lateral move signals (mentions a specific chapter)
+    // ── Lateral move (specific chapter) ──
     const chapterMatch = lower.match(
       /(?:go to|jump to|skip to|let me (?:read|look at))\s+(?:chapter|ch\.?)\s*(\d+)/i,
     );
     if (chapterMatch) {
-      return {
-        type: "lateral_move",
-        target: `Chapter ${chapterMatch[1]}`,
-      };
+      return { type: "lateral_move", target: `Chapter ${chapterMatch[1]}` };
     }
 
-    // Cross-book signals
+    // ── Cross-book ──
     const crossBookMatch = lower.match(
       /what does (.+?) say|compare (?:this )?with (.+?)(?:'s)?|how does (.+?) (?:think|approach|handle)/i,
     );
     if (crossBookMatch) {
-      const otherBook = crossBookMatch[1] ?? crossBookMatch[2] ?? crossBookMatch[3] ?? "other book";
-      return {
-        type: "cross_book",
-        otherBook: otherBook.trim(),
-        topic: message,
-      };
+      const otherBook = (
+        crossBookMatch[1] ??
+        crossBookMatch[2] ??
+        crossBookMatch[3] ??
+        "other book"
+      ).trim();
+      return { type: "cross_book", otherBook, topic: message };
     }
 
-    // Default: continue the conversation on the current node
+    // ── Default: continue on current branch ──
     return { type: "continue" };
   }
 
   // ---------------------------------------------------------------------------
-  // Tree Operations
+  // Execute tree operations via PiSession
   // ---------------------------------------------------------------------------
 
-  private async createChildNode(
-    label: string,
-    bookAnchor?: BookAnchor,
-  ): Promise<TopicNode> {
-    const node: TopicNode = {
-      id: randomUUID(),
-      parentId: this.activeNodeId,
-      label,
-      source: "user",
-      bookAnchor,
-      status: "active",
-      messageCount: 0,
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString(),
-    };
-    this.nodes.set(node.id, node);
-    this.messages.set(node.id, []);
-    this.activeNodeId = node.id;
-    return node;
-  }
+  private async executeTreeOp(
+    intent: UserIntent,
+    _message: string,
+  ): Promise<void> {
+    switch (intent.type) {
+      case "continue":
+        // No tree operation — Pi just appends to current branch
+        break;
 
-  private async createSiblingChapterNode(
-    label?: string,
-  ): Promise<TopicNode> {
-    // Find the parent (part or book level) to create the sibling under
-    const current = this.nodes.get(this.activeNodeId)!;
-    const parentId = current.parentId;
-
-    // Mark current node as completed
-    current.status = "completed";
-    current.lastActiveAt = new Date().toISOString();
-
-    const node: TopicNode = {
-      id: randomUUID(),
-      parentId,
-      label: label ?? "Next chapter",
-      source: "auto",
-      status: "active",
-      messageCount: 0,
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString(),
-    };
-    this.nodes.set(node.id, node);
-    this.messages.set(node.id, []);
-    this.activeNodeId = node.id;
-    return node;
-  }
-
-  private async summarizeCurrentNode(): Promise<string> {
-    const current = this.nodes.get(this.activeNodeId)!;
-    const msgs = this.messages.get(this.activeNodeId) ?? [];
-
-    // TODO: Use Pi SDK / LLM to generate summary based on config
-    const summary = `Summary of "${current.label}" (${msgs.length} exchanges)`;
-
-    current.summary = summary;
-    current.status = "completed";
-    current.lastActiveAt = new Date().toISOString();
-    return summary;
-  }
-
-  private async summarizeAndZoomOut(targetLevel?: string): Promise<void> {
-    await this.summarizeCurrentNode();
-
-    if (targetLevel === "root") {
-      // Zoom all the way to root, summarizing intermediate nodes
-      let nodeId = this.activeNodeId;
-      while (true) {
-        const node = this.nodes.get(nodeId)!;
-        if (!node.parentId) break;
-        nodeId = node.parentId;
-        // Summarize intermediate if not already summarized
-        const intermediate = this.nodes.get(nodeId)!;
-        if (!intermediate.summary && intermediate.status !== "active") {
-          intermediate.summary = `Summary of "${intermediate.label}"`;
-          intermediate.status = "completed";
+      case "go_deeper": {
+        // Branch from current position, create a new topic node
+        const leaf = this.piSession.getCurrentMessages();
+        const lastMsg = leaf[leaf.length - 1];
+        if (lastMsg) {
+          this.piSession.branchAt(lastMsg.id, {
+            label: intent.topic,
+            source: "user",
+            status: "active",
+          });
         }
+        break;
       }
-      this.activeNodeId = nodeId;
-    } else {
-      this.navigateToParent();
-    }
-  }
 
-  private navigateToParent(): void {
-    const current = this.nodes.get(this.activeNodeId)!;
-    if (current.parentId) {
-      this.activeNodeId = current.parentId;
-      const parent = this.nodes.get(this.activeNodeId)!;
-      parent.status = "active";
-      parent.lastActiveAt = new Date().toISOString();
-    }
-  }
+      case "next_chapter": {
+        // Summarize current chapter (Pi does the LLM summary)
+        if (this.config.summary.autoOnChapterChange) {
+          // TODO: Use Pi's compact command with reading-focused instructions
+          await this.piSession.compact(
+            "Summarize this chapter discussion focusing on key ideas and reader insights",
+          );
+        }
+        // Branch from parent level for the new chapter
+        const breadcrumb = this.piSession.getBreadcrumb();
+        if (breadcrumb.length >= 2) {
+          const parentId = breadcrumb[breadcrumb.length - 2].entryId;
+          this.piSession.branchAt(parentId, {
+            label: intent.chapterLabel ?? "Next chapter",
+            source: "auto",
+            status: "active",
+          });
+        }
+        break;
+      }
 
-  private async navigateToSibling(label: string): Promise<void> {
-    // Find or create a sibling node with this label
-    const current = this.nodes.get(this.activeNodeId)!;
-    current.status = "completed";
+      case "zoom_out": {
+        // Summarize current branch and navigate up
+        if (this.config.summary.autoOnZoomOut) {
+          const breadcrumb = this.piSession.getBreadcrumb();
+          const target =
+            intent.targetLevel === "root"
+              ? breadcrumb[0]
+              : breadcrumb[Math.max(0, breadcrumb.length - 2)];
 
-    const parentId = current.parentId;
+          if (target) {
+            this.piSession.branchWithSummary(
+              target.entryId,
+              "Branch summary placeholder — Pi SDK will generate this",
+            );
+          }
+        }
+        break;
+      }
 
-    // Check if a node with this label already exists under the parent
-    const existing = Array.from(this.nodes.values()).find(
-      (n) =>
-        n.parentId === parentId &&
-        n.label.toLowerCase().includes(label.toLowerCase()),
-    );
+      case "lateral_move": {
+        // Summarize current, then branch from parent
+        if (this.config.summary.autoOnChapterChange) {
+          await this.piSession.compact();
+        }
+        const breadcrumb = this.piSession.getBreadcrumb();
+        if (breadcrumb.length >= 2) {
+          const parentId = breadcrumb[breadcrumb.length - 2].entryId;
+          this.piSession.branchAt(parentId, {
+            label: intent.target,
+            source: "user",
+            status: "active",
+          });
+        }
+        break;
+      }
 
-    if (existing) {
-      this.activeNodeId = existing.id;
-      existing.status = "active";
-      existing.lastActiveAt = new Date().toISOString();
-    } else {
-      await this.createSiblingChapterNode(label);
+      case "cross_book": {
+        // Create a cross-book tangent branch
+        const leaf = this.piSession.getCurrentMessages();
+        const lastMsg = leaf[leaf.length - 1];
+        if (lastMsg) {
+          this.piSession.branchAt(lastMsg.id, {
+            label: `Cross-ref: ${intent.otherBook}`,
+            source: "user",
+            status: "active",
+          });
+        }
+        break;
+      }
+
+      case "toc_navigate": {
+        // Navigate to a specific outline entry
+        // This is handled by navigateToOutlineEntry()
+        break;
+      }
     }
   }
 
@@ -338,98 +288,126 @@ export class TreeManager {
     targetNodeId: string,
     options: { summarize?: boolean } = {},
   ): Promise<SessionState> {
-    if (options.summarize && this.activeNodeId !== targetNodeId) {
-      await this.summarizeCurrentNode();
+    if (options.summarize) {
+      this.piSession.branchWithSummary(
+        targetNodeId,
+        "Navigation summary — Pi SDK will generate this",
+      );
+    } else {
+      // Direct branch without summary
+      this.piSession.branchAt(targetNodeId, {
+        label: "Resumed",
+        source: "auto",
+        status: "active",
+      });
     }
-
-    const targetNode = this.nodes.get(targetNodeId);
-    if (!targetNode) throw new Error(`Node ${targetNodeId} not found`);
-
-    this.activeNodeId = targetNodeId;
-    targetNode.status = "active";
-    targetNode.lastActiveAt = new Date().toISOString();
-
     return this.getSessionState();
   }
 
   async navigateToOutlineEntry(lineNumber: number): Promise<SessionState> {
-    // Find existing node anchored to this line, or create one
-    const existing = Array.from(this.nodes.values()).find(
-      (n) =>
-        n.bookAnchor &&
-        n.bookAnchor.lineRange[0] <= lineNumber &&
-        n.bookAnchor.lineRange[1] >= lineNumber,
-    );
+    const outline = await this.library.getOutline(this.bookId);
+    if (!outline) throw new Error("No outline for this book");
 
-    if (existing) {
-      return this.navigateTo(existing.id);
+    // Find the outline entry closest to this line
+    const entry = this.findOutlineEntry(outline.entries, lineNumber);
+    const label = entry?.title ?? `Section at L${lineNumber}`;
+
+    // Create a new branch anchored to this book section
+    const breadcrumb = this.piSession.getBreadcrumb();
+    const rootId = breadcrumb[0]?.entryId;
+    if (rootId) {
+      this.piSession.branchAt(rootId, {
+        label,
+        source: "outline",
+        status: "active",
+        bookAnchor: {
+          lineRange: [lineNumber, lineNumber + 100],
+          outlineHeading: label,
+        },
+      });
     }
-
-    // Create a new node anchored to this outline entry
-    // TODO: Look up the outline to get heading text and line range
-    const node = await this.createChildNode(`Section at L${lineNumber}`, {
-      lineRange: [lineNumber, lineNumber + 100], // placeholder
-    });
-    node.source = "outline";
 
     return this.getSessionState();
   }
 
+  private findOutlineEntry(
+    entries: Array<{ line: number; title: string; children: unknown[] }>,
+    line: number,
+  ): { line: number; title: string } | null {
+    let closest: { line: number; title: string } | null = null;
+    for (const entry of entries) {
+      if (entry.line <= line) {
+        closest = entry;
+      }
+      const childResult = this.findOutlineEntry(
+        entry.children as typeof entries,
+        line,
+      );
+      if (childResult) closest = childResult;
+    }
+    return closest;
+  }
+
   // ---------------------------------------------------------------------------
-  // State Getters (for API responses)
+  // State getters — transform Pi's tree into our API format
   // ---------------------------------------------------------------------------
 
   getSessionState(): SessionState {
     return {
       bookId: this.bookId,
-      activeNodeId: this.activeNodeId,
-      breadcrumb: this.getBreadcrumb(),
-      messages: this.messages.get(this.activeNodeId) ?? [],
-      tree: this.getTreeView(),
+      activeNodeId:
+        this.piSession.getBreadcrumb().slice(-1)[0]?.entryId ?? "",
+      breadcrumb: this.piSession.getBreadcrumb().map((b) => ({
+        nodeId: b.entryId,
+        label: b.label,
+      })),
+      messages: this.piSession.getCurrentMessages().map((m) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        timestamp: m.timestamp,
+      })),
+      tree: this.buildTreeView(),
     };
   }
 
-  getBreadcrumb(): BreadcrumbItem[] {
-    const path: BreadcrumbItem[] = [];
-    let nodeId: string | null = this.activeNodeId;
-
-    while (nodeId) {
-      const node = this.nodes.get(nodeId);
-      if (!node) break;
-      path.unshift({ nodeId: node.id, label: node.label });
-      nodeId = node.parentId;
-    }
-
-    return path;
-  }
-
   getTreeView(): TreeNodeView {
-    // Find root
-    const root = Array.from(this.nodes.values()).find(
-      (n) => n.parentId === null,
-    );
-    if (!root) throw new Error("No root node found");
-    return this.buildTreeView(root);
+    return this.buildTreeView();
   }
 
-  private buildTreeView(node: TopicNode): TreeNodeView {
-    const children = Array.from(this.nodes.values())
-      .filter((n) => n.parentId === node.id)
-      .sort(
-        (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      )
-      .map((child) => this.buildTreeView(child));
+  getBreadcrumb(): BreadcrumbItem[] {
+    return this.piSession.getBreadcrumb().map((b) => ({
+      nodeId: b.entryId,
+      label: b.label,
+    }));
+  }
 
+  private buildTreeView(): TreeNodeView {
+    const annotated = this.piSession.getAnnotatedTree();
+    if (annotated.length === 0) {
+      return {
+        id: "",
+        parentId: null,
+        label: this.bookId,
+        status: "active",
+        messageCount: 0,
+        children: [],
+        isCurrent: true,
+      };
+    }
+    return this.annotatedToView(annotated[0]);
+  }
+
+  private annotatedToView(node: AnnotatedTreeNode): TreeNodeView {
     return {
-      id: node.id,
-      parentId: node.parentId,
+      id: node.entryId,
+      parentId: node.parentId === "root" ? null : node.parentId,
       label: node.label,
       status: node.status,
       messageCount: node.messageCount,
       summary: node.summary,
-      children,
-      isCurrent: node.id === this.activeNodeId,
+      children: node.children.map((c) => this.annotatedToView(c)),
+      isCurrent: node.isCurrent,
     };
   }
 
@@ -445,36 +423,5 @@ export class TreeManager {
       compaction: { ...this.config.compaction, ...partial.compaction },
       navigation: { ...this.config.navigation, ...partial.navigation },
     };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  private addMessage(role: "user" | "assistant", content: string): ChatMessage {
-    const msg: ChatMessage = {
-      id: randomUUID(),
-      role,
-      content,
-      timestamp: new Date().toISOString(),
-    };
-
-    const nodeMessages = this.messages.get(this.activeNodeId) ?? [];
-    nodeMessages.push(msg);
-    this.messages.set(this.activeNodeId, nodeMessages);
-
-    // Update node metadata
-    const node = this.nodes.get(this.activeNodeId)!;
-    if (role === "user") node.messageCount++;
-    node.lastActiveAt = new Date().toISOString();
-
-    return msg;
-  }
-
-  private async getAIResponse(userMessage: string): Promise<string> {
-    // TODO: Integrate Pi SDK here
-    // For now, return a placeholder
-    const node = this.nodes.get(this.activeNodeId)!;
-    return `[Pi SDK placeholder] Responding to "${userMessage}" in context of "${node.label}". Pi SDK integration pending.`;
   }
 }

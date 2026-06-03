@@ -18,6 +18,10 @@ export class LibraryService {
       join(process.env.HOME ?? "~", "repos", "pi-books", "library");
   }
 
+  getLibraryPath(): string {
+    return this.libraryPath;
+  }
+
   async listBooks(): Promise<Book[]> {
     const entries = await readdir(this.libraryPath, { withFileTypes: true });
     const books: Book[] = [];
