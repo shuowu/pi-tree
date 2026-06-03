@@ -53,6 +53,21 @@ export async function fetchContent(
 // Session
 // ---------------------------------------------------------------------------
 
+/**
+ * Start or resume a session for a book.
+ * Returns existing state (with messages) if the session already exists,
+ * or a fresh empty state for a new session.
+ */
+export async function startSession(bookId: string): Promise<SessionState> {
+  const res = await fetch(`${API}/session/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookId }),
+  });
+  if (!res.ok) throw new Error(`Failed to start session: ${res.status}`);
+  return res.json();
+}
+
 export async function sendMessage(
   bookId: string,
   message: string,

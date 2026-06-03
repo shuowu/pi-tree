@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Book, ChatMessage, BreadcrumbItem, TreeNodeView } from "@pi-reader/shared";
-import { sendMessage } from "../api";
+import { startSession, sendMessage } from "../api";
 import { ChatView } from "./ChatView";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
@@ -19,6 +19,17 @@ export function Reader({ book, onBack }: ReaderProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const initialized = useRef(false);
 
+  /** Apply session state from any API response */
+  const applyState = useCallback((state: {
+    messages: ChatMessage[];
+    breadcrumb: BreadcrumbItem[];
+    tree: TreeNodeView;
+  }) => {
+    setMessages(state.messages);
+    setBreadcrumb(state.breadcrumb);
+    setTree(state.tree);
+  }, []);
+
   const handleSendMessage = useCallback(async (message: string) => {
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -31,9 +42,7 @@ export function Reader({ book, onBack }: ReaderProps) {
 
     try {
       const result = await sendMessage(book.id, message);
-      setMessages(result.messages);
-      setBreadcrumb(result.breadcrumb);
-      setTree(result.tree);
+      applyState(result);
     } catch (err) {
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
@@ -45,21 +54,39 @@ export function Reader({ book, onBack }: ReaderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [book.id]);
+  }, [book.id, applyState]);
 
   const handleNavigate = useCallback(async (nodeId: string) => {
     // TODO: Call navigateTo API
     console.log("Navigate to:", nodeId);
   }, []);
 
-  // Send initial message on mount
+  // On mount: load existing session, only auto-prompt if fresh
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    handleSendMessage(
-      `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`
-    );
-  }, [book, handleSendMessage]);
+
+    (async () => {
+      setIsLoading(true);
+      try {
+        const state = await startSession(book.id);
+
+        if (state.messages.length > 0) {
+          // Existing session — just load it, don't re-prompt
+          applyState(state);
+          setIsLoading(false);
+        } else {
+          // Fresh session — send initial prompt
+          setIsLoading(false);
+          handleSendMessage(
+            `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`
+          );
+        }
+      } catch {
+        setIsLoading(false);
+      }
+    })();
+  }, [book, applyState, handleSendMessage]);
 
   return (
     <div className={`reader ${sidebarOpen ? "sidebar-open" : ""}`}>
@@ -86,3 +113,4 @@ export function Reader({ book, onBack }: ReaderProps) {
     </div>
   );
 }
+
