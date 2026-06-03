@@ -1,6 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@pi-reader/shared";
+import { marked } from "marked";
 import "./ChatView.css";
+
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
 
 interface ChatViewProps {
   messages: ChatMessage[];
@@ -52,17 +58,7 @@ export function ChatView({ messages, isLoading, onSendMessage }: ChatViewProps) 
         )}
 
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`chat-message chat-message-${msg.role}`}
-          >
-            {msg.role === "assistant" && (
-              <div className="chat-avatar">✦</div>
-            )}
-            <div className="chat-bubble">
-              <div className="chat-content">{msg.content}</div>
-            </div>
-          </div>
+          <MessageBubble key={msg.id} message={msg} />
         ))}
 
         {isLoading && (
@@ -102,6 +98,31 @@ export function ChatView({ messages, isLoading, onSendMessage }: ChatViewProps) 
             ↑
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ message }: { message: ChatMessage }) {
+  const isAssistant = message.role === "assistant";
+
+  const html = useMemo(() => {
+    if (!isAssistant) return "";
+    return marked.parse(message.content) as string;
+  }, [message.content, isAssistant]);
+
+  return (
+    <div className={`chat-message chat-message-${message.role}`}>
+      {isAssistant && <div className="chat-avatar">✦</div>}
+      <div className="chat-bubble">
+        {isAssistant ? (
+          <div
+            className="chat-content markdown"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        ) : (
+          <div className="chat-content">{message.content}</div>
+        )}
       </div>
     </div>
   );

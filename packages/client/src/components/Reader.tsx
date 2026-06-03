@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Book, ChatMessage, BreadcrumbItem, TreeNodeView } from "@pi-reader/shared";
-import { startSession, sendMessage } from "../api";
+import { startSession, sendMessage, navigateTo } from "../api";
 import { ChatView } from "./ChatView";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
@@ -17,6 +17,7 @@ export function Reader({ book, onBack }: ReaderProps) {
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
   const [tree, setTree] = useState<TreeNodeView | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(300);
   const initialized = useRef(false);
 
   /** Apply session state from any API response */
@@ -57,9 +58,40 @@ export function Reader({ book, onBack }: ReaderProps) {
   }, [book.id, applyState]);
 
   const handleNavigate = useCallback(async (nodeId: string) => {
-    // TODO: Call navigateTo API
-    console.log("Navigate to:", nodeId);
-  }, []);
+    setIsLoading(true);
+    try {
+      const state = await navigateTo(book.id, nodeId);
+      applyState(state);
+    } catch (err) {
+      console.error("Navigate failed:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [book.id, applyState]);
+
+  // Drag-to-resize sidebar
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.max(200, Math.min(600, startWidth + ev.clientX - startX));
+      setSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [sidebarWidth]);
 
   // On mount: load existing session, only auto-prompt if fresh
   useEffect(() => {
@@ -72,11 +104,9 @@ export function Reader({ book, onBack }: ReaderProps) {
         const state = await startSession(book.id);
 
         if (state.messages.length > 0) {
-          // Existing session — just load it, don't re-prompt
           applyState(state);
           setIsLoading(false);
         } else {
-          // Fresh session — send initial prompt
           setIsLoading(false);
           handleSendMessage(
             `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`
@@ -88,8 +118,12 @@ export function Reader({ book, onBack }: ReaderProps) {
     })();
   }, [book, applyState, handleSendMessage]);
 
+  const cssVars = {
+    "--sidebar-width": `${sidebarWidth}px`,
+  } as React.CSSProperties;
+
   return (
-    <div className={`reader ${sidebarOpen ? "sidebar-open" : ""}`}>
+    <div className={`reader ${sidebarOpen ? "sidebar-open" : ""}`} style={cssVars}>
       <Sidebar
         bookId={book.id}
         tree={tree}
@@ -97,6 +131,9 @@ export function Reader({ book, onBack }: ReaderProps) {
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}
       />
+      {sidebarOpen && (
+        <div className="resize-handle" onMouseDown={handleResizeStart} />
+      )}
       <main className="reader-main">
         <Breadcrumb
           items={breadcrumb}
@@ -113,4 +150,3 @@ export function Reader({ book, onBack }: ReaderProps) {
     </div>
   );
 }
-
