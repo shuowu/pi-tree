@@ -1,0 +1,237 @@
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform var(--transition-slow);
+  z-index: 10;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-toggle {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 11;
+  width: 20px;
+  height: 48px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  transition: all var(--transition-fast);
+}
+
+.sidebar-toggle.open {
+  left: var(--sidebar-width);
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Tabs ── */
+
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-tab {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-bottom: 2px solid transparent;
+}
+
+.sidebar-tab:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.sidebar-tab.active {
+  color: var(--accent-hover);
+  border-bottom-color: var(--accent);
+}
+
+/* ── Content ── */
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.sidebar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10) var(--space-4);
+  color: var(--text-tertiary);
+  text-align: center;
+  gap: var(--space-2);
+}
+
+.sidebar-empty-hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Outline (Map View) ── */
+
+.outline-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  cursor: default;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.outline-entry:hover {
+  background: var(--bg-hover);
+}
+
+.outline-entry.level-0 {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  margin-top: var(--space-2);
+}
+
+.outline-entry.level-1 {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.outline-chevron {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+  width: 12px;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.outline-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.outline-indicator {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  width: 10px;
+  flex-shrink: 0;
+}
+
+.outline-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Session Tree ── */
+
+.tree-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.tree-entry:hover {
+  background: var(--bg-hover);
+}
+
+.tree-entry.current {
+  color: var(--accent-hover);
+  font-weight: 500;
+}
+
+.tree-chevron {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+  width: 12px;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.tree-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.tree-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tree-dot.status-active {
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent-glow);
+}
+
+.tree-dot.status-completed {
+  background: var(--green);
+}
+
+.tree-dot.status-abandoned {
+  background: var(--text-muted);
+}
+
+.tree-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-count {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  background: var(--bg-tertiary);
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+}

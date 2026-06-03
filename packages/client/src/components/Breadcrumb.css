@@ -1,0 +1,85 @@
+.breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  min-height: var(--header-height);
+  flex-shrink: 0;
+}
+
+.breadcrumb-back {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.breadcrumb-back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.breadcrumb-items {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.breadcrumb-book {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.breadcrumb-segment {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.breadcrumb-sep {
+  color: var(--text-muted);
+  margin: 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.breadcrumb-link:hover {
+  color: var(--accent-hover);
+  background: var(--accent-dim);
+}
+
+.breadcrumb-current {
+  font-size: var(--text-sm);
+  color: var(--accent-hover);
+  font-weight: 500;
+}
