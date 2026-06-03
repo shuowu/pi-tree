@@ -85,9 +85,9 @@ export class TreeManager {
     // 4. Send message to Pi for AI response
     const { response } = await this.piSession.sendMessage(message);
 
-    // 5. Return updated state (scoped to where the new message landed)
+    // 5. Return state scoped to the branch the user is in
     return {
-      ...this.getSessionState(null),
+      ...this.getSessionState(viewNodeId ?? null),
       response,
     };
   }
