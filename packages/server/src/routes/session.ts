@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { TreeManager } from "../services/tree-manager.js";
+import { getSession, closeSession } from "../services/session-store.js";
 
 export const sessionRoutes = new Hono();
 
 /** Start or resume a reading session for a book */
 sessionRoutes.post("/start", async (c) => {
   const { bookId } = await c.req.json<{ bookId: string }>();
-  const manager = await TreeManager.loadOrCreate(bookId);
+  const manager = await getSession(bookId);
   const state = manager.getSessionState();
   return c.json(state);
 });
@@ -19,13 +19,7 @@ sessionRoutes.post("/message", async (c) => {
     message: string;
   }>();
 
-  const manager = await TreeManager.loadOrCreate(bookId);
-
-  // This is where the branch logic lives:
-  // 1. Classify intent (continue vs go_deeper vs zoom_out vs ...)
-  // 2. Execute tree operation if needed (branch / navigate / summarize)
-  // 3. Send to Pi SDK for AI response
-  // 4. Return updated state
+  const manager = await getSession(bookId);
   const result = await manager.handleMessage(message);
   return c.json(result);
 });
@@ -37,7 +31,7 @@ sessionRoutes.post("/message/stream", async (c) => {
     message: string;
   }>();
 
-  const manager = await TreeManager.loadOrCreate(bookId);
+  const manager = await getSession(bookId);
 
   return streamSSE(c, async (stream) => {
     await manager.handleMessageStreaming(message, {
@@ -66,7 +60,7 @@ sessionRoutes.post("/navigate", async (c) => {
     summarizeCurrent?: boolean;
   }>();
 
-  const manager = await TreeManager.loadOrCreate(bookId);
+  const manager = await getSession(bookId);
   const state = await manager.navigateTo(targetNodeId, {
     summarize: summarizeCurrent ?? true,
   });
@@ -80,7 +74,7 @@ sessionRoutes.post("/navigate/toc", async (c) => {
     outlineEntryLine: number;
   }>();
 
-  const manager = await TreeManager.loadOrCreate(bookId);
+  const manager = await getSession(bookId);
   const state = await manager.navigateToOutlineEntry(outlineEntryLine);
   return c.json(state);
 });
@@ -88,7 +82,7 @@ sessionRoutes.post("/navigate/toc", async (c) => {
 /** Get the full tree for the tree panel */
 sessionRoutes.get("/tree/:bookId", async (c) => {
   const bookId = c.req.param("bookId");
-  const manager = await TreeManager.loadOrCreate(bookId);
+  const manager = await getSession(bookId);
   const tree = manager.getTreeView();
   return c.json(tree);
 });
@@ -96,16 +90,23 @@ sessionRoutes.get("/tree/:bookId", async (c) => {
 /** Get the current breadcrumb path */
 sessionRoutes.get("/breadcrumb/:bookId", async (c) => {
   const bookId = c.req.param("bookId");
-  const manager = await TreeManager.loadOrCreate(bookId);
+  const manager = await getSession(bookId);
   const breadcrumb = manager.getBreadcrumb();
   return c.json({ breadcrumb });
+});
+
+/** Close a session (user leaves the book) */
+sessionRoutes.post("/close", async (c) => {
+  const { bookId } = await c.req.json<{ bookId: string }>();
+  closeSession(bookId);
+  return c.json({ ok: true });
 });
 
 /** Update session configuration */
 sessionRoutes.put("/config/:bookId", async (c) => {
   const bookId = c.req.param("bookId");
   const config = await c.req.json();
-  const manager = await TreeManager.loadOrCreate(bookId);
+  const manager = await getSession(bookId);
   manager.updateConfig(config);
   return c.json({ ok: true });
 });

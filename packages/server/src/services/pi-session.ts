@@ -293,11 +293,122 @@ export class PiSession {
   // -------------------------------------------------------------------------
 
   /**
-   * Get the full tree with our topic metadata overlaid.
+   * Get a clean, conversation-oriented tree.
+   *
+   * The raw Pi tree has a node per entry (every message, tool result, custom
+   * entry, etc.). This method builds a simplified tree that shows:
+   * - The book root
+   * - Each user "turn" (user message → assistant response) as a single node
+   * - Branch points where conversations diverge
+   *
+   * Internal entries (tool results, custom metadata, compactions) are hidden.
    */
   getAnnotatedTree(): AnnotatedTreeNode[] {
     const piTree = this.sm.getTree();
-    return piTree.map((node) => this.annotateNode(node));
+    if (piTree.length === 0) return [];
+
+    // Build a flat list of all conversation turns (user messages)
+    // and find the branch topology from them
+    const result = this.buildConversationTree(piTree);
+    return result;
+  }
+
+  private buildConversationTree(piNodes: SessionTreeNode[]): AnnotatedTreeNode[] {
+    return piNodes
+      .map((node) => this.buildConversationNode(node))
+      .filter((n): n is AnnotatedTreeNode => n !== null);
+  }
+
+  /**
+   * Walk the Pi tree and build a conversation node.
+   * - Skip non-message entries (tool results, custom, compaction, etc.)
+   * - For user messages: create a turn node labeled with the user's text
+   * - For assistant messages: skip (they're part of the previous user's turn)
+   * - For branch points (nodes with multiple children): show as navigation points
+   */
+  private buildConversationNode(piNode: SessionTreeNode): AnnotatedTreeNode | null {
+    const entry = piNode.entry;
+    const leafId = this.sm.getLeafId();
+    const meta = this.getTopicMeta(entry.id);
+
+    // If this node has our custom topic metadata, always show it
+    if (meta) {
+      return {
+        entryId: entry.id,
+        parentId: entry.parentId ?? "",
+        label: meta.label,
+        source: meta.source,
+        status: meta.status,
+        bookAnchor: meta.bookAnchor,
+        messageCount: this.countMessages(piNode),
+        isCurrent: entry.id === leafId || this.isOnCurrentPath(piNode, leafId),
+        summary: entry.type === "branch_summary" ? (entry as any).summary : undefined,
+        children: this.buildConversationTree(piNode.children),
+      };
+    }
+
+    // User message → create a turn node
+    if (entry.type === "message" && (entry as any).message?.role === "user") {
+      const label = this.inferLabel(entry);
+      // Collect children, but skip the immediate assistant reply (it's part of this turn)
+      const meaningfulChildren = this.collectMeaningfulChildren(piNode.children);
+
+      return {
+        entryId: entry.id,
+        parentId: entry.parentId ?? "",
+        label,
+        source: "user" as const,
+        status: "active" as const,
+        messageCount: this.countMessages(piNode),
+        isCurrent: entry.id === leafId || this.isOnCurrentPath(piNode, leafId),
+        children: meaningfulChildren,
+      };
+    }
+
+    // For non-user-message entries (assistant, tool, custom, header, etc.):
+    // Don't show this node itself, but propagate its children up
+    if (piNode.children.length > 0) {
+      const childNodes = this.buildConversationTree(piNode.children);
+      // If exactly one child, return it directly (flatten chain)
+      if (childNodes.length === 1) return childNodes[0];
+      // If multiple children, this is a branch point — show it
+      if (childNodes.length > 1) {
+        return {
+          entryId: entry.id,
+          parentId: entry.parentId ?? "",
+          label: this.inferLabel(entry),
+          source: "auto" as const,
+          status: "active" as const,
+          messageCount: this.countMessages(piNode),
+          isCurrent: false,
+          children: childNodes,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Collect meaningful child nodes, skipping internal entries.
+   * This walks down the chain until finding the next user message or branch point.
+   */
+  private collectMeaningfulChildren(children: SessionTreeNode[]): AnnotatedTreeNode[] {
+    const result: AnnotatedTreeNode[] = [];
+    for (const child of children) {
+      const node = this.buildConversationNode(child);
+      if (node) result.push(node);
+    }
+    return result;
+  }
+
+  /**
+   * Check if a node is on the path to the current leaf.
+   */
+  private isOnCurrentPath(node: SessionTreeNode, leafId: string | null): boolean {
+    if (!leafId) return false;
+    if (node.entry.id === leafId) return true;
+    return node.children.some((c) => this.isOnCurrentPath(c, leafId));
   }
 
   /**

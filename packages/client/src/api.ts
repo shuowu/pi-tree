@@ -33,8 +33,7 @@ export async function fetchBook(bookId: string): Promise<Book> {
 export async function fetchOutline(bookId: string): Promise<BookOutline | null> {
   const res = await fetch(`${API}/library/books/${bookId}/outline`);
   if (!res.ok) return null;
-  const data = await res.json();
-  return data.outline;
+  return res.json();
 }
 
 export async function fetchContent(
