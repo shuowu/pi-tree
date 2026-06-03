@@ -19,12 +19,30 @@ interface ChatViewProps {
 export function ChatView({ messages, isLoading, onSendMessage, branches, onDrillDown }: ChatViewProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevMsgIdsRef = useRef<string>("");
 
-  // Auto-scroll to bottom
+  // Smart scroll: scroll to top on navigation, bottom on new message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const currentIds = messages.map((m) => m.id).join(",");
+    const prevIds = prevMsgIdsRef.current;
+    prevMsgIdsRef.current = currentIds;
+
+    if (!prevIds) {
+      // Initial load — scroll to top
+      messagesContainerRef.current?.scrollTo({ top: 0 });
+      return;
+    }
+
+    if (currentIds.startsWith(prevIds) && currentIds !== prevIds) {
+      // New message appended — scroll to bottom
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      // Different set of messages — navigated to new scope — scroll to top
+      messagesContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [messages]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -51,7 +69,7 @@ export function ChatView({ messages, isLoading, onSendMessage, branches, onDrill
 
   return (
     <div className="chat-view">
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {messages.length === 0 && !isLoading && (
           <div className="chat-empty">
             <span className="chat-empty-icon">📚</span>

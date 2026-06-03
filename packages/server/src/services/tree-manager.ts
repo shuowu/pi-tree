@@ -59,21 +59,52 @@ export class TreeManager {
 
   async handleMessage(
     message: string,
+    viewNodeId?: string | null,
   ): Promise<SessionState & { response: string }> {
-    // 1. Classify intent
+    // 1. If user is viewing a specific scope, branch from there
+    if (viewNodeId) {
+      // Find the last node in the linear chain from viewNodeId
+      const tree = this.buildTreeView();
+      const lastNodeId = this.findChainLeaf(tree, viewNodeId);
+      if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
+        // Branch from that position
+        this.piSession.branchAt(lastNodeId, {
+          label: message.slice(0, 50),
+          source: "user",
+          status: "active",
+        });
+      }
+    }
+
+    // 2. Classify intent
     const intent = await this.classifyIntent(message);
 
-    // 2. Execute tree operation if needed (via PiSession → Pi SDK)
+    // 3. Execute tree operation if needed (via PiSession → Pi SDK)
     await this.executeTreeOp(intent, message);
 
-    // 3. Send message to Pi for AI response
+    // 4. Send message to Pi for AI response
     const { response } = await this.piSession.sendMessage(message);
 
-    // 4. Return updated state
+    // 5. Return updated state (scoped to where the new message landed)
     return {
-      ...this.getSessionState(),
+      ...this.getSessionState(null),
       response,
     };
+  }
+
+  /**
+   * Find the leaf of a linear chain starting from a node.
+   * Walks single-child paths to find the last node before a fork or end.
+   */
+  private findChainLeaf(tree: TreeNodeView, nodeId: string): string | null {
+    const node = this.findNode(tree, nodeId);
+    if (!node) return null;
+
+    let current = node;
+    while (current.children?.length === 1) {
+      current = current.children[0];
+    }
+    return current.id;
   }
 
   async handleMessageStreaming(

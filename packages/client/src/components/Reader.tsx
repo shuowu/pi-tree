@@ -58,7 +58,7 @@ export function Reader({ book, onBack }: ReaderProps) {
       setIsLoading(true);
 
       try {
-        const result = await sendMessage(book.id, message);
+        const result = await sendMessage(book.id, message, viewNodeId);
         applyState(result);
       } catch (err) {
         const errorMsg: ChatMessage = {
@@ -72,7 +72,7 @@ export function Reader({ book, onBack }: ReaderProps) {
         setIsLoading(false);
       }
     },
-    [book.id, applyState],
+    [book.id, viewNodeId, applyState],
   );
 
   /** Navigate tree: scope the chat view to a specific node */

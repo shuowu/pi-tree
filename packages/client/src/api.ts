@@ -71,11 +71,12 @@ export async function startSession(bookId: string): Promise<SessionState> {
 export async function sendMessage(
   bookId: string,
   message: string,
+  viewNodeId?: string | null,
 ): Promise<SessionState & { response: string }> {
   const res = await fetch(`${API}/session/message`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, message }),
+    body: JSON.stringify({ bookId, message, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Failed to send message: ${res.status}`);
   return res.json();

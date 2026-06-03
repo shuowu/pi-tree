@@ -28,13 +28,14 @@ sessionRoutes.post("/view", async (c) => {
 
 /** Send a user message — the core interaction */
 sessionRoutes.post("/message", async (c) => {
-  const { bookId, message } = await c.req.json<{
+  const { bookId, message, viewNodeId } = await c.req.json<{
     bookId: string;
     message: string;
+    viewNodeId?: string | null;
   }>();
 
   const manager = await getSession(bookId);
-  const result = await manager.handleMessage(message);
+  const result = await manager.handleMessage(message, viewNodeId ?? null);
   return c.json(result);
 });
 
