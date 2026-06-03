@@ -127,7 +127,7 @@ export class PiSession {
 
     const piSession = new PiSession(sm, agent, bookId, libraryPath);
 
-    // If this is a fresh session, create the root topic node
+    // If this is a fresh session, set up book context
     if (!options?.resumeSession) {
       piSession.registerTopicNode(sm.getLeafId()!, {
         kind: "topic_node",
@@ -135,6 +135,27 @@ export class PiSession {
         source: "auto",
         status: "active",
       });
+
+      // Inject book context so the AI knows which book to focus on
+      if (agent) {
+        const bookDir = join(libraryPath, bookId);
+        const contextMsg = [
+          `[SYSTEM CONTEXT — Book Session]`,
+          `You are now in a dedicated reading session for a specific book.`,
+          `Book directory: ${bookDir}`,
+          `Book ID: ${bookId}`,
+          ``,
+          `IMPORTANT: Focus ONLY on this book. Do NOT list other books in the library.`,
+          `Do NOT ask which book to read — the book is already selected.`,
+          `The book's markdown content is in: ${bookDir}/markdown/`,
+          `The book's analysis/outline is in: ${bookDir}/analysis/`,
+          ``,
+          `Start by reading the outline from ${bookDir}/analysis/outline.md if it exists,`,
+          `then give the user a chapter briefing for this book.`,
+        ].join("\n");
+
+        await agent.prompt(contextMsg);
+      }
     }
 
     return piSession;
