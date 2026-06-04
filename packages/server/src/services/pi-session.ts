@@ -549,6 +549,10 @@ export class PiSession {
     return this.sm.getSessionId();
   }
 
+  getSessionName(): string | undefined {
+    return this.sm.getSessionName();
+  }
+
   getLeafId(): string | null {
     return this.sm.getLeafId();
   }

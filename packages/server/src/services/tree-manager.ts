@@ -56,13 +56,15 @@ export class TreeManager {
       resumeSession ? { resumeSession } : undefined,
     );
 
-    // Persist the active session ID so server restarts resume correctly
-    const sessionId = piSession.getSessionId();
-    if (sessionId) {
+    // Persist the active session name so server restarts resume correctly
+    // getSessionName() returns the filename stem (e.g. "2026-06-03T21-01-20_uuid")
+    // which is what SessionManager.open() expects
+    const sessionName = piSession.getSessionName();
+    if (sessionName) {
       await TreeManager.writeActiveSession(
         library.getLibraryPath(),
         bookId,
-        sessionId,
+        sessionName,
       );
     }
 
@@ -330,7 +332,7 @@ export class TreeManager {
   ): void {
     // Look up the actual message content from the Pi session
     const msgData = contentMap.get(node.id);
-    if (msgData) {
+    if (msgData && msgData.content.trim()) {
       messages.push({
         id: node.id,
         role: msgData.role as "user" | "assistant",
