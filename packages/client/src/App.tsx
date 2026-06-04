@@ -1,9 +1,17 @@
 import { Routes, Route, Navigate } from "react-router";
+import { UserProvider, useUser } from "./UserContext";
+import { UserPicker } from "./components/UserPicker";
 import { Library } from "./components/Library";
 import { ReaderRoute } from "./components/ReaderRoute";
 import "./App.css";
 
-export default function App() {
+function AppRoutes() {
+  const { userId } = useUser();
+
+  if (!userId) {
+    return <UserPicker />;
+  }
+
   return (
     <Routes>
       <Route path="/" element={<Library />} />
@@ -11,5 +19,13 @@ export default function App() {
       {/* Catch-all: redirect to library */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <UserProvider>
+      <AppRoutes />
+    </UserProvider>
   );
 }

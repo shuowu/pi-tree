@@ -1,10 +1,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { getDb } from "./db/index.js";
 import { libraryRoutes } from "./routes/library.js";
 import { sessionRoutes } from "./routes/session.js";
+import { userRoutes } from "./routes/users.js";
 
 export const app = new Hono();
+
+// Initialize database on startup
+getDb();
 
 // Middleware
 app.use("*", logger());
@@ -21,3 +26,4 @@ app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
 // API routes
 app.route("/api/library", libraryRoutes);
 app.route("/api/session", sessionRoutes);
+app.route("/api/users", userRoutes);

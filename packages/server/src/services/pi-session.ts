@@ -77,14 +77,15 @@ export class PiSession {
   // -------------------------------------------------------------------------
 
   static async create(
+    userId: string,
     bookId: string,
     libraryPath: string,
     options?: { resumeSession?: string },
   ): Promise<PiSession> {
     const piBooksCwd = join(libraryPath, "..");
 
-    // Session storage: each book gets its own session directory
-    const sessionDir = join(libraryPath, bookId, ".sessions");
+    // Session storage: each user+book gets its own session directory
+    const sessionDir = join(libraryPath, bookId, ".sessions", userId);
 
     let sm: SessionManager;
     if (options?.resumeSession) {

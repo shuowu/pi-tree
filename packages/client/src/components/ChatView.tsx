@@ -3,6 +3,7 @@ import type { ChatMessage, BranchOption } from "@pi-reader/shared";
 import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
 import { BookOpen } from "lucide-react";
+import { useUser } from "../UserContext";
 import "./ChatView.css";
 
 marked.setOptions({
@@ -238,6 +239,7 @@ function InlineBranches({
   onDrillDown: (nodeId: string) => void;
   bookId: string;
 }) {
+  const { userId } = useUser();
   const [branchData, setBranchData] = useState<
     Record<string, { messages: ChatMessage[]; branches: BranchOption[] }>
   >({});
@@ -252,7 +254,8 @@ function InlineBranches({
         if (branchData[b.nodeId]) continue; // already loaded
         setLoading((prev) => ({ ...prev, [b.nodeId]: true }));
         try {
-          const state = await viewScope(bookId, b.nodeId);
+          if (!userId) continue;
+          const state = await viewScope(userId, bookId, b.nodeId);
           setBranchData((prev) => ({
             ...prev,
             [b.nodeId]: { messages: state.messages, branches: state.branches },

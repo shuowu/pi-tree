@@ -8,6 +8,7 @@ import type {
   BranchOption,
 } from "@pi-reader/shared";
 import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary } from "../api";
+import { useUser } from "../UserContext";
 import { ChatView } from "./ChatView";
 import { WelcomeState, type SessionMode } from "./WelcomeState";
 import { Sidebar } from "./Sidebar";
@@ -23,6 +24,7 @@ interface ReaderProps {
 
 export function Reader({ book }: ReaderProps) {
   const navigate = useNavigate();
+  const { userId } = useUser();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -84,6 +86,8 @@ export function Reader({ book }: ReaderProps) {
 
   const handleSendMessage = useCallback(
     async (message: string) => {
+      if (!userId) return;
+
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
         role: "user",
@@ -94,7 +98,7 @@ export function Reader({ book }: ReaderProps) {
       setIsLoading(true);
       setStreamingContent("");
 
-      await sendMessageStreaming(book.id, message, lastViewNodeIdRef.current, {
+      await sendMessageStreaming(userId, book.id, message, lastViewNodeIdRef.current, {
         onToken: (token) => {
           setStreamingContent((prev) => (prev ?? "") + token);
         },
@@ -118,7 +122,7 @@ export function Reader({ book }: ReaderProps) {
         },
       });
     },
-    [book.id, applySessionData, updateUrl],
+    [userId, book.id, applySessionData, updateUrl],
   );
 
   // ---------------------------------------------------------------------------
@@ -127,6 +131,8 @@ export function Reader({ book }: ReaderProps) {
 
   const handleDefine = useCallback(
     (term: string) => {
+      if (!userId) return;
+
       const entryId = `dict-${Date.now()}`;
       const newEntry: DictEntry = {
         id: entryId,
@@ -140,7 +146,7 @@ export function Reader({ book }: ReaderProps) {
       setRightPanelOpen(true);
       setRightTab("dict");
 
-      streamLookup(book.id, term, (token) => {
+      streamLookup(userId, book.id, term, (token) => {
         setDictEntries((prev) =>
           prev.map((e) =>
             e.id === entryId ? { ...e, definition: e.definition + token } : e,
@@ -156,7 +162,9 @@ export function Reader({ book }: ReaderProps) {
             ),
           );
           // Auto-save to glossary
-          saveGlossary(book.id, term, fullDef).catch(() => {});
+          if (userId) {
+            saveGlossary(userId, book.id, term, fullDef).catch(() => {});
+          }
         })
         .catch(() => {
           setDictEntries((prev) =>
@@ -168,16 +176,9 @@ export function Reader({ book }: ReaderProps) {
           );
         });
     },
-    [book.id],
+    [userId, book.id],
   );
 
-  const handleAsk = useCallback(
-    (text: string) => {
-      // This will be called from ChatView — it just prefills, we don't handle it here
-      // ChatView handles it internally via setInput
-    },
-    [],
-  );
 
   const handleDictRemove = useCallback((id: string) => {
     setDictEntries((prev) => prev.filter((e) => e.id !== id));
@@ -189,10 +190,12 @@ export function Reader({ book }: ReaderProps) {
 
   const handleNavigate = useCallback(
     async (nodeId: string) => {
+      if (!userId) return;
+
       setIsLoading(true);
       try {
         // Empty nodeId = navigate to root
-        const state = await viewScope(book.id, nodeId || null);
+        const state = await viewScope(userId, book.id, nodeId || null);
         applySessionData(state);
         updateUrl(state.viewNodeId, false); // push history entry
       } catch (err) {
@@ -201,13 +204,15 @@ export function Reader({ book }: ReaderProps) {
         setIsLoading(false);
       }
     },
-    [book.id, applySessionData, updateUrl],
+    [userId, book.id, applySessionData, updateUrl],
   );
 
   const handleBackToRoot = useCallback(async () => {
+    if (!userId) return;
+
     setIsLoading(true);
     try {
-      const state = await viewScope(book.id, null);
+      const state = await viewScope(userId, book.id, null);
       applySessionData(state);
       updateUrl(state.viewNodeId, false); // push history entry
     } catch (err) {
@@ -215,7 +220,7 @@ export function Reader({ book }: ReaderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [book.id, applySessionData, updateUrl]);
+  }, [userId, book.id, applySessionData, updateUrl]);
 
   const goBack = useCallback(() => {
     navigate("/");
@@ -271,6 +276,7 @@ export function Reader({ book }: ReaderProps) {
   // On mount: load existing session, restoring viewNodeId from URL if present
   useEffect(() => {
     if (initialized.current) return;
+    if (!userId) return;
     initialized.current = true;
 
     const initialNodeId = searchParams.get("node") ?? null;
@@ -279,13 +285,13 @@ export function Reader({ book }: ReaderProps) {
     (async () => {
       setIsLoading(true);
       try {
-        const state = await startSession(book.id);
+        const state = await startSession(userId, book.id);
 
         if (state.messages.length > 0) {
           // Existing session — restore it
           if (initialNodeId) {
             try {
-              const scopedState = await viewScope(book.id, initialNodeId);
+              const scopedState = await viewScope(userId, book.id, initialNodeId);
               applySessionData(scopedState);
               updateUrl(scopedState.viewNodeId, true);
             } catch {
@@ -307,12 +313,13 @@ export function Reader({ book }: ReaderProps) {
         setIsLoading(false);
       }
     })();
-  }, [book, applySessionData, updateUrl, searchParams]);
+  }, [userId, book, applySessionData, updateUrl, searchParams]);
 
   // React to browser back/forward: when viewNodeId changes from a popstate
   // (not from our own programmatic update), re-fetch the node data.
   useEffect(() => {
     if (!initialized.current) return;
+    if (!userId) return;
     if (viewNodeId === lastViewNodeIdRef.current) return;
 
     // Browser navigation happened — sync state
@@ -320,7 +327,7 @@ export function Reader({ book }: ReaderProps) {
     (async () => {
       setIsLoading(true);
       try {
-        const state = await viewScope(book.id, viewNodeId);
+        const state = await viewScope(userId, book.id, viewNodeId);
         applySessionData(state);
       } catch (err) {
         console.error("Browser nav restore failed:", err);
@@ -328,7 +335,7 @@ export function Reader({ book }: ReaderProps) {
         setIsLoading(false);
       }
     })();
-  }, [viewNodeId, book.id, applySessionData]);
+  }, [viewNodeId, userId, book.id, applySessionData]);
 
   // Escape key: go back one scope level
   useEffect(() => {
@@ -396,15 +403,16 @@ export function Reader({ book }: ReaderProps) {
   }, [rightPanelOpen, rightTab]);
 
   const handleResetSession = useCallback(async () => {
+    if (!userId) return;
     if (!confirm("Clear this session? All conversation history will be lost.")) return;
     try {
-      await resetSession(book.id);
+      await resetSession(userId, book.id);
       // Full reload to get a clean slate
       window.location.href = `/book/${book.id}`;
     } catch (err) {
       console.error("Reset failed:", err);
     }
-  }, [book.id]);
+  }, [userId, book.id]);
 
   const panelToggles = [
     { id: "nav", icon: <GitBranch size={16} />, label: "Session Tree", active: sidebarOpen, onClick: toggleNavigator },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { marked } from "marked";
 import { BookA } from "lucide-react";
 import "./DictionaryPanel.css";

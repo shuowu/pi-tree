@@ -1,0 +1,180 @@
+.book-cover-container {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25), 
+              0 2px 4px rgba(0, 0, 0, 0.15), 
+              inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-tertiary);
+  user-select: none;
+  flex-shrink: 0;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+/* Spine shadow effect to make it look like a physical book */
+.book-cover-spine-effect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 10px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.1) 25%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(0, 0, 0, 0.05) 75%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+.book-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Sizes */
+.size-sm {
+  width: 60px;
+  border-radius: var(--radius-sm);
+}
+
+.size-md {
+  width: 110px;
+}
+
+.size-lg {
+  width: 180px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 
+              0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Fallback Cover Styling */
+.fallback-cover {
+  padding: var(--space-3);
+  color: #ffffff;
+  font-family: var(--font-serif, Georgia, serif);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fallback-cover-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: var(--space-2);
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.fallback-cover-header {
+  margin-top: var(--space-1);
+}
+
+.fallback-cover-badge {
+  font-family: var(--font-sans);
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  opacity: 0.75;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.fallback-cover-title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.25;
+  max-height: 4.8em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  margin: auto 0;
+  padding: 0 var(--space-1);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.fallback-cover-divider {
+  width: 30px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.35);
+  margin: var(--space-1) auto;
+}
+
+.fallback-cover-author {
+  font-size: 9px;
+  font-weight: 500;
+  opacity: 0.85;
+  letter-spacing: 0.03em;
+  font-family: var(--font-sans);
+  margin-bottom: var(--space-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Adjust size-sm fallback font sizes */
+.size-sm.fallback-cover {
+  padding: 4px;
+}
+.size-sm .fallback-cover-content {
+  border: none;
+  padding: 2px;
+}
+.size-sm .fallback-cover-badge {
+  display: none;
+}
+.size-sm .fallback-cover-title {
+  font-size: 8px;
+  line-height: 1.1;
+  max-height: 3.3em;
+  -webkit-line-clamp: 3;
+}
+.size-sm .fallback-cover-divider {
+  display: none;
+}
+.size-sm .fallback-cover-author {
+  font-size: 7px;
+}
+
+/* Adjust size-lg fallback font sizes */
+.size-lg.fallback-cover {
+  padding: var(--space-5);
+}
+.size-lg .fallback-cover-content {
+  padding: var(--space-4);
+  border-width: 2px;
+}
+.size-lg .fallback-cover-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+}
+.size-lg .fallback-cover-title {
+  font-size: var(--text-xl);
+  line-height: 1.35;
+}
+.size-lg .fallback-cover-divider {
+  width: 50px;
+  margin: var(--space-3) auto;
+}
+.size-lg .fallback-cover-author {
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+}

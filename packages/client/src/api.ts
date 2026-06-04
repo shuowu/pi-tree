@@ -8,9 +8,40 @@ import type {
   BookOutline,
   SessionState,
   TreeNodeView,
+  UserInfo,
 } from "@pi-reader/shared";
 
 const API = "/api";
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+export async function fetchUsers(): Promise<UserInfo[]> {
+  const res = await fetch(`${API}/users`);
+  if (!res.ok) throw new Error(`Failed to fetch users: ${res.status}`);
+  const data = await res.json();
+  return data.users;
+}
+
+export async function createUser(
+  id: string,
+  displayName?: string,
+): Promise<UserInfo> {
+  const res = await fetch(`${API}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, ...(displayName ? { displayName } : {}) }),
+  });
+  if (!res.ok) throw new Error(`Failed to create user: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchUser(userId: string): Promise<UserInfo> {
+  const res = await fetch(`${API}/users/${userId}`);
+  if (!res.ok) throw new Error(`User not found: ${userId}`);
+  return res.json();
+}
 
 // ---------------------------------------------------------------------------
 // Library
@@ -70,11 +101,11 @@ export async function fetchHeadings(bookId: string): Promise<BookHeading[]> {
  * Returns existing state (with messages) if the session already exists,
  * or a fresh empty state for a new session.
  */
-export async function startSession(bookId: string): Promise<SessionState> {
+export async function startSession(userId: string, bookId: string): Promise<SessionState> {
   const res = await fetch(`${API}/session/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId }),
+    body: JSON.stringify({ userId, bookId }),
   });
   if (!res.ok) throw new Error(`Failed to start session: ${res.status}`);
   return res.json();
@@ -84,16 +115,17 @@ export async function startSession(bookId: string): Promise<SessionState> {
  * Reset a book's session — clears all history.
  * The next startSession call will create a fresh session.
  */
-export async function resetSession(bookId: string): Promise<void> {
+export async function resetSession(userId: string, bookId: string): Promise<void> {
   const res = await fetch(`${API}/session/reset`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId }),
+    body: JSON.stringify({ userId, bookId }),
   });
   if (!res.ok) throw new Error(`Failed to reset session: ${res.status}`);
 }
 
 export async function sendMessage(
+  userId: string,
   bookId: string,
   message: string,
   viewNodeId?: string | null,
@@ -101,13 +133,14 @@ export async function sendMessage(
   const res = await fetch(`${API}/session/message`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, message, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, message, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Failed to send message: ${res.status}`);
   return res.json();
 }
 
 export async function sendMessageStreaming(
+  userId: string,
   bookId: string,
   message: string,
   viewNodeId: string | null,
@@ -120,7 +153,7 @@ export async function sendMessageStreaming(
   const res = await fetch(`${API}/session/message/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, message, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, message, viewNodeId }),
   });
 
   if (!res.ok) {
@@ -168,6 +201,7 @@ export async function sendMessageStreaming(
 }
 
 export async function navigateTo(
+  userId: string,
   bookId: string,
   nodeId: string,
   options?: { summarize?: boolean },
@@ -175,7 +209,7 @@ export async function navigateTo(
   const res = await fetch(`${API}/session/navigate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, targetNodeId: nodeId, ...options }),
+    body: JSON.stringify({ userId, bookId, targetNodeId: nodeId, ...options }),
   });
   if (!res.ok) throw new Error(`Navigate failed: ${res.status}`);
   return res.json();
@@ -187,20 +221,21 @@ export async function navigateTo(
  * Pass null for root view.
  */
 export async function viewScope(
+  userId: string,
   bookId: string,
   viewNodeId: string | null,
 ): Promise<SessionState> {
   const res = await fetch(`${API}/session/view`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, viewNodeId }),
   });
   if (!res.ok) throw new Error(`View scope failed: ${res.status}`);
   return res.json();
 }
 
-export async function fetchTree(bookId: string): Promise<TreeNodeView> {
-  const res = await fetch(`${API}/session/tree/${bookId}`);
+export async function fetchTree(userId: string, bookId: string): Promise<TreeNodeView> {
+  const res = await fetch(`${API}/session/tree/${userId}/${bookId}`);
   if (!res.ok) throw new Error(`Failed to fetch tree: ${res.status}`);
   const data = await res.json();
   return data.tree;
@@ -215,6 +250,7 @@ export async function fetchTree(bookId: string): Promise<TreeNodeView> {
  * Does NOT create entries in the session tree.
  */
 export async function streamLookup(
+  userId: string,
   bookId: string,
   term: string,
   onToken: (token: string) => void,
@@ -222,7 +258,7 @@ export async function streamLookup(
   const res = await fetch(`${API}/session/lookup/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, term }),
+    body: JSON.stringify({ userId, bookId, term }),
   });
 
   if (!res.ok) throw new Error(`Lookup failed: ${res.status}`);
@@ -267,6 +303,7 @@ export async function streamLookup(
  * Save a term (and optional definition) to the book's glossary.
  */
 export async function saveGlossary(
+  userId: string,
   bookId: string,
   term: string,
   definition?: string,
@@ -274,7 +311,7 @@ export async function saveGlossary(
   const res = await fetch(`${API}/session/glossary/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, term, definition }),
+    body: JSON.stringify({ userId, bookId, term, definition }),
   });
   if (!res.ok) throw new Error(`Save glossary failed: ${res.status}`);
 }

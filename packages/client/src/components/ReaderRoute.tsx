@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import type { Book } from "@pi-reader/shared";
 import { fetchBook } from "../api";
+import { useUser } from "../UserContext";
 import { Reader } from "./Reader";
 
 /**
@@ -10,12 +11,13 @@ import { Reader } from "./Reader";
  */
 export function ReaderRoute() {
   const { bookId } = useParams<{ bookId: string }>();
+  const { userId } = useUser();
   const navigate = useNavigate();
   const [book, setBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!bookId) {
+    if (!bookId || !userId) {
       navigate("/", { replace: true });
       return;
     }
@@ -30,7 +32,7 @@ export function ReaderRoute() {
       }
     })();
     return () => { cancelled = true; };
-  }, [bookId, navigate]);
+  }, [bookId, userId, navigate]);
 
   if (error) {
     return (

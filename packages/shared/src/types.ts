@@ -7,6 +7,18 @@
  */
 
 // ---------------------------------------------------------------------------
+// User — simple identity, no auth
+// ---------------------------------------------------------------------------
+
+export interface UserInfo {
+  id: string; // slug like "shuo", "alice"
+  displayName: string;
+  avatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Topic Node — the universal tree node
 // ---------------------------------------------------------------------------
 
@@ -78,6 +90,9 @@ export interface Book {
 
   /** Whether an outline has been generated */
   hasOutline: boolean;
+
+  /** Whether the book has a cover image */
+  hasCover?: boolean;
 
   /** BOOK.md preferences, if present */
   preferences?: BookPreferences;
@@ -235,6 +250,7 @@ export interface TreeNodeView {
 }
 
 export interface SessionState {
+  userId: string;
   bookId: string;
   activeNodeId: string;
   /** Which tree node the chat view is scoped to (null = root) */

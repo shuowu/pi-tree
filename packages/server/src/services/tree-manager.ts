@@ -16,6 +16,8 @@ import type {
   ReaderConfig,
 } from "@pi-reader/shared";
 import { DEFAULT_CONFIG } from "@pi-reader/shared";
+import { eq, and } from "drizzle-orm";
+import { getDb, users, userBookSessions, glossaryEntries } from "../db/index.js";
 import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
 import { LibraryService } from "./library.js";
 import {
@@ -29,6 +31,7 @@ export class TreeManager {
 
   private constructor(
     private piSession: PiSession,
+    private userId: string,
     private bookId: string,
     private library: LibraryService,
     config?: Partial<ReaderConfig>,
@@ -41,106 +44,142 @@ export class TreeManager {
   // ---------------------------------------------------------------------------
 
   static async loadOrCreate(
+    userId: string,
     bookId: string,
     options?: { resumeSession?: string },
   ): Promise<TreeManager> {
     const library = new LibraryService();
 
-    // Auto-resume: if no explicit session given, check the active manifest
+    // Auto-resume: if no explicit session given, check the DB for an active session
     let resumeSession = options?.resumeSession;
     if (!resumeSession) {
-      resumeSession = await TreeManager.readActiveSession(
-        library.getLibraryPath(),
-        bookId,
-      );
+      resumeSession = TreeManager.readActiveSession(userId, bookId);
     }
 
     const piSession = await PiSession.create(
+      userId,
       bookId,
       library.getLibraryPath(),
       resumeSession ? { resumeSession } : undefined,
     );
 
-    // Persist the active session file path so server restarts resume correctly
+    // Persist the active session file path in DB so server restarts resume correctly
     const sessionFile = piSession.getSessionFile();
-    console.log(`[tree-manager] Session created — file: ${sessionFile}`);
+    console.log(`[tree-manager] Session created — user: ${userId}, file: ${sessionFile}`);
     if (sessionFile) {
-      await TreeManager.writeActiveSession(
-        library.getLibraryPath(),
-        bookId,
-        sessionFile,
-      );
+      TreeManager.writeActiveSession(userId, bookId, sessionFile);
     }
 
     // TODO: Load per-book config from BOOK.md
-    return new TreeManager(piSession, bookId, library);
+    return new TreeManager(piSession, userId, bookId, library);
   }
 
   /**
-   * Read the active session file path for a book from its manifest.
+   * Read the active session file path for a user+book from the DB.
    */
-  private static async readActiveSession(
-    libraryPath: string,
+  private static readActiveSession(
+    userId: string,
     bookId: string,
-  ): Promise<string | undefined> {
-    const { readFile, readdir, access } = await import("fs/promises");
-    const { join } = await import("path");
-    const sessionDir = join(libraryPath, bookId, ".sessions");
-    const manifestPath = join(sessionDir, "active.json");
-
+  ): string | undefined {
     try {
-      const raw = await readFile(manifestPath, "utf-8");
-      const data = JSON.parse(raw);
-      let sessionPath = data.sessionFile ?? data.sessionId;
-      if (!sessionPath) return undefined;
+      const db = getDb();
+      const row = db
+        .select()
+        .from(userBookSessions)
+        .where(
+          and(
+            eq(userBookSessions.userId, userId),
+            eq(userBookSessions.bookId, bookId),
+            eq(userBookSessions.isActive, 1),
+          ),
+        )
+        .get();
 
-      // If it's already a full absolute path and exists, use it
-      if (sessionPath.startsWith("/")) {
-        try {
-          await access(sessionPath);
-          console.log(`[tree-manager] Resuming session: ${sessionPath}`);
-          return sessionPath;
-        } catch {
-          console.warn(`[tree-manager] Session file not found: ${sessionPath}`);
-          return undefined;
-        }
-      }
+      if (!row) return undefined;
 
-      // Legacy: sessionId is a UUID or stem — find the matching .jsonl file
-      const files = await readdir(sessionDir);
-      const match = files.find(
-        (f) => f.endsWith(".jsonl") && f.includes(sessionPath),
-      );
-      if (match) {
-        const fullPath = join(sessionDir, match);
-        console.log(`[tree-manager] Resolved legacy session: ${fullPath}`);
-        return fullPath;
-      }
-
-      console.warn(`[tree-manager] No session file matches: ${sessionPath}`);
-      return undefined;
+      console.log(`[tree-manager] Resuming session for ${userId}/${bookId}: ${row.sessionFile}`);
+      return row.sessionFile;
     } catch {
-      return undefined; // No manifest yet — first session for this book
+      return undefined; // DB not ready or no rows — first session
     }
   }
 
   /**
-   * Write the active session file path to the book's manifest.
+   * Write/upsert the active session file path to the DB.
+   * Deactivates any previous active sessions for this user+book.
    */
-  private static async writeActiveSession(
-    libraryPath: string,
+  private static writeActiveSession(
+    userId: string,
     bookId: string,
     sessionFile: string,
-  ): Promise<void> {
-    const { writeFile, mkdir } = await import("fs/promises");
-    const { join } = await import("path");
-    const sessionDir = join(libraryPath, bookId, ".sessions");
+  ): void {
+    try {
+      const db = getDb();
+      const now = new Date().toISOString();
 
-    await mkdir(sessionDir, { recursive: true });
-    await writeFile(
-      join(sessionDir, "active.json"),
-      JSON.stringify({ sessionFile, updatedAt: new Date().toISOString() }, null, 2) + "\n",
-    );
+      // Ensure the "default" user exists for backward compatibility
+      TreeManager.ensureUser(userId);
+
+      // Deactivate previous sessions for this user+book
+      db.update(userBookSessions)
+        .set({ isActive: 0 })
+        .where(
+          and(
+            eq(userBookSessions.userId, userId),
+            eq(userBookSessions.bookId, bookId),
+          ),
+        )
+        .run();
+
+      // Insert or update the current session
+      db.insert(userBookSessions)
+        .values({
+          userId,
+          bookId,
+          sessionFile,
+          isActive: 1,
+          createdAt: now,
+          lastActiveAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [
+            userBookSessions.userId,
+            userBookSessions.bookId,
+            userBookSessions.sessionFile,
+          ],
+          set: {
+            isActive: 1,
+            lastActiveAt: now,
+          },
+        })
+        .run();
+    } catch (err) {
+      console.warn(`[tree-manager] Failed to persist session: ${err}`);
+    }
+  }
+
+  /**
+   * Ensure a user row exists (auto-create for backward compatibility).
+   */
+  private static ensureUser(userId: string): void {
+    const db = getDb();
+    const existing = db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .get();
+
+    if (!existing) {
+      const now = new Date().toISOString();
+      db.insert(users)
+        .values({
+          id: userId,
+          displayName: userId,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -301,6 +340,7 @@ export class TreeManager {
       : [];
 
     return {
+      userId: this.userId,
       bookId: this.bookId,
       activeNodeId:
         this.piSession.getBreadcrumb().slice(-1)[0]?.entryId ?? "",
@@ -394,29 +434,27 @@ export class TreeManager {
   }
 
   // ---------------------------------------------------------------------------
-  // Glossary persistence
+  // Glossary persistence — now backed by DB
   // ---------------------------------------------------------------------------
 
   async saveGlossaryEntry(
     term: string,
     definition?: string,
   ): Promise<void> {
-    const { appendFile, mkdir } = await import("fs/promises");
-    const { join } = await import("path");
+    const db = getDb();
+    const now = new Date().toISOString();
 
-    const notesDir = join(
-      this.library.getLibraryPath(),
-      this.bookId,
-      "notes",
-    );
-    await mkdir(notesDir, { recursive: true });
+    // Ensure the user exists
+    TreeManager.ensureUser(this.userId);
 
-    const glossaryPath = join(notesDir, "glossary.md");
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const entry = definition
-      ? `\n- **${term}** — ${definition} _(${timestamp})_\n`
-      : `\n- **${term}** _(${timestamp})_\n`;
-
-    await appendFile(glossaryPath, entry);
+    db.insert(glossaryEntries)
+      .values({
+        userId: this.userId,
+        bookId: this.bookId,
+        term,
+        definition: definition ?? null,
+        createdAt: now,
+      })
+      .run();
   }
 }

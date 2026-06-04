@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { LibraryService } from "../services/library.js";
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
 
 export const libraryRoutes = new Hono();
 
@@ -9,6 +11,29 @@ const library = new LibraryService();
 libraryRoutes.get("/books", async (c) => {
   const books = await library.listBooks();
   return c.json({ books });
+});
+
+/** Get a book's cover image */
+libraryRoutes.get("/books/:bookId/cover", async (c) => {
+  const bookId = c.req.param("bookId");
+  const coverPath = await library.getCoverPath(bookId);
+  if (!coverPath) return c.json({ error: "Cover not found" }, 404);
+
+  try {
+    const fileData = await readFile(coverPath);
+    const ext = extname(coverPath).toLowerCase();
+    let contentType = "image/jpeg";
+    if (ext === ".png") contentType = "image/png";
+    else if (ext === ".webp") contentType = "image/webp";
+    else if (ext === ".gif") contentType = "image/gif";
+
+    return c.body(fileData, 200, {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=3600",
+    });
+  } catch (err) {
+    return c.json({ error: "Failed to read cover image" }, 500);
+  }
 });
 
 /** Get a single book's details + outline */

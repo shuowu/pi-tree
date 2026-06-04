@@ -4,53 +4,68 @@ import { getSession, closeSession } from "../services/session-store.js";
 
 export const sessionRoutes = new Hono();
 
+/**
+ * Extract userId from request body, defaulting to "default" for backward compat.
+ */
+function extractUserId(body: Record<string, unknown>): string {
+  return (body.userId as string) ?? "default";
+}
+
 /** Start or resume a reading session for a book */
 sessionRoutes.post("/start", async (c) => {
-  const { bookId, viewNodeId } = await c.req.json<{
+  const { bookId, viewNodeId, userId: rawUserId } = await c.req.json<{
     bookId: string;
     viewNodeId?: string | null;
+    userId?: string;
   }>();
-  const manager = await getSession(bookId);
+  const userId = rawUserId ?? "default";
+  const manager = await getSession(userId, bookId);
   const state = manager.getSessionState(viewNodeId ?? null);
   return c.json(state);
 });
 
 /** View a specific scope in the tree (no AI call, just scoped messages) */
 sessionRoutes.post("/view", async (c) => {
-  const { bookId, viewNodeId } = await c.req.json<{
+  const body = await c.req.json<{
     bookId: string;
     viewNodeId: string | null;
+    userId?: string;
   }>();
-  const manager = await getSession(bookId);
-  const state = manager.getSessionState(viewNodeId);
+  const userId = extractUserId(body);
+  const manager = await getSession(userId, body.bookId);
+  const state = manager.getSessionState(body.viewNodeId);
   return c.json(state);
 });
 
 /** Send a user message — the core interaction */
 sessionRoutes.post("/message", async (c) => {
-  const { bookId, message, viewNodeId } = await c.req.json<{
+  const body = await c.req.json<{
     bookId: string;
     message: string;
     viewNodeId?: string | null;
+    userId?: string;
   }>();
+  const userId = extractUserId(body);
 
-  const manager = await getSession(bookId);
-  const result = await manager.handleMessage(message, viewNodeId ?? null);
+  const manager = await getSession(userId, body.bookId);
+  const result = await manager.handleMessage(body.message, body.viewNodeId ?? null);
   return c.json(result);
 });
 
 /** Stream a message response via SSE (for real-time AI responses) */
 sessionRoutes.post("/message/stream", async (c) => {
-  const { bookId, message, viewNodeId } = await c.req.json<{
+  const body = await c.req.json<{
     bookId: string;
     message: string;
     viewNodeId?: string | null;
+    userId?: string;
   }>();
+  const userId = extractUserId(body);
 
-  const manager = await getSession(bookId);
+  const manager = await getSession(userId, body.bookId);
 
   return streamSSE(c, async (stream) => {
-    await manager.handleMessageStreaming(message, viewNodeId ?? null, {
+    await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, {
       onToken: async (token: string) => {
         await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
       },
@@ -70,96 +85,113 @@ sessionRoutes.post("/message/stream", async (c) => {
 
 /** Navigate to a specific node (from tree panel or TOC click) */
 sessionRoutes.post("/navigate", async (c) => {
-  const { bookId, targetNodeId, summarizeCurrent } = await c.req.json<{
+  const body = await c.req.json<{
     bookId: string;
     targetNodeId: string;
     summarizeCurrent?: boolean;
+    userId?: string;
   }>();
+  const userId = extractUserId(body);
 
-  const manager = await getSession(bookId);
-  const state = await manager.navigateTo(targetNodeId, {
-    summarize: summarizeCurrent ?? true,
+  const manager = await getSession(userId, body.bookId);
+  const state = await manager.navigateTo(body.targetNodeId, {
+    summarize: body.summarizeCurrent ?? true,
   });
   // After navigation, scope the view to the target node
-  const scopedState = manager.getSessionState(targetNodeId);
+  const scopedState = manager.getSessionState(body.targetNodeId);
   return c.json(scopedState);
 });
 
 /** Navigate from a TOC entry (creates node if needed) */
 sessionRoutes.post("/navigate/toc", async (c) => {
-  const { bookId, outlineEntryLine } = await c.req.json<{
+  const body = await c.req.json<{
     bookId: string;
     outlineEntryLine: number;
+    userId?: string;
   }>();
+  const userId = extractUserId(body);
 
-  const manager = await getSession(bookId);
-  const state = await manager.navigateToOutlineEntry(outlineEntryLine);
+  const manager = await getSession(userId, body.bookId);
+  const state = await manager.navigateToOutlineEntry(body.outlineEntryLine);
   return c.json(state);
 });
 
 /** Get the full tree for the tree panel */
-sessionRoutes.get("/tree/:bookId", async (c) => {
+sessionRoutes.get("/tree/:userId/:bookId", async (c) => {
+  const userId = c.req.param("userId");
   const bookId = c.req.param("bookId");
-  const manager = await getSession(bookId);
+  const manager = await getSession(userId, bookId);
   const tree = manager.getTreeView();
   return c.json(tree);
 });
 
 /** Get the current breadcrumb path */
-sessionRoutes.get("/breadcrumb/:bookId", async (c) => {
+sessionRoutes.get("/breadcrumb/:userId/:bookId", async (c) => {
+  const userId = c.req.param("userId");
   const bookId = c.req.param("bookId");
-  const manager = await getSession(bookId);
+  const manager = await getSession(userId, bookId);
   const breadcrumb = manager.getBreadcrumb();
   return c.json({ breadcrumb });
 });
 
 /** Close a session (user leaves the book) */
 sessionRoutes.post("/close", async (c) => {
-  const { bookId } = await c.req.json<{ bookId: string }>();
-  closeSession(bookId);
+  const body = await c.req.json<{ bookId: string; userId?: string }>();
+  const userId = extractUserId(body);
+  closeSession(userId, body.bookId);
   return c.json({ ok: true });
 });
 
 /** Reset a session — clears all history and starts fresh */
 sessionRoutes.post("/reset", async (c) => {
-  const { bookId } = await c.req.json<{ bookId: string }>();
-  closeSession(bookId);
+  const body = await c.req.json<{ bookId: string; userId?: string }>();
+  const userId = extractUserId(body);
+  closeSession(userId, body.bookId);
 
-  // Remove the active.json manifest so loadOrCreate won't resume
-  const { LibraryService } = await import("../services/library.js");
-  const library = new LibraryService();
-  const { join } = await import("path");
-  const { unlink } = await import("fs/promises");
-  const manifestPath = join(library.getLibraryPath(), bookId, ".sessions", "active.json");
+  // Deactivate DB session records so loadOrCreate won't resume
   try {
-    await unlink(manifestPath);
+    const { eq, and } = await import("drizzle-orm");
+    const { getDb, userBookSessions } = await import("../db/index.js");
+    const db = getDb();
+    db.update(userBookSessions)
+      .set({ isActive: 0 })
+      .where(
+        and(
+          eq(userBookSessions.userId, userId),
+          eq(userBookSessions.bookId, body.bookId),
+        ),
+      )
+      .run();
   } catch {
-    // Already gone — fine
+    // DB not available — fine
   }
 
   return c.json({ ok: true });
 });
 
 /** Update session configuration */
-sessionRoutes.put("/config/:bookId", async (c) => {
+sessionRoutes.put("/config/:userId/:bookId", async (c) => {
+  const userId = c.req.param("userId");
   const bookId = c.req.param("bookId");
   const config = await c.req.json();
-  const manager = await getSession(bookId);
+  const manager = await getSession(userId, bookId);
   manager.updateConfig(config);
   return c.json({ ok: true });
 });
 
 /** Ephemeral dictionary lookup — streams a definition without polluting the session tree */
 sessionRoutes.post("/lookup/stream", async (c) => {
-  const { bookId, term } = await c.req.json<{
+  const body = await c.req.json<{
     bookId: string;
     term: string;
+    userId?: string;
   }>();
+  const userId = extractUserId(body);
 
-  const manager = await getSession(bookId);
+  const manager = await getSession(userId, body.bookId);
 
   return streamSSE(c, async (stream) => {
-    await manager.handleLookup(term, {
+    await manager.handleLookup(body.term, {
       onToken: async (token: string) => {
         await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
       },
@@ -174,13 +206,15 @@ sessionRoutes.post("/lookup/stream", async (c) => {
 
 /** Save a term to the book's glossary */
 sessionRoutes.post("/glossary/save", async (c) => {
-  const { bookId, term, definition } = await c.req.json<{
+  const body = await c.req.json<{
     bookId: string;
     term: string;
     definition?: string;
+    userId?: string;
   }>();
+  const userId = extractUserId(body);
 
-  const manager = await getSession(bookId);
-  await manager.saveGlossaryEntry(term, definition);
+  const manager = await getSession(userId, body.bookId);
+  await manager.saveGlossaryEntry(body.term, body.definition);
   return c.json({ ok: true });
 });

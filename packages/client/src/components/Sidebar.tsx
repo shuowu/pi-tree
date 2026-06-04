@@ -71,7 +71,6 @@ function TreeView({
         collapsed={collapsed}
         onToggleCollapse={toggleCollapse}
         onNavigate={onNavigate}
-        parentHasSiblings={false}
       />
     </div>
   );
@@ -90,7 +89,6 @@ function TreeNode({
   collapsed,
   onToggleCollapse,
   onNavigate,
-  parentHasSiblings,
 }: {
   node: TreeNodeView;
   depth: number;
@@ -98,7 +96,6 @@ function TreeNode({
   collapsed: Set<string>;
   onToggleCollapse: (id: string) => void;
   onNavigate: (id: string) => void;
-  parentHasSiblings: boolean;
 }) {
   const isAssistant = node.label.startsWith("✦");
   const isViewing = node.id === viewNodeId;
@@ -151,7 +148,6 @@ function TreeNode({
             collapsed={collapsed}
             onToggleCollapse={onToggleCollapse}
             onNavigate={onNavigate}
-            parentHasSiblings={childCount > 1}
           />
         ))}
     </>
