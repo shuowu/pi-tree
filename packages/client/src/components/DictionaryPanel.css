@@ -39,7 +39,7 @@
 /* ── Dictionary Card ── */
 
 .dict-card {
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);

@@ -4,7 +4,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   min-height: var(--header-height);
   flex-shrink: 0;
 }
