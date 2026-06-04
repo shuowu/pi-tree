@@ -212,13 +212,40 @@
   animation: fadeIn 0.2s ease;
 }
 
+.chat-branches-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1);
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.chat-branches-header:hover {
+  background: var(--bg-hover);
+}
+
+.chat-branches-chevron {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+  transform: rotate(0deg);
+}
+
+.chat-branches-chevron.expanded {
+  transform: rotate(90deg);
+}
+
 .chat-branches-label {
   font-size: var(--text-xs);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: var(--space-2);
-  padding-left: var(--space-1);
+  font-family: var(--font-sans);
 }
 
 .chat-branches-grid {

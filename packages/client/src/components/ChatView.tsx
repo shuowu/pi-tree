@@ -112,26 +112,7 @@ export function ChatView({
         )}
 
         {branches.length > 0 && !isLoading && (
-          <div className="chat-branches">
-            <div className="chat-branches-label">
-              {branches.length} branch{branches.length > 1 ? "es" : ""} from here
-            </div>
-            <div className="chat-branches-grid">
-              {branches.map((b) => (
-                <button
-                  key={b.nodeId}
-                  className="chat-branch-card"
-                  onClick={() => onDrillDown(b.nodeId)}
-                >
-                  <span className={`branch-dot status-${b.status}`} />
-                  <span className="branch-label">{b.label}</span>
-                  {b.messageCount > 0 && (
-                    <span className="branch-count">{b.messageCount}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+          <BranchCards branches={branches} onDrillDown={onDrillDown} />
         )}
 
         <div ref={messagesEndRef} />
@@ -189,6 +170,49 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <div className="chat-content">{message.content}</div>
         )}
       </div>
+    </div>
+  );
+}
+
+function BranchCards({
+  branches,
+  onDrillDown,
+}: {
+  branches: BranchOption[];
+  onDrillDown: (nodeId: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="chat-branches">
+      <button
+        className="chat-branches-header"
+        onClick={() => setCollapsed((v) => !v)}
+      >
+        <span className={`chat-branches-chevron ${collapsed ? "" : "expanded"}`}>
+          ›
+        </span>
+        <span className="chat-branches-label">
+          {branches.length} branch{branches.length > 1 ? "es" : ""} from here
+        </span>
+      </button>
+      {!collapsed && (
+        <div className="chat-branches-grid">
+          {branches.map((b) => (
+            <button
+              key={b.nodeId}
+              className="chat-branch-card"
+              onClick={() => onDrillDown(b.nodeId)}
+            >
+              <span className={`branch-dot status-${b.status}`} />
+              <span className="branch-label">{b.label}</span>
+              {b.messageCount > 0 && (
+                <span className="branch-count">{b.messageCount}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

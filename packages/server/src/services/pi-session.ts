@@ -382,11 +382,32 @@ export class PiSession {
       };
     }
 
-    // Assistant message → show it (this is where branches grow from!)
+
+    // Assistant message → show it only if it has meaningful text content
     if (entry.type === "message" && (entry as any).message?.role === "assistant") {
       const children = this.collectMeaningfulChildren(piNode.children);
-      // Only show assistant nodes that are leaves or branch points
-      // (skip intermediate assistants in a chain with a single child)
+      const hasText = this.hasTextContent(entry);
+
+      // If assistant message has no text (tool-call only), skip it — pass children through
+      if (!hasText) {
+        if (children.length === 1) return children[0];
+        if (children.length > 1) {
+          // Rare: tool-call-only message is a branch point — show as generic node
+          return {
+            entryId: entry.id,
+            parentId: entry.parentId ?? "",
+            label: "✦ …",
+            source: "auto" as const,
+            status: "completed" as const,
+            messageCount: 0,
+            isCurrent: false,
+            children,
+          };
+        }
+        return null;
+      }
+
+      // Has text — show if it's a leaf, branch point, or on current path
       const isLeaf = piNode.children.length === 0;
       const isBranchPoint = children.length > 1;
       const isOnPath = entry.id === leafId || this.isOnCurrentPath(piNode, leafId);
@@ -661,6 +682,21 @@ export class PiSession {
     return "Response";
   }
 
+  /**
+   * Check if an entry has any text content worth displaying.
+   */
+  private hasTextContent(entry: SessionEntry): boolean {
+    if (entry.type !== "message" || !("message" in entry)) return false;
+    const msg = (entry as any).message;
+    const rawText = Array.isArray(msg.content)
+      ? (msg.content as Array<{ type: string; text?: string }>)
+          .filter((c) => c.type === "text")
+          .map((c) => c.text ?? "")
+          .join("")
+      : String(msg.content ?? "");
+    return rawText.trim().length > 0;
+  }
+
   private extractText(content: unknown, maxLen: number): string {
     const text = Array.isArray(content)
       ? (content as Array<{ type: string; text?: string }>)
@@ -668,18 +704,25 @@ export class PiSession {
           .map((c) => c.text ?? "")
           .join("")
       : String(content ?? "");
-    // Take first meaningful line (skip empty lines, markdown headers, etc.)
-    const firstLine = text
-      .split("\n")
-      .map((l) => l.trim())
-      .find((l) => l.length > 0) ?? "";
+
+    // Find the first meaningful line, skipping noise
+    const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+    const meaningful = lines.find((l) =>
+      // Skip system/meta lines
+      !l.startsWith("[SYSTEM") &&
+      !l.startsWith("---") &&
+      !l.startsWith("```") &&
+      l.length > 3  // skip tiny lines like "OK" or "..."
+    ) ?? lines[0] ?? "";
+
     // Strip markdown syntax for clean tree labels
-    const cleaned = firstLine
+    const cleaned = meaningful
       .replace(/^#{1,6}\s+/, "")  // # headers
       .replace(/\*\*([^*]+)\*\*/g, "$1")  // **bold**
       .replace(/\*([^*]+)\*/g, "$1")  // *italic*
       .replace(/`([^`]+)`/g, "$1")  // `code`
       .replace(/^[-*>]\s+/, "")  // list/quote markers
+      .replace(/^\[.*?\]\s*/, "")  // [emoji] prefixes
       .trim();
     if (!cleaned) return "";
     return cleaned.slice(0, maxLen) + (cleaned.length > maxLen ? "…" : "");
