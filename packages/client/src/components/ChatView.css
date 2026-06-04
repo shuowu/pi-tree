@@ -89,9 +89,17 @@
 
 .chat-content {
   font-size: var(--text-base);
-  line-height: 1.65;
+  line-height: 1.75;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* AI responses use serif for comfortable reading */
+.chat-message-assistant .chat-content {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  line-height: 1.8;
+  letter-spacing: 0.01em;
 }
 
 /* Streaming cursor */

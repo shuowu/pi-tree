@@ -1,45 +1,47 @@
 /* ── Pi-Reader Design System ── */
+/* A warm, reading-friendly dark theme */
 
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Google Fonts — reading-optimized */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* ── Color Palette ── */
-  --bg-primary: #0a0e17;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1a2236;
-  --bg-hover: #1e293b;
-  --bg-active: #253249;
-  --bg-surface: #0f1623;
-  --bg-chat-user: #1e293b;
+  /* ── Color Palette (warm dark — easy on the eyes) ── */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #212121;
+  --bg-tertiary: #2a2a2a;
+  --bg-hover: #333333;
+  --bg-active: #3a3a3a;
+  --bg-surface: #1e1e1e;
+  --bg-chat-user: #2a2a2a;
   --bg-chat-ai: transparent;
 
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-muted: #475569;
+  --text-primary: #e0d8cf;
+  --text-secondary: #b0a899;
+  --text-tertiary: #8a8078;
+  --text-muted: #6a6058;
 
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-dim: rgba(99, 102, 241, 0.15);
-  --accent-glow: rgba(99, 102, 241, 0.25);
+  --accent: #c49a6c;
+  --accent-hover: #d4ae82;
+  --accent-dim: rgba(196, 154, 108, 0.15);
+  --accent-glow: rgba(196, 154, 108, 0.2);
 
-  --green: #22c55e;
-  --green-dim: rgba(34, 197, 94, 0.15);
-  --amber: #f59e0b;
-  --amber-dim: rgba(245, 158, 11, 0.15);
-  --red: #ef4444;
+  --green: #7eb88a;
+  --green-dim: rgba(126, 184, 138, 0.15);
+  --amber: #d4a54a;
+  --amber-dim: rgba(212, 165, 74, 0.15);
+  --red: #c97070;
 
-  --border: #1e293b;
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border: #333333;
+  --border-subtle: rgba(255, 255, 255, 0.05);
 
   /* ── Typography ── */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: 'Merriweather', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
-  --text-base: 0.875rem;
+  --text-base: 0.9rem;
   --text-lg: 1rem;
   --text-xl: 1.125rem;
   --text-2xl: 1.375rem;
@@ -63,9 +65,9 @@
   --radius-full: 9999px;
 
   /* ── Shadows ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 20px var(--accent-glow);
 
   /* ── Layout ── */
@@ -98,7 +100,7 @@ body {
   font-size: var(--text-base);
   color: var(--text-primary);
   background: var(--bg-primary);
-  line-height: 1.6;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -133,7 +135,7 @@ body {
 /* ── Selection ── */
 
 ::selection {
-  background: rgba(99, 102, 241, 0.45);
+  background: rgba(196, 154, 108, 0.4);
   color: #fff;
 }
 

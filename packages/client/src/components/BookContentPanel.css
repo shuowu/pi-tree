@@ -146,9 +146,11 @@
 }
 
 .book-content-markdown {
+  font-family: var(--font-serif);
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  line-height: 1.7;
+  line-height: 1.8;
+  letter-spacing: 0.01em;
 }
 
 .book-content-markdown h1,

@@ -304,7 +304,7 @@ export function Reader({ book, onBack }: ReaderProps) {
   }, [rightPanelOpen, rightTab]);
 
   const panelToggles = [
-    { id: "nav", icon: "🧭", label: "Navigator", active: sidebarOpen, onClick: toggleNavigator },
+    { id: "nav", icon: "📑", label: "Chapters", active: sidebarOpen, onClick: toggleNavigator },
     { id: "dict", icon: "📚", label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
     { id: "book", icon: "📖", label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
   ];
