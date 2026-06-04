@@ -269,6 +269,15 @@ export class PiSession {
   // -------------------------------------------------------------------------
 
   /**
+   * Simple branch: move the leaf pointer to a specific entry.
+   * The next append (user message) becomes a child of this entry.
+   * Does NOT create a topic_node — use this when the user message IS the label.
+   */
+  simpleBranch(entryId: string): void {
+    this.sm.branch(entryId);
+  }
+
+  /**
    * Branch from a specific entry to start a new topic.
    */
   branchAt(entryId: string, meta: Omit<TopicMeta, "kind">): string {

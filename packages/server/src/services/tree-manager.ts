@@ -154,20 +154,13 @@ export class TreeManager {
 
       if (viewNode && viewNode.children && viewNode.children.length > 0) {
         // Fork point: branch from this node directly
-        this.piSession.branchAt(viewNodeId, {
-          label: message.slice(0, 50),
-          source: "user",
-          status: "active",
-        });
+        // The user message itself becomes the branch entry
+        this.piSession.simpleBranch(viewNodeId);
       } else {
         // Leaf or linear chain: walk to the end and branch if needed
         const lastNodeId = this.findChainLeaf(tree, viewNodeId);
         if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
-          this.piSession.branchAt(lastNodeId, {
-            label: message.slice(0, 50),
-            source: "user",
-            status: "active",
-          });
+          this.piSession.simpleBranch(lastNodeId);
         }
       }
     }
@@ -217,21 +210,13 @@ export class TreeManager {
 
       if (viewNode && viewNode.children && viewNode.children.length > 0) {
         // Fork point: branch from this node directly
-        // This creates ch2 as a sibling of ch1, not a child of ch1
-        this.piSession.branchAt(viewNodeId, {
-          label: message.slice(0, 50),
-          source: "user",
-          status: "active",
-        });
+        // The user message itself becomes the branch entry
+        this.piSession.simpleBranch(viewNodeId);
       } else {
         // Leaf or linear chain: walk to the end and branch if needed
         const lastNodeId = this.findChainLeaf(tree, viewNodeId);
         if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
-          this.piSession.branchAt(lastNodeId, {
-            label: message.slice(0, 50),
-            source: "user",
-            status: "active",
-          });
+          this.piSession.simpleBranch(lastNodeId);
         }
       }
     }
