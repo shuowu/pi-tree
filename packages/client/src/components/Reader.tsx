@@ -183,7 +183,9 @@ export function Reader({ book, onBack }: ReaderProps) {
           items={breadcrumb}
           onNavigate={handleNavigate}
           onBack={viewNodeId ? handleBackToRoot : onBack}
+          onRoot={handleBackToRoot}
           bookTitle={book.title}
+          isScoped={viewNodeId !== null}
         />
         <ChatView
           messages={messages}
@@ -191,6 +193,7 @@ export function Reader({ book, onBack }: ReaderProps) {
           onSendMessage={handleSendMessage}
           branches={branches}
           onDrillDown={handleNavigate}
+          isScoped={viewNodeId !== null}
         />
       </main>
     </div>

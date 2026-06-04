@@ -5,18 +5,26 @@ interface BreadcrumbProps {
   items: BreadcrumbItem[];
   onNavigate: (nodeId: string) => void;
   onBack: () => void;
+  onRoot: () => void;
   bookTitle: string;
+  isScoped: boolean;
 }
 
-export function Breadcrumb({ items, onNavigate, onBack, bookTitle }: BreadcrumbProps) {
+export function Breadcrumb({ items, onNavigate, onBack, onRoot, bookTitle, isScoped }: BreadcrumbProps) {
   return (
     <nav className="breadcrumb-bar" aria-label="Reading path">
-      <button className="breadcrumb-back" onClick={onBack} aria-label="Back to library">
+      <button className="breadcrumb-back" onClick={onBack} aria-label="Back">
         ←
       </button>
 
       <div className="breadcrumb-items">
-        <span className="breadcrumb-book">{bookTitle}</span>
+        {isScoped ? (
+          <button className="breadcrumb-link" onClick={onRoot}>
+            {bookTitle}
+          </button>
+        ) : (
+          <span className="breadcrumb-book">{bookTitle}</span>
+        )}
 
         {items.map((item, i) => (
           <span key={item.nodeId} className="breadcrumb-segment">

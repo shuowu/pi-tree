@@ -14,9 +14,18 @@ interface ChatViewProps {
   onSendMessage: (message: string) => void;
   branches: BranchOption[];
   onDrillDown: (nodeId: string) => void;
+  /** Whether the user is viewing a scoped branch (not root) */
+  isScoped: boolean;
 }
 
-export function ChatView({ messages, isLoading, onSendMessage, branches, onDrillDown }: ChatViewProps) {
+export function ChatView({
+  messages,
+  isLoading,
+  onSendMessage,
+  branches,
+  onDrillDown,
+  isScoped,
+}: ChatViewProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -67,6 +76,14 @@ export function ChatView({ messages, isLoading, onSendMessage, branches, onDrill
     }
   };
 
+  // Determine if typing will create a branch (scoped view with existing branches)
+  const willBranch = isScoped && branches.length > 0;
+  const placeholder = willBranch
+    ? "New branch from this point…"
+    : isScoped
+      ? "Continue this thread…"
+      : "Ask about the book, or try: deep dive, next chapter, zoom out…";
+
   return (
     <div className="chat-view">
       <div className="chat-messages" ref={messagesContainerRef}>
@@ -96,7 +113,9 @@ export function ChatView({ messages, isLoading, onSendMessage, branches, onDrill
 
         {branches.length > 0 && !isLoading && (
           <div className="chat-branches">
-            <div className="chat-branches-label">Branches</div>
+            <div className="chat-branches-label">
+              {branches.length} branch{branches.length > 1 ? "es" : ""} from here
+            </div>
             <div className="chat-branches-grid">
               {branches.map((b) => (
                 <button
@@ -119,6 +138,11 @@ export function ChatView({ messages, isLoading, onSendMessage, branches, onDrill
       </div>
 
       <div className="chat-input-container">
+        {willBranch && (
+          <div className="chat-branch-hint">
+            ⑂ New branch — your message will start a new thread from this point
+          </div>
+        )}
         <div className="chat-input-wrapper">
           <textarea
             ref={textareaRef}
@@ -126,7 +150,7 @@ export function ChatView({ messages, isLoading, onSendMessage, branches, onDrill
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about the book, or try: deep dive, next chapter, zoom out…"
+            placeholder={placeholder}
             rows={1}
             disabled={isLoading}
           />
