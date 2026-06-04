@@ -13,9 +13,6 @@
 import type {
   SessionState,
   TreeNodeView,
-  BreadcrumbItem,
-  ChatMessage,
-  UserIntent,
   ReaderConfig,
 } from "@pi-reader/shared";
 import { DEFAULT_CONFIG } from "@pi-reader/shared";
@@ -121,12 +118,11 @@ export class TreeManager {
     viewNodeId?: string | null,
   ): Promise<SessionState & { response: string }> {
     // 1. If user is viewing a specific scope, branch from there
+    //    Otherwise, append linearly to the current leaf.
     if (viewNodeId) {
-      // Find the last node in the linear chain from viewNodeId
       const tree = this.buildTreeView();
       const lastNodeId = this.findChainLeaf(tree, viewNodeId);
       if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
-        // Branch from that position
         this.piSession.branchAt(lastNodeId, {
           label: message.slice(0, 50),
           source: "user",
@@ -135,16 +131,10 @@ export class TreeManager {
       }
     }
 
-    // 2. Classify intent
-    const intent = await this.classifyIntent(message);
-
-    // 3. Execute tree operation if needed (via PiSession → Pi SDK)
-    await this.executeTreeOp(intent, message);
-
-    // 4. Send message to Pi for AI response
+    // 2. Send message to Pi for AI response
     const { response } = await this.piSession.sendMessage(message);
 
-    // 5. Return state scoped to the branch the user is in
+    // 3. Return state scoped to the branch the user is in
     return {
       ...this.getSessionState(viewNodeId ?? null),
       response,
@@ -168,23 +158,25 @@ export class TreeManager {
 
   async handleMessageStreaming(
     message: string,
+    viewNodeId: string | null,
     callbacks: {
       onToken: (token: string) => Promise<void>;
       onTreeUpdate: (update: Record<string, unknown>) => Promise<void>;
       onDone: (result: Record<string, unknown>) => Promise<void>;
     },
   ): Promise<void> {
-    const intent = await this.classifyIntent(message);
-
-    // If there's a tree operation, notify the client
-    if (intent.type !== "continue") {
-      await callbacks.onTreeUpdate({
-        operation: intent.type,
-        detail: intent,
-      });
+    // Position-based branching (same as handleMessage)
+    if (viewNodeId) {
+      const tree = this.buildTreeView();
+      const lastNodeId = this.findChainLeaf(tree, viewNodeId);
+      if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
+        this.piSession.branchAt(lastNodeId, {
+          label: message.slice(0, 50),
+          source: "user",
+          status: "active",
+        });
+      }
     }
-
-    await this.executeTreeOp(intent, message);
 
     // Stream the response from Pi
     const { response } = await this.piSession.sendMessageStreaming(
@@ -193,181 +185,9 @@ export class TreeManager {
     );
 
     await callbacks.onDone({
-      ...this.getSessionState(),
+      ...this.getSessionState(viewNodeId),
       response,
     });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Intent Classification — decides branch vs continue
-  // ---------------------------------------------------------------------------
-
-  private async classifyIntent(message: string): Promise<UserIntent> {
-    const lower = message.toLowerCase().trim();
-
-    // ── Zoom out ──
-    if (
-      lower.match(
-        /^(go back|zoom out|pull back|return to|back to (the )?(chapter|book|overview|part))/,
-      )
-    ) {
-      const targetLevel =
-        lower.includes("book") || lower.includes("overview")
-          ? "root"
-          : "parent";
-      return { type: "zoom_out", targetLevel };
-    }
-
-    // ── Go deeper ──
-    if (
-      lower.match(
-        /^(deep dive|go deeper|explore|dig into|unpack|let me explore)/,
-      )
-    ) {
-      const topic = message
-        .replace(
-          /^(deep dive into|go deeper on|explore|dig into|unpack|let me explore)\s*/i,
-          "",
-        )
-        .trim();
-      return { type: "go_deeper", topic: topic || "this topic" };
-    }
-
-    // ── Next chapter ──
-    if (lower.match(/^(next chapter|continue reading|move on|next section)/)) {
-      return { type: "next_chapter" };
-    }
-
-    // ── Lateral move (specific chapter) ──
-    const chapterMatch = lower.match(
-      /(?:go to|jump to|skip to|let me (?:read|look at))\s+(?:chapter|ch\.?)\s*(\d+)/i,
-    );
-    if (chapterMatch) {
-      return { type: "lateral_move", target: `Chapter ${chapterMatch[1]}` };
-    }
-
-    // ── Cross-book ──
-    const crossBookMatch = lower.match(
-      /what does (.+?) say|compare (?:this )?with (.+?)(?:'s)?|how does (.+?) (?:think|approach|handle)/i,
-    );
-    if (crossBookMatch) {
-      const otherBook = (
-        crossBookMatch[1] ??
-        crossBookMatch[2] ??
-        crossBookMatch[3] ??
-        "other book"
-      ).trim();
-      return { type: "cross_book", otherBook, topic: message };
-    }
-
-    // ── Default: continue on current branch ──
-    return { type: "continue" };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Execute tree operations via PiSession
-  // ---------------------------------------------------------------------------
-
-  private async executeTreeOp(
-    intent: UserIntent,
-    _message: string,
-  ): Promise<void> {
-    switch (intent.type) {
-      case "continue":
-        // No tree operation — Pi just appends to current branch
-        break;
-
-      case "go_deeper": {
-        // Branch from current position, create a new topic node
-        const leaf = this.piSession.getCurrentMessages();
-        const lastMsg = leaf[leaf.length - 1];
-        if (lastMsg) {
-          this.piSession.branchAt(lastMsg.id, {
-            label: intent.topic,
-            source: "user",
-            status: "active",
-          });
-        }
-        break;
-      }
-
-      case "next_chapter": {
-        // Summarize current chapter (Pi does the LLM summary)
-        if (this.config.summary.autoOnChapterChange) {
-          // TODO: Use Pi's compact command with reading-focused instructions
-          await this.piSession.compact(
-            "Summarize this chapter discussion focusing on key ideas and reader insights",
-          );
-        }
-        // Branch from parent level for the new chapter
-        const breadcrumb = this.piSession.getBreadcrumb();
-        if (breadcrumb.length >= 2) {
-          const parentId = breadcrumb[breadcrumb.length - 2].entryId;
-          this.piSession.branchAt(parentId, {
-            label: intent.chapterLabel ?? "Next chapter",
-            source: "auto",
-            status: "active",
-          });
-        }
-        break;
-      }
-
-      case "zoom_out": {
-        // Summarize current branch and navigate up
-        if (this.config.summary.autoOnZoomOut) {
-          const breadcrumb = this.piSession.getBreadcrumb();
-          const target =
-            intent.targetLevel === "root"
-              ? breadcrumb[0]
-              : breadcrumb[Math.max(0, breadcrumb.length - 2)];
-
-          if (target) {
-            this.piSession.branchWithSummary(
-              target.entryId,
-              "Branch summary placeholder — Pi SDK will generate this",
-            );
-          }
-        }
-        break;
-      }
-
-      case "lateral_move": {
-        // Summarize current, then branch from parent
-        if (this.config.summary.autoOnChapterChange) {
-          await this.piSession.compact();
-        }
-        const breadcrumb = this.piSession.getBreadcrumb();
-        if (breadcrumb.length >= 2) {
-          const parentId = breadcrumb[breadcrumb.length - 2].entryId;
-          this.piSession.branchAt(parentId, {
-            label: intent.target,
-            source: "user",
-            status: "active",
-          });
-        }
-        break;
-      }
-
-      case "cross_book": {
-        // Create a cross-book tangent branch
-        const leaf = this.piSession.getCurrentMessages();
-        const lastMsg = leaf[leaf.length - 1];
-        if (lastMsg) {
-          this.piSession.branchAt(lastMsg.id, {
-            label: `Cross-ref: ${intent.otherBook}`,
-            source: "user",
-            status: "active",
-          });
-        }
-        break;
-      }
-
-      case "toc_navigate": {
-        // Navigate to a specific outline entry
-        // This is handled by navigateToOutlineEntry()
-        break;
-      }
-    }
   }
 
   // ---------------------------------------------------------------------------

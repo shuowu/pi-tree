@@ -41,24 +41,25 @@ sessionRoutes.post("/message", async (c) => {
 
 /** Stream a message response via SSE (for real-time AI responses) */
 sessionRoutes.post("/message/stream", async (c) => {
-  const { bookId, message } = await c.req.json<{
+  const { bookId, message, viewNodeId } = await c.req.json<{
     bookId: string;
     message: string;
+    viewNodeId?: string | null;
   }>();
 
   const manager = await getSession(bookId);
 
   return streamSSE(c, async (stream) => {
-    await manager.handleMessageStreaming(message, {
-      onToken: async (token) => {
+    await manager.handleMessageStreaming(message, viewNodeId ?? null, {
+      onToken: async (token: string) => {
         await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
       },
-      onTreeUpdate: async (update) => {
+      onTreeUpdate: async (update: Record<string, unknown>) => {
         await stream.writeSSE({
           data: JSON.stringify({ type: "tree_update", ...update }),
         });
       },
-      onDone: async (result) => {
+      onDone: async (result: Record<string, unknown>) => {
         await stream.writeSSE({
           data: JSON.stringify({ type: "done", ...result }),
         });
