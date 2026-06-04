@@ -11,6 +11,7 @@ import { ChatView } from "./ChatView";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, type DictEntry } from "./DictionaryPanel";
+import { BookContentPanel } from "./BookContentPanel";
 import "./Reader.css";
 
 interface ReaderProps {
@@ -30,6 +31,7 @@ export function Reader({ book, onBack }: ReaderProps) {
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
   const [dictOpen, setDictOpen] = useState(false);
+  const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
   const initialized = useRef(false);
 
   /** Apply session state from any API response */
@@ -288,36 +290,51 @@ export function Reader({ book, onBack }: ReaderProps) {
         />
       </main>
 
-      {/* Right sidebar: Dictionary */}
+      {/* Right sidebar: Dictionary + Book tabs */}
       {dictOpen && (
         <aside className="right-sidebar">
           <div className="right-sidebar-header">
-            <span className="right-sidebar-title">
-              📖 Dictionary
-              {dictEntries.length > 0 && (
-                <span className="right-sidebar-count">{dictEntries.length}</span>
-              )}
-            </span>
+            <div className="right-sidebar-tabs">
+              <button
+                className={`right-sidebar-tab ${rightTab === "dict" ? "active" : ""}`}
+                onClick={() => setRightTab("dict")}
+              >
+                📚 Dict
+                {dictEntries.length > 0 && (
+                  <span className="right-sidebar-count">{dictEntries.length}</span>
+                )}
+              </button>
+              <button
+                className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
+                onClick={() => setRightTab("book")}
+              >
+                📖 Book
+              </button>
+            </div>
             <button
               className="right-sidebar-close"
               onClick={() => setDictOpen(false)}
-              title="Close dictionary"
+              title="Close panel"
             >
               ×
             </button>
           </div>
           <div className="right-sidebar-body">
-            <DictionaryPanel entries={dictEntries} onRemove={handleDictRemove} />
+            {rightTab === "dict" ? (
+              <DictionaryPanel entries={dictEntries} onRemove={handleDictRemove} />
+            ) : (
+              <BookContentPanel bookId={book.id} />
+            )}
           </div>
         </aside>
       )}
 
-      {/* Toggle button when dictionary is closed but has entries */}
+      {/* Toggle button when right panel is closed */}
       {!dictOpen && (
         <button
           className="dict-toggle"
           onClick={() => setDictOpen(true)}
-          title="Open dictionary"
+          title="Open side panel"
         >
           📖
           {dictEntries.length > 0 && (

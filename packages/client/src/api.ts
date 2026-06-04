@@ -42,11 +42,24 @@ export async function fetchContent(
   endLine: number,
 ): Promise<string> {
   const res = await fetch(
-    `${API}/library/books/${bookId}/content?startLine=${startLine}&endLine=${endLine}`,
+    `${API}/library/books/${bookId}/content?start=${startLine}&end=${endLine}`,
   );
   if (!res.ok) throw new Error(`Failed to fetch content`);
   const data = await res.json();
   return data.content;
+}
+
+export interface BookHeading {
+  line: number;
+  level: number;
+  title: string;
+}
+
+export async function fetchHeadings(bookId: string): Promise<BookHeading[]> {
+  const res = await fetch(`${API}/library/books/${bookId}/headings`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.headings ?? [];
 }
 
 // ---------------------------------------------------------------------------

@@ -36,3 +36,11 @@ libraryRoutes.get("/books/:bookId/content", async (c) => {
   if (!content) return c.json({ error: "Content not found" }, 404);
   return c.json({ content, startLine, endLine });
 });
+
+/** Get headings from the book's markdown (lightweight TOC with line numbers) */
+libraryRoutes.get("/books/:bookId/headings", async (c) => {
+  const bookId = c.req.param("bookId");
+  const headings = await library.getHeadings(bookId);
+  if (!headings) return c.json({ error: "Book not found" }, 404);
+  return c.json({ headings });
+});

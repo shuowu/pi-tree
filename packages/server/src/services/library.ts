@@ -96,6 +96,47 @@ export class LibraryService {
     }
   }
 
+  /**
+   * Extract headings from the book markdown as a lightweight TOC.
+   * Returns { line, level, title }[] with actual line numbers.
+   */
+  async getHeadings(
+    bookId: string,
+  ): Promise<Array<{ line: number; level: number; title: string }> | null> {
+    const mdDir = join(this.libraryPath, bookId, "markdown");
+
+    try {
+      const files = await readdir(mdDir);
+      const mdFile = files.find((f) => f.endsWith(".md"));
+      if (!mdFile) return null;
+
+      const content = await readFile(join(mdDir, mdFile), "utf-8");
+      const lines = content.split("\n");
+      const headings: Array<{ line: number; level: number; title: string }> = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const match = lines[i].match(/^(#{1,6})\s+(.+)/);
+        if (match) {
+          const title = match[2]
+            .replace(/\[]\s*/g, "") // remove [] markers
+            .replace(/\*\*/g, "")   // remove bold markers
+            .trim();
+          if (title.length > 0) {
+            headings.push({
+              line: i + 1,
+              level: match[1].length,
+              title,
+            });
+          }
+        }
+      }
+
+      return headings;
+    } catch {
+      return null;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
