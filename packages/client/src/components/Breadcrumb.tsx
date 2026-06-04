@@ -1,9 +1,11 @@
 import type { BreadcrumbItem } from "@pi-reader/shared";
+import type { ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
 import "./Breadcrumb.css";
 
 interface PanelToggle {
   id: string;
-  icon: string;
+  icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
@@ -34,7 +36,7 @@ export function Breadcrumb({ items, onNavigate, onBack, onRoot, bookTitle, isSco
   return (
     <nav className="breadcrumb-bar" aria-label="Reading path">
       <button className="breadcrumb-back" onClick={onBack} aria-label="Back">
-        ←
+        <ArrowLeft size={16} />
       </button>
 
       <div className="breadcrumb-items">

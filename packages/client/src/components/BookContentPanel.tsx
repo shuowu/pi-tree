@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { marked } from "marked";
 import { fetchHeadings, fetchContent, type BookHeading } from "../api";
+import { BookOpen } from "lucide-react";
 import "./BookContentPanel.css";
 
 interface BookContentPanelProps {
@@ -41,7 +42,7 @@ export function BookContentPanel({ bookId }: BookContentPanelProps) {
   if (headings.length === 0) {
     return (
       <div className="book-panel-empty">
-        <span className="book-panel-empty-icon">📖</span>
+        <BookOpen size={28} className="book-panel-empty-icon" strokeWidth={1.5} />
         <p>No book content available</p>
       </div>
     );

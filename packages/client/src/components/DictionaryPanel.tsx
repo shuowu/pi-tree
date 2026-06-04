@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { marked } from "marked";
+import { BookA } from "lucide-react";
 import "./DictionaryPanel.css";
 
 export interface DictEntry {
@@ -32,7 +33,7 @@ export function DictionaryPanel({ entries, onRemove }: DictionaryPanelProps) {
   if (entries.length === 0) {
     return (
       <div className="dict-empty">
-        <span className="dict-empty-icon">📖</span>
+        <BookA size={28} className="dict-empty-icon" strokeWidth={1.5} />
         <p>Select text in chat to look up words</p>
         <p className="dict-empty-hint">
           Definitions will appear here with book context

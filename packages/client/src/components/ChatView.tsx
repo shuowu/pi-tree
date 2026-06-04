@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, BranchOption } from "@pi-reader/shared";
 import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
+import { BookOpen } from "lucide-react";
 import "./ChatView.css";
 
 marked.setOptions({
@@ -114,7 +115,7 @@ export function ChatView({
       <div className="chat-messages" ref={messagesContainerRef} style={{ position: "relative" }}>
         {messages.length === 0 && !isLoading && (
           <div className="chat-empty">
-            <span className="chat-empty-icon">📚</span>
+            <BookOpen size={32} className="chat-empty-icon" strokeWidth={1.5} />
             <p>Starting your reading session…</p>
           </div>
         )}

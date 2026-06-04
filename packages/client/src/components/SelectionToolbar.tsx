@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BookA, MessageCircle } from "lucide-react";
 import "./SelectionToolbar.css";
 
 interface SelectionToolbarProps {
@@ -114,10 +115,10 @@ export function SelectionToolbar({
     >
       <div className="selection-toolbar-buttons">
         <button className="selection-btn" onClick={handleDefine} title="Look up in dictionary">
-          📖 Define
+          <BookA size={14} /> Define
         </button>
         <button className="selection-btn" onClick={handleAsk} title="Ask in chat">
-          💬 Ask
+          <MessageCircle size={14} /> Ask
         </button>
       </div>
     </div>

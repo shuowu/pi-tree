@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Book } from "@pi-reader/shared";
 import { fetchBooks } from "../api";
+import { BookOpen } from "lucide-react";
 import "./Library.css";
 
 interface LibraryProps {
@@ -30,7 +31,7 @@ export function Library({ onSelectBook }: LibraryProps) {
   return (
     <div className="library">
       <header className="library-header">
-        <h1>📖 <span>Pi Reader</span></h1>
+        <h1><BookOpen size={28} strokeWidth={1.5} /> <span>Pi Reader</span></h1>
         <p>AI-assisted reading with tree-structured conversations</p>
       </header>
 

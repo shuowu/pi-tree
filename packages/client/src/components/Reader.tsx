@@ -12,6 +12,7 @@ import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, type DictEntry } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
+import { GitBranch, BookA, BookOpen, X } from "lucide-react";
 import "./Reader.css";
 
 interface ReaderProps {
@@ -304,9 +305,9 @@ export function Reader({ book, onBack }: ReaderProps) {
   }, [rightPanelOpen, rightTab]);
 
   const panelToggles = [
-    { id: "nav", icon: "📑", label: "Chapters", active: sidebarOpen, onClick: toggleNavigator },
-    { id: "dict", icon: "📚", label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
-    { id: "book", icon: "📖", label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
+    { id: "nav", icon: <GitBranch size={16} />, label: "Session Tree", active: sidebarOpen, onClick: toggleNavigator },
+    { id: "dict", icon: <BookA size={16} />, label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
+    { id: "book", icon: <BookOpen size={16} />, label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
   ];
 
   const cssVars = {
@@ -364,7 +365,7 @@ export function Reader({ book, onBack }: ReaderProps) {
                   className={`right-sidebar-tab ${rightTab === "dict" ? "active" : ""}`}
                   onClick={() => setRightTab("dict")}
                 >
-                  📚 Dict
+                  Dictionary
                   {dictEntries.length > 0 && (
                     <span className="right-sidebar-count">{dictEntries.length}</span>
                   )}
@@ -373,7 +374,7 @@ export function Reader({ book, onBack }: ReaderProps) {
                   className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
                   onClick={() => setRightTab("book")}
                 >
-                  📖 Book
+                  Book
                 </button>
               </div>
               <button
@@ -381,7 +382,7 @@ export function Reader({ book, onBack }: ReaderProps) {
                 onClick={() => setRightPanelOpen(false)}
                 title="Close panel"
               >
-                ×
+                <X size={14} />
               </button>
             </div>
             <div className="right-sidebar-body">

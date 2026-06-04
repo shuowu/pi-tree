@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { type TreeNodeView } from "@pi-reader/shared";
+import { ChevronLeft, ChevronRight, GitBranch } from "lucide-react";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -19,11 +20,11 @@ export function Sidebar({ tree, viewNodeId, onNavigate, isOpen, onToggle }: Side
         onClick={onToggle}
         aria-label={isOpen ? "Close sidebar" : "Open sidebar"}
       >
-        {isOpen ? "◁" : "▷"}
+        {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
       </button>
 
       <aside className={`sidebar ${isOpen ? "open" : ""}`}>
-        <div className="sidebar-header">📑 Chapters</div>
+        <div className="sidebar-header"><GitBranch size={14} /> Session Tree</div>
         <div className="sidebar-content">
           <TreeView tree={tree} viewNodeId={viewNodeId} onNavigate={onNavigate} />
         </div>
@@ -32,7 +33,7 @@ export function Sidebar({ tree, viewNodeId, onNavigate, isOpen, onToggle }: Side
   );
 }
 
-// ── Tree View (Chapters) ──
+// ── Tree View (Session Tree) ──
 
 function TreeView({
   tree,
