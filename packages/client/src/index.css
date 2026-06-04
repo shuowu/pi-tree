@@ -1,38 +1,38 @@
 /* ── Pi-Reader Design System ── */
-/* A warm, paper-like reading theme */
+/* Classic e-reader sepia theme */
 
 /* Google Fonts — reading-optimized */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* ── Color Palette (warm paper light) ── */
-  --bg-primary: #faf6f0;
-  --bg-secondary: #f3ede4;
-  --bg-tertiary: #ebe4d8;
-  --bg-hover: #e4ddd0;
-  --bg-active: #ddd5c7;
-  --bg-surface: #f7f2ea;
-  --bg-chat-user: #ebe4d8;
+  /* ── Color Palette (classic sepia e-reader) ── */
+  --bg-primary: #f4ecd8;
+  --bg-secondary: #ece3cc;
+  --bg-tertiary: #e3d9c0;
+  --bg-hover: #dbd0b5;
+  --bg-active: #d2c7ab;
+  --bg-surface: #f0e7d1;
+  --bg-chat-user: #e8dfca;
   --bg-chat-ai: transparent;
 
-  --text-primary: #2c2520;
-  --text-secondary: #5c5347;
-  --text-tertiary: #8a7f72;
-  --text-muted: #b0a698;
+  --text-primary: #3b3128;
+  --text-secondary: #5e5245;
+  --text-tertiary: #887a6b;
+  --text-muted: #aa9c8c;
 
-  --accent: #a0714a;
-  --accent-hover: #8b5e39;
-  --accent-dim: rgba(160, 113, 74, 0.12);
-  --accent-glow: rgba(160, 113, 74, 0.15);
+  --accent: #8b5e3c;
+  --accent-hover: #73492d;
+  --accent-dim: rgba(139, 94, 60, 0.1);
+  --accent-glow: rgba(139, 94, 60, 0.12);
 
-  --green: #4a8c5c;
-  --green-dim: rgba(74, 140, 92, 0.12);
-  --amber: #b8862e;
-  --amber-dim: rgba(184, 134, 46, 0.12);
-  --red: #b85450;
+  --green: #5a7d5a;
+  --green-dim: rgba(90, 125, 90, 0.12);
+  --amber: #a67c3a;
+  --amber-dim: rgba(166, 124, 58, 0.12);
+  --red: #a85050;
 
-  --border: #e0d8cc;
-  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border: #d5cbb5;
+  --border-subtle: rgba(0, 0, 0, 0.05);
 
   /* ── Typography ── */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -65,9 +65,9 @@
   --radius-full: 9999px;
 
   /* ── Shadows ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(60, 40, 20, 0.06);
+  --shadow-md: 0 4px 12px rgba(60, 40, 20, 0.08);
+  --shadow-lg: 0 8px 24px rgba(60, 40, 20, 0.1);
   --shadow-glow: 0 0 20px var(--accent-glow);
 
   /* ── Layout ── */
@@ -135,7 +135,7 @@ body {
 /* ── Selection ── */
 
 ::selection {
-  background: rgba(160, 113, 74, 0.3);
+  background: rgba(139, 94, 60, 0.25);
   color: #1a1410;
 }
 
