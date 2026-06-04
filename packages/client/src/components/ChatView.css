@@ -94,6 +94,18 @@
   word-break: break-word;
 }
 
+/* Streaming cursor */
+.chat-content.streaming::after {
+  content: "▊";
+  color: var(--accent);
+  animation: blink 0.8s step-end infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
 /* ── Loading dots ── */
 
 .chat-loading {

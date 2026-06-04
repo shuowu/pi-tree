@@ -85,18 +85,27 @@ export async function sendMessage(
 export async function sendMessageStreaming(
   bookId: string,
   message: string,
-  onToken: (token: string) => void,
-  onTreeUpdate: (update: unknown) => void,
-  onDone: (result: SessionState & { response: string }) => void,
+  viewNodeId: string | null,
+  callbacks: {
+    onToken: (token: string) => void;
+    onDone: (result: SessionState & { response: string }) => void;
+    onError: (error: Error) => void;
+  },
 ): Promise<void> {
   const res = await fetch(`${API}/session/message/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookId, message }),
+    body: JSON.stringify({ bookId, message, viewNodeId }),
   });
 
-  if (!res.ok) throw new Error(`Stream failed: ${res.status}`);
-  if (!res.body) throw new Error("No response body");
+  if (!res.ok) {
+    callbacks.onError(new Error(`Stream failed: ${res.status}`));
+    return;
+  }
+  if (!res.body) {
+    callbacks.onError(new Error("No response body"));
+    return;
+  }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -119,13 +128,11 @@ export async function sendMessageStreaming(
         const event = JSON.parse(data);
         switch (event.type) {
           case "token":
-            onToken(event.token);
-            break;
-          case "tree_update":
-            onTreeUpdate(event.update);
+            callbacks.onToken(event.token);
             break;
           case "done":
-            onDone(event.result);
+            // The server sends the full state + response in the done event
+            callbacks.onDone(event as SessionState & { response: string });
             break;
         }
       } catch {

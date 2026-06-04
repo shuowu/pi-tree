@@ -11,6 +11,8 @@ marked.setOptions({
 interface ChatViewProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  /** Partial content streaming in from AI, or null when not streaming */
+  streamingContent: string | null;
   onSendMessage: (message: string) => void;
   branches: BranchOption[];
   onDrillDown: (nodeId: string) => void;
@@ -21,6 +23,7 @@ interface ChatViewProps {
 export function ChatView({
   messages,
   isLoading,
+  streamingContent,
   onSendMessage,
   branches,
   onDrillDown,
@@ -52,6 +55,13 @@ export function ChatView({
       messagesContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [messages]);
+
+  // Auto-scroll during streaming
+  useEffect(() => {
+    if (streamingContent !== null && streamingContent.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [streamingContent]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -98,7 +108,11 @@ export function ChatView({
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
-        {isLoading && (
+        {isLoading && streamingContent !== null && streamingContent.length > 0 && (
+          <StreamingBubble content={streamingContent} />
+        )}
+
+        {isLoading && (streamingContent === null || streamingContent.length === 0) && (
           <div className="chat-message chat-message-assistant">
             <div className="chat-avatar">✦</div>
             <div className="chat-bubble">
@@ -169,6 +183,25 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         ) : (
           <div className="chat-content">{message.content}</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Live-updating bubble that renders partial markdown as it streams in */
+function StreamingBubble({ content }: { content: string }) {
+  const html = useMemo(() => {
+    return marked.parse(content) as string;
+  }, [content]);
+
+  return (
+    <div className="chat-message chat-message-assistant">
+      <div className="chat-avatar">✦</div>
+      <div className="chat-bubble">
+        <div
+          className="chat-content markdown streaming"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       </div>
     </div>
   );

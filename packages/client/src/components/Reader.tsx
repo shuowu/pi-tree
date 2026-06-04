@@ -6,7 +6,7 @@ import type {
   TreeNodeView,
   BranchOption,
 } from "@pi-reader/shared";
-import { startSession, sendMessage, viewScope } from "../api";
+import { startSession, sendMessageStreaming, viewScope } from "../api";
 import { ChatView } from "./ChatView";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
@@ -26,6 +26,7 @@ export function Reader({ book, onBack }: ReaderProps) {
   const [viewNodeId, setViewNodeId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(300);
+  const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const initialized = useRef(false);
 
   /** Apply session state from any API response */
@@ -56,21 +57,29 @@ export function Reader({ book, onBack }: ReaderProps) {
       };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
+      setStreamingContent("");
 
-      try {
-        const result = await sendMessage(book.id, message, viewNodeId);
-        applyState(result);
-      } catch (err) {
-        const errorMsg: ChatMessage = {
-          id: `error-${Date.now()}`,
-          role: "assistant",
-          content: `⚠️ Error: ${err instanceof Error ? err.message : "Something went wrong"}`,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, errorMsg]);
-      } finally {
-        setIsLoading(false);
-      }
+      await sendMessageStreaming(book.id, message, viewNodeId, {
+        onToken: (token) => {
+          setStreamingContent((prev) => (prev ?? "") + token);
+        },
+        onDone: (result) => {
+          setStreamingContent(null);
+          setIsLoading(false);
+          applyState(result);
+        },
+        onError: (err) => {
+          setStreamingContent(null);
+          setIsLoading(false);
+          const errorMsg: ChatMessage = {
+            id: `error-${Date.now()}`,
+            role: "assistant",
+            content: `⚠️ Error: ${err.message}`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, errorMsg]);
+        },
+      });
     },
     [book.id, viewNodeId, applyState],
   );
@@ -203,6 +212,7 @@ export function Reader({ book, onBack }: ReaderProps) {
         <ChatView
           messages={messages}
           isLoading={isLoading}
+          streamingContent={streamingContent}
           onSendMessage={handleSendMessage}
           branches={branches}
           onDrillDown={handleNavigate}
