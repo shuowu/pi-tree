@@ -32,7 +32,7 @@ packages/
 
 ## Database
 
-SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<LIBRARY_PATH>/../.pi-reader/pi-reader.db`.
+SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-reader.db` (default: `~/.pi-reader/`).
 
 Tables:
 - `users` — simple identity (slug id, displayName, avatarUrl)
@@ -53,18 +53,21 @@ Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/s
 
 ## Data Source
 
-Reads from `~/repos/pi-books/library/` (configurable via LIBRARY_PATH env var).
+Reads from `~/repos/pi-books/library/` (configurable via `LIBRARY_PATH` env var). This is read-only.
+
+Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.pi-reader/`).
 
 ## Data Isolation
 
 | Data | Location | Scope |
 |------|----------|-------|
-| Session JSONL | `<library>/<bookId>/.sessions/<userId>/` | Per user per book |
+| Session JSONL | `<DATA_PATH>/sessions/<bookId>/<userId>/` | Per user per book |
+| SQLite DB | `<DATA_PATH>/pi-reader.db` | All users |
 | Session metadata | SQLite `user_book_sessions` | Per user per book |
 | Config | SQLite `user_book_config` | Per user per book |
 | Glossary | SQLite `glossary_entries` | Per user per book |
-| Book content | `<library>/<bookId>/markdown/` | Shared (read-only) |
-| Outlines | `<library>/<bookId>/analysis/` | Shared (read-only) |
+| Book content | `<LIBRARY_PATH>/<bookId>/markdown/` | Shared (read-only) |
+| Outlines | `<LIBRARY_PATH>/<bookId>/analysis/` | Shared (read-only) |
 ## Multi-User Flow
 
 No auth — users are slug-based identity records in SQLite.
@@ -96,3 +99,15 @@ npm run dev          # starts both server (:3001) and client (:5173)
 npm run dev:server   # server only
 npm run dev:client   # client only
 ```
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Volumes:
+- `LIBRARY_PATH` (or `./library`) → `/library` (read-only content)
+- `pi-reader-data` named volume → `/data` (mutable state: sessions + SQLite DB)
+
+Env vars: `LIBRARY_PATH`, `DATA_PATH`, `PORT`, `PI_MODEL`.

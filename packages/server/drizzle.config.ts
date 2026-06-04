@@ -1,11 +1,11 @@
 import { defineConfig } from "drizzle-kit";
 import path from "node:path";
 
-const libraryPath =
-  process.env.LIBRARY_PATH ??
-  path.join(process.env.HOME ?? "~", "repos", "pi-books", "library");
+const dataPath =
+  process.env.DATA_PATH ??
+  path.join(process.env.HOME ?? "~", ".pi-reader");
 
-const dbPath = path.join(libraryPath, "..", ".pi-reader", "pi-reader.db");
+const dbPath = path.join(dataPath, "pi-reader.db");
 
 export default defineConfig({
   schema: "./src/db/schema.ts",

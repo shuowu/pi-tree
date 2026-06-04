@@ -20,6 +20,8 @@ import { eq, and } from "drizzle-orm";
 import { getDb, users, userBookSessions, glossaryEntries } from "../db/index.js";
 import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
 import { LibraryService } from "./library.js";
+import { join } from "node:path";
+import os from "node:os";
 import {
   findBranchPoint,
   collectScopeMessages,
@@ -49,6 +51,8 @@ export class TreeManager {
     options?: { resumeSession?: string },
   ): Promise<TreeManager> {
     const library = new LibraryService();
+    const dataPath =
+      process.env.DATA_PATH ?? join(os.homedir(), ".pi-reader");
 
     // Auto-resume: if no explicit session given, check the DB for an active session
     let resumeSession = options?.resumeSession;
@@ -60,6 +64,7 @@ export class TreeManager {
       userId,
       bookId,
       library.getLibraryPath(),
+      dataPath,
       resumeSession ? { resumeSession } : undefined,
     );
 

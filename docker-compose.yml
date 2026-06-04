@@ -1,0 +1,16 @@
+services:
+  pi-reader:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - ${LIBRARY_PATH:-./library}:/library:ro
+      - pi-reader-data:/data
+    environment:
+      - LIBRARY_PATH=/library
+      - DATA_PATH=/data
+      - PORT=3001
+      - PI_MODEL=${PI_MODEL:-}
+
+volumes:
+  pi-reader-data:

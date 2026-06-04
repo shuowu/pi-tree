@@ -80,12 +80,13 @@ export class PiSession {
     userId: string,
     bookId: string,
     libraryPath: string,
+    dataPath: string,
     options?: { resumeSession?: string },
   ): Promise<PiSession> {
     const piBooksCwd = join(libraryPath, "..");
 
     // Session storage: each user+book gets its own session directory
-    const sessionDir = join(libraryPath, bookId, ".sessions", userId);
+    const sessionDir = join(dataPath, "sessions", bookId, userId);
 
     let sm: SessionManager;
     if (options?.resumeSession) {
