@@ -159,6 +159,18 @@ export function Reader({ book, onBack }: ReaderProps) {
     })();
   }, [book, applyState, handleSendMessage]);
 
+  // Escape key: go back one scope level
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && viewNodeId) {
+        e.preventDefault();
+        handleBackToRoot();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [viewNodeId, handleBackToRoot]);
+
   const cssVars = {
     "--sidebar-width": `${sidebarWidth}px`,
   } as React.CSSProperties;
@@ -171,6 +183,7 @@ export function Reader({ book, onBack }: ReaderProps) {
       <Sidebar
         bookId={book.id}
         tree={tree}
+        viewNodeId={viewNodeId}
         onNavigate={handleNavigate}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}

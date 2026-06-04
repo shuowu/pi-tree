@@ -1,7 +1,7 @@
 .breadcrumb-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
@@ -10,8 +10,8 @@
 }
 
 .breadcrumb-back {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-md);
   background: none;
   border: 1px solid var(--border);
@@ -20,7 +20,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   flex-shrink: 0;
   transition: all var(--transition-fast);
 }
@@ -37,6 +37,7 @@
   gap: 0;
   overflow: hidden;
   flex: 1;
+  min-width: 0;
 }
 
 .breadcrumb-book {
@@ -46,19 +47,20 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
 }
 
 .breadcrumb-segment {
   display: flex;
   align-items: center;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .breadcrumb-sep {
   color: var(--text-muted);
   margin: 0 var(--space-1);
   font-size: var(--text-sm);
+  flex-shrink: 0;
 }
 
 .breadcrumb-link {
@@ -68,9 +70,13 @@
   font-size: var(--text-sm);
   font-family: var(--font-sans);
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px 6px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .breadcrumb-link:hover {
@@ -78,8 +84,23 @@
   background: var(--accent-dim);
 }
 
+.breadcrumb-root {
+  font-weight: 600;
+}
+
 .breadcrumb-current {
   font-size: var(--text-sm);
   color: var(--accent-hover);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.breadcrumb-ellipsis {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: 2px 4px;
+  cursor: default;
 }

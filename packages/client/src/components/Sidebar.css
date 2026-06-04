@@ -1,16 +1,18 @@
+/* ── Sidebar Container ── */
+
 .sidebar {
   position: fixed;
-  top: 0;
   left: 0;
-  width: var(--sidebar-width);
-  height: 100vh;
-  background: var(--bg-surface);
+  top: 0;
+  bottom: 0;
+  width: var(--sidebar-width, 300px);
+  background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  z-index: 100;
   transform: translateX(-100%);
-  transition: transform var(--transition-slow);
-  z-index: 10;
+  transition: transform var(--transition-base);
 }
 
 .sidebar.open {
@@ -22,13 +24,13 @@
   top: 50%;
   left: 0;
   transform: translateY(-50%);
-  z-index: 11;
-  width: 20px;
+  z-index: 101;
+  width: 24px;
   height: 48px;
-  background: var(--bg-tertiary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-left: none;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   color: var(--text-tertiary);
   cursor: pointer;
   display: flex;
@@ -63,7 +65,7 @@
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-3);
+  padding: var(--space-2);
 }
 
 .sidebar-empty {
@@ -82,85 +84,25 @@
   color: var(--text-muted);
 }
 
-/* ── Outline (Map View) ── */
-
-.outline-entry {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
-  cursor: default;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.outline-entry:hover {
-  background: var(--bg-hover);
-}
-
-.outline-entry.level-0 {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: var(--text-base);
-  margin-top: var(--space-2);
-}
-
-.outline-entry.level-1 {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.outline-chevron {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  transition: transform var(--transition-fast);
-  width: 12px;
-  display: inline-flex;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.outline-chevron.expanded {
-  transform: rotate(90deg);
-}
-
-.outline-indicator {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  width: 10px;
-  flex-shrink: 0;
-}
-
-.outline-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── Session Tree (flat with branch-only indent) ── */
+/* ── Session Tree ── */
 
 .tree-view {
   display: flex;
   flex-direction: column;
-  gap: 1px;
 }
 
 .tree-entry {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 5px 0;
+  padding: 4px 6px;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast);
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: 1.3;
+  min-height: 28px;
 }
 
 .tree-entry:hover {
@@ -170,7 +112,13 @@
 .tree-entry.current {
   color: var(--accent-hover);
   font-weight: 500;
+}
+
+/* Highlight the node being viewed */
+.tree-entry.viewing {
   background: var(--accent-dim);
+  border-left: 2px solid var(--accent);
+  color: var(--text-primary);
 }
 
 .tree-entry.assistant {
@@ -178,20 +126,40 @@
   font-size: var(--text-xs);
 }
 
-.tree-entry.assistant.current {
-  color: var(--accent-hover);
+.tree-entry.assistant.viewing {
+  color: var(--text-primary);
 }
 
-.tree-branch-indicator {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+/* ── Collapse toggle ── */
+
+.tree-collapse {
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
   color: var(--text-muted);
-  flex-shrink: 0;
-  width: 12px;
+  cursor: pointer;
   display: inline-flex;
+  align-items: center;
   justify-content: center;
-  line-height: 1;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+  transform: rotate(90deg);
+  padding: 0;
 }
+
+.tree-collapse.collapsed {
+  transform: rotate(0deg);
+}
+
+.tree-collapse:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Tree node elements ── */
 
 .tree-dot {
   width: 6px;
@@ -220,12 +188,10 @@
   white-space: nowrap;
 }
 
-.tree-count {
-  font-size: var(--text-xs);
+.tree-branch-count {
+  font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  background: var(--bg-tertiary);
-  padding: 0 6px;
-  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  opacity: 0.7;
 }
-
