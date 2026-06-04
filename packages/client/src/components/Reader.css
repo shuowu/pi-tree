@@ -77,8 +77,35 @@
   .reader.sidebar-open .reader-main {
     margin-left: 0;
   }
+
   .resize-handle,
   .resize-handle-right {
     display: none;
+  }
+}
+
+/* ── Overlay Backdrop ── */
+
+.reader-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .reader-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 20, 10, 0.4);
+    z-index: 999;
+    animation: overlayFadeIn 0.2s ease;
+  }
+
+  .reader-overlay.visible {
+    display: block;
+  }
+
+  @keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }

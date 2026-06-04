@@ -31,6 +31,7 @@
   color: var(--text-secondary);
   font-family: var(--font-sans);
   flex-shrink: 0;
+  min-height: var(--header-height);
 }
 
 .sidebar-header-title {
@@ -192,4 +193,28 @@
   font-family: var(--font-mono);
   flex-shrink: 0;
   opacity: 0.7;
+}
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    z-index: 1000;
+  }
+
+  .sidebar.open {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .tree-entry {
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-base);
+  }
+
+  .sidebar-close {
+    width: 36px;
+    height: 36px;
+  }
 }

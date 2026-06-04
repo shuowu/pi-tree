@@ -556,3 +556,37 @@
 .chat-content.markdown a:hover {
   text-decoration-color: var(--accent-hover);
 }
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .chat-messages {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .chat-bubble {
+    max-width: 92%;
+  }
+
+  .chat-input-container {
+    padding: var(--space-3) var(--space-3) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-input-wrapper {
+    border-radius: var(--radius-lg);
+  }
+
+  .chat-message-assistant .chat-content {
+    font-size: 1rem;
+    line-height: 1.85;
+  }
+
+  .inline-branch-header {
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  .inline-branch-open {
+    padding: var(--space-2) var(--space-3);
+  }
+}

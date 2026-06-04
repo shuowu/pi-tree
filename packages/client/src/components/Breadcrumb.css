@@ -152,3 +152,25 @@
   background: var(--accent);
   border-radius: 1px;
 }
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .breadcrumb-bar {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-1);
+  }
+
+  .panel-toggle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .breadcrumb-current {
+    max-width: 120px;
+  }
+
+  .breadcrumb-link {
+    max-width: 120px;
+  }
+}

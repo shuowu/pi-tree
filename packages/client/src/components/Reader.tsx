@@ -32,7 +32,7 @@ export function Reader({ book }: ReaderProps) {
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
   const [tree, setTree] = useState<TreeNodeView | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
@@ -188,9 +188,16 @@ export function Reader({ book }: ReaderProps) {
   // Navigation
   // ---------------------------------------------------------------------------
 
+  const isMobile = useCallback(() => window.innerWidth <= 768, []);
+
   const handleNavigate = useCallback(
     async (nodeId: string) => {
       if (!userId) return;
+
+      // Auto-close sidebar on mobile after navigating
+      if (isMobile()) {
+        setSidebarOpen(false);
+      }
 
       setIsLoading(true);
       try {
@@ -204,7 +211,7 @@ export function Reader({ book }: ReaderProps) {
         setIsLoading(false);
       }
     },
-    [userId, book.id, applySessionData, updateUrl],
+    [userId, book.id, applySessionData, updateUrl, isMobile],
   );
 
   const handleBackToRoot = useCallback(async () => {
@@ -431,6 +438,11 @@ export function Reader({ book }: ReaderProps) {
       className={`reader ${sidebarOpen ? "sidebar-open" : ""} ${rightPanelOpen ? "dict-open" : ""}`}
       style={cssVars}
     >
+      {/* Mobile overlay backdrop */}
+      <div
+        className={`reader-overlay ${sidebarOpen || rightPanelOpen ? "visible" : ""}`}
+        onClick={() => { setSidebarOpen(false); setRightPanelOpen(false); }}
+      />
       <Sidebar
         bookId={book.id}
         tree={tree}

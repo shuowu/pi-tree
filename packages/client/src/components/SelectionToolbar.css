@@ -48,3 +48,16 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .selection-toolbar-buttons {
+    padding: 4px;
+  }
+
+  .selection-btn {
+    padding: 8px 14px;
+    font-size: var(--text-sm);
+  }
+}

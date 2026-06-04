@@ -113,3 +113,15 @@
   color: var(--text-tertiary);
   line-height: 1.5;
 }
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .welcome-state {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .welcome-option {
+    padding: var(--space-4);
+  }
+}
