@@ -150,13 +150,25 @@ export class TreeManager {
     //    Otherwise, append linearly to the current leaf.
     if (viewNodeId) {
       const tree = this.buildTreeView();
-      const lastNodeId = this.findChainLeaf(tree, viewNodeId);
-      if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
-        this.piSession.branchAt(lastNodeId, {
+      const viewNode = this.findNode(tree, viewNodeId);
+
+      if (viewNode && viewNode.children && viewNode.children.length > 0) {
+        // Fork point: branch from this node directly
+        this.piSession.branchAt(viewNodeId, {
           label: message.slice(0, 50),
           source: "user",
           status: "active",
         });
+      } else {
+        // Leaf or linear chain: walk to the end and branch if needed
+        const lastNodeId = this.findChainLeaf(tree, viewNodeId);
+        if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
+          this.piSession.branchAt(lastNodeId, {
+            label: message.slice(0, 50),
+            source: "user",
+            status: "active",
+          });
+        }
       }
     }
 
@@ -194,16 +206,33 @@ export class TreeManager {
       onDone: (result: Record<string, unknown>) => Promise<void>;
     },
   ): Promise<void> {
-    // Position-based branching (same as handleMessage)
+    // Position-based branching:
+    // If viewing a node that already has children → branch FROM that node
+    // (creates a new sibling branch alongside existing children).
+    // If viewing a leaf or linear chain → we're continuing, no branch needed
+    // unless the chain leaf differs from the current Pi SDK leaf.
     if (viewNodeId) {
       const tree = this.buildTreeView();
-      const lastNodeId = this.findChainLeaf(tree, viewNodeId);
-      if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
-        this.piSession.branchAt(lastNodeId, {
+      const viewNode = this.findNode(tree, viewNodeId);
+
+      if (viewNode && viewNode.children && viewNode.children.length > 0) {
+        // Fork point: branch from this node directly
+        // This creates ch2 as a sibling of ch1, not a child of ch1
+        this.piSession.branchAt(viewNodeId, {
           label: message.slice(0, 50),
           source: "user",
           status: "active",
         });
+      } else {
+        // Leaf or linear chain: walk to the end and branch if needed
+        const lastNodeId = this.findChainLeaf(tree, viewNodeId);
+        if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
+          this.piSession.branchAt(lastNodeId, {
+            label: message.slice(0, 50),
+            source: "user",
+            status: "active",
+          });
+        }
       }
     }
 
