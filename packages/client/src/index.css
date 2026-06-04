@@ -1,38 +1,38 @@
 /* ── Pi-Reader Design System ── */
-/* A warm, reading-friendly dark theme */
+/* A warm, paper-like reading theme */
 
 /* Google Fonts — reading-optimized */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* ── Color Palette (warm dark — easy on the eyes) ── */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #212121;
-  --bg-tertiary: #2a2a2a;
-  --bg-hover: #333333;
-  --bg-active: #3a3a3a;
-  --bg-surface: #1e1e1e;
-  --bg-chat-user: #2a2a2a;
+  /* ── Color Palette (warm paper light) ── */
+  --bg-primary: #faf6f0;
+  --bg-secondary: #f3ede4;
+  --bg-tertiary: #ebe4d8;
+  --bg-hover: #e4ddd0;
+  --bg-active: #ddd5c7;
+  --bg-surface: #f7f2ea;
+  --bg-chat-user: #ebe4d8;
   --bg-chat-ai: transparent;
 
-  --text-primary: #e0d8cf;
-  --text-secondary: #b0a899;
-  --text-tertiary: #8a8078;
-  --text-muted: #6a6058;
+  --text-primary: #2c2520;
+  --text-secondary: #5c5347;
+  --text-tertiary: #8a7f72;
+  --text-muted: #b0a698;
 
-  --accent: #c49a6c;
-  --accent-hover: #d4ae82;
-  --accent-dim: rgba(196, 154, 108, 0.15);
-  --accent-glow: rgba(196, 154, 108, 0.2);
+  --accent: #a0714a;
+  --accent-hover: #8b5e39;
+  --accent-dim: rgba(160, 113, 74, 0.12);
+  --accent-glow: rgba(160, 113, 74, 0.15);
 
-  --green: #7eb88a;
-  --green-dim: rgba(126, 184, 138, 0.15);
-  --amber: #d4a54a;
-  --amber-dim: rgba(212, 165, 74, 0.15);
-  --red: #c97070;
+  --green: #4a8c5c;
+  --green-dim: rgba(74, 140, 92, 0.12);
+  --amber: #b8862e;
+  --amber-dim: rgba(184, 134, 46, 0.12);
+  --red: #b85450;
 
-  --border: #333333;
-  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border: #e0d8cc;
+  --border-subtle: rgba(0, 0, 0, 0.06);
 
   /* ── Typography ── */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -65,9 +65,9 @@
   --radius-full: 9999px;
 
   /* ── Shadows ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
   --shadow-glow: 0 0 20px var(--accent-glow);
 
   /* ── Layout ── */
@@ -117,12 +117,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--text-muted);
+  background: var(--border);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background: var(--text-muted);
 }
 
 /* ── Focus ── */
@@ -135,14 +135,14 @@ body {
 /* ── Selection ── */
 
 ::selection {
-  background: rgba(196, 154, 108, 0.4);
-  color: #fff;
+  background: rgba(160, 113, 74, 0.3);
+  color: #1a1410;
 }
 
 /* ── Links ── */
 
 a {
-  color: var(--accent-hover);
+  color: var(--accent);
   text-decoration: none;
 }
 
