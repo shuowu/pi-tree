@@ -494,4 +494,58 @@ export class TreeManager {
       navigation: { ...this.config.navigation, ...partial.navigation },
     };
   }
+
+  // ---------------------------------------------------------------------------
+  // Dictionary lookup (ephemeral — does NOT create session entries)
+  // ---------------------------------------------------------------------------
+
+  async handleLookup(
+    term: string,
+    callbacks: {
+      onToken: (token: string) => Promise<void>;
+      onDone: (definition: string) => Promise<void>;
+    },
+  ): Promise<void> {
+    const prompt = [
+      `Define "${term}" concisely in the context of this book.`,
+      `If it's a book-specific concept, explain the author's meaning.`,
+      `If it's a general term, give a brief dictionary-style definition.`,
+      `Keep it to 2-3 sentences. No markdown headers.`,
+    ].join(" ");
+
+    // Use the PiSession's ephemeral lookup (doesn't modify session tree)
+    const definition = await this.piSession.ephemeralLookup(
+      prompt,
+      callbacks.onToken,
+    );
+
+    await callbacks.onDone(definition);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Glossary persistence
+  // ---------------------------------------------------------------------------
+
+  async saveGlossaryEntry(
+    term: string,
+    definition?: string,
+  ): Promise<void> {
+    const { appendFile, mkdir } = await import("fs/promises");
+    const { join } = await import("path");
+
+    const notesDir = join(
+      this.library.getLibraryPath(),
+      this.bookId,
+      "notes",
+    );
+    await mkdir(notesDir, { recursive: true });
+
+    const glossaryPath = join(notesDir, "glossary.md");
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const entry = definition
+      ? `\n- **${term}** — ${definition} _(${timestamp})_\n`
+      : `\n- **${term}** _(${timestamp})_\n`;
+
+    await appendFile(glossaryPath, entry);
+  }
 }

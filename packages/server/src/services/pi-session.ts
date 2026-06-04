@@ -264,6 +264,53 @@ export class PiSession {
     return this.agent.subscribe(listener);
   }
 
+  /**
+   * Ephemeral lookup: send a prompt to AI without keeping it in the main thread.
+   * Creates a temporary branch, prompts the AI, then restores the original leaf.
+   * The lookup entries remain in the session file but are orphaned from the main tree.
+   */
+  async ephemeralLookup(
+    prompt: string,
+    onToken: (token: string) => Promise<void>,
+  ): Promise<string> {
+    if (!this.agent) {
+      return "Dictionary lookup unavailable — no AI agent configured.";
+    }
+
+    // Save current position
+    const currentLeaf = this.sm.getLeafEntry();
+    if (!currentLeaf) {
+      return "No session context for lookup.";
+    }
+
+    let fullResponse = "";
+
+    const unsubscribe = this.agent.subscribe(
+      async (event: AgentSessionEvent) => {
+        if (
+          event.type === "message_update" &&
+          event.assistantMessageEvent?.type === "text_delta"
+        ) {
+          const delta = event.assistantMessageEvent.delta ?? "";
+          fullResponse += delta;
+          await onToken(delta);
+        }
+      },
+    );
+
+    try {
+      // Branch to a temporary location (the lookup will append here)
+      this.sm.branch(currentLeaf.id);
+      await this.agent.prompt(prompt);
+    } finally {
+      unsubscribe();
+      // Restore original leaf position so the main conversation continues from where it was
+      this.sm.branch(currentLeaf.id);
+    }
+
+    return fullResponse;
+  }
+
   // -------------------------------------------------------------------------
   // Tree operations — thin wrappers over SessionManager
   // -------------------------------------------------------------------------

@@ -217,6 +217,7 @@ export function Reader({ book, onBack }: ReaderProps) {
           branches={branches}
           onDrillDown={handleNavigate}
           isScoped={viewNodeId !== null}
+          bookId={book.id}
         />
       </main>
     </div>

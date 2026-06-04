@@ -128,3 +128,39 @@ sessionRoutes.put("/config/:bookId", async (c) => {
   manager.updateConfig(config);
   return c.json({ ok: true });
 });
+
+/** Ephemeral dictionary lookup — streams a definition without polluting the session tree */
+sessionRoutes.post("/lookup/stream", async (c) => {
+  const { bookId, term } = await c.req.json<{
+    bookId: string;
+    term: string;
+  }>();
+
+  const manager = await getSession(bookId);
+
+  return streamSSE(c, async (stream) => {
+    await manager.handleLookup(term, {
+      onToken: async (token: string) => {
+        await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
+      },
+      onDone: async (definition: string) => {
+        await stream.writeSSE({
+          data: JSON.stringify({ type: "done", definition }),
+        });
+      },
+    });
+  });
+});
+
+/** Save a term to the book's glossary */
+sessionRoutes.post("/glossary/save", async (c) => {
+  const { bookId, term, definition } = await c.req.json<{
+    bookId: string;
+    term: string;
+    definition?: string;
+  }>();
+
+  const manager = await getSession(bookId);
+  await manager.saveGlossaryEntry(term, definition);
+  return c.json({ ok: true });
+});

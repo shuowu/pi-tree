@@ -180,3 +180,76 @@ export async function fetchTree(bookId: string): Promise<TreeNodeView> {
   const data = await res.json();
   return data.tree;
 }
+
+// ---------------------------------------------------------------------------
+// Dictionary Lookup
+// ---------------------------------------------------------------------------
+
+/**
+ * Stream an ephemeral dictionary lookup.
+ * Does NOT create entries in the session tree.
+ */
+export async function streamLookup(
+  bookId: string,
+  term: string,
+  onToken: (token: string) => void,
+): Promise<string> {
+  const res = await fetch(`${API}/session/lookup/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookId, term }),
+  });
+
+  if (!res.ok) throw new Error(`Lookup failed: ${res.status}`);
+  if (!res.body) throw new Error("No response body");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullDefinition = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (data === "[DONE]") continue;
+
+      try {
+        const event = JSON.parse(data);
+        if (event.type === "token") {
+          onToken(event.token);
+          fullDefinition += event.token;
+        } else if (event.type === "done") {
+          fullDefinition = event.definition || fullDefinition;
+        }
+      } catch {
+        // skip
+      }
+    }
+  }
+
+  return fullDefinition;
+}
+
+/**
+ * Save a term (and optional definition) to the book's glossary.
+ */
+export async function saveGlossary(
+  bookId: string,
+  term: string,
+  definition?: string,
+): Promise<void> {
+  const res = await fetch(`${API}/session/glossary/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookId, term, definition }),
+  });
+  if (!res.ok) throw new Error(`Save glossary failed: ${res.status}`);
+}
