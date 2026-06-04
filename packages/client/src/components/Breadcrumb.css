@@ -9,7 +9,7 @@
   flex-shrink: 0;
 }
 
-.breadcrumb-back {
+.breadcrumb-home {
   width: 28px;
   height: 28px;
   border-radius: var(--radius-md);
@@ -25,7 +25,7 @@
   transition: all var(--transition-fast);
 }
 
-.breadcrumb-back:hover {
+.breadcrumb-home:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
   border-color: var(--text-muted);

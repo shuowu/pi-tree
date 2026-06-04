@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { type TreeNodeView } from "@pi-reader/shared";
-import { ChevronLeft, ChevronRight, GitBranch } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -9,27 +9,16 @@ interface SidebarProps {
   viewNodeId: string | null;
   onNavigate: (nodeId: string) => void;
   isOpen: boolean;
-  onToggle: () => void;
 }
 
-export function Sidebar({ tree, viewNodeId, onNavigate, isOpen, onToggle }: SidebarProps) {
+export function Sidebar({ tree, viewNodeId, onNavigate, isOpen }: SidebarProps) {
   return (
-    <>
-      <button
-        className={`sidebar-toggle ${isOpen ? "open" : ""}`}
-        onClick={onToggle}
-        aria-label={isOpen ? "Close sidebar" : "Open sidebar"}
-      >
-        {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-      </button>
-
-      <aside className={`sidebar ${isOpen ? "open" : ""}`}>
-        <div className="sidebar-header"><GitBranch size={14} /> Session Tree</div>
-        <div className="sidebar-content">
-          <TreeView tree={tree} viewNodeId={viewNodeId} onNavigate={onNavigate} />
-        </div>
-      </aside>
-    </>
+    <aside className={`sidebar ${isOpen ? "open" : ""}`}>
+      <div className="sidebar-header"><GitBranch size={14} /> Session Tree</div>
+      <div className="sidebar-content">
+        <TreeView tree={tree} viewNodeId={viewNodeId} onNavigate={onNavigate} />
+      </div>
+    </aside>
   );
 }
 

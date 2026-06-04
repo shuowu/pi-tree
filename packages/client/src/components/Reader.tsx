@@ -191,7 +191,8 @@ export function Reader({ book }: ReaderProps) {
     async (nodeId: string) => {
       setIsLoading(true);
       try {
-        const state = await viewScope(book.id, nodeId);
+        // Empty nodeId = navigate to root
+        const state = await viewScope(book.id, nodeId || null);
         applySessionData(state);
         updateUrl(state.viewNodeId, false); // push history entry
       } catch (err) {
@@ -428,7 +429,6 @@ export function Reader({ book }: ReaderProps) {
         viewNodeId={viewNodeId}
         onNavigate={handleNavigate}
         isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen((v) => !v)}
       />
       {sidebarOpen && (
         <div className="resize-handle" onMouseDown={handleResizeStart} />
@@ -437,8 +437,7 @@ export function Reader({ book }: ReaderProps) {
         <Breadcrumb
           items={breadcrumb}
           onNavigate={handleNavigate}
-          onBack={viewNodeId ? handleBackToRoot : goBack}
-          onRoot={handleBackToRoot}
+          onHome={goBack}
           bookTitle={book.title}
           isScoped={viewNodeId !== null}
           panelToggles={panelToggles}
