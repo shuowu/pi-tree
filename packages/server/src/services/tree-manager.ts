@@ -72,20 +72,48 @@ export class TreeManager {
   }
 
   /**
-   * Read the active session ID for a book from its manifest file.
+   * Read the active session file path for a book from its manifest.
    */
   private static async readActiveSession(
     libraryPath: string,
     bookId: string,
   ): Promise<string | undefined> {
-    const { readFile } = await import("fs/promises");
+    const { readFile, readdir, access } = await import("fs/promises");
     const { join } = await import("path");
-    const manifestPath = join(libraryPath, bookId, ".sessions", "active.json");
+    const sessionDir = join(libraryPath, bookId, ".sessions");
+    const manifestPath = join(sessionDir, "active.json");
 
     try {
       const raw = await readFile(manifestPath, "utf-8");
       const data = JSON.parse(raw);
-      return data.sessionFile ?? data.sessionId ?? undefined;
+      let sessionPath = data.sessionFile ?? data.sessionId;
+      if (!sessionPath) return undefined;
+
+      // If it's already a full absolute path and exists, use it
+      if (sessionPath.startsWith("/")) {
+        try {
+          await access(sessionPath);
+          console.log(`[tree-manager] Resuming session: ${sessionPath}`);
+          return sessionPath;
+        } catch {
+          console.warn(`[tree-manager] Session file not found: ${sessionPath}`);
+          return undefined;
+        }
+      }
+
+      // Legacy: sessionId is a UUID or stem — find the matching .jsonl file
+      const files = await readdir(sessionDir);
+      const match = files.find(
+        (f) => f.endsWith(".jsonl") && f.includes(sessionPath),
+      );
+      if (match) {
+        const fullPath = join(sessionDir, match);
+        console.log(`[tree-manager] Resolved legacy session: ${fullPath}`);
+        return fullPath;
+      }
+
+      console.warn(`[tree-manager] No session file matches: ${sessionPath}`);
+      return undefined;
     } catch {
       return undefined; // No manifest yet — first session for this book
     }
