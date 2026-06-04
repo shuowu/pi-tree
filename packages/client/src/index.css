@@ -133,8 +133,8 @@ body {
 /* ── Selection ── */
 
 ::selection {
-  background: var(--accent-dim);
-  color: var(--text-primary);
+  background: rgba(99, 102, 241, 0.45);
+  color: #fff;
 }
 
 /* ── Links ── */
