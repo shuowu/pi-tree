@@ -107,6 +107,16 @@ export class PiSession {
       });
       await resourceLoader.reload();
 
+      // Model selection: PI_MODEL env var → default to glm-5-turbo for speed
+      const modelId = process.env.PI_MODEL ?? "glm-5-turbo";
+      const allModels = modelRegistry.getAll();
+      const selectedModel = allModels.find((m) => m.id === modelId);
+      if (selectedModel) {
+        console.log(`[pi-session] Using model: ${selectedModel.provider}/${selectedModel.id}`);
+      } else {
+        console.log(`[pi-session] Model "${modelId}" not found, using SDK default. Available: ${allModels.map((m) => `${m.provider}/${m.id}`).join(", ")}`);
+      }
+
       const { session } = await createAgentSession({
         cwd: piBooksCwd,
         tools: ["read", "grep", "find", "ls"], // read-only for book reading
@@ -115,6 +125,7 @@ export class PiSession {
         settingsManager: SettingsManager.create(piBooksCwd),
         authStorage,
         modelRegistry,
+        ...(selectedModel ? { model: selectedModel } : {}),
       });
 
       agent = session;
