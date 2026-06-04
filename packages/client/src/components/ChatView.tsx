@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, BranchOption } from "@pi-reader/shared";
 import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
-import { streamLookup, saveGlossary } from "../api";
 import "./ChatView.css";
 
 marked.setOptions({
@@ -22,6 +21,8 @@ interface ChatViewProps {
   isScoped: boolean;
   /** Book ID for dictionary lookups */
   bookId: string;
+  /** Define handler — sends term to right sidebar */
+  onDefine: (term: string) => void;
 }
 
 export function ChatView({
@@ -33,14 +34,13 @@ export function ChatView({
   onDrillDown,
   isScoped,
   bookId,
+  onDefine,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMsgIdsRef = useRef<string>("");
-  const [defineResult, setDefineResult] = useState<string | null>(null);
-  const [lastSavedTerm, setLastSavedTerm] = useState<string | null>(null);
 
   // Smart scroll: scroll to top on navigation, bottom on new message
   useEffect(() => {
@@ -101,32 +101,12 @@ export function ChatView({
       ? "Continue this thread…"
       : "Ask about the book, or try: deep dive, next chapter, zoom out…";
 
-  const handleDefine = useCallback(
-    (text: string) => {
-      setDefineResult("");
-      streamLookup(bookId, text, (token) => {
-        setDefineResult((prev) => (prev ?? "") + token);
-      }).catch(() => setDefineResult("Lookup failed."));
-    },
-    [bookId],
-  );
-
   const handleAsk = useCallback(
     (text: string) => {
       setInput(`What does "${text}" mean in the context of this book?`);
       textareaRef.current?.focus();
     },
     [],
-  );
-
-  const handleSave = useCallback(
-    (text: string) => {
-      saveGlossary(bookId, text, defineResult ?? undefined).then(() => {
-        setLastSavedTerm(text);
-        setTimeout(() => setLastSavedTerm(null), 2000);
-      });
-    },
-    [bookId, defineResult],
   );
 
   return (
@@ -166,17 +146,9 @@ export function ChatView({
 
         <SelectionToolbar
           containerRef={messagesContainerRef}
-          onDefine={handleDefine}
+          onDefine={onDefine}
           onAsk={handleAsk}
-          onSave={handleSave}
-          defineResult={defineResult}
         />
-
-        {lastSavedTerm && (
-          <div className="glossary-toast">
-            📌 Saved "{lastSavedTerm}" to glossary
-          </div>
-        )}
 
         <div ref={messagesEndRef} />
       </div>

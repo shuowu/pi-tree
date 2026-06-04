@@ -6,10 +6,11 @@ import type {
   TreeNodeView,
   BranchOption,
 } from "@pi-reader/shared";
-import { startSession, sendMessageStreaming, viewScope } from "../api";
+import { startSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary } from "../api";
 import { ChatView } from "./ChatView";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
+import { DictionaryPanel, type DictEntry } from "./DictionaryPanel";
 import "./Reader.css";
 
 interface ReaderProps {
@@ -27,6 +28,8 @@ export function Reader({ book, onBack }: ReaderProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
+  const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
+  const [dictOpen, setDictOpen] = useState(false);
   const initialized = useRef(false);
 
   /** Apply session state from any API response */
@@ -84,7 +87,71 @@ export function Reader({ book, onBack }: ReaderProps) {
     [book.id, viewNodeId, applyState],
   );
 
-  /** Navigate tree: scope the chat view to a specific node */
+  // ---------------------------------------------------------------------------
+  // Dictionary
+  // ---------------------------------------------------------------------------
+
+  const handleDefine = useCallback(
+    (term: string) => {
+      const entryId = `dict-${Date.now()}`;
+      const newEntry: DictEntry = {
+        id: entryId,
+        term,
+        definition: "",
+        streaming: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      setDictEntries((prev) => [...prev, newEntry]);
+      setDictOpen(true); // Auto-open right sidebar
+
+      streamLookup(book.id, term, (token) => {
+        setDictEntries((prev) =>
+          prev.map((e) =>
+            e.id === entryId ? { ...e, definition: e.definition + token } : e,
+          ),
+        );
+      })
+        .then((fullDef) => {
+          setDictEntries((prev) =>
+            prev.map((e) =>
+              e.id === entryId
+                ? { ...e, definition: fullDef || e.definition, streaming: false }
+                : e,
+            ),
+          );
+          // Auto-save to glossary
+          saveGlossary(book.id, term, fullDef).catch(() => {});
+        })
+        .catch(() => {
+          setDictEntries((prev) =>
+            prev.map((e) =>
+              e.id === entryId
+                ? { ...e, definition: "Lookup failed.", streaming: false }
+                : e,
+            ),
+          );
+        });
+    },
+    [book.id],
+  );
+
+  const handleAsk = useCallback(
+    (text: string) => {
+      // This will be called from ChatView — it just prefills, we don't handle it here
+      // ChatView handles it internally via setInput
+    },
+    [],
+  );
+
+  const handleDictRemove = useCallback((id: string) => {
+    setDictEntries((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Navigation
+  // ---------------------------------------------------------------------------
+
   const handleNavigate = useCallback(
     async (nodeId: string) => {
       setIsLoading(true);
@@ -100,7 +167,6 @@ export function Reader({ book, onBack }: ReaderProps) {
     [book.id, applyState],
   );
 
-  /** Go back to root view */
   const handleBackToRoot = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -186,7 +252,7 @@ export function Reader({ book, onBack }: ReaderProps) {
 
   return (
     <div
-      className={`reader ${sidebarOpen ? "sidebar-open" : ""}`}
+      className={`reader ${sidebarOpen ? "sidebar-open" : ""} ${dictOpen ? "dict-open" : ""}`}
       style={cssVars}
     >
       <Sidebar
@@ -218,8 +284,47 @@ export function Reader({ book, onBack }: ReaderProps) {
           onDrillDown={handleNavigate}
           isScoped={viewNodeId !== null}
           bookId={book.id}
+          onDefine={handleDefine}
         />
       </main>
+
+      {/* Right sidebar: Dictionary */}
+      {dictOpen && (
+        <aside className="right-sidebar">
+          <div className="right-sidebar-header">
+            <span className="right-sidebar-title">
+              📖 Dictionary
+              {dictEntries.length > 0 && (
+                <span className="right-sidebar-count">{dictEntries.length}</span>
+              )}
+            </span>
+            <button
+              className="right-sidebar-close"
+              onClick={() => setDictOpen(false)}
+              title="Close dictionary"
+            >
+              ×
+            </button>
+          </div>
+          <div className="right-sidebar-body">
+            <DictionaryPanel entries={dictEntries} onRemove={handleDictRemove} />
+          </div>
+        </aside>
+      )}
+
+      {/* Toggle button when dictionary is closed but has entries */}
+      {!dictOpen && (
+        <button
+          className="dict-toggle"
+          onClick={() => setDictOpen(true)}
+          title="Open dictionary"
+        >
+          📖
+          {dictEntries.length > 0 && (
+            <span className="dict-toggle-badge">{dictEntries.length}</span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

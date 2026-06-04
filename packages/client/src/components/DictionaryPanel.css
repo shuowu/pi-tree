@@ -1,0 +1,222 @@
+/* ── Dictionary Panel (Right Sidebar) ── */
+
+.dict-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.dict-empty-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.dict-empty p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.dict-empty-hint {
+  font-size: var(--text-xs) !important;
+  opacity: 0.6;
+}
+
+.dict-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* ── Dictionary Card ── */
+
+.dict-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  animation: dictCardIn 0.2s ease;
+}
+
+.dict-card.streaming {
+  border-color: var(--accent);
+  border-left-width: 2px;
+}
+
+@keyframes dictCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dict-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.dict-card-term {
+  font-weight: 600;
+  color: var(--accent);
+  font-size: var(--text-sm);
+}
+
+.dict-card-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: all var(--transition-fast);
+}
+
+.dict-card:hover .dict-card-remove {
+  opacity: 1;
+}
+
+.dict-card-remove:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.dict-card-body {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.dict-card-body p {
+  margin: 0 0 var(--space-1) 0;
+}
+
+.dict-card-body p:last-child {
+  margin-bottom: 0;
+}
+
+.dict-card-cursor {
+  color: var(--accent);
+  animation: blink 0.8s step-end infinite;
+  font-size: var(--text-xs);
+}
+
+/* ── Right Sidebar Layout ── */
+
+.right-sidebar {
+  width: var(--right-sidebar-width, 320px);
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.right-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  min-height: 44px;
+}
+
+.right-sidebar-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.right-sidebar-count {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.right-sidebar-close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.right-sidebar-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.right-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── Dictionary Toggle Button ── */
+
+.dict-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all var(--transition-fast);
+  z-index: 100;
+}
+
+.dict-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.dict-toggle-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}

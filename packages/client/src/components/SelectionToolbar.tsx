@@ -2,16 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./SelectionToolbar.css";
 
 interface SelectionToolbarProps {
-  /** Prefill the chat input with a question about the selected text */
-  onAsk: (text: string) => void;
-  /** Look up a definition (ephemeral, non-branching) */
+  /** Define: sends term to right sidebar dictionary panel */
   onDefine: (text: string) => void;
-  /** Save to glossary */
-  onSave: (text: string) => void;
+  /** Ask: prefills chat input */
+  onAsk: (text: string) => void;
   /** Container element to listen for selections in */
   containerRef: React.RefObject<HTMLElement | null>;
-  /** Streaming definition result from parent */
-  defineResult: string | null;
 }
 
 interface ToolbarPosition {
@@ -20,32 +16,20 @@ interface ToolbarPosition {
 }
 
 export function SelectionToolbar({
-  onAsk,
   onDefine,
-  onSave,
+  onAsk,
   containerRef,
-  defineResult,
 }: SelectionToolbarProps) {
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [position, setPosition] = useState<ToolbarPosition | null>(null);
-  const [isDefining, setIsDefining] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
-
-  // When defineResult changes and we're defining, update state
-  useEffect(() => {
-    if (defineResult !== null && defineResult.length > 0) {
-      setIsDefining(false);
-    }
-  }, [defineResult]);
 
   const dismiss = useCallback(() => {
     setSelectedText(null);
     setPosition(null);
-    setIsDefining(false);
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    // Small delay to let selection finalize
     requestAnimationFrame(() => {
       const selection = window.getSelection();
       const text = selection?.toString().trim();
@@ -62,30 +46,24 @@ export function SelectionToolbar({
         return;
       }
 
-      // Position above the selection
       const rect = range.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
       const scrollTop = container.scrollTop;
 
       setSelectedText(text);
-      setIsDefining(false);
       setPosition({
         top: rect.top - containerRect.top + scrollTop - 44,
-        left:
-          Math.min(
-            Math.max(rect.left - containerRect.left + rect.width / 2, 100),
-            containerRect.width - 100,
-          ),
+        left: Math.min(
+          Math.max(rect.left - containerRect.left + rect.width / 2, 80),
+          containerRect.width - 80,
+        ),
       });
     });
   }, [containerRef]);
 
   const handleMouseDown = useCallback(
     (e: MouseEvent) => {
-      if (
-        toolbarRef.current &&
-        !toolbarRef.current.contains(e.target as Node)
-      ) {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
         dismiss();
       }
     },
@@ -105,7 +83,6 @@ export function SelectionToolbar({
     };
   }, [containerRef, handleMouseUp, handleMouseDown]);
 
-  // Dismiss on scroll
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !selectedText) return;
@@ -116,54 +93,33 @@ export function SelectionToolbar({
 
   if (!selectedText || !position) return null;
 
+  const handleDefine = () => {
+    onDefine(selectedText);
+    dismiss();
+  };
+
   const handleAsk = () => {
     onAsk(selectedText);
     dismiss();
   };
 
-  const handleDefine = () => {
-    setIsDefining(true);
-    onDefine(selectedText);
-  };
-
-  const handleSave = () => {
-    onSave(selectedText);
-    dismiss();
-  };
-
-  const showDefinePopup = defineResult !== null && defineResult.length > 0;
-
   return (
     <div
       ref={toolbarRef}
-      className={`selection-toolbar ${showDefinePopup ? "expanded" : ""}`}
+      className="selection-toolbar"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
       }}
     >
       <div className="selection-toolbar-buttons">
-        <button
-          className="selection-btn"
-          onClick={handleDefine}
-          disabled={isDefining}
-          title="Look up definition"
-        >
-          📖 {isDefining ? "…" : "Define"}
+        <button className="selection-btn" onClick={handleDefine} title="Look up in dictionary">
+          📖 Define
         </button>
         <button className="selection-btn" onClick={handleAsk} title="Ask in chat">
           💬 Ask
         </button>
-        <button className="selection-btn" onClick={handleSave} title="Save to glossary">
-          📌 Save
-        </button>
       </div>
-      {showDefinePopup && (
-        <div className="selection-define-result">
-          <div className="selection-define-term">📖 {selectedText}</div>
-          <div className="selection-define-text">{defineResult}</div>
-        </div>
-      )}
     </div>
   );
 }
