@@ -496,12 +496,15 @@ export class PiSession {
         return null;
       }
 
-      // Has text — show if it's a leaf, branch point, or on current path
+      // Has text — show if it's the final AI response in a turn:
+      // - Leaf: no follow-up yet (current response)
+      // - Branch point: multiple users branched from this response
+      // - Final response: a user followed up after this (has user-initiated children)
       const isLeaf = piNode.children.length === 0;
       const isBranchPoint = children.length > 1;
-      const isOnPath = entry.id === leafId || this.isOnCurrentPath(piNode, leafId);
+      const isFinalResponse = children.some(c => c.source === "user" || c.source === "outline");
 
-      if (isLeaf || isBranchPoint || isOnPath) {
+      if (isLeaf || isBranchPoint || isFinalResponse) {
         return {
           entryId: entry.id,
           parentId: entry.parentId ?? "",
@@ -632,6 +635,12 @@ export class PiSession {
         const entry = node.entry;
         if (entry.type === "message" && "message" in entry) {
           const msg = (entry as any).message;
+          // Only include user and assistant messages in the content map
+          // (skip tool results, system, and other internal roles)
+          if (msg.role !== "user" && msg.role !== "assistant") {
+            walk(node.children);
+            continue;
+          }
           let content = Array.isArray(msg.content)
             ? (msg.content as Array<{ type: string; text?: string }>)
                 .filter((c) => c.type === "text")
@@ -660,6 +669,7 @@ export class PiSession {
     walk(piTree);
     return map;
   }
+
 
   getSessionFile(): string {
     return this.sm.getSessionFile() ?? "";

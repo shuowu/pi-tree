@@ -142,7 +142,7 @@ export function ChatView({
         )}
 
         {branches.length > 0 && !isLoading && (
-          <BranchCards branches={branches} onDrillDown={onDrillDown} />
+          <BranchCards branches={branches} onDrillDown={onDrillDown} bookId={bookId} />
         )}
 
         <SelectionToolbar
@@ -232,41 +232,137 @@ function StreamingBubble({ content }: { content: string }) {
 function BranchCards({
   branches,
   onDrillDown,
+  bookId,
 }: {
   branches: BranchOption[];
   onDrillDown: (nodeId: string) => void;
+  bookId: string;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [sectionCollapsed, setSectionCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [branchData, setBranchData] = useState<
+    Record<string, { messages: ChatMessage[]; branches: BranchOption[] }>
+  >({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = useCallback(
+    async (nodeId: string) => {
+      const isExpanded = expanded[nodeId];
+      setExpanded((prev) => ({ ...prev, [nodeId]: !isExpanded }));
+
+      // Fetch data on first expand
+      if (!isExpanded && !branchData[nodeId]) {
+        setLoading((prev) => ({ ...prev, [nodeId]: true }));
+        try {
+          const { viewScope } = await import("../api");
+          const state = await viewScope(bookId, nodeId);
+          setBranchData((prev) => ({
+            ...prev,
+            [nodeId]: { messages: state.messages, branches: state.branches },
+          }));
+        } catch (err) {
+          console.error("Failed to load branch preview:", err);
+        } finally {
+          setLoading((prev) => ({ ...prev, [nodeId]: false }));
+        }
+      }
+    },
+    [expanded, branchData, bookId],
+  );
 
   return (
     <div className="chat-branches">
       <button
         className="chat-branches-header"
-        onClick={() => setCollapsed((v) => !v)}
+        onClick={() => setSectionCollapsed((v) => !v)}
       >
-        <span className={`chat-branches-chevron ${collapsed ? "" : "expanded"}`}>
+        <span className={`chat-branches-chevron ${sectionCollapsed ? "" : "expanded"}`}>
           ›
         </span>
         <span className="chat-branches-label">
           {branches.length} branch{branches.length > 1 ? "es" : ""} from here
         </span>
       </button>
-      {!collapsed && (
+      {!sectionCollapsed && (
         <div className="chat-branches-grid">
           {branches.map((b) => (
-            <button
-              key={b.nodeId}
-              className="chat-branch-card"
-              onClick={() => onDrillDown(b.nodeId)}
-            >
-              <span className={`branch-dot status-${b.status}`} />
-              <span className="branch-label">{b.label}</span>
-              {b.messageCount > 0 && (
-                <span className="branch-count">{b.messageCount}</span>
+            <div key={b.nodeId} className="chat-branch-item">
+              <div className={`chat-branch-card ${expanded[b.nodeId] ? "expanded" : ""}`}>
+                <button
+                  className="branch-expand-toggle"
+                  onClick={() => toggleExpand(b.nodeId)}
+                  aria-label={expanded[b.nodeId] ? "Collapse" : "Expand"}
+                >
+                  <span className={`branch-chevron ${expanded[b.nodeId] ? "expanded" : ""}`}>
+                    ›
+                  </span>
+                </button>
+                <span className={`branch-dot status-${b.status}`} />
+                <span className="branch-label">{b.label}</span>
+                {b.messageCount > 0 && (
+                  <span className="branch-count">{b.messageCount}</span>
+                )}
+                <button
+                  className="branch-drill-btn"
+                  onClick={() => onDrillDown(b.nodeId)}
+                  aria-label="Open branch"
+                  title="Open branch"
+                >
+                  →
+                </button>
+              </div>
+              {expanded[b.nodeId] && (
+                <div className="branch-preview">
+                  {loading[b.nodeId] && (
+                    <div className="branch-preview-loading">
+                      <span className="dot" /><span className="dot" /><span className="dot" />
+                    </div>
+                  )}
+                  {branchData[b.nodeId]?.messages.map((msg) => (
+                    <BranchPreviewMessage key={msg.id} message={msg} />
+                  ))}
+                  {branchData[b.nodeId]?.branches && branchData[b.nodeId].branches.length > 0 && (
+                    <div className="branch-preview-sub">
+                      {branchData[b.nodeId].branches.map((sub) => (
+                        <button
+                          key={sub.nodeId}
+                          className="branch-preview-sub-card"
+                          onClick={() => onDrillDown(sub.nodeId)}
+                        >
+                          <span className={`branch-dot status-${sub.status}`} />
+                          <span className="branch-label">{sub.label}</span>
+                          →
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
-            </button>
+            </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Compact message preview for expanded branch inline view */
+function BranchPreviewMessage({ message }: { message: ChatMessage }) {
+  const isAssistant = message.role === "assistant";
+  const html = useMemo(() => {
+    if (!isAssistant) return "";
+    return marked.parse(message.content) as string;
+  }, [message.content, isAssistant]);
+
+  return (
+    <div className={`branch-preview-msg branch-preview-${message.role}`}>
+      {isAssistant ? (
+        <div
+          className="branch-preview-content markdown"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      ) : (
+        <div className="branch-preview-content">{message.content}</div>
       )}
     </div>
   );

@@ -18,6 +18,11 @@ import type {
 import { DEFAULT_CONFIG } from "@pi-reader/shared";
 import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
 import { LibraryService } from "./library.js";
+import {
+  findBranchPoint,
+  collectScopeMessages,
+  buildBreadcrumb,
+} from "./tree-nav.js";
 
 export class TreeManager {
   private config: ReaderConfig;
@@ -146,48 +151,23 @@ export class TreeManager {
     message: string,
     viewNodeId?: string | null,
   ): Promise<SessionState & { response: string }> {
-    // 1. If user is viewing a specific scope, branch from there
-    //    Otherwise, append linearly to the current leaf.
+    // Branch from the scope's AI node (findBranchPoint stops at the first
+    // AI response, so multiple messages from the same scope are siblings).
     if (viewNodeId) {
       const tree = this.buildTreeView();
-      const viewNode = this.findNode(tree, viewNodeId);
-
-      if (viewNode && viewNode.children && viewNode.children.length > 0) {
-        // Fork point: branch from this node directly
-        // The user message itself becomes the branch entry
-        this.piSession.simpleBranch(viewNodeId);
-      } else {
-        // Leaf or linear chain: walk to the end and branch if needed
-        const lastNodeId = this.findChainLeaf(tree, viewNodeId);
-        if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
-          this.piSession.simpleBranch(lastNodeId);
-        }
+      const branchId = findBranchPoint(tree, viewNodeId);
+      if (branchId) {
+        this.piSession.simpleBranch(branchId);
       }
     }
 
-    // 2. Send message to Pi for AI response
+    // Send message to Pi for AI response
     const { response } = await this.piSession.sendMessage(message);
 
-    // 3. Return state scoped to the branch the user is in
     return {
       ...this.getSessionState(viewNodeId ?? null),
       response,
     };
-  }
-
-  /**
-   * Find the leaf of a linear chain starting from a node.
-   * Walks single-child paths to find the last node before a fork or end.
-   */
-  private findChainLeaf(tree: TreeNodeView, nodeId: string): string | null {
-    const node = this.findNode(tree, nodeId);
-    if (!node) return null;
-
-    let current = node;
-    while (current.children?.length === 1) {
-      current = current.children[0];
-    }
-    return current.id;
   }
 
   async handleMessageStreaming(
@@ -199,25 +179,13 @@ export class TreeManager {
       onDone: (result: Record<string, unknown>) => Promise<void>;
     },
   ): Promise<void> {
-    // Position-based branching:
-    // If viewing a node that already has children → branch FROM that node
-    // (creates a new sibling branch alongside existing children).
-    // If viewing a leaf or linear chain → we're continuing, no branch needed
-    // unless the chain leaf differs from the current Pi SDK leaf.
+    // Branch from the scope's AI node (findBranchPoint stops at the first
+    // AI response, so multiple messages from the same scope are siblings).
     if (viewNodeId) {
       const tree = this.buildTreeView();
-      const viewNode = this.findNode(tree, viewNodeId);
-
-      if (viewNode && viewNode.children && viewNode.children.length > 0) {
-        // Fork point: branch from this node directly
-        // The user message itself becomes the branch entry
-        this.piSession.simpleBranch(viewNodeId);
-      } else {
-        // Leaf or linear chain: walk to the end and branch if needed
-        const lastNodeId = this.findChainLeaf(tree, viewNodeId);
-        if (lastNodeId && lastNodeId !== this.piSession.getLeafId()) {
-          this.piSession.simpleBranch(lastNodeId);
-        }
+      const branchId = findBranchPoint(tree, viewNodeId);
+      if (branchId) {
+        this.piSession.simpleBranch(branchId);
       }
     }
 
@@ -321,31 +289,15 @@ export class TreeManager {
     tree: TreeNodeView,
     viewNodeId: string | null,
   ): SessionState {
-    // Find the starting node
-    const startNode = viewNodeId ? this.findNode(tree, viewNodeId) : tree;
-    if (!startNode) {
-      return {
-        bookId: this.bookId,
-        activeNodeId: "",
-        viewNodeId,
-        breadcrumb: [],
-        messages: [],
-        tree,
-        branches: [],
-      };
-    }
-
-    // Build a lookup of entryId → full message content from Pi session
     const contentMap = this.piSession.getMessageContentMap();
+    const { messages, branches } = collectScopeMessages(
+      tree,
+      viewNodeId,
+      contentMap,
+    );
 
-    // Walk the linear chain from startNode, collecting messages
-    const messages: import("@pi-reader/shared").ChatMessage[] = [];
-    const branches: import("@pi-reader/shared").BranchOption[] = [];
-    this.walkLinearChain(startNode, messages, branches, contentMap);
-
-    // Build breadcrumb: path from root to viewNode
     const breadcrumb = viewNodeId
-      ? this.buildBreadcrumbPath(tree, viewNodeId)
+      ? buildBreadcrumb(tree, viewNodeId)
       : [];
 
     return {
@@ -358,87 +310,6 @@ export class TreeManager {
       tree,
       branches,
     };
-  }
-
-  /**
-   * Walk a linear chain from a tree node, collecting messages.
-   * Stop at forks (2+ children) and populate branches.
-   * Uses contentMap for full message text (not truncated tree labels).
-   */
-  private walkLinearChain(
-    node: TreeNodeView,
-    messages: import("@pi-reader/shared").ChatMessage[],
-    branches: import("@pi-reader/shared").BranchOption[],
-    contentMap: Map<string, { role: string; content: string; timestamp: string }>,
-  ): void {
-    // Look up the actual message content from the Pi session
-    const msgData = contentMap.get(node.id);
-    if (msgData && msgData.content.trim()) {
-      messages.push({
-        id: node.id,
-        role: msgData.role as "user" | "assistant",
-        content: msgData.content,
-        timestamp: msgData.timestamp,
-      });
-    }
-
-    if (!node.children || node.children.length === 0) {
-      return; // Leaf — done
-    }
-
-    if (node.children.length === 1) {
-      // Linear chain — keep walking
-      this.walkLinearChain(node.children[0], messages, branches, contentMap);
-    } else {
-      // Fork — stop here and report branches
-      for (const child of node.children) {
-        branches.push({
-          nodeId: child.id,
-          label: child.label,
-          messageCount: child.messageCount,
-          status: child.status,
-        });
-      }
-    }
-  }
-
-  /**
-   * Build breadcrumb path from root to a target node.
-   */
-  private buildBreadcrumbPath(
-    tree: TreeNodeView,
-    targetId: string,
-  ): import("@pi-reader/shared").BreadcrumbItem[] {
-    const path: import("@pi-reader/shared").BreadcrumbItem[] = [];
-
-    const walk = (node: TreeNodeView): boolean => {
-      if (node.id === targetId) {
-        path.push({ nodeId: node.id, label: node.label });
-        return true;
-      }
-      for (const child of node.children ?? []) {
-        if (walk(child)) {
-          path.unshift({ nodeId: node.id, label: node.label });
-          return true;
-        }
-      }
-      return false;
-    };
-
-    walk(tree);
-    return path;
-  }
-
-  /**
-   * Find a node by id in the tree.
-   */
-  private findNode(tree: TreeNodeView, id: string): TreeNodeView | null {
-    if (tree.id === id) return tree;
-    for (const child of tree.children ?? []) {
-      const found = this.findNode(child, id);
-      if (found) return found;
-    }
-    return null;
   }
 
   getTreeView(): TreeNodeView {

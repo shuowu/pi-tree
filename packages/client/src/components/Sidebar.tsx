@@ -142,7 +142,7 @@ function TreeNode({
       </div>
 
       {!isCollapsed &&
-        node.children?.map((child, i) => (
+        node.children?.map((child) => (
           <TreeNode
             key={child.id}
             node={child}

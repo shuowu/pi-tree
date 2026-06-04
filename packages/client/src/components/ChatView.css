@@ -274,15 +274,19 @@
   gap: var(--space-2);
 }
 
+.chat-branch-item {
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-branch-card {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  cursor: pointer;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   color: var(--text-secondary);
@@ -290,10 +294,64 @@
   transition: all var(--transition-fast);
 }
 
+.chat-branch-card.expanded {
+  border-color: var(--accent);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+
 .chat-branch-card:hover {
   border-color: var(--accent);
   background: var(--accent-dim);
-  color: var(--text-primary);
+}
+
+.branch-expand-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.branch-expand-toggle:hover {
+  color: var(--accent);
+}
+
+.branch-chevron {
+  display: inline-block;
+  font-size: var(--text-xs);
+  transition: transform var(--transition-fast);
+  transform: rotate(0deg);
+}
+
+.branch-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.branch-drill-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  margin-left: auto;
+}
+
+.branch-drill-btn:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .branch-dot {
@@ -329,6 +387,103 @@
   background: var(--bg-tertiary);
   padding: 0 6px;
   border-radius: var(--radius-full);
+}
+
+/* ── Branch Preview (Expanded Inline) ── */
+
+.branch-preview {
+  border: 1px solid var(--accent);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  animation: fadeIn 0.15s ease;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.branch-preview-loading {
+  display: flex;
+  gap: 4px;
+  padding: var(--space-2);
+  justify-content: center;
+}
+
+.branch-preview-msg {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+}
+
+.branch-preview-msg:last-child {
+  margin-bottom: 0;
+}
+
+.branch-preview-user {
+  background: var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.branch-preview-assistant {
+  border-left: 3px solid var(--border);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.branch-preview-content {
+  line-height: 1.5;
+}
+
+.branch-preview-content.markdown {
+  white-space: normal;
+}
+
+.branch-preview-content.markdown h1,
+.branch-preview-content.markdown h2,
+.branch-preview-content.markdown h3 {
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.branch-preview-content.markdown p {
+  margin: var(--space-1) 0;
+}
+
+.branch-preview-content.markdown table {
+  font-size: var(--text-xs);
+}
+
+.branch-preview-sub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.branch-preview-sub-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.branch-preview-sub-card:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
 }
 
 /* ── Markdown Rendered Content ── */
