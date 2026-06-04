@@ -1,38 +1,38 @@
 /* ── Pi-Reader Design System ── */
-/* Subtle warm reading theme — less sepia, more refined */
+/* Kindle sepia — classic e-reader warmth */
 
 /* Google Fonts — reading-optimized */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* ── Color Palette (subtle warm — not too sepia) ── */
-  --bg-primary: #f8f5f0;
-  --bg-secondary: #f0ece6;
-  --bg-tertiary: #e8e3db;
-  --bg-hover: #e0dbd2;
-  --bg-active: #d8d2c8;
-  --bg-surface: #f4f0ea;
-  --bg-chat-user: #eae5dc;
+  /* ── Color Palette (Kindle sepia) ── */
+  --bg-primary: #f3e8d2;
+  --bg-secondary: #f3e8d2;
+  --bg-tertiary: #e8dcc4;
+  --bg-hover: #e0d3b8;
+  --bg-active: #d8cbae;
+  --bg-surface: #f0e4cc;
+  --bg-chat-user: #e8dcc4;
   --bg-chat-ai: transparent;
 
-  --text-primary: #2d2926;
-  --text-secondary: #57504a;
-  --text-tertiary: #7d756d;
-  --text-muted: #a39a90;
+  --text-primary: #3b2e1e;
+  --text-secondary: #5c4d3c;
+  --text-tertiary: #7d6e5c;
+  --text-muted: #a09180;
 
-  --accent: #7a6352;
-  --accent-hover: #64503f;
-  --accent-dim: rgba(122, 99, 82, 0.1);
-  --accent-glow: rgba(122, 99, 82, 0.12);
+  --accent: #7a5a38;
+  --accent-hover: #644828;
+  --accent-dim: rgba(122, 90, 56, 0.1);
+  --accent-glow: rgba(122, 90, 56, 0.12);
 
-  --green: #5a7d5a;
-  --green-dim: rgba(90, 125, 90, 0.1);
-  --amber: #a67c3a;
-  --amber-dim: rgba(166, 124, 58, 0.1);
-  --red: #a85050;
+  --green: #5a7d4a;
+  --green-dim: rgba(90, 125, 74, 0.1);
+  --amber: #a07830;
+  --amber-dim: rgba(160, 120, 48, 0.1);
+  --red: #9c4a4a;
 
-  --border: #ddd7ce;
-  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border: #d8ccb4;
+  --border-subtle: rgba(60, 40, 20, 0.06);
 
   /* ── Typography ── */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -65,9 +65,9 @@
   --radius-full: 9999px;
 
   /* ── Shadows ── */
-  --shadow-sm: 0 1px 2px rgba(40, 30, 20, 0.05);
-  --shadow-md: 0 4px 12px rgba(40, 30, 20, 0.07);
-  --shadow-lg: 0 8px 24px rgba(40, 30, 20, 0.09);
+  --shadow-sm: 0 1px 2px rgba(60, 40, 20, 0.06);
+  --shadow-md: 0 4px 12px rgba(60, 40, 20, 0.08);
+  --shadow-lg: 0 8px 24px rgba(60, 40, 20, 0.1);
   --shadow-glow: 0 0 20px var(--accent-glow);
 
   /* ── Layout ── */
@@ -135,7 +135,7 @@ body {
 /* ── Selection ── */
 
 ::selection {
-  background: rgba(122, 99, 82, 0.2);
+  background: rgba(122, 90, 56, 0.25);
   color: #1a1410;
 }
 
