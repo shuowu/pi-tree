@@ -429,6 +429,7 @@ export function Reader({ book }: ReaderProps) {
         viewNodeId={viewNodeId}
         onNavigate={handleNavigate}
         isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
       {sidebarOpen && (
         <div className="resize-handle" onMouseDown={handleResizeStart} />
