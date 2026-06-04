@@ -26,8 +26,7 @@ export async function fetchBooks(): Promise<Book[]> {
 export async function fetchBook(bookId: string): Promise<Book> {
   const res = await fetch(`${API}/library/books/${bookId}`);
   if (!res.ok) throw new Error(`Book not found: ${bookId}`);
-  const data = await res.json();
-  return data.book;
+  return res.json();
 }
 
 export async function fetchOutline(bookId: string): Promise<BookOutline | null> {
@@ -79,6 +78,19 @@ export async function startSession(bookId: string): Promise<SessionState> {
   });
   if (!res.ok) throw new Error(`Failed to start session: ${res.status}`);
   return res.json();
+}
+
+/**
+ * Reset a book's session — clears all history.
+ * The next startSession call will create a fresh session.
+ */
+export async function resetSession(bookId: string): Promise<void> {
+  const res = await fetch(`${API}/session/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookId }),
+  });
+  if (!res.ok) throw new Error(`Failed to reset session: ${res.status}`);
 }
 
 export async function sendMessage(

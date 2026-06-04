@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import type {
   Book,
   ChatMessage,
@@ -6,27 +7,29 @@ import type {
   TreeNodeView,
   BranchOption,
 } from "@pi-reader/shared";
-import { startSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary } from "../api";
+import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary } from "../api";
 import { ChatView } from "./ChatView";
+import { WelcomeState, type SessionMode } from "./WelcomeState";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, type DictEntry } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
-import { GitBranch, BookA, BookOpen, X } from "lucide-react";
+import { GitBranch, BookA, BookOpen, X, RotateCcw } from "lucide-react";
 import "./Reader.css";
 
 interface ReaderProps {
   book: Book;
-  onBack: () => void;
 }
 
-export function Reader({ book, onBack }: ReaderProps) {
+export function Reader({ book }: ReaderProps) {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
   const [tree, setTree] = useState<TreeNodeView | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
-  const [viewNodeId, setViewNodeId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
@@ -34,22 +37,47 @@ export function Reader({ book, onBack }: ReaderProps) {
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
   const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
+  const [showWelcome, setShowWelcome] = useState(false);
   const initialized = useRef(false);
+  // Track the last viewNodeId we set programmatically, so we can detect
+  // browser-initiated changes (back/forward) vs our own updates.
+  const lastViewNodeIdRef = useRef<string | null>(null);
 
-  /** Apply session state from any API response */
-  const applyState = useCallback(
+  // Derive viewNodeId from URL search params — single source of truth
+  const viewNodeId = searchParams.get("node") ?? null;
+
+  /** Update the URL ?node= param */
+  const updateUrl = useCallback(
+    (nodeId: string | null, replace: boolean) => {
+      lastViewNodeIdRef.current = nodeId;
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (nodeId) {
+            next.set("node", nodeId);
+          } else {
+            next.delete("node");
+          }
+          return next;
+        },
+        { replace },
+      );
+    },
+    [setSearchParams],
+  );
+
+  /** Apply session data to React state only (no URL update) */
+  const applySessionData = useCallback(
     (state: {
       messages: ChatMessage[];
       breadcrumb: BreadcrumbItem[];
       tree: TreeNodeView;
       branches: BranchOption[];
-      viewNodeId: string | null;
     }) => {
       setMessages(state.messages);
       setBreadcrumb(state.breadcrumb);
       setTree(state.tree);
       setBranches(state.branches);
-      setViewNodeId(state.viewNodeId);
     },
     [],
   );
@@ -66,14 +94,16 @@ export function Reader({ book, onBack }: ReaderProps) {
       setIsLoading(true);
       setStreamingContent("");
 
-      await sendMessageStreaming(book.id, message, viewNodeId, {
+      await sendMessageStreaming(book.id, message, lastViewNodeIdRef.current, {
         onToken: (token) => {
           setStreamingContent((prev) => (prev ?? "") + token);
         },
         onDone: (result) => {
           setStreamingContent(null);
           setIsLoading(false);
-          applyState(result);
+          applySessionData(result);
+          // Server may have changed the active node — replace (not push)
+          updateUrl(result.viewNodeId, true);
         },
         onError: (err) => {
           setStreamingContent(null);
@@ -88,7 +118,7 @@ export function Reader({ book, onBack }: ReaderProps) {
         },
       });
     },
-    [book.id, viewNodeId, applyState],
+    [book.id, applySessionData, updateUrl],
   );
 
   // ---------------------------------------------------------------------------
@@ -162,27 +192,33 @@ export function Reader({ book, onBack }: ReaderProps) {
       setIsLoading(true);
       try {
         const state = await viewScope(book.id, nodeId);
-        applyState(state);
+        applySessionData(state);
+        updateUrl(state.viewNodeId, false); // push history entry
       } catch (err) {
         console.error("Navigate failed:", err);
       } finally {
         setIsLoading(false);
       }
     },
-    [book.id, applyState],
+    [book.id, applySessionData, updateUrl],
   );
 
   const handleBackToRoot = useCallback(async () => {
     setIsLoading(true);
     try {
       const state = await viewScope(book.id, null);
-      applyState(state);
+      applySessionData(state);
+      updateUrl(state.viewNodeId, false); // push history entry
     } catch (err) {
       console.error("Back to root failed:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [book.id, applyState]);
+  }, [book.id, applySessionData, updateUrl]);
+
+  const goBack = useCallback(() => {
+    navigate("/");
+  }, [navigate]);
 
   // Drag-to-resize sidebar
   const handleResizeStart = useCallback(
@@ -214,10 +250,30 @@ export function Reader({ book, onBack }: ReaderProps) {
     [sidebarWidth],
   );
 
-  // On mount: load existing session
+  // Handle mode selection from welcome screen
+  const handleSelectMode = useCallback(
+    (mode: SessionMode) => {
+      setShowWelcome(false);
+      if (mode === "reading") {
+        handleSendMessage(
+          `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`,
+        );
+      } else {
+        handleSendMessage(
+          `I'd like to explore "${book.title}" by ${book.author} through Q&A. I'll ask questions about the book — its themes, arguments, key passages, and ideas. Start by briefly introducing the book's main thesis in 2-3 sentences, then let me lead with questions.`,
+        );
+      }
+    },
+    [book, handleSendMessage],
+  );
+
+  // On mount: load existing session, restoring viewNodeId from URL if present
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+
+    const initialNodeId = searchParams.get("node") ?? null;
+    lastViewNodeIdRef.current = initialNodeId;
 
     (async () => {
       setIsLoading(true);
@@ -225,19 +281,53 @@ export function Reader({ book, onBack }: ReaderProps) {
         const state = await startSession(book.id);
 
         if (state.messages.length > 0) {
-          applyState(state);
+          // Existing session — restore it
+          if (initialNodeId) {
+            try {
+              const scopedState = await viewScope(book.id, initialNodeId);
+              applySessionData(scopedState);
+              updateUrl(scopedState.viewNodeId, true);
+            } catch {
+              // Node not found — fall back to server default
+              applySessionData(state);
+              updateUrl(state.viewNodeId, true);
+            }
+          } else {
+            applySessionData(state);
+            updateUrl(state.viewNodeId, true);
+          }
           setIsLoading(false);
         } else {
+          // Fresh session — show welcome screen instead of auto-firing
           setIsLoading(false);
-          handleSendMessage(
-            `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`,
-          );
+          setShowWelcome(true);
         }
       } catch {
         setIsLoading(false);
       }
     })();
-  }, [book, applyState, handleSendMessage]);
+  }, [book, applySessionData, updateUrl, searchParams]);
+
+  // React to browser back/forward: when viewNodeId changes from a popstate
+  // (not from our own programmatic update), re-fetch the node data.
+  useEffect(() => {
+    if (!initialized.current) return;
+    if (viewNodeId === lastViewNodeIdRef.current) return;
+
+    // Browser navigation happened — sync state
+    lastViewNodeIdRef.current = viewNodeId;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const state = await viewScope(book.id, viewNodeId);
+        applySessionData(state);
+      } catch (err) {
+        console.error("Browser nav restore failed:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [viewNodeId, book.id, applySessionData]);
 
   // Escape key: go back one scope level
   useEffect(() => {
@@ -304,10 +394,22 @@ export function Reader({ book, onBack }: ReaderProps) {
     }
   }, [rightPanelOpen, rightTab]);
 
+  const handleResetSession = useCallback(async () => {
+    if (!confirm("Clear this session? All conversation history will be lost.")) return;
+    try {
+      await resetSession(book.id);
+      // Full reload to get a clean slate
+      window.location.href = `/book/${book.id}`;
+    } catch (err) {
+      console.error("Reset failed:", err);
+    }
+  }, [book.id]);
+
   const panelToggles = [
     { id: "nav", icon: <GitBranch size={16} />, label: "Session Tree", active: sidebarOpen, onClick: toggleNavigator },
     { id: "dict", icon: <BookA size={16} />, label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
     { id: "book", icon: <BookOpen size={16} />, label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
+    { id: "reset", icon: <RotateCcw size={16} />, label: "Clear Session", active: false, onClick: handleResetSession },
   ];
 
   const cssVars = {
@@ -335,23 +437,31 @@ export function Reader({ book, onBack }: ReaderProps) {
         <Breadcrumb
           items={breadcrumb}
           onNavigate={handleNavigate}
-          onBack={viewNodeId ? handleBackToRoot : onBack}
+          onBack={viewNodeId ? handleBackToRoot : goBack}
           onRoot={handleBackToRoot}
           bookTitle={book.title}
           isScoped={viewNodeId !== null}
           panelToggles={panelToggles}
         />
-        <ChatView
-          messages={messages}
-          isLoading={isLoading}
-          streamingContent={streamingContent}
-          onSendMessage={handleSendMessage}
-          branches={branches}
-          onDrillDown={handleNavigate}
-          isScoped={viewNodeId !== null}
-          bookId={book.id}
-          onDefine={handleDefine}
-        />
+        {showWelcome ? (
+          <WelcomeState
+            book={book}
+            onSelectMode={handleSelectMode}
+            isLoading={isLoading}
+          />
+        ) : (
+          <ChatView
+            messages={messages}
+            isLoading={isLoading}
+            streamingContent={streamingContent}
+            onSendMessage={handleSendMessage}
+            branches={branches}
+            onDrillDown={handleNavigate}
+            isScoped={viewNodeId !== null}
+            bookId={book.id}
+            onDefine={handleDefine}
+          />
+        )}
       </main>
 
       {/* Right sidebar: Dictionary + Book tabs */}

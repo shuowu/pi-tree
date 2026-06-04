@@ -120,6 +120,26 @@ sessionRoutes.post("/close", async (c) => {
   return c.json({ ok: true });
 });
 
+/** Reset a session — clears all history and starts fresh */
+sessionRoutes.post("/reset", async (c) => {
+  const { bookId } = await c.req.json<{ bookId: string }>();
+  closeSession(bookId);
+
+  // Remove the active.json manifest so loadOrCreate won't resume
+  const { LibraryService } = await import("../services/library.js");
+  const library = new LibraryService();
+  const { join } = await import("path");
+  const { unlink } = await import("fs/promises");
+  const manifestPath = join(library.getLibraryPath(), bookId, ".sessions", "active.json");
+  try {
+    await unlink(manifestPath);
+  } catch {
+    // Already gone — fine
+  }
+
+  return c.json({ ok: true });
+});
+
 /** Update session configuration */
 sessionRoutes.put("/config/:bookId", async (c) => {
   const bookId = c.req.param("bookId");

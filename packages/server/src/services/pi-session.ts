@@ -59,6 +59,8 @@ export type PiReaderData = TopicMeta | SectionStatusMeta;
 
 export class PiSession {
   private topicCache: Map<string, TopicMeta> = new Map();
+  /** Deferred system context — prepended to the first user message */
+  private pendingContext: string | null = null;
 
   private constructor(
     private sm: SessionManager,
@@ -147,10 +149,11 @@ export class PiSession {
         status: "active",
       });
 
-      // Inject book context so the AI knows which book to focus on
+      // Defer context injection — will be prepended to the first user message.
+      // This keeps startSession() fast so the client can show a welcome screen.
       if (agent) {
         const bookDir = join(libraryPath, bookId);
-        const contextMsg = [
+        piSession.pendingContext = [
           `[SYSTEM CONTEXT — Book Session]`,
           `You are now in a dedicated reading session for a specific book.`,
           `Book directory: ${bookDir}`,
@@ -161,15 +164,28 @@ export class PiSession {
           `The book's markdown content is in: ${bookDir}/markdown/`,
           `The book's analysis/outline is in: ${bookDir}/analysis/`,
           ``,
-          `Start by reading the outline from ${bookDir}/analysis/outline.md if it exists,`,
-          `then give the user a chapter briefing for this book.`,
+          `Read the outline from ${bookDir}/analysis/outline.md if it exists`,
+          `to understand the book's structure before responding.`,
         ].join("\n");
-
-        await agent.prompt(contextMsg);
       }
     }
 
     return piSession;
+  }
+
+  // -------------------------------------------------------------------------
+  // Context injection (deferred from create)
+  // -------------------------------------------------------------------------
+
+  /**
+   * If there's pending system context, prepend it to the message and clear it.
+   * Called once on the first user message for a fresh session.
+   */
+  private consumePendingContext(userMessage: string): string {
+    if (!this.pendingContext) return userMessage;
+    const combined = `${this.pendingContext}\n\n---\n\n${userMessage}`;
+    this.pendingContext = null;
+    return combined;
   }
 
   // -------------------------------------------------------------------------
@@ -188,6 +204,9 @@ export class PiSession {
       // Session-only mode: no AI, just record the message
       return this.sendMessageNoAgent(message);
     }
+
+    // Prepend deferred context to the first message
+    const fullMessage = this.consumePendingContext(message);
 
     // Collect the full response via events
     let fullResponse = "";
@@ -208,7 +227,7 @@ export class PiSession {
     });
 
     try {
-      await this.agent.prompt(message);
+      await this.agent.prompt(fullMessage);
     } finally {
       unsubscribe();
     }
@@ -226,6 +245,9 @@ export class PiSession {
     if (!this.agent) {
       return this.sendMessageNoAgent(message);
     }
+
+    // Prepend deferred context to the first message
+    const fullMessage = this.consumePendingContext(message);
 
     let fullResponse = "";
     let responseEntryId = "";
@@ -248,7 +270,7 @@ export class PiSession {
     );
 
     try {
-      await this.agent.prompt(message);
+      await this.agent.prompt(fullMessage);
     } finally {
       unsubscribe();
     }
@@ -610,12 +632,22 @@ export class PiSession {
         const entry = node.entry;
         if (entry.type === "message" && "message" in entry) {
           const msg = (entry as any).message;
-          const content = Array.isArray(msg.content)
+          let content = Array.isArray(msg.content)
             ? (msg.content as Array<{ type: string; text?: string }>)
                 .filter((c) => c.type === "text")
                 .map((c) => c.text ?? "")
                 .join("")
             : String(msg.content ?? "");
+
+          // Strip deferred system context prefix from user messages
+          // so it doesn't appear in the chat UI
+          if (msg.role === "user" && content.includes("[SYSTEM CONTEXT")) {
+            const sepIdx = content.indexOf("\n\n---\n\n");
+            if (sepIdx !== -1) {
+              content = content.slice(sepIdx + 7); // 7 = "\n\n---\n\n".length
+            }
+          }
+
           map.set(entry.id, {
             role: msg.role,
             content,

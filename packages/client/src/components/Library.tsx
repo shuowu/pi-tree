@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import type { Book } from "@pi-reader/shared";
 import { fetchBooks } from "../api";
 import { BookOpen } from "lucide-react";
 import "./Library.css";
 
-interface LibraryProps {
-  onSelectBook: (book: Book) => void;
-}
-
-export function Library({ onSelectBook }: LibraryProps) {
+export function Library() {
+  const navigate = useNavigate();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +25,10 @@ export function Library({ onSelectBook }: LibraryProps) {
   };
 
   useEffect(() => { load(); }, []);
+
+  const selectBook = (book: Book) => {
+    navigate(`/book/${book.id}`);
+  };
 
   return (
     <div className="library">
@@ -63,10 +65,10 @@ export function Library({ onSelectBook }: LibraryProps) {
             <div
               key={book.id}
               className="book-card"
-              onClick={() => onSelectBook(book)}
+              onClick={() => selectBook(book)}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && onSelectBook(book)}
+              onKeyDown={(e) => e.key === "Enter" && selectBook(book)}
             >
               <div className="book-card-title">{book.title}</div>
               <div className="book-card-author">
