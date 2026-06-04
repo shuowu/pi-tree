@@ -56,15 +56,14 @@ export class TreeManager {
       resumeSession ? { resumeSession } : undefined,
     );
 
-    // Persist the active session name so server restarts resume correctly
-    // getSessionName() returns the filename stem (e.g. "2026-06-03T21-01-20_uuid")
-    // which is what SessionManager.open() expects
-    const sessionName = piSession.getSessionName();
-    if (sessionName) {
+    // Persist the active session file path so server restarts resume correctly
+    const sessionFile = piSession.getSessionFile();
+    console.log(`[tree-manager] Session created — file: ${sessionFile}`);
+    if (sessionFile) {
       await TreeManager.writeActiveSession(
         library.getLibraryPath(),
         bookId,
-        sessionName,
+        sessionFile,
       );
     }
 
@@ -86,19 +85,19 @@ export class TreeManager {
     try {
       const raw = await readFile(manifestPath, "utf-8");
       const data = JSON.parse(raw);
-      return data.sessionId ?? undefined;
+      return data.sessionFile ?? data.sessionId ?? undefined;
     } catch {
       return undefined; // No manifest yet — first session for this book
     }
   }
 
   /**
-   * Write the active session ID to the book's manifest file.
+   * Write the active session file path to the book's manifest.
    */
   private static async writeActiveSession(
     libraryPath: string,
     bookId: string,
-    sessionId: string,
+    sessionFile: string,
   ): Promise<void> {
     const { writeFile, mkdir } = await import("fs/promises");
     const { join } = await import("path");
@@ -107,7 +106,7 @@ export class TreeManager {
     await mkdir(sessionDir, { recursive: true });
     await writeFile(
       join(sessionDir, "active.json"),
-      JSON.stringify({ sessionId, updatedAt: new Date().toISOString() }, null, 2) + "\n",
+      JSON.stringify({ sessionFile, updatedAt: new Date().toISOString() }, null, 2) + "\n",
     );
   }
 
