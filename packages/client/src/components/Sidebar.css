@@ -84,7 +84,7 @@
   color: var(--text-muted);
 }
 
-/* ── Session Tree ── */
+/* ── Navigator Tree ── */
 
 .tree-view {
   display: flex;

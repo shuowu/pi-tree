@@ -1,6 +1,14 @@
 import type { BreadcrumbItem } from "@pi-reader/shared";
 import "./Breadcrumb.css";
 
+interface PanelToggle {
+  id: string;
+  icon: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}
+
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
   onNavigate: (nodeId: string) => void;
@@ -8,6 +16,8 @@ interface BreadcrumbProps {
   onRoot: () => void;
   bookTitle: string;
   isScoped: boolean;
+  /** VS Code-style panel toggle icons */
+  panelToggles?: PanelToggle[];
 }
 
 /** Truncate a label to maxLen chars */
@@ -16,7 +26,7 @@ function truncate(text: string, maxLen: number): string {
   return text.slice(0, maxLen) + "…";
 }
 
-export function Breadcrumb({ items, onNavigate, onBack, onRoot, bookTitle, isScoped }: BreadcrumbProps) {
+export function Breadcrumb({ items, onNavigate, onBack, onRoot, bookTitle, isScoped, panelToggles }: BreadcrumbProps) {
   // Only show the last 2 breadcrumb items; collapse earlier ones into "…"
   const collapsed = items.length > 2;
   const visibleItems = collapsed ? items.slice(-2) : items;
@@ -64,6 +74,23 @@ export function Breadcrumb({ items, onNavigate, onBack, onRoot, bookTitle, isSco
           </span>
         ))}
       </div>
+
+      {/* VS Code-style panel toggle icons */}
+      {panelToggles && panelToggles.length > 0 && (
+        <div className="panel-toggles">
+          {panelToggles.map((toggle) => (
+            <button
+              key={toggle.id}
+              className={`panel-toggle ${toggle.active ? "active" : ""}`}
+              onClick={toggle.onClick}
+              title={toggle.label}
+              aria-label={toggle.label}
+            >
+              {toggle.icon}
+            </button>
+          ))}
+        </div>
+      )}
     </nav>
   );
 }

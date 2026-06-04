@@ -23,7 +23,7 @@ export function Sidebar({ tree, viewNodeId, onNavigate, isOpen, onToggle }: Side
       </button>
 
       <aside className={`sidebar ${isOpen ? "open" : ""}`}>
-        <div className="sidebar-header">🌳 Session Tree</div>
+        <div className="sidebar-header">🧭 Navigator</div>
         <div className="sidebar-content">
           <TreeView tree={tree} viewNodeId={viewNodeId} onNavigate={onNavigate} />
         </div>
@@ -32,7 +32,7 @@ export function Sidebar({ tree, viewNodeId, onNavigate, isOpen, onToggle }: Side
   );
 }
 
-// ── Tree View (Session Tree) ──
+// ── Tree View (Navigator) ──
 
 function TreeView({
   tree,

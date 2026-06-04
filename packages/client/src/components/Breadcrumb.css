@@ -104,3 +104,51 @@
   padding: 2px 4px;
   cursor: default;
 }
+
+/* ── Panel Toggle Icons (VS Code-style) ── */
+
+.panel-toggles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.panel-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.panel-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.panel-toggle.active {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+/* Active indicator bar — subtle bottom accent like VS Code */
+.panel-toggle.active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}

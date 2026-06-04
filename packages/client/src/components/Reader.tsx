@@ -30,8 +30,9 @@ export function Reader({ book, onBack }: ReaderProps) {
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
-  const [dictOpen, setDictOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
   const initialized = useRef(false);
 
   /** Apply session state from any API response */
@@ -105,7 +106,8 @@ export function Reader({ book, onBack }: ReaderProps) {
       };
 
       setDictEntries((prev) => [...prev, newEntry]);
-      setDictOpen(true); // Auto-open right sidebar
+      setRightPanelOpen(true);
+      setRightTab("dict");
 
       streamLookup(book.id, term, (token) => {
         setDictEntries((prev) =>
@@ -248,13 +250,73 @@ export function Reader({ book, onBack }: ReaderProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [viewNodeId, handleBackToRoot]);
 
+  // Right sidebar drag resize
+  const handleRightResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = rightSidebarWidth;
+
+      const onMouseMove = (ev: MouseEvent) => {
+        const newWidth = Math.max(
+          200,
+          Math.min(600, startWidth - (ev.clientX - startX)),
+        );
+        setRightSidebarWidth(newWidth);
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    },
+    [rightSidebarWidth],
+  );
+
+  // Panel toggle handlers (VS Code-style: click same = close, click different = switch)
+  const toggleNavigator = useCallback(() => {
+    setSidebarOpen((v) => !v);
+  }, []);
+
+  const toggleDict = useCallback(() => {
+    if (rightPanelOpen && rightTab === "dict") {
+      setRightPanelOpen(false);
+    } else {
+      setRightPanelOpen(true);
+      setRightTab("dict");
+    }
+  }, [rightPanelOpen, rightTab]);
+
+  const toggleBook = useCallback(() => {
+    if (rightPanelOpen && rightTab === "book") {
+      setRightPanelOpen(false);
+    } else {
+      setRightPanelOpen(true);
+      setRightTab("book");
+    }
+  }, [rightPanelOpen, rightTab]);
+
+  const panelToggles = [
+    { id: "nav", icon: "🧭", label: "Navigator", active: sidebarOpen, onClick: toggleNavigator },
+    { id: "dict", icon: "📚", label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
+    { id: "book", icon: "📖", label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
+  ];
+
   const cssVars = {
     "--sidebar-width": `${sidebarWidth}px`,
+    "--right-sidebar-width": `${rightSidebarWidth}px`,
   } as React.CSSProperties;
 
   return (
     <div
-      className={`reader ${sidebarOpen ? "sidebar-open" : ""} ${dictOpen ? "dict-open" : ""}`}
+      className={`reader ${sidebarOpen ? "sidebar-open" : ""} ${rightPanelOpen ? "dict-open" : ""}`}
       style={cssVars}
     >
       <Sidebar
@@ -276,6 +338,7 @@ export function Reader({ book, onBack }: ReaderProps) {
           onRoot={handleBackToRoot}
           bookTitle={book.title}
           isScoped={viewNodeId !== null}
+          panelToggles={panelToggles}
         />
         <ChatView
           messages={messages}
@@ -291,56 +354,45 @@ export function Reader({ book, onBack }: ReaderProps) {
       </main>
 
       {/* Right sidebar: Dictionary + Book tabs */}
-      {dictOpen && (
-        <aside className="right-sidebar">
-          <div className="right-sidebar-header">
-            <div className="right-sidebar-tabs">
+      {rightPanelOpen && (
+        <>
+          <div className="resize-handle-right" onMouseDown={handleRightResizeStart} />
+          <aside className="right-sidebar">
+            <div className="right-sidebar-header">
+              <div className="right-sidebar-tabs">
+                <button
+                  className={`right-sidebar-tab ${rightTab === "dict" ? "active" : ""}`}
+                  onClick={() => setRightTab("dict")}
+                >
+                  📚 Dict
+                  {dictEntries.length > 0 && (
+                    <span className="right-sidebar-count">{dictEntries.length}</span>
+                  )}
+                </button>
+                <button
+                  className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
+                  onClick={() => setRightTab("book")}
+                >
+                  📖 Book
+                </button>
+              </div>
               <button
-                className={`right-sidebar-tab ${rightTab === "dict" ? "active" : ""}`}
-                onClick={() => setRightTab("dict")}
+                className="right-sidebar-close"
+                onClick={() => setRightPanelOpen(false)}
+                title="Close panel"
               >
-                📚 Dict
-                {dictEntries.length > 0 && (
-                  <span className="right-sidebar-count">{dictEntries.length}</span>
-                )}
-              </button>
-              <button
-                className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
-                onClick={() => setRightTab("book")}
-              >
-                📖 Book
+                ×
               </button>
             </div>
-            <button
-              className="right-sidebar-close"
-              onClick={() => setDictOpen(false)}
-              title="Close panel"
-            >
-              ×
-            </button>
-          </div>
-          <div className="right-sidebar-body">
-            {rightTab === "dict" ? (
-              <DictionaryPanel entries={dictEntries} onRemove={handleDictRemove} />
-            ) : (
-              <BookContentPanel bookId={book.id} />
-            )}
-          </div>
-        </aside>
-      )}
-
-      {/* Toggle button when right panel is closed */}
-      {!dictOpen && (
-        <button
-          className="dict-toggle"
-          onClick={() => setDictOpen(true)}
-          title="Open side panel"
-        >
-          📖
-          {dictEntries.length > 0 && (
-            <span className="dict-toggle-badge">{dictEntries.length}</span>
-          )}
-        </button>
+            <div className="right-sidebar-body">
+              {rightTab === "dict" ? (
+                <DictionaryPanel entries={dictEntries} onRemove={handleDictRemove} />
+              ) : (
+                <BookContentPanel bookId={book.id} />
+              )}
+            </div>
+          </aside>
+        </>
       )}
     </div>
   );

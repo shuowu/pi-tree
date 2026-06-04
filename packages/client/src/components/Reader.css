@@ -17,7 +17,7 @@
   margin-left: var(--sidebar-width);
 }
 
-/* ── Resize Handle ── */
+/* ── Left Resize Handle ── */
 
 .resize-handle {
   position: fixed;
@@ -47,11 +47,38 @@
   background: var(--accent);
 }
 
+/* ── Right Resize Handle ── */
+
+.resize-handle-right {
+  width: 6px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.resize-handle-right::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+
+.resize-handle-right:hover::after,
+.resize-handle-right:active::after {
+  background: var(--accent);
+}
+
 @media (max-width: 768px) {
   .reader.sidebar-open .reader-main {
     margin-left: 0;
   }
-  .resize-handle {
+  .resize-handle,
+  .resize-handle-right {
     display: none;
   }
 }
