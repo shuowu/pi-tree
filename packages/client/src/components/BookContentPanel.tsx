@@ -166,7 +166,6 @@ function BookContent({
           <SelectionToolbar
             containerRef={contentRef}
             onDefine={onDefine}
-            onAsk={() => {}}
           />
         )}
       </div>

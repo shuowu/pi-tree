@@ -9,27 +9,6 @@
   flex-shrink: 0;
 }
 
-.breadcrumb-home {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-base);
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
-}
-
-.breadcrumb-home:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
-}
 
 .breadcrumb-items {
   display: flex;
@@ -159,6 +138,22 @@
   .breadcrumb-bar {
     padding: var(--space-2) var(--space-3);
     gap: var(--space-1);
+    /* Overlay the content instead of occupying flex space */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    /* Shy header: smooth slide transition */
+    transition: transform 300ms ease, opacity 300ms ease;
+    will-change: transform;
+  }
+
+  /* When scrolling down, slide header out */
+  .scrolled-down .breadcrumb-bar {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
   }
 
   .panel-toggle {

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, BranchOption } from "@pi-books/shared";
 import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
-import { BookOpen, Cpu } from "lucide-react";
+import { BookOpen, Cpu, ChevronDown } from "lucide-react";
 import { useUser } from "../UserContext";
 import { fetchServerConfig } from "../api";
+import { useScrollDirection, type ScrollDirection } from "../utils/useScrollDirection";
 import "./ChatView.css";
 
 marked.setOptions({
@@ -27,6 +28,8 @@ interface ChatViewProps {
   bookId: string;
   /** Define handler — sends term + surrounding context to right sidebar */
   onDefine: (term: string, context?: string) => void;
+  /** Reports scroll direction changes for shy-header behavior */
+  onScrollDirectionChange?: (direction: ScrollDirection) => void;
 }
 
 export function ChatView({
@@ -40,13 +43,43 @@ export function ChatView({
   isScoped,
   bookId,
   onDefine,
+  onScrollDirectionChange,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
+  const [quotedText, setQuotedText] = useState<string | null>(null);
   const [modelName, setModelName] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMsgIdsRef = useRef<string>("");
+
+  // Scroll direction tracking for shy-header UX
+  const scrollDir = useScrollDirection({ scrollRef: messagesContainerRef, threshold: 50 });
+  const [isNearBottom, setIsNearBottom] = useState(true);
+
+  useEffect(() => {
+    if (scrollDir && onScrollDirectionChange) {
+      onScrollDirectionChange(scrollDir);
+    }
+  }, [scrollDir, onScrollDirectionChange]);
+
+  // Track whether user is near the bottom (for scroll-to-bottom button)
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setIsNearBottom(distanceFromBottom < 300);
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
   // Fetch model info once
   useEffect(() => {
@@ -93,7 +126,14 @@ export function ChatView({
   const handleSubmit = () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
-    onSendMessage(trimmed);
+
+    let finalMessage = trimmed;
+    if (quotedText) {
+      finalMessage = `> ${quotedText}\n\n${trimmed}`;
+      setQuotedText(null);
+    }
+
+    onSendMessage(finalMessage);
     setInput("");
   };
 
@@ -106,16 +146,21 @@ export function ChatView({
 
   // Determine if typing will create a branch (scoped view with existing branches)
   const willBranch = isScoped && branches.length > 0;
-  const placeholder = willBranch
-    ? "New branch from this point…"
-    : isScoped
-      ? "Continue this thread…"
-      : "Ask about the book, or try: deep dive, next chapter, zoom out…";
+  const placeholder = quotedText
+    ? "Ask a question about the quoted text…"
+    : willBranch
+      ? "New branch from this point…"
+      : isScoped
+        ? "Continue this thread…"
+        : "Ask about the book, or try: deep dive, next chapter, zoom out…";
 
   const handleAsk = useCallback(
     (text: string) => {
-      setInput(`What does "${text}" mean in the context of this book?`);
-      textareaRef.current?.focus();
+      setQuotedText(text);
+      // Focus in a timeout to let the selection toolbar unmount first
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
     },
     [],
   );
@@ -162,6 +207,17 @@ export function ChatView({
         />
 
         <div ref={messagesEndRef} />
+
+        {/* Scroll-to-bottom FAB — standard chat UX (Slack, Discord, WhatsApp) */}
+        {!isNearBottom && (
+          <button
+            className="scroll-to-bottom"
+            onClick={scrollToBottom}
+            aria-label="Scroll to bottom"
+          >
+            <ChevronDown size={20} />
+          </button>
+        )}
       </div>
 
       <div className="chat-input-container">
@@ -170,25 +226,42 @@ export function ChatView({
             <span className="chat-model-badge"><Cpu size={11} /> {modelName}</span>
           </div>
         )}
-        <div className="chat-input-wrapper">
-          <textarea
-            ref={textareaRef}
-            className="chat-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            rows={1}
-            disabled={isLoading}
-          />
-          <button
-            className="chat-send"
-            onClick={handleSubmit}
-            disabled={!input.trim() || isLoading}
-            aria-label="Send message"
-          >
-            ↑
-          </button>
+        <div className="chat-input-area-wrapper">
+          {quotedText && (
+            <div className="chat-quote-preview">
+              <div className="chat-quote-content">
+                <span className="chat-quote-label">Quote</span>
+                <span className="chat-quote-text">“{quotedText}”</span>
+              </div>
+              <button
+                className="chat-quote-remove"
+                onClick={() => setQuotedText(null)}
+                title="Remove quote"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          <div className="chat-input-wrapper">
+            <textarea
+              ref={textareaRef}
+              className="chat-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              rows={1}
+              disabled={isLoading}
+            />
+            <button
+              className="chat-send"
+              onClick={handleSubmit}
+              disabled={!input.trim() || isLoading}
+              aria-label="Send message"
+            >
+              ↑
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -197,17 +270,19 @@ export function ChatView({
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isAssistant = message.role === "assistant";
+  const isUser = message.role === "user";
+  const isMarkdown = isAssistant || (isUser && message.content.trim().startsWith(">"));
 
   const html = useMemo(() => {
-    if (!isAssistant) return "";
+    if (!isMarkdown) return "";
     return marked.parse(message.content) as string;
-  }, [message.content, isAssistant]);
+  }, [message.content, isMarkdown]);
 
   return (
     <div className={`chat-message chat-message-${message.role}`}>
       {isAssistant && <div className="chat-avatar">✦</div>}
       <div className="chat-bubble">
-        {isAssistant ? (
+        {isMarkdown ? (
           <div
             className="chat-content markdown"
             dangerouslySetInnerHTML={{ __html: html }}

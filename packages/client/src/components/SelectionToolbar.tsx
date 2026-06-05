@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookA, MessageCircle } from "lucide-react";
+import { BookA, Quote } from "lucide-react";
 import "./SelectionToolbar.css";
 
 interface SelectionToolbarProps {
   /** Define: sends term + surrounding context to right sidebar dictionary panel */
   onDefine: (text: string, context?: string) => void;
   /** Ask: prefills chat input */
-  onAsk: (text: string) => void;
+  onAsk?: (text: string) => void;
   /** Container element to listen for selections in */
   containerRef: React.RefObject<HTMLElement | null>;
 }
@@ -174,7 +174,9 @@ export function SelectionToolbar({
   };
 
   const handleAsk = () => {
-    onAsk(selectedText);
+    if (onAsk) {
+      onAsk(selectedText!);
+    }
     window.getSelection()?.removeAllRanges();
     dismiss();
   };
@@ -192,9 +194,11 @@ export function SelectionToolbar({
         <button className="selection-btn" onClick={handleDefine} title="Look up in dictionary">
           <BookA size={14} /> Define
         </button>
-        <button className="selection-btn" onClick={handleAsk} title="Ask in chat">
-          <MessageCircle size={14} /> Ask
-        </button>
+        {onAsk && (
+          <button className="selection-btn" onClick={handleAsk} title="Quote and Ask in chat">
+            <Quote size={14} /> Quote & Ask
+          </button>
+        )}
       </div>
     </div>
   );

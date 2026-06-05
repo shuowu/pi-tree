@@ -82,6 +82,11 @@
   .resize-handle-right {
     display: none;
   }
+
+  /* On mobile, reader-main is a positioning context for the overlay header */
+  .reader-main {
+    position: relative;
+  }
 }
 
 /* ── Overlay Backdrop ── */

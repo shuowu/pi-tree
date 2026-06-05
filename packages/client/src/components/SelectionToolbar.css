@@ -49,15 +49,9 @@
   color: var(--text-primary);
 }
 
-/* ── Mobile ── */
-
-@media (max-width: 768px) {
-  .selection-toolbar-buttons {
-    padding: 4px;
-  }
-
-  .selection-btn {
-    padding: 8px 14px;
-    font-size: var(--text-sm);
+/* Hide on touch devices — conflicts with iOS/Android native selection menu */
+@media (pointer: coarse) {
+  .selection-toolbar {
+    display: none;
   }
 }

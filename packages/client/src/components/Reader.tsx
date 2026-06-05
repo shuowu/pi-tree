@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ScrollDirection } from "../utils/useScrollDirection";
 import { useNavigate, useSearchParams } from "react-router";
 import type {
   Book,
@@ -17,7 +18,7 @@ import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, DictQuickCard, type DictEntry } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
 import { BookSettingsModal } from "./BookSettingsModal";
-import { GitBranch, BookA, BookOpen, X, Settings } from "lucide-react";
+import { PanelLeft, PanelRight, FileText, Home, X, Settings } from "lucide-react";
 import "./Reader.css";
 
 interface ReaderProps {
@@ -114,6 +115,7 @@ export function Reader({ book }: ReaderProps) {
   const [showWelcome, setShowWelcome] = useState(false);
   const [showBookSettings, setShowBookSettings] = useState(false);
   const [quickLookupId, setQuickLookupId] = useState<string | null>(null);
+  const [scrollDirection, setScrollDirection] = useState<ScrollDirection>(null);
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
   // browser-initiated changes (back/forward) vs our own updates.
@@ -590,9 +592,9 @@ export function Reader({ book }: ReaderProps) {
   }, [userId, book.id]);
 
   const panelToggles = [
-    { id: "nav", icon: <GitBranch size={16} />, label: "Session Tree", active: sidebarOpen, onClick: toggleNavigator },
-    { id: "dict", icon: <BookA size={16} />, label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
-    { id: "book", icon: <BookOpen size={16} />, label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
+    { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },
+    { id: "nav", icon: <PanelLeft size={16} />, label: "Session Tree", active: sidebarOpen, onClick: toggleNavigator },
+    { id: "dict", icon: <PanelRight size={16} />, label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
     { id: "settings", icon: <Settings size={16} />, label: "Book Settings", active: showBookSettings, onClick: () => setShowBookSettings(true) },
   ];
 
@@ -603,7 +605,7 @@ export function Reader({ book }: ReaderProps) {
 
   return (
     <div
-      className={`reader ${sidebarOpen ? "sidebar-open" : ""} ${rightPanelOpen ? "dict-open" : ""}`}
+      className={`reader ${sidebarOpen ? "sidebar-open" : ""} ${rightPanelOpen ? "dict-open" : ""} ${scrollDirection === "down" ? "scrolled-down" : ""}`}
       style={cssVars}
     >
       {/* Mobile overlay backdrop */}
@@ -628,7 +630,6 @@ export function Reader({ book }: ReaderProps) {
         <Breadcrumb
           items={breadcrumb}
           onNavigate={handleNavigate}
-          onHome={goBack}
           bookTitle={book.title}
           isScoped={viewNodeId !== null}
           panelToggles={panelToggles}
@@ -658,6 +659,7 @@ export function Reader({ book }: ReaderProps) {
             isScoped={viewNodeId !== null}
             bookId={book.id}
             onDefine={handleDefine}
+            onScrollDirectionChange={setScrollDirection}
           />
         )}
       </main>

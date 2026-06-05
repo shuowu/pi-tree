@@ -1,6 +1,5 @@
 import type { BreadcrumbItem } from "@pi-books/shared";
 import type { ReactNode } from "react";
-import { Home } from "lucide-react";
 import "./Breadcrumb.css";
 
 interface PanelToggle {
@@ -14,10 +13,9 @@ interface PanelToggle {
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
   onNavigate: (nodeId: string) => void;
-  onHome: () => void;
   bookTitle: string;
   isScoped: boolean;
-  /** VS Code-style panel toggle icons */
+  /** All header action icons, rendered on the right */
   panelToggles?: PanelToggle[];
 }
 
@@ -27,17 +25,13 @@ function truncate(text: string, maxLen: number): string {
   return text.slice(0, maxLen) + "…";
 }
 
-export function Breadcrumb({ items, onNavigate, onHome, bookTitle, isScoped, panelToggles }: BreadcrumbProps) {
+export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggles }: BreadcrumbProps) {
   // Only show the last 2 breadcrumb items; collapse earlier ones into "…"
   const collapsed = items.length > 2;
   const visibleItems = collapsed ? items.slice(-2) : items;
 
   return (
     <nav className="breadcrumb-bar" aria-label="Reading path">
-      <button className="breadcrumb-home" onClick={onHome} aria-label="Library" title="Back to library">
-        <Home size={16} />
-      </button>
-
       <div className="breadcrumb-items">
         {isScoped ? (
           <button className="breadcrumb-link breadcrumb-root" onClick={() => onNavigate("")}>
@@ -76,7 +70,7 @@ export function Breadcrumb({ items, onNavigate, onHome, bookTitle, isScoped, pan
         ))}
       </div>
 
-      {/* VS Code-style panel toggle icons */}
+      {/* All action icons grouped on the right */}
       {panelToggles && panelToggles.length > 0 && (
         <div className="panel-toggles">
           {panelToggles.map((toggle) => (
