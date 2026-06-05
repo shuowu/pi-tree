@@ -3,8 +3,9 @@ import { useNavigate } from "react-router";
 import type { Book } from "@pi-reader/shared";
 import { fetchBooks } from "../api";
 import { useUser } from "../UserContext";
-import { BookOpen, LogOut } from "lucide-react";
+import { BookOpen, LogOut, Plus } from "lucide-react";
 import { BookCover } from "./BookCover";
+import { AddBookModal } from "./AddBookModal";
 import "./Library.css";
 
 export function Library() {
@@ -13,6 +14,7 @@ export function Library() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -36,26 +38,29 @@ export function Library() {
   return (
     <div className="library">
       <header className="library-header">
-        <h1><BookOpen size={28} strokeWidth={1.5} /> <span>Pi Reader</span></h1>
-        <p>AI-assisted reading with tree-structured conversations</p>
-        {displayName && (
-          <div className="library-user-bar">
-            <span className="library-user-pill">
-              <span className="library-user-avatar">
-                {displayName.charAt(0).toUpperCase()}
-              </span>
-              {displayName}
-            </span>
-            <button
-              className="library-switch-user"
-              onClick={clearUser}
-              title="Switch user"
-            >
-              <LogOut size={14} />
-              Switch User
-            </button>
-          </div>
-        )}
+        <div className="library-header-left">
+          <h1><BookOpen size={24} strokeWidth={1.5} /> <span>Pi Reader</span></h1>
+        </div>
+        <div className="library-header-right">
+          <button
+            className="library-add-btn"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus size={16} strokeWidth={2} />
+            Add Book
+          </button>
+          {displayName && (
+            <div className="library-user-menu">
+              <button className="library-user-pill" onClick={clearUser} title="Switch user">
+                <span className="library-user-avatar">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
+                {displayName}
+                <LogOut size={14} />
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {loading && (
@@ -85,6 +90,7 @@ export function Library() {
 
       {!loading && !error && (
         <div className="library-grid">
+
           {books.map((book) => (
             <div
               key={book.id}
@@ -113,11 +119,23 @@ export function Library() {
                   {book.hasOutline && (
                     <span className="badge badge-amber">Outline</span>
                   )}
+                  {book.source === "upload" && (
+                    <span className="badge badge-blue">Uploaded</span>
+                  )}
+                  {book.status === "failed" && (
+                    <span className="badge badge-red">Failed</span>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+      {showAddModal && (
+        <AddBookModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => { setShowAddModal(false); load(); }}
+        />
       )}
     </div>
   );
