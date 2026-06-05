@@ -4,6 +4,16 @@ AI-assisted book reading with tree-structured conversations. Upload your own boo
 
 > **Bring Your Own Key** — pi-reader runs locally. You provide your own LLM API key. No data leaves your machine except API calls to your chosen provider.
 
+## Why
+
+I started reading with AI in the terminal — using [Pi](https://pi.dev), a minimalist AI agent that gives you total freedom. No menus, no preset workflows, just a conversation tree and your curiosity. It was the best reading experience I'd ever had. But it was also mine alone — no one else in my family could use a terminal tool, and that felt like a waste. The power of AI-assisted reading shouldn't require a developer's setup.
+
+At the same time, most AI apps go the other direction: they box you into the builder's vision of how things should work. Pi-reader tries to find the middle ground — a real UI that anyone can pick up, built on the same minimalist, tree-structured conversation model that makes the terminal experience so powerful.
+
+I also believe AI is heading toward specialization: not one model that does everything, but focused tools that each do one thing exceptionally well. Pi-reader is that kind of tool — it doesn't try to be a general chatbot. It's a **reading companion**, and every design decision serves that single purpose.
+
+*Read more about the design philosophy → [docs/VISION.md](docs/VISION.md)*
+
 ## Key Concepts
 
 - **Conversation-first**: The chat IS the reading experience. Book text is surfaced as quotes/context.
