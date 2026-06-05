@@ -2,7 +2,7 @@ services:
   pi-reader:
     build: .
     ports:
-      - "${PORT:-3001}:${PORT:-3001}"
+      - "${PORT:-3847}:${PORT:-3847}"
     env_file: .env
     volumes:
       - ${LIBRARY_PATH:-./library}:/library:ro

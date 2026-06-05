@@ -38,7 +38,6 @@ COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/server/package.json ./packages/server/
 COPY --from=build /app/packages/server/dist ./packages/server/dist
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/packages/server/node_modules ./packages/server/node_modules 2>/dev/null || true
 
 # Copy client build output (served by Hono serveStatic in production mode)
 COPY --from=build /app/packages/client/dist ./packages/client/dist
