@@ -321,3 +321,16 @@ export async function saveGlossary(
   });
   if (!res.ok) throw new Error(`Save glossary failed: ${res.status}`);
 }
+
+/**
+ * Fetch all saved glossary entries for a user+book.
+ */
+export async function fetchGlossary(
+  userId: string,
+  bookId: string,
+): Promise<Array<{ id: number; term: string; definition: string | null; createdAt: string }>> {
+  const res = await fetch(`${API}/session/glossary/${userId}/${bookId}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.entries ?? [];
+}

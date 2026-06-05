@@ -7,7 +7,7 @@ import type {
   TreeNodeView,
   BranchOption,
 } from "@pi-reader/shared";
-import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary } from "../api";
+import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary, fetchGlossary } from "../api";
 import { useUser } from "../UserContext";
 import { ChatView } from "./ChatView";
 import { WelcomeState, type SessionMode } from "./WelcomeState";
@@ -299,6 +299,22 @@ export function Reader({ book }: ReaderProps) {
       setIsLoading(true);
       try {
         const state = await startSession(userId, book.id);
+
+        // Load persisted glossary entries from DB
+        try {
+          const saved = await fetchGlossary(userId, book.id);
+          if (saved.length > 0) {
+            setDictEntries(saved.map((e) => ({
+              id: `saved-${e.id}`,
+              term: e.term,
+              definition: e.definition ?? "",
+              streaming: false,
+              timestamp: e.createdAt,
+            })));
+          }
+        } catch {
+          // Glossary load failed — non-critical, continue
+        }
 
         if (state.messages.length > 0) {
           // Existing session — restore it

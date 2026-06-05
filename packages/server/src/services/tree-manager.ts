@@ -16,7 +16,7 @@ import type {
   ReaderConfig,
 } from "@pi-reader/shared";
 import { DEFAULT_CONFIG } from "@pi-reader/shared";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { getDb, users, userBookSessions, glossaryEntries } from "../db/index.js";
 import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
 import { LibraryService } from "./library.js";
@@ -462,5 +462,28 @@ export class TreeManager {
         createdAt: now,
       })
       .run();
+  }
+
+  /**
+   * Retrieve all glossary entries for this user+book, ordered newest-first.
+   */
+  getGlossaryEntries(): Array<{
+    id: number;
+    term: string;
+    definition: string | null;
+    createdAt: string;
+  }> {
+    const db = getDb();
+    return db
+      .select()
+      .from(glossaryEntries)
+      .where(
+        and(
+          eq(glossaryEntries.userId, this.userId),
+          eq(glossaryEntries.bookId, this.bookId),
+        ),
+      )
+      .orderBy(desc(glossaryEntries.createdAt))
+      .all();
   }
 }

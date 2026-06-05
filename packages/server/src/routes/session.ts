@@ -223,3 +223,12 @@ sessionRoutes.post("/glossary/save", async (c) => {
   await manager.saveGlossaryEntry(body.term, body.definition);
   return c.json({ ok: true });
 });
+
+/** Get all saved glossary entries for a user+book */
+sessionRoutes.get("/glossary/:userId/:bookId", async (c) => {
+  const userId = c.req.param("userId");
+  const bookId = c.req.param("bookId");
+  const manager = await getSession(userId, bookId);
+  const entries = manager.getGlossaryEntries();
+  return c.json({ entries });
+});
