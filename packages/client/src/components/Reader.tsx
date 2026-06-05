@@ -136,7 +136,7 @@ export function Reader({ book }: ReaderProps) {
   // ---------------------------------------------------------------------------
 
   const handleDefine = useCallback(
-    (term: string) => {
+    (term: string, context?: string) => {
       if (!userId) return;
 
       const entryId = `dict-${Date.now()}`;
@@ -158,7 +158,7 @@ export function Reader({ book }: ReaderProps) {
             e.id === entryId ? { ...e, definition: e.definition + token } : e,
           ),
         );
-      })
+      }, context)
         .then((fullDef) => {
           setDictEntries((prev) =>
             prev.map((e) =>

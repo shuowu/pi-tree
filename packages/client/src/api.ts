@@ -260,11 +260,12 @@ export async function streamLookup(
   bookId: string,
   term: string,
   onToken: (token: string) => void,
+  context?: string,
 ): Promise<string> {
   const res = await fetch(`${API}/session/lookup/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, term }),
+    body: JSON.stringify({ userId, bookId, term, context }),
   });
 
   if (!res.ok) throw new Error(`Lookup failed: ${res.status}`);

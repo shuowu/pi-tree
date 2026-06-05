@@ -409,6 +409,7 @@ export class TreeManager {
       summary: { ...this.config.summary, ...partial.summary },
       compaction: { ...this.config.compaction, ...partial.compaction },
       navigation: { ...this.config.navigation, ...partial.navigation },
+      lookup: { ...this.config.lookup, ...partial.lookup },
     };
   }
 
@@ -419,16 +420,19 @@ export class TreeManager {
   async handleLookup(
     term: string,
     callbacks: {
+      context?: string;
       onToken: (token: string) => Promise<void>;
       onDone: (definition: string) => Promise<void>;
     },
   ): Promise<void> {
-    const prompt = [
-      `Define "${term}" concisely in the context of this book.`,
-      `If it's a book-specific concept, explain the author's meaning.`,
-      `If it's a general term, give a brief dictionary-style definition.`,
-      `Keep it to 2-3 sentences. No markdown headers.`,
-    ].join(" ");
+    const template = this.config.lookup.promptTemplate;
+    const bookTitle = this.bookId.replace(/_/g, " ");
+
+    const prompt = this.renderLookupTemplate(template, {
+      term,
+      context: callbacks.context,
+      bookTitle,
+    });
 
     // Use the PiSession's ephemeral lookup (doesn't modify session tree)
     const definition = await this.piSession.ephemeralLookup(
@@ -437,6 +441,36 @@ export class TreeManager {
     );
 
     await callbacks.onDone(definition);
+  }
+
+  /**
+   * Render a lookup prompt template with Mustache-style placeholders.
+   * Supports: {{term}}, {{context}}, {{bookTitle}}
+   * Conditional blocks: {{#context}}...{{/context}} — included only if context is truthy.
+   */
+  private renderLookupTemplate(
+    template: string,
+    vars: { term: string; context?: string; bookTitle: string },
+  ): string {
+    let result = template;
+
+    // Handle conditional blocks: {{#context}}...{{/context}}
+    if (vars.context) {
+      result = result.replace(/\{\{#context\}\}([\s\S]*?)\{\{\/context\}\}/g, "$1");
+    } else {
+      result = result.replace(/\{\{#context\}\}[\s\S]*?\{\{\/context\}\}/g, "");
+    }
+
+    // Replace simple placeholders
+    result = result
+      .replace(/\{\{term\}\}/g, vars.term)
+      .replace(/\{\{context\}\}/g, vars.context ?? "")
+      .replace(/\{\{bookTitle\}\}/g, vars.bookTitle);
+
+    // Clean up blank lines from removed conditional blocks
+    result = result.replace(/\n{3,}/g, "\n\n").trim();
+
+    return result;
   }
 
   // ---------------------------------------------------------------------------

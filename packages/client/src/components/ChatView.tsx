@@ -24,8 +24,8 @@ interface ChatViewProps {
   isScoped: boolean;
   /** Book ID for dictionary lookups */
   bookId: string;
-  /** Define handler — sends term to right sidebar */
-  onDefine: (term: string) => void;
+  /** Define handler — sends term + surrounding context to right sidebar */
+  onDefine: (term: string, context?: string) => void;
 }
 
 export function ChatView({

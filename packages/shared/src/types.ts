@@ -186,10 +186,38 @@ export interface NavigationConfig {
   confirmZoomOut: boolean;
 }
 
+export interface LookupConfig {
+  /**
+   * Prompt template for dictionary lookups.
+   * Placeholders: {{term}}, {{context}}, {{bookTitle}}
+   * Override this to customise lookup behavior per book/user.
+   */
+  promptTemplate: string;
+  /** Preferred model for lookups (fast/cheap). Falls back to session model if unavailable. */
+  model?: string;
+}
+
+/** Default bilingual (EN/ZH) lookup prompt */
+export const DEFAULT_LOOKUP_PROMPT = [
+  'Define "{{term}}" concisely in the context of the book "{{bookTitle}}".',
+  "",
+  "{{#context}}",
+  "Surrounding text where this term appeared:",
+  "> {{context}}",
+  "{{/context}}",
+  "",
+  "Guidelines:",
+  "- If this is a book-specific concept, explain the author's intended meaning.",
+  "- If the term is in Chinese, respond in Chinese. If in English, respond in English.",
+  "- Keep your answer to 2–3 sentences. No markdown headers.",
+  "- Do not repeat the term at the start of your answer.",
+].join("\n");
+
 export interface ReaderConfig {
   summary: SummaryConfig;
   compaction: CompactionConfig;
   navigation: NavigationConfig;
+  lookup: LookupConfig;
 }
 
 export const DEFAULT_CONFIG: ReaderConfig = {
@@ -208,7 +236,11 @@ export const DEFAULT_CONFIG: ReaderConfig = {
     confirmBranch: false,
     confirmZoomOut: false,
   },
+  lookup: {
+    promptTemplate: DEFAULT_LOOKUP_PROMPT,
+  },
 };
+
 
 // ---------------------------------------------------------------------------
 // Intent Classification — server decides branch vs continue

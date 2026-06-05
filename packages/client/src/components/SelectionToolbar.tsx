@@ -3,8 +3,8 @@ import { BookA, MessageCircle } from "lucide-react";
 import "./SelectionToolbar.css";
 
 interface SelectionToolbarProps {
-  /** Define: sends term to right sidebar dictionary panel */
-  onDefine: (text: string) => void;
+  /** Define: sends term + surrounding context to right sidebar dictionary panel */
+  onDefine: (text: string, context?: string) => void;
   /** Ask: prefills chat input */
   onAsk: (text: string) => void;
   /** Container element to listen for selections in */
@@ -142,7 +142,33 @@ export function SelectionToolbar({
   if (!selectedText || !position) return null;
 
   const handleDefine = () => {
-    onDefine(selectedText);
+    // Capture surrounding context from the paragraph/message containing the selection
+    const selection = window.getSelection();
+    let context: string | undefined;
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      // Walk up to the nearest block-level container (.chat-content or <p>)
+      const container =
+        range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+          ? range.commonAncestorContainer.parentElement
+          : (range.commonAncestorContainer as HTMLElement);
+      const blockParent = container?.closest(".chat-content, p, blockquote, li");
+      if (blockParent) {
+        const fullText = blockParent.textContent ?? "";
+        // Keep a window of ~200 chars around the selection
+        const selText = selectedText ?? "";
+        const idx = fullText.indexOf(selText);
+        if (idx >= 0) {
+          const start = Math.max(0, idx - 100);
+          const end = Math.min(fullText.length, idx + selText.length + 100);
+          context = fullText.slice(start, end).trim();
+        } else {
+          // Fallback: first 200 chars of the container
+          context = fullText.slice(0, 200).trim();
+        }
+      }
+    }
+    onDefine(selectedText!, context);
     window.getSelection()?.removeAllRanges();
     dismiss();
   };

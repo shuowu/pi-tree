@@ -189,6 +189,7 @@ sessionRoutes.post("/lookup/stream", async (c) => {
   const body = await c.req.json<{
     bookId: string;
     term: string;
+    context?: string;
     userId?: string;
   }>();
   const userId = extractUserId(body);
@@ -197,6 +198,7 @@ sessionRoutes.post("/lookup/stream", async (c) => {
 
   return streamSSE(c, async (stream) => {
     await manager.handleLookup(body.term, {
+      context: body.context,
       onToken: async (token: string) => {
         await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
       },
