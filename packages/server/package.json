@@ -16,16 +16,21 @@
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.78.0",
     "@hono/node-server": "^1.14.0",
+    "@lingo-reader/mobi-parser": "^0.4.6",
     "@pi-reader/shared": "*",
     "better-sqlite3": "^12.10.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "epub2": "^3.0.2",
     "hono": "^4.7.0",
+    "pdf-parse": "^2.4.5",
+    "turndown": "^7.2.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
+    "@types/turndown": "^5.0.6",
     "drizzle-kit": "^0.31.4",
     "tsx": "^4.19.0",
     "vitest": "^4.1.8"

@@ -1,6 +1,7 @@
 import type { Book, BookOutline, OutlineEntry } from "@pi-reader/shared";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { BookIngestionService } from "./book-ingestion.js";
 
 /**
  * LibraryService — reads books from the pi-books library on disk.
@@ -10,12 +11,20 @@ import { join } from "node:path";
  */
 export class LibraryService {
   private libraryPath: string;
+  private userBooksPath: string;
+  private ingestion: BookIngestionService;
 
-  constructor(libraryPath?: string) {
+  constructor(libraryPath?: string, dataPath?: string) {
     this.libraryPath =
       libraryPath ??
       process.env.LIBRARY_PATH ??
       join(process.env.HOME ?? "~", "repos", "pi-books", "library");
+    const dp =
+      dataPath ??
+      process.env.DATA_PATH ??
+      join(process.env.HOME ?? "~", ".local", "share", "pi-reader");
+    this.userBooksPath = join(dp, "books");
+    this.ingestion = new BookIngestionService();
   }
 
   getLibraryPath(): string {
@@ -24,7 +33,7 @@ export class LibraryService {
 
   async listBooks(): Promise<Book[]> {
     const entries = await readdir(this.libraryPath, { withFileTypes: true });
-    const books: Book[] = [];
+    const libraryBooks: Book[] = [];
 
     for (const entry of entries) {
       if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
@@ -47,7 +56,7 @@ export class LibraryService {
         await this.exists(join(bookPath, "cover.gif"))
       );
 
-      books.push({
+      libraryBooks.push({
         id: folderName,
         title: parsed.title,
         author: parsed.author,
@@ -57,10 +66,12 @@ export class LibraryService {
         hasMarkdown,
         hasOutline,
         hasCover,
+        source: "library",
       });
     }
 
-    return books;
+    const uploadedBooks = await this.ingestion.listUploadedBooks();
+    return [...libraryBooks, ...uploadedBooks];
   }
 
   async getBook(bookId: string): Promise<Book | null> {
@@ -69,12 +80,17 @@ export class LibraryService {
   }
 
   async getCoverPath(bookId: string): Promise<string | null> {
-    const bookPath = join(this.libraryPath, bookId);
+    const searchPaths = [
+      join(this.libraryPath, bookId),
+      join(this.userBooksPath, bookId),
+    ];
     const extensions = ["jpg", "jpeg", "png", "webp", "gif"];
-    for (const ext of extensions) {
-      const coverPath = join(bookPath, `cover.${ext}`);
-      if (await this.exists(coverPath)) {
-        return coverPath;
+    for (const basePath of searchPaths) {
+      for (const ext of extensions) {
+        const coverPath = join(basePath, `cover.${ext}`);
+        if (await this.exists(coverPath)) {
+          return coverPath;
+        }
       }
     }
     return null;
@@ -86,19 +102,20 @@ export class LibraryService {
     if (tocJson) return tocJson;
 
     // 2. Fallback: parse outline.md (Navigation Map or heading extraction)
-    const outlinePath = join(
-      this.libraryPath,
-      bookId,
-      "analysis",
-      "outline.md",
-    );
+    const candidatePaths = [
+      join(this.libraryPath, bookId, "analysis", "outline.md"),
+      join(this.userBooksPath, bookId, "analysis", "outline.md"),
+    ];
 
-    try {
-      const content = await readFile(outlinePath, "utf-8");
-      return this.parseOutline(bookId, content);
-    } catch {
-      return null;
+    for (const outlinePath of candidatePaths) {
+      try {
+        const content = await readFile(outlinePath, "utf-8");
+        return this.parseOutline(bookId, content);
+      } catch {
+        // Try next path
+      }
     }
+    return null;
   }
 
   /**
@@ -106,46 +123,53 @@ export class LibraryService {
    * This is the preferred source — emitted by the book-outline skill as clean JSON.
    */
   private async loadTocJson(bookId: string): Promise<BookOutline | null> {
-    const tocPath = join(this.libraryPath, bookId, "analysis", "toc.json");
+    const candidatePaths = [
+      join(this.libraryPath, bookId, "analysis", "toc.json"),
+      join(this.userBooksPath, bookId, "analysis", "toc.json"),
+    ];
 
-    try {
-      const raw = await readFile(tocPath, "utf-8");
-      const data = JSON.parse(raw) as Array<{
-        line: number;
-        level: number;
-        title: string;
-      }>;
-
-      if (!Array.isArray(data) || data.length === 0) return null;
-
-      const entries: OutlineEntry[] = data.map((d) => ({
-        line: d.line,
-        level: d.level,
-        title: d.title,
-        children: [],
-      }));
-
-      const root = this.buildOutlineTree(entries);
-
-      // Try to get summary from outline.md if it exists
-      let summary = "";
+    for (const tocPath of candidatePaths) {
       try {
-        const outlinePath = join(
-          this.libraryPath,
-          bookId,
-          "analysis",
-          "outline.md",
-        );
-        const outlineContent = await readFile(outlinePath, "utf-8");
-        summary = this.extractSummary(outlineContent.split("\n"));
-      } catch {
-        // No outline.md — that's fine
-      }
+        const raw = await readFile(tocPath, "utf-8");
+        const data = JSON.parse(raw) as Array<{
+          line: number;
+          level: number;
+          title: string;
+        }>;
 
-      return { bookId, summary, entries: root };
-    } catch {
-      return null;
+        if (!Array.isArray(data) || data.length === 0) continue;
+
+        const entries: OutlineEntry[] = data.map((d) => ({
+          line: d.line,
+          level: d.level,
+          title: d.title,
+          children: [],
+        }));
+
+        const root = this.buildOutlineTree(entries);
+
+        // Try to get summary from outline.md if it exists
+        let summary = "";
+        const outlineCandidates = [
+          join(this.libraryPath, bookId, "analysis", "outline.md"),
+          join(this.userBooksPath, bookId, "analysis", "outline.md"),
+        ];
+        for (const outlinePath of outlineCandidates) {
+          try {
+            const outlineContent = await readFile(outlinePath, "utf-8");
+            summary = this.extractSummary(outlineContent.split("\n"));
+            break;
+          } catch {
+            // Try next
+          }
+        }
+
+        return { bookId, summary, entries: root };
+      } catch {
+        // Try next path
+      }
     }
+    return null;
   }
 
   async readContent(
@@ -153,19 +177,25 @@ export class LibraryService {
     startLine: number,
     endLine: number,
   ): Promise<string | null> {
-    const mdDir = join(this.libraryPath, bookId, "markdown");
+    const candidateDirs = [
+      join(this.libraryPath, bookId, "markdown"),
+      join(this.userBooksPath, bookId, "markdown"),
+    ];
 
-    try {
-      const files = await readdir(mdDir);
-      const mdFile = files.find((f) => f.endsWith(".md"));
-      if (!mdFile) return null;
+    for (const mdDir of candidateDirs) {
+      try {
+        const files = await readdir(mdDir);
+        const mdFile = files.find((f) => f.endsWith(".md"));
+        if (!mdFile) continue;
 
-      const content = await readFile(join(mdDir, mdFile), "utf-8");
-      const lines = content.split("\n");
-      return lines.slice(startLine - 1, endLine).join("\n");
-    } catch {
-      return null;
+        const content = await readFile(join(mdDir, mdFile), "utf-8");
+        const lines = content.split("\n");
+        return lines.slice(startLine - 1, endLine).join("\n");
+      } catch {
+        // Try next path
+      }
     }
+    return null;
   }
 
   /**
@@ -217,43 +247,49 @@ export class LibraryService {
   private async extractHeadingsFromMarkdown(
     bookId: string,
   ): Promise<Array<{ line: number; level: number; title: string }> | null> {
-    const mdDir = join(this.libraryPath, bookId, "markdown");
+    const candidateDirs = [
+      join(this.libraryPath, bookId, "markdown"),
+      join(this.userBooksPath, bookId, "markdown"),
+    ];
 
-    try {
-      const files = await readdir(mdDir);
-      const mdFile = files.find((f) => f.endsWith(".md"));
-      if (!mdFile) return null;
+    for (const mdDir of candidateDirs) {
+      try {
+        const files = await readdir(mdDir);
+        const mdFile = files.find((f) => f.endsWith(".md"));
+        if (!mdFile) continue;
 
-      const content = await readFile(join(mdDir, mdFile), "utf-8");
-      const lines = content.split("\n");
-      const headings: Array<{ line: number; level: number; title: string }> = [];
+        const content = await readFile(join(mdDir, mdFile), "utf-8");
+        const lines = content.split("\n");
+        const headings: Array<{ line: number; level: number; title: string }> = [];
 
-      let inCodeBlock = false;
-      for (let i = 0; i < lines.length; i++) {
-        // Skip lines inside fenced code blocks
-        if (/^(`{3,}|~{3,})/.test(lines[i])) {
-          inCodeBlock = !inCodeBlock;
-          continue;
-        }
-        if (inCodeBlock) continue;
+        let inCodeBlock = false;
+        for (let i = 0; i < lines.length; i++) {
+          // Skip lines inside fenced code blocks
+          if (/^(`{3,}|~{3,})/.test(lines[i])) {
+            inCodeBlock = !inCodeBlock;
+            continue;
+          }
+          if (inCodeBlock) continue;
 
-        const match = lines[i].match(/^(#{1,6})\s+(.+)/);
-        if (match) {
-          const title = this.cleanHeadingTitle(match[2]);
-          if (title.length > 0 && !this.isNoiseHeading(title)) {
-            headings.push({
-              line: i + 1,
-              level: match[1].length,
-              title,
-            });
+          const match = lines[i].match(/^(#{1,6})\s+(.+)/);
+          if (match) {
+            const title = this.cleanHeadingTitle(match[2]);
+            if (title.length > 0 && !this.isNoiseHeading(title)) {
+              headings.push({
+                line: i + 1,
+                level: match[1].length,
+                title,
+              });
+            }
           }
         }
-      }
 
-      return headings;
-    } catch {
-      return null;
+        return headings;
+      } catch {
+        // Try next path
+      }
     }
+    return null;
   }
 
   /**
