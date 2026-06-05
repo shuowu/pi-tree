@@ -10,7 +10,7 @@ I started reading with AI in the terminal — using [Pi](https://pi.dev), a mini
 
 At the same time, most AI apps go the other direction: they box you into the builder's vision of how things should work. Pi-reader tries to find the middle ground — a real UI that anyone can pick up, built on the same minimalist, tree-structured conversation model that makes the terminal experience so powerful.
 
-I also believe AI is heading toward specialization: not one model that does everything, but focused tools that each do one thing exceptionally well. Pi-reader is that kind of tool — it doesn't try to be a general chatbot. It's a **reading companion**, and every design decision serves that single purpose.
+I also believe AI is heading toward specialization: not one model that does everything, but focused tools that each do one thing exceptionally well. Pi-reader is that kind of tool — it doesn't try to be a general chatbot. It's a **reading companion**, and every design decision serves that single purpose. And it runs entirely on your machine — your books, your data, your API keys never leave your control. As local AI models get better, you won't even need a cloud API; plug in Ollama or any local provider, and the whole experience stays offline and private.
 
 *Read more about the design philosophy → [docs/VISION.md](docs/VISION.md)*
 

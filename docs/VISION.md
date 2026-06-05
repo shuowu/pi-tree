@@ -26,9 +26,22 @@ I think the future looks different. Not one model that does everything, but **sp
 
 Pi-reader is a bet on that direction. It's not a general chatbot with books bolted on. It's a **reading companion** — and every design decision, from the tree structure to the branching conversations to the zoom in/out controls — serves that single purpose.
 
+## Local-First, by Design
+
+Pi-reader doesn't have a cloud backend. There's no account to create, no data synced to someone else's server, no subscription that gates your reading. Everything runs on your machine: the server, the database, your session history, your books.
+
+This isn't just a privacy feature — it's a design philosophy. When you own the entire stack, the tool can be truly yours. You pick the AI model. You pick the provider. You control the cost. And as local AI gets better, you won't need a cloud API at all.
+
+Today, you can already point pi-reader at [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), or any OpenAI-compatible local server. The reading experience with a good 7B or 14B model running on your own hardware is surprisingly capable — and completely offline. No tokens metered, no API costs, no data leaving your network.
+
+This matters more than people think. Reading is intimate. The questions you ask about a book — the tangents you explore, the connections you draw — reveal how you think. That data shouldn't live on someone else's infrastructure. Local-first means your intellectual journey stays yours.
+
+The trajectory here is clear: local models will keep getting better, consumer hardware will keep getting cheaper, and the gap between cloud and local inference will keep shrinking. Pi-reader is built for that future — a world where a powerful, personalized AI reading companion runs entirely on your laptop, no internet required.
+
 ## What This Means in Practice
 
 - **The conversation IS the reading experience.** There's no separate "chat" and "reader" — they're the same thing. The AI surfaces book content as quotes and context within the conversation.
 - **Structure emerges from reading, not from the app.** The topic tree isn't a preset outline you fill in. It grows as you read, branches when you go deep, and maps your actual journey through the material.
 - **Every user gets their own path.** Multi-user support isn't just "separate accounts." Each person builds their own conversation tree, glossary, and reading history for the same book. Two people can read the same book and have completely different trees.
 - **The AI works for you, not the other way around.** No "choose your reading mode." No "select a quiz type." You just talk to the AI about the book, and the system figures out whether to continue, branch, summarize, or look something up.
+- **Your data stays local.** Books, sessions, conversations, glossaries — everything lives on your machine. Swap providers, run offline with local models, or migrate your data freely. No lock-in, no leaks.
