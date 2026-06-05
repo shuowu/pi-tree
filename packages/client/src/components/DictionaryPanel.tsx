@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { marked } from "marked";
-import { BookA } from "lucide-react";
+import { BookA, X } from "lucide-react";
 import "./DictionaryPanel.css";
 
 export interface DictEntry {
@@ -36,7 +36,7 @@ export function DictionaryPanel({ entries, onRemove }: DictionaryPanelProps) {
         <BookA size={28} className="dict-empty-icon" strokeWidth={1.5} />
         <p>Select text in chat to look up words</p>
         <p className="dict-empty-hint">
-          Definitions will appear here with book context
+          Quick definitions and translations
         </p>
       </div>
     );
@@ -77,6 +77,47 @@ function DictCard({
         dangerouslySetInnerHTML={{ __html: html }}
       />
       {entry.streaming && <span className="dict-card-cursor">▊</span>}
+    </div>
+  );
+}
+
+/**
+ * Floating mini-card shown at the bottom of the right sidebar
+ * when a lookup is triggered from the Book tab.
+ */
+export function DictQuickCard({
+  entry,
+  onDismiss,
+  onGoToDict,
+}: {
+  entry: DictEntry;
+  onDismiss: () => void;
+  onGoToDict: () => void;
+}) {
+  const html = marked.parse(entry.definition) as string;
+
+  return (
+    <div className={`dict-quick-card ${entry.streaming ? "streaming" : ""}`}>
+      <div className="dict-quick-card-header">
+        <span className="dict-card-term">{entry.term}</span>
+        <button
+          className="dict-quick-card-close"
+          onClick={onDismiss}
+          title="Dismiss"
+        >
+          <X size={12} />
+        </button>
+      </div>
+      <div
+        className="dict-card-body"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {entry.streaming && <span className="dict-card-cursor">▊</span>}
+      {!entry.streaming && (
+        <button className="dict-quick-card-link" onClick={onGoToDict}>
+          View in Dictionary →
+        </button>
+      )}
     </div>
   );
 }

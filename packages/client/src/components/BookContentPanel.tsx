@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { marked } from "marked";
 import { fetchHeadings, fetchContent, type BookHeading } from "../api";
+import { SelectionToolbar } from "./SelectionToolbar";
 import { BookOpen } from "lucide-react";
 import "./BookContentPanel.css";
 
 interface BookContentPanelProps {
   bookId: string;
+  onDefine?: (text: string, context?: string) => void;
 }
 
-export function BookContentPanel({ bookId }: BookContentPanelProps) {
+export function BookContentPanel({ bookId, onDefine }: BookContentPanelProps) {
   const [headings, setHeadings] = useState<BookHeading[]>([]);
   const [content, setContent] = useState<string | null>(null);
   const [activeHeading, setActiveHeading] = useState<BookHeading | null>(null);
@@ -62,6 +64,7 @@ export function BookContentPanel({ bookId }: BookContentPanelProps) {
           content={content}
           isLoading={isLoading}
           contentRef={contentRef}
+          onDefine={onDefine}
           onBack={() => {
             setContent(null);
             setActiveHeading(null);
@@ -124,12 +127,14 @@ function BookContent({
   content,
   isLoading,
   contentRef,
+  onDefine,
   onBack,
 }: {
   heading: BookHeading | null;
   content: string;
   isLoading: boolean;
   contentRef: React.RefObject<HTMLDivElement | null>;
+  onDefine?: (text: string, context?: string) => void;
   onBack: () => void;
 }) {
   const html = marked.parse(content) as string;
@@ -154,6 +159,14 @@ function BookContent({
           <div
             className="book-content-markdown"
             dangerouslySetInnerHTML={{ __html: html }}
+          />
+        )}
+
+        {onDefine && (
+          <SelectionToolbar
+            containerRef={contentRef}
+            onDefine={onDefine}
+            onAsk={() => {}}
           />
         )}
       </div>

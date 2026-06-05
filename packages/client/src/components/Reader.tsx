@@ -7,14 +7,14 @@ import type {
   TreeNodeView,
   BranchOption,
 } from "@pi-reader/shared";
-import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary, fetchGlossary } from "../api";
+import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary, fetchGlossary, deleteNode, renameNode } from "../api";
 import { useUser } from "../UserContext";
 import { ChatView } from "./ChatView";
 import { WelcomeState, type SessionMode } from "./WelcomeState";
 import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
-import { DictionaryPanel, type DictEntry } from "./DictionaryPanel";
+import { DictionaryPanel, DictQuickCard, type DictEntry } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
 import { GitBranch, BookA, BookOpen, X, RotateCcw } from "lucide-react";
 import "./Reader.css";
@@ -42,6 +42,7 @@ export function Reader({ book }: ReaderProps) {
   const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
   const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [quickLookupId, setQuickLookupId] = useState<string | null>(null);
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
   // browser-initiated changes (back/forward) vs our own updates.
@@ -107,6 +108,9 @@ export function Reader({ book }: ReaderProps) {
         onCompaction: (compacting) => {
           setIsCompacting(compacting);
         },
+        onTreeUpdate: (updatedTree) => {
+          setTree(updatedTree);
+        },
         onDone: (result) => {
           setStreamingContent(null);
           setIsLoading(false);
@@ -151,7 +155,13 @@ export function Reader({ book }: ReaderProps) {
 
       setDictEntries((prev) => [...prev, newEntry]);
       setRightPanelOpen(true);
-      setRightTab("dict");
+
+      // If on Book tab, show floating mini-card instead of switching tabs
+      if (rightTab === "book") {
+        setQuickLookupId(entryId);
+      } else {
+        setRightTab("dict");
+      }
 
       streamLookup(userId, book.id, term, (token) => {
         setDictEntries((prev) =>
@@ -183,7 +193,7 @@ export function Reader({ book }: ReaderProps) {
           );
         });
     },
-    [userId, book.id],
+    [userId, book.id, rightTab],
   );
 
 
@@ -432,6 +442,27 @@ export function Reader({ book }: ReaderProps) {
     }
   }, [rightPanelOpen, rightTab]);
 
+  const handleDeleteNode = useCallback(async (nodeId: string) => {
+    if (!userId) return;
+    try {
+      const state = await deleteNode(userId, book.id, nodeId, viewNodeId);
+      applySessionData(state);
+      updateUrl(state.viewNodeId, true);
+    } catch (err) {
+      console.error("Delete node failed:", err);
+    }
+  }, [userId, book.id, viewNodeId, applySessionData, updateUrl]);
+
+  const handleRenameNode = useCallback(async (nodeId: string, newLabel: string) => {
+    if (!userId) return;
+    try {
+      const state = await renameNode(userId, book.id, nodeId, newLabel, viewNodeId);
+      applySessionData(state);
+    } catch (err) {
+      console.error("Rename node failed:", err);
+    }
+  }, [userId, book.id, viewNodeId, applySessionData]);
+
   const handleResetSession = useCallback(async () => {
     if (!userId) return;
     if (!confirm("Clear this session? All conversation history will be lost.")) return;
@@ -471,6 +502,8 @@ export function Reader({ book }: ReaderProps) {
         tree={tree}
         viewNodeId={viewNodeId}
         onNavigate={handleNavigate}
+        onDeleteNode={handleDeleteNode}
+        onRenameNode={handleRenameNode}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -514,47 +547,55 @@ export function Reader({ book }: ReaderProps) {
         )}
       </main>
 
-      {/* Right sidebar: Dictionary + Book tabs */}
-      {rightPanelOpen && (
-        <>
-          <div className="resize-handle-right" onMouseDown={handleRightResizeStart} />
-          <aside className="right-sidebar">
-            <div className="right-sidebar-header">
-              <div className="right-sidebar-tabs">
-                <button
-                  className={`right-sidebar-tab ${rightTab === "dict" ? "active" : ""}`}
-                  onClick={() => setRightTab("dict")}
-                >
-                  Dictionary
-                  {dictEntries.length > 0 && (
-                    <span className="right-sidebar-count">{dictEntries.length}</span>
-                  )}
-                </button>
-                <button
-                  className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
-                  onClick={() => setRightTab("book")}
-                >
-                  Book
-                </button>
-              </div>
-              <button
-                className="right-sidebar-close"
-                onClick={() => setRightPanelOpen(false)}
-                title="Close panel"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <div className="right-sidebar-body">
-              {rightTab === "dict" ? (
-                <DictionaryPanel entries={dictEntries} onRemove={handleDictRemove} />
-              ) : (
-                <BookContentPanel bookId={book.id} />
+      {/* Right sidebar: always rendered, hidden via CSS to preserve nav state */}
+      <div className={`resize-handle-right ${rightPanelOpen ? "" : "hidden"}`} onMouseDown={handleRightResizeStart} />
+      <aside className={`right-sidebar ${rightPanelOpen ? "" : "hidden"}`}>
+        <div className="right-sidebar-header">
+          <div className="right-sidebar-tabs">
+            <button
+              className={`right-sidebar-tab ${rightTab === "dict" ? "active" : ""}`}
+              onClick={() => { setRightTab("dict"); setQuickLookupId(null); }}
+            >
+              Dictionary
+              {dictEntries.length > 0 && (
+                <span className="right-sidebar-count">{dictEntries.length}</span>
               )}
-            </div>
-          </aside>
-        </>
-      )}
+            </button>
+            <button
+              className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
+              onClick={() => setRightTab("book")}
+            >
+              Book
+            </button>
+          </div>
+          <button
+            className="right-sidebar-close"
+            onClick={() => setRightPanelOpen(false)}
+            title="Close panel"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <div className="right-sidebar-body">
+          <div style={{ display: rightTab === "dict" ? "contents" : "none" }}>
+            <DictionaryPanel entries={dictEntries} onRemove={handleDictRemove} />
+          </div>
+          <div style={{ display: rightTab === "book" ? "contents" : "none" }}>
+            <BookContentPanel bookId={book.id} onDefine={handleDefine} />
+            {quickLookupId && (() => {
+              const entry = dictEntries.find((e) => e.id === quickLookupId);
+              if (!entry) return null;
+              return (
+                <DictQuickCard
+                  entry={entry}
+                  onDismiss={() => setQuickLookupId(null)}
+                  onGoToDict={() => { setRightTab("dict"); setQuickLookupId(null); }}
+                />
+              );
+            })()}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }

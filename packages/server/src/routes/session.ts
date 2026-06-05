@@ -174,6 +174,35 @@ sessionRoutes.post("/reset", async (c) => {
   return c.json({ ok: true });
 });
 
+/** Soft-delete (abandon) a node in the session tree */
+sessionRoutes.post("/delete-node", async (c) => {
+  const body = await c.req.json<{
+    bookId: string;
+    nodeId: string;
+    viewNodeId?: string | null;
+    userId?: string;
+  }>();
+  const userId = extractUserId(body);
+  const manager = await getSession(userId, body.bookId);
+  const result = manager.deleteNode(body.nodeId, body.viewNodeId ?? null);
+  return c.json(result);
+});
+
+/** Rename a node in the session tree */
+sessionRoutes.post("/rename-node", async (c) => {
+  const body = await c.req.json<{
+    bookId: string;
+    nodeId: string;
+    newLabel: string;
+    viewNodeId?: string | null;
+    userId?: string;
+  }>();
+  const userId = extractUserId(body);
+  const manager = await getSession(userId, body.bookId);
+  const result = manager.renameNode(body.nodeId, body.newLabel, body.viewNodeId ?? null);
+  return c.json(result);
+});
+
 /** Update session configuration */
 sessionRoutes.put("/config/:userId/:bookId", async (c) => {
   const userId = c.req.param("userId");
@@ -182,55 +211,4 @@ sessionRoutes.put("/config/:userId/:bookId", async (c) => {
   const manager = await getSession(userId, bookId);
   manager.updateConfig(config);
   return c.json({ ok: true });
-});
-
-/** Ephemeral dictionary lookup — streams a definition without polluting the session tree */
-sessionRoutes.post("/lookup/stream", async (c) => {
-  const body = await c.req.json<{
-    bookId: string;
-    term: string;
-    context?: string;
-    userId?: string;
-  }>();
-  const userId = extractUserId(body);
-
-  const manager = await getSession(userId, body.bookId);
-
-  return streamSSE(c, async (stream) => {
-    await manager.handleLookup(body.term, {
-      context: body.context,
-      onToken: async (token: string) => {
-        await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
-      },
-      onDone: async (definition: string) => {
-        await stream.writeSSE({
-          data: JSON.stringify({ type: "done", definition }),
-        });
-      },
-    });
-  });
-});
-
-/** Save a term to the book's glossary */
-sessionRoutes.post("/glossary/save", async (c) => {
-  const body = await c.req.json<{
-    bookId: string;
-    term: string;
-    definition?: string;
-    userId?: string;
-  }>();
-  const userId = extractUserId(body);
-
-  const manager = await getSession(userId, body.bookId);
-  await manager.saveGlossaryEntry(body.term, body.definition);
-  return c.json({ ok: true });
-});
-
-/** Get all saved glossary entries for a user+book */
-sessionRoutes.get("/glossary/:userId/:bookId", async (c) => {
-  const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
-  const manager = await getSession(userId, bookId);
-  const entries = manager.getGlossaryEntries();
-  return c.json({ entries });
 });

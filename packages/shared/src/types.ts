@@ -202,25 +202,13 @@ export interface LookupConfig {
   /**
    * Prompt template for dictionary lookups.
    * Placeholders: {{term}}, {{context}}, {{bookTitle}}
-   * Override this to customise lookup behavior per book/user.
+   *
+   * The actual default lives in packages/server/prompts/dictionary-prompt.md.
+   * User overrides: DATA_PATH/dictionary-prompt.md or DATA_PATH/books/<bookId>/dictionary-prompt.md.
+   * This field is only used as a last-resort compiled-in fallback.
    */
   promptTemplate: string;
 }
-
-/** Default lookup prompt template */
-export const DEFAULT_LOOKUP_PROMPT = [
-  'Define "{{term}}" concisely in the context of the book "{{bookTitle}}".',
-  "",
-  "{{#context}}",
-  "Surrounding text where this term appeared:",
-  "> {{context}}",
-  "{{/context}}",
-  "",
-  "Guidelines:",
-  "- If this is a book-specific concept, explain the author's intended meaning.",
-  "- Keep your answer to 2–3 sentences. No markdown headers.",
-  "- Do not repeat the term at the start of your answer.",
-].join("\n");
 
 export interface ReaderConfig {
   summary: SummaryConfig;
@@ -246,7 +234,7 @@ export const DEFAULT_CONFIG: ReaderConfig = {
     confirmZoomOut: false,
   },
   lookup: {
-    promptTemplate: DEFAULT_LOOKUP_PROMPT,
+    promptTemplate: 'Define "{{term}}" concisely.',
   },
 };
 

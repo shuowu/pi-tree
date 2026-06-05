@@ -5,6 +5,8 @@ import { getDb } from "./db/index.js";
 import { libraryRoutes } from "./routes/library.js";
 import { sessionRoutes } from "./routes/session.js";
 import { userRoutes } from "./routes/users.js";
+import { dictionaryRoutes } from "./routes/dictionary.js";
+import { getServerConfig } from "./config.js";
 
 export const app = new Hono();
 
@@ -16,7 +18,12 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:5173"], // Vite dev server
+    origin: (origin) => {
+      // Allow requests with no origin (e.g. curl, server-to-server)
+      if (!origin) return "http://localhost:5847";
+      // In development, accept any origin (LAN devices, localhost variants)
+      return origin;
+    },
   }),
 );
 
@@ -27,6 +34,13 @@ app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
 app.route("/api/library", libraryRoutes);
 app.route("/api/session", sessionRoutes);
 app.route("/api/users", userRoutes);
+app.route("/api/dict", dictionaryRoutes);
+
+// Non-sensitive server config (model names only — no keys/URLs)
+app.get("/api/config", (c) => {
+  const cfg = getServerConfig();
+  return c.json({ readingModel: cfg.readingModel, lookupModel: cfg.lookupModel });
+});
 
 // ---------------------------------------------------------------------------
 // Production: serve client static files (Docker / NODE_ENV=production)

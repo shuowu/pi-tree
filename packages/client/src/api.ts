@@ -14,6 +14,25 @@ import type {
 const API = "/api";
 
 // ---------------------------------------------------------------------------
+// Server Config
+// ---------------------------------------------------------------------------
+
+export interface ClientServerConfig {
+  readingModel: string;
+  lookupModel: string;
+}
+
+let _configCache: ClientServerConfig | null = null;
+
+export async function fetchServerConfig(): Promise<ClientServerConfig> {
+  if (_configCache) return _configCache;
+  const res = await fetch(`${API}/config`);
+  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown" };
+  _configCache = await res.json();
+  return _configCache!;
+}
+
+// ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
 
@@ -200,6 +219,7 @@ export async function sendMessageStreaming(
   callbacks: {
     onToken: (token: string) => void;
     onCompaction?: (isCompacting: boolean) => void;
+    onTreeUpdate?: (tree: import("@pi-reader/shared").TreeNodeView) => void;
     onDone: (result: SessionState & { response: string }) => void;
     onError: (error: Error) => void;
   },
@@ -247,6 +267,9 @@ export async function sendMessageStreaming(
             break;
           case "compaction_end":
             callbacks.onCompaction?.(false);
+            break;
+          case "tree_update":
+            callbacks.onTreeUpdate?.(event.tree);
             break;
           case "done":
             // The server sends the full state + response in the done event
@@ -300,22 +323,60 @@ export async function fetchTree(userId: string, bookId: string): Promise<TreeNod
   return res.json();
 }
 
+/**
+ * Delete (abandon) a node from the session tree.
+ * The node is marked as abandoned and hidden from the default tree view.
+ */
+export async function deleteNode(
+  userId: string,
+  bookId: string,
+  nodeId: string,
+  viewNodeId?: string | null,
+): Promise<SessionState> {
+  const res = await fetch(`${API}/session/delete-node`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, bookId, nodeId, viewNodeId }),
+  });
+  if (!res.ok) throw new Error(`Delete node failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Rename a node in the session tree.
+ */
+export async function renameNode(
+  userId: string,
+  bookId: string,
+  nodeId: string,
+  newLabel: string,
+  viewNodeId?: string | null,
+): Promise<SessionState> {
+  const res = await fetch(`${API}/session/rename-node`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, bookId, nodeId, newLabel, viewNodeId }),
+  });
+  if (!res.ok) throw new Error(`Rename node failed: ${res.status}`);
+  return res.json();
+}
+
 // ---------------------------------------------------------------------------
 // Dictionary Lookup
 // ---------------------------------------------------------------------------
 
 /**
- * Stream an ephemeral dictionary lookup.
- * Does NOT create entries in the session tree.
+ * Stream a dictionary lookup.
+ * Independent from reading sessions — uses its own ephemeral AI session.
  */
 export async function streamLookup(
   userId: string,
-  bookId: string,
+  bookId: string | undefined,
   term: string,
   onToken: (token: string) => void,
   context?: string,
 ): Promise<string> {
-  const res = await fetch(`${API}/session/lookup/stream`, {
+  const res = await fetch(`${API}/dict/lookup/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, bookId, term, context }),
@@ -360,7 +421,7 @@ export async function streamLookup(
 }
 
 /**
- * Save a term (and optional definition) to the book's glossary.
+ * Save a term (and optional definition) to the glossary.
  */
 export async function saveGlossary(
   userId: string,
@@ -368,7 +429,7 @@ export async function saveGlossary(
   term: string,
   definition?: string,
 ): Promise<void> {
-  const res = await fetch(`${API}/session/glossary/save`, {
+  const res = await fetch(`${API}/dict/glossary/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, bookId, term, definition }),
@@ -383,7 +444,7 @@ export async function fetchGlossary(
   userId: string,
   bookId: string,
 ): Promise<Array<{ id: number; term: string; definition: string | null; createdAt: string }>> {
-  const res = await fetch(`${API}/session/glossary/${userId}/${bookId}`);
+  const res = await fetch(`${API}/dict/glossary/${userId}/${bookId}`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.entries ?? [];

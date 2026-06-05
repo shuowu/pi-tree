@@ -25,6 +25,7 @@ import {
   type CustomEntry,
 } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
+import { isAbandoned as checkAbandoned } from "./tree-filter.js";
 
 // SessionTreeNode is not exported from the main barrel — define locally
 interface SessionTreeNode {
@@ -52,7 +53,13 @@ export interface SectionStatusMeta {
   newStatus: "active" | "completed" | "abandoned";
 }
 
-export type PiReaderData = TopicMeta | SectionStatusMeta;
+export interface SectionLabelMeta {
+  kind: "section_label";
+  targetEntryId: string;
+  newLabel: string;
+}
+
+export type PiReaderData = TopicMeta | SectionStatusMeta | SectionLabelMeta;
 
 // ---------------------------------------------------------------------------
 // PiSession
@@ -60,6 +67,8 @@ export type PiReaderData = TopicMeta | SectionStatusMeta;
 
 export class PiSession {
   private topicCache: Map<string, TopicMeta> = new Map();
+  private statusOverrides: Map<string, string> = new Map();
+  private labelOverrides: Map<string, string> = new Map();
   /** Deferred system context — prepended to the first user message */
   private pendingContext: string | null = null;
 
@@ -325,53 +334,6 @@ export class PiSession {
     return this.agent.subscribe(listener);
   }
 
-  /**
-   * Ephemeral lookup: send a prompt to AI without keeping it in the main thread.
-   * Creates a temporary branch, prompts the AI, then restores the original leaf.
-   * The lookup entries remain in the session file but are orphaned from the main tree.
-   */
-  async ephemeralLookup(
-    prompt: string,
-    onToken: (token: string) => Promise<void>,
-  ): Promise<string> {
-    if (!this.agent) {
-      return "Dictionary lookup unavailable — no AI agent configured.";
-    }
-
-    // Save current position
-    const currentLeaf = this.sm.getLeafEntry();
-    if (!currentLeaf) {
-      return "No session context for lookup.";
-    }
-
-    let fullResponse = "";
-
-    const unsubscribe = this.agent.subscribe(
-      async (event: AgentSessionEvent) => {
-        if (
-          event.type === "message_update" &&
-          event.assistantMessageEvent?.type === "text_delta"
-        ) {
-          const delta = event.assistantMessageEvent.delta ?? "";
-          fullResponse += delta;
-          await onToken(delta);
-        }
-      },
-    );
-
-    try {
-      // Branch to a temporary location (the lookup will append here)
-      this.sm.branch(currentLeaf.id);
-      await this.agent.prompt(prompt);
-    } finally {
-      unsubscribe();
-      // Restore original leaf position so the main conversation continues from where it was
-      this.sm.branch(currentLeaf.id);
-    }
-
-    return fullResponse;
-  }
-
   // -------------------------------------------------------------------------
   // Tree operations — thin wrappers over SessionManager
   // -------------------------------------------------------------------------
@@ -490,6 +452,11 @@ export class PiSession {
     const entry = piNode.entry;
     const leafId = this.sm.getLeafId();
     const meta = this.getTopicMeta(entry.id);
+
+    // Skip abandoned nodes (soft-deleted)
+    if (this.isAbandoned(entry.id, meta)) {
+      return null;
+    }
 
     // If this node has our custom topic metadata, always show it
     if (meta) {
@@ -753,11 +720,34 @@ export class PiSession {
       targetEntryId: entryId,
       newStatus: status,
     } satisfies SectionStatusMeta);
+
+    // Keep in-memory state in sync so isAbandoned() works immediately
+    this.statusOverrides.set(entryId, status);
+    const meta = this.topicCache.get(entryId);
+    if (meta) {
+      meta.status = status;
+    }
+  }
+
+  updateLabel(entryId: string, newLabel: string): void {
+    this.sm.appendCustomEntry(CUSTOM_TYPE, {
+      kind: "section_label",
+      targetEntryId: entryId,
+      newLabel,
+    } satisfies SectionLabelMeta);
+
+    // Keep in-memory state in sync
+    this.labelOverrides.set(entryId, newLabel);
+    const meta = this.topicCache.get(entryId);
+    if (meta) {
+      meta.label = newLabel;
+    }
   }
 
   private rebuildTopicCache(): void {
     this.topicCache.clear();
-    const statusOverrides = new Map<string, string>();
+    this.statusOverrides.clear();
+    this.labelOverrides.clear();
 
     for (const entry of this.sm.getEntries()) {
       if (entry.type !== "custom") continue;
@@ -768,17 +758,35 @@ export class PiSession {
       if (data.kind === "topic_node") {
         this.topicCache.set(entry.id, data);
       } else if (data.kind === "section_status") {
-        statusOverrides.set(data.targetEntryId, data.newStatus);
+        this.statusOverrides.set(data.targetEntryId, data.newStatus);
+      } else if (data.kind === "section_label") {
+        this.labelOverrides.set(data.targetEntryId, data.newLabel);
       }
     }
 
     // Apply status overrides (latest-wins already handled by iteration order)
-    for (const [targetId, status] of statusOverrides) {
+    for (const [targetId, status] of this.statusOverrides) {
       const meta = this.topicCache.get(targetId);
       if (meta) {
         meta.status = status as TopicMeta["status"];
       }
     }
+
+    // Apply label overrides
+    for (const [targetId, label] of this.labelOverrides) {
+      const meta = this.topicCache.get(targetId);
+      if (meta) {
+        meta.label = label;
+      }
+    }
+  }
+
+  /**
+   * Check if an entry has been abandoned (soft-deleted).
+   * Checks both topic metadata and standalone status overrides.
+   */
+  private isAbandoned(entryId: string, meta: TopicMeta | null): boolean {
+    return checkAbandoned(entryId, meta, this.statusOverrides);
   }
 
   private getTopicMeta(entryId: string): TopicMeta | null {

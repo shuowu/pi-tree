@@ -3,7 +3,8 @@
 .book-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .book-panel-empty {
@@ -136,6 +137,7 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--space-3) var(--space-4);
+  position: relative;
 }
 
 .book-content-loading {

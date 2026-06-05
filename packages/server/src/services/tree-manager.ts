@@ -16,8 +16,8 @@ import type {
   ReaderConfig,
 } from "@pi-reader/shared";
 import { DEFAULT_CONFIG } from "@pi-reader/shared";
-import { eq, and, desc } from "drizzle-orm";
-import { getDb, users, userBookSessions, glossaryEntries } from "../db/index.js";
+import { eq, and } from "drizzle-orm";
+import { getDb, users, userBookSessions } from "../db/index.js";
 import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
 import { LibraryService } from "./library.js";
 import { join } from "node:path";
@@ -27,6 +27,7 @@ import {
   collectScopeMessages,
   buildBreadcrumb,
 } from "./tree-nav.js";
+import { wrapTokenWithEarlyTreeUpdate } from "./streaming-utils.js";
 
 export class TreeManager {
   private config: ReaderConfig;
@@ -233,10 +234,19 @@ export class TreeManager {
       }
     }
 
+    // Emit a tree snapshot on the first AI token — by that point the user
+    // message has been appended, so the tree accurately reflects the new
+    // branch.  This lets the sidebar update immediately instead of waiting
+    // for the full AI response to finish.
+    const wrappedOnToken = wrapTokenWithEarlyTreeUpdate(
+      callbacks.onToken,
+      async () => callbacks.onTreeUpdate({ tree: this.buildTreeView() }),
+    );
+
     // Stream the response from Pi
     const { response } = await this.piSession.sendMessageStreaming(
       message,
-      callbacks.onToken,
+      wrappedOnToken,
       callbacks.onCompaction,
     );
 
@@ -399,6 +409,20 @@ export class TreeManager {
   }
 
   // ---------------------------------------------------------------------------
+  // Delete (soft-delete / abandon) a node
+  // ---------------------------------------------------------------------------
+
+  deleteNode(nodeId: string, viewNodeId: string | null): SessionState {
+    this.piSession.updateStatus(nodeId, "abandoned");
+    return this.getSessionState(viewNodeId);
+  }
+
+  renameNode(nodeId: string, newLabel: string, viewNodeId: string | null): SessionState {
+    this.piSession.updateLabel(nodeId, newLabel);
+    return this.getSessionState(viewNodeId);
+  }
+
+  // ---------------------------------------------------------------------------
   // Config
   // ---------------------------------------------------------------------------
 
@@ -413,111 +437,4 @@ export class TreeManager {
     };
   }
 
-  // ---------------------------------------------------------------------------
-  // Dictionary lookup (ephemeral — does NOT create session entries)
-  // ---------------------------------------------------------------------------
-
-  async handleLookup(
-    term: string,
-    callbacks: {
-      context?: string;
-      onToken: (token: string) => Promise<void>;
-      onDone: (definition: string) => Promise<void>;
-    },
-  ): Promise<void> {
-    const template = this.config.lookup.promptTemplate;
-    const bookTitle = this.bookId.replace(/_/g, " ");
-
-    const prompt = this.renderLookupTemplate(template, {
-      term,
-      context: callbacks.context,
-      bookTitle,
-    });
-
-    // Use the PiSession's ephemeral lookup (doesn't modify session tree)
-    const definition = await this.piSession.ephemeralLookup(
-      prompt,
-      callbacks.onToken,
-    );
-
-    await callbacks.onDone(definition);
-  }
-
-  /**
-   * Render a lookup prompt template with Mustache-style placeholders.
-   * Supports: {{term}}, {{context}}, {{bookTitle}}
-   * Conditional blocks: {{#context}}...{{/context}} — included only if context is truthy.
-   */
-  private renderLookupTemplate(
-    template: string,
-    vars: { term: string; context?: string; bookTitle: string },
-  ): string {
-    let result = template;
-
-    // Handle conditional blocks: {{#context}}...{{/context}}
-    if (vars.context) {
-      result = result.replace(/\{\{#context\}\}([\s\S]*?)\{\{\/context\}\}/g, "$1");
-    } else {
-      result = result.replace(/\{\{#context\}\}[\s\S]*?\{\{\/context\}\}/g, "");
-    }
-
-    // Replace simple placeholders
-    result = result
-      .replace(/\{\{term\}\}/g, vars.term)
-      .replace(/\{\{context\}\}/g, vars.context ?? "")
-      .replace(/\{\{bookTitle\}\}/g, vars.bookTitle);
-
-    // Clean up blank lines from removed conditional blocks
-    result = result.replace(/\n{3,}/g, "\n\n").trim();
-
-    return result;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Glossary persistence — now backed by DB
-  // ---------------------------------------------------------------------------
-
-  async saveGlossaryEntry(
-    term: string,
-    definition?: string,
-  ): Promise<void> {
-    const db = getDb();
-    const now = new Date().toISOString();
-
-    // Ensure the user exists
-    TreeManager.ensureUser(this.userId);
-
-    db.insert(glossaryEntries)
-      .values({
-        userId: this.userId,
-        bookId: this.bookId,
-        term,
-        definition: definition ?? null,
-        createdAt: now,
-      })
-      .run();
-  }
-
-  /**
-   * Retrieve all glossary entries for this user+book, ordered newest-first.
-   */
-  getGlossaryEntries(): Array<{
-    id: number;
-    term: string;
-    definition: string | null;
-    createdAt: string;
-  }> {
-    const db = getDb();
-    return db
-      .select()
-      .from(glossaryEntries)
-      .where(
-        and(
-          eq(glossaryEntries.userId, this.userId),
-          eq(glossaryEntries.bookId, this.bookId),
-        ),
-      )
-      .orderBy(desc(glossaryEntries.createdAt))
-      .all();
-  }
 }
