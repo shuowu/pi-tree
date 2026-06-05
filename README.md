@@ -29,7 +29,7 @@ npm install
 npm run dev
 ```
 
-Server runs on `:3847`, client on `:5173`. Open http://localhost:5173.
+Server runs on `:3847`, client on `:5847`. Open http://localhost:5847.
 
 ## Docker
 

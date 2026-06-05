@@ -26,6 +26,7 @@ packages/
 
 - Hono framework (lightweight, Electron-compatible)
 - TreeManager: intent classification → tree operations → Pi SDK
+- DictionaryService: standalone dictionary lookup + glossary CRUD (independent from reading sessions, uses in-memory Pi SDK sessions)
 - LibraryService: reads from pi-books library on disk
 - SSE streaming for real-time AI responses
 - SQLite + Drizzle ORM for user/session/config/glossary metadata
@@ -95,7 +96,7 @@ No auth — users are slug-based identity records in SQLite.
 
 ```bash
 npm install
-npm run dev          # starts both server (:3847) and client (:5173)
+npm run dev          # starts both server (:3847) and client (:5847)
 npm run dev:server   # server only
 npm run dev:client   # client only
 ```
