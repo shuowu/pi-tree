@@ -1,4 +1,4 @@
-import type { BreadcrumbItem } from "@pi-reader/shared";
+import type { BreadcrumbItem } from "@pi-books/shared";
 import type { ReactNode } from "react";
 import { Home } from "lucide-react";
 import "./Breadcrumb.css";

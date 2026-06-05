@@ -1,4 +1,4 @@
-import type { Book, BookOutline, OutlineEntry } from "@pi-reader/shared";
+import type { Book, BookOutline, OutlineEntry } from "@pi-books/shared";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { eq, sql } from "drizzle-orm";
@@ -6,9 +6,9 @@ import { getDb, books as booksTable, tags as tagsTable, bookTags } from "../db/i
 import { BookIngestionService } from "./book-ingestion.js";
 
 /**
- * LibraryService — reads books from the pi-books library on disk.
+ * LibraryService — reads books from the pi-library library on disk.
  *
- * Points at a configurable library path (defaults to ~/repos/pi-books/library).
+ * Points at a configurable library path (defaults to ~/repos/pi-library/library).
  * Reads the existing folder structure: book/, markdown/, analysis/, notes/.
  */
 export class LibraryService {
@@ -21,11 +21,11 @@ export class LibraryService {
     this.libraryPath =
       libraryPath ??
       process.env.LIBRARY_PATH ??
-      join(process.env.HOME ?? "~", "repos", "pi-books", "library");
+      join(process.env.HOME ?? "~", "repos", "pi-library", "library");
     const dp =
       dataPath ??
       process.env.DATA_PATH ??
-      join(process.env.HOME ?? "~", ".local", "share", "pi-reader");
+      join(process.env.HOME ?? "~", ".local", "share", "pi-books");
     this.userBooksPath = join(dp, "books");
     this.ingestion = new BookIngestionService();
   }

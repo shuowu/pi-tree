@@ -20,7 +20,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
 import { getDb, users, glossaryEntries } from "../db/index.js";
-import { DEFAULT_CONFIG } from "@pi-reader/shared";
+import { DEFAULT_CONFIG } from "@pi-books/shared";
 
 // Singleton instance
 let _instance: DictionaryService | null = null;

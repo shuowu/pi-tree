@@ -31,11 +31,11 @@ Spin up the backend and frontend development services concurrently in a split-pa
 2. **Verify session status**:
    Ensure the tmux session has started successfully:
    ```bash
-   tmux list-panes -t pi-reader
+   tmux list-panes -t pi-books
    ```
 
 3. **Provide attachment instructions to the user**:
    Inform the user how to attach, detach, and stop the session:
-   - **Attach**: `tmux attach-session -t pi-reader`
+   - **Attach**: `tmux attach-session -t pi-books`
    - **Detach**: Press `Ctrl + B`, then release and press `D`.
-   - **Stop**: `tmux kill-session -t pi-reader`
+   - **Stop**: `tmux kill-session -t pi-books`

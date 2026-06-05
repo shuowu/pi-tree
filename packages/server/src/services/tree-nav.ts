@@ -10,7 +10,7 @@ import type {
   ChatMessage,
   BranchOption,
   BreadcrumbItem,
-} from "@pi-reader/shared";
+} from "@pi-books/shared";
 
 // ─── Predicates ────────────────────────────────────────────────────────────────
 

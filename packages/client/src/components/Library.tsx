@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router";
-import type { Book } from "@pi-reader/shared";
+import type { Book } from "@pi-books/shared";
 import { fetchBooks, fetchTags, addBookTag, removeBookTag } from "../api";
 import { useUser } from "../UserContext";
 import { BookOpen, LogOut, Plus, Search, Tag, X, Settings } from "lucide-react";

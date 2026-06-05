@@ -1,4 +1,4 @@
-import type { Book } from "@pi-reader/shared";
+import type { Book } from "@pi-books/shared";
 import { Cpu, MessageCircle } from "lucide-react";
 import "./BookSetupState.css";
 

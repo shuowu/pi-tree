@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import os from "node:os";
-import type { ServerConfig } from "@pi-reader/shared";
-import { DEFAULT_SERVER_CONFIG } from "@pi-reader/shared";
+import type { ServerConfig } from "@pi-books/shared";
+import { DEFAULT_SERVER_CONFIG } from "@pi-books/shared";
 
 /**
  * Extended server config with auth fields (not in shared types since
@@ -22,7 +22,7 @@ let _config: ServerConfigFull | null = null;
 function getConfigPath(): string {
   const dataPath =
     process.env.DATA_PATH ??
-    join(os.homedir(), ".local", "share", "pi-reader");
+    join(os.homedir(), ".local", "share", "pi-books");
   return join(dataPath, "global-config.json");
 }
 

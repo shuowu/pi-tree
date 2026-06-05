@@ -1,16 +1,16 @@
 services:
-  pi-reader:
+  pi-books:
     build: .
     ports:
       - "${PORT:-3847}:${PORT:-3847}"
     env_file: .env
     volumes:
       - ${LIBRARY_PATH:-./library}:/library:ro
-      - pi-reader-data:/data
+      - pi-books-data:/data
     environment:
       # Override paths for container filesystem
       - LIBRARY_PATH=/library
       - DATA_PATH=/data
 
 volumes:
-  pi-reader-data:
+  pi-books-data:

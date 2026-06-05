@@ -6,7 +6,7 @@ import type {
   BreadcrumbItem,
   TreeNodeView,
   BranchOption,
-} from "@pi-reader/shared";
+} from "@pi-books/shared";
 import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary, fetchGlossary, deleteNode, renameNode } from "../api";
 import { useUser } from "../UserContext";
 import { ChatView } from "./ChatView";

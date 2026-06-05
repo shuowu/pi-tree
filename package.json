@@ -1,5 +1,5 @@
 {
-  "name": "pi-reader",
+  "name": "pi-books",
   "private": true,
   "version": "0.1.0",
   "description": "AI-assisted book reading with tree-structured conversations",
@@ -8,9 +8,9 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:client": "npm run dev -w @pi-reader/client",
-    "dev:server": "npm run dev -w @pi-reader/server",
-    "build": "npm run build -w @pi-reader/shared && npm run build -w @pi-reader/server && npm run build -w @pi-reader/client",
+    "dev:client": "npm run dev -w @pi-books/client",
+    "dev:server": "npm run dev -w @pi-books/server",
+    "build": "npm run build -w @pi-books/shared && npm run build -w @pi-books/server && npm run build -w @pi-books/client",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

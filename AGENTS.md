@@ -1,4 +1,4 @@
-# Pi-Reader
+# Pi-Books
 
 AI-assisted book reading app with tree-structured conversations.
 
@@ -27,13 +27,13 @@ packages/
 - Hono framework (lightweight, Electron-compatible)
 - TreeManager: intent classification → tree operations → Pi SDK
 - DictionaryService: standalone dictionary lookup + glossary CRUD (independent from reading sessions, uses in-memory Pi SDK sessions)
-- LibraryService: reads from pi-books library on disk
+- LibraryService: reads from pi-library library on disk
 - SSE streaming for real-time AI responses
 - SQLite + Drizzle ORM for user/session/config/glossary metadata
 
 ## Database
 
-SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-reader.db` (default: `~/.local/share/pi-reader/`).
+SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-books.db` (default: `~/.local/share/pi-books/`).
 
 Tables:
 - `users` — simple identity (slug id, displayName, avatarUrl)
@@ -54,16 +54,16 @@ Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/s
 
 ## Data Source
 
-Reads from `~/repos/pi-books/library/` (configurable via `LIBRARY_PATH` env var). This is read-only.
+Reads from `~/repos/pi-library/library/` (configurable via `LIBRARY_PATH` env var). This is read-only.
 
-Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-reader/`).
+Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-books/`).
 
 ## Data Isolation
 
 | Data | Location | Scope |
 |------|----------|-------|
 | Session JSONL | `<DATA_PATH>/sessions/<bookId>/<userId>/` | Per user per book |
-| SQLite DB | `<DATA_PATH>/pi-reader.db` | All users |
+| SQLite DB | `<DATA_PATH>/pi-books.db` | All users |
 | Session metadata | SQLite `user_book_sessions` | Per user per book |
 | Config | SQLite `user_book_config` | Per user per book |
 | Glossary | SQLite `glossary_entries` | Per user per book |
@@ -77,7 +77,7 @@ No auth — users are slug-based identity records in SQLite.
 - Username (slug): lowercase alphanumeric + hyphens/underscores (e.g. `shuo`)
 - Display name: freeform (e.g. `Shuo`)
 - Creates a row in `users` table via `POST /api/users`
-- Slug + display name saved in `localStorage` (`pi-reader-user-id`, `pi-reader-display-name`)
+- Slug + display name saved in `localStorage` (`pi-books-user-id`, `pi-books-display-name`)
 
 **Returning visit**: Auto-reads from localStorage → skips UserPicker → straight to Library.
 
@@ -109,6 +109,6 @@ docker compose up --build
 
 Volumes:
 - `LIBRARY_PATH` (or `./library`) → `/library` (read-only content)
-- `pi-reader-data` named volume → `/data` (mutable state: sessions + SQLite DB)
+- `pi-books-data` named volume → `/data` (mutable state: sessions + SQLite DB)
 
 Env vars: `LIBRARY_PATH`, `DATA_PATH`, `PORT`, `PI_MODEL`.

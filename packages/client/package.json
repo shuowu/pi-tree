@@ -1,5 +1,5 @@
 {
-  "name": "@pi-reader/client",
+  "name": "@pi-books/client",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@pi-reader/shared": "*",
+    "@pi-books/shared": "*",
     "lucide-react": "^1.17.0",
     "marked": "^18.0.4",
     "react": "^19.2.6",

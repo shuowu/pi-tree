@@ -14,8 +14,8 @@ import type {
   SessionState,
   TreeNodeView,
   ReaderConfig,
-} from "@pi-reader/shared";
-import { DEFAULT_CONFIG } from "@pi-reader/shared";
+} from "@pi-books/shared";
+import { DEFAULT_CONFIG } from "@pi-books/shared";
 import { eq, and } from "drizzle-orm";
 import { getDb, users, userBookSessions } from "../db/index.js";
 import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
@@ -53,7 +53,7 @@ export class TreeManager {
   ): Promise<TreeManager> {
     const library = new LibraryService();
     const dataPath =
-      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-reader");
+      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-books");
 
     // Auto-resume: if no explicit session given, check the DB for an active session
     let resumeSession = options?.resumeSession;
@@ -372,7 +372,7 @@ export class TreeManager {
     return this.buildTreeView();
   }
 
-  getBreadcrumb(): import("@pi-reader/shared").BreadcrumbItem[] {
+  getBreadcrumb(): import("@pi-books/shared").BreadcrumbItem[] {
     return this.piSession.getBreadcrumb().map((b) => ({
       nodeId: b.entryId,
       label: b.label,

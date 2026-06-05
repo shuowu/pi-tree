@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { type TreeNodeView } from "@pi-reader/shared";
+import { type TreeNodeView } from "@pi-books/shared";
 import { GitBranch, X, Trash2, Pencil, RotateCcw } from "lucide-react";
 import { buildTooltip } from "../utils/tree-utils";
 import "./Sidebar.css";

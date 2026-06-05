@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { UserInfo } from "@pi-reader/shared";
+import type { UserInfo } from "@pi-books/shared";
 import { fetchUsers } from "../api";
 import { useUser } from "../UserContext";
 import { BookOpen } from "lucide-react";

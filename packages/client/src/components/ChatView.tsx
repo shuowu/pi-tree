@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, BranchOption } from "@pi-reader/shared";
+import type { ChatMessage, BranchOption } from "@pi-books/shared";
 import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
 import { BookOpen, Cpu } from "lucide-react";

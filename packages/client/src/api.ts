@@ -9,7 +9,7 @@ import type {
   SessionState,
   TreeNodeView,
   UserInfo,
-} from "@pi-reader/shared";
+} from "@pi-books/shared";
 
 const API = "/api";
 
@@ -237,7 +237,7 @@ export async function sendMessageStreaming(
   callbacks: {
     onToken: (token: string) => void;
     onCompaction?: (isCompacting: boolean) => void;
-    onTreeUpdate?: (tree: import("@pi-reader/shared").TreeNodeView) => void;
+    onTreeUpdate?: (tree: import("@pi-books/shared").TreeNodeView) => void;
     onDone: (result: SessionState & { response: string }) => void;
     onError: (error: Error) => void;
   },

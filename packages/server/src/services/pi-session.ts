@@ -1,5 +1,5 @@
 /**
- * PiSession — integration layer between pi-reader and Pi SDK.
+ * PiSession — integration layer between pi-books and Pi SDK.
  *
  * Pi handles: session storage, tree structure, AI responses, compaction,
  *             tool execution, streaming, context building.
@@ -10,7 +10,7 @@
  */
 
 import { join } from "node:path";
-import type { BookAnchor } from "@pi-reader/shared";
+import type { BookAnchor } from "@pi-books/shared";
 import {
   createAgentSession,
   getAgentDir,
@@ -37,7 +37,7 @@ interface SessionTreeNode {
 // Custom entry types stored in Pi session
 // ---------------------------------------------------------------------------
 
-const CUSTOM_TYPE = "pi-reader";
+const CUSTOM_TYPE = "pi-books";
 
 export interface TopicMeta {
   kind: "topic_node";
@@ -59,7 +59,7 @@ export interface SectionLabelMeta {
   newLabel: string;
 }
 
-export type PiReaderData = TopicMeta | SectionStatusMeta | SectionLabelMeta;
+export type PiBooksData = TopicMeta | SectionStatusMeta | SectionLabelMeta;
 
 // ---------------------------------------------------------------------------
 // PiSession
@@ -173,9 +173,9 @@ export class PiSession {
       agent.setAutoCompactionEnabled(true);
     } catch (err) {
       console.warn(
-        `[pi-reader] Could not create agent session (missing API key?): ${err}`,
+        `[pi-books] Could not create agent session (missing API key?): ${err}`,
       );
-      console.warn(`[pi-reader] Running in session-only mode (no AI responses)`);
+      console.warn(`[pi-books] Running in session-only mode (no AI responses)`);
     }
 
     const piSession = new PiSession(sm, agent, bookId, libraryPath);
@@ -752,9 +752,9 @@ export class PiSession {
     for (const entry of this.sm.getEntries()) {
       if (entry.type !== "custom") continue;
       const custom = entry as CustomEntry;
-      if (custom.customType !== CUSTOM_TYPE) continue;
+      if (custom.customType !== CUSTOM_TYPE && custom.customType !== "pi-reader") continue;
 
-      const data = custom.data as PiReaderData;
+      const data = custom.data as PiBooksData;
       if (data.kind === "topic_node") {
         this.topicCache.set(entry.id, data);
       } else if (data.kind === "section_status") {

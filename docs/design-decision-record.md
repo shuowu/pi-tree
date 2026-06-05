@@ -1,4 +1,4 @@
-# Pi-Reader: Design & Decision Record
+# Pi-Books: Design & Decision Record
 
 ## Decision: Unified Overlaid Map (Model D → E)
 
@@ -56,8 +56,8 @@ Rejected alternatives:
 | Feature | Implementation | SDK calls |
 |---|---|---|
 | **Show book outline** | Parse `analysis/outline.md` at session start | File read (not SDK) |
-| **Mark sections as read** | `appendCustom("pi-reader", { kind: "section_status", line: 225, status: "read" })` | `appendCustom` |
-| **Nest tangent under section** | `branch(sectionEntryId)` + `appendCustom("pi-reader", { kind: "topic_node", label, bookAnchor })` | `branch` + `appendCustom` |
+| **Mark sections as read** | `appendCustom("pi-books", { kind: "section_status", line: 225, status: "read" })` | `appendCustom` |
+| **Nest tangent under section** | `branch(sectionEntryId)` + `appendCustom("pi-books", { kind: "topic_node", label, bookAnchor })` | `branch` + `appendCustom` |
 | **Show exploration depth (░ vs █)** | Walk `getTree()`, count messages per branch, overlay on outline | `getTree` + `getChildren` |
 | **Float cross-book threads** | `appendCustom` with `bookAnchor: undefined` — renders in "Cross-book" section | `appendCustom` |
 | **Navigate to any node** | `branch(targetEntryId)` — moves leaf, next message continues there | `branch` |
@@ -69,11 +69,11 @@ Rejected alternatives:
 
 | Feature | Implementation | Feasible? |
 |---|---|---|
-| **"Your Threads"** | After every N interactions, run a lightweight prompt on branch summaries: "What themes keep recurring?" Store result as `appendCustom("pi-reader", { kind: "thread", theme, relatedEntries })` | ✅ Just a prompt + custom entry |
-| **"Emerging Questions"** | Parse AI responses for unresolved questions (regex or lightweight LLM). Store as `appendCustom("pi-reader", { kind: "question", text, raisedInEntry })` | ✅ Same pattern |
+| **"Your Threads"** | After every N interactions, run a lightweight prompt on branch summaries: "What themes keep recurring?" Store result as `appendCustom("pi-books", { kind: "thread", theme, relatedEntries })` | ✅ Just a prompt + custom entry |
+| **"Emerging Questions"** | Parse AI responses for unresolved questions (regex or lightweight LLM). Store as `appendCustom("pi-books", { kind: "question", text, raisedInEntry })` | ✅ Same pattern |
 | **"Big Picture" per part** | When all chapters in a Part are completed, run `compact` with custom instructions: "Synthesize Part II into key principles." Store output. | ✅ `compact(customInstructions)` |
-| **Reading recommendations** | After a tangent, prompt: "Based on what the reader explored, which unread chapter is most relevant?" Store as `appendCustom("pi-reader", { kind: "recommendation", targetChapter, reason })` | ✅ Prompt + custom entry |
-| **Skip annotations** | When user skips a chapter, store `appendCustom("pi-reader", { kind: "skip", line, reason })` | ✅ Trivial |
+| **Reading recommendations** | After a tangent, prompt: "Based on what the reader explored, which unread chapter is most relevant?" Store as `appendCustom("pi-books", { kind: "recommendation", targetChapter, reason })` | ✅ Prompt + custom entry |
+| **Skip annotations** | When user skips a chapter, store `appendCustom("pi-books", { kind: "skip", line, reason })` | ✅ Trivial |
 
 **All Model E features follow one pattern**: run a prompt → store result as CustomEntry → render in the map. No new SDK capabilities needed.
 
@@ -81,7 +81,7 @@ Rejected alternatives:
 
 ## Data Model: Custom Entries in Pi Session
 
-All pi-reader metadata is stored as `CustomEntry` with `extensionId: "pi-reader"`. The `data` field is typed:
+All pi-books metadata is stored as `CustomEntry` with `extensionId: "pi-books"` (backward compatible with `"pi-reader"`). The `data` field is typed:
 
 ```typescript
 // All custom entries stored in the Pi session
@@ -164,7 +164,7 @@ function buildUnifiedMap(
 
   // 2. Walk the Pi tree, find our CustomEntries
   const allCustom = flattenTree(piTree)
-    .filter(n => n.entry.extensionId === "pi-reader");
+    .filter(n => n.entry.extensionId === "pi-books" || n.entry.extensionId === "pi-reader");
 
   // 3. For each TopicNodeData with a bookAnchor, nest it under the matching outline entry
   for (const node of allCustom) {
@@ -202,7 +202,7 @@ Since JSONL is append-only, "updating" a node's status means appending a new ent
 // Mark a section as completed
 function markCompleted(sm: SessionManager, topicEntryId: string) {
   // Append a NEW custom entry that supersedes the old one
-  sm.appendCustom("pi-reader", {
+  sm.appendCustom("pi-books", {
     kind: "section_status_update",
     targetEntryId: topicEntryId,
     newStatus: "completed",
@@ -213,7 +213,7 @@ function markCompleted(sm: SessionManager, topicEntryId: string) {
 // When reading back, use latest-wins:
 function getStatus(entries: PiSessionEntry[], targetId: string): string {
   const updates = entries
-    .filter(e => e.extensionId === "pi-reader"
+    .filter(e => (e.extensionId === "pi-books" || e.extensionId === "pi-reader")
               && (e.data as any).kind === "section_status_update"
               && (e.data as any).targetEntryId === targetId)
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
@@ -330,6 +330,6 @@ Each is a standalone feature:
 | **Metadata pattern** | Append-only with latest-wins reads | Matches Pi's own pattern (LabelEntry); JSONL constraint |
 | **SDK mode** | Direct SDK import (not RPC) | Need `branch`, `getTree`, `getChildren` — not in RPC |
 | **Server role** | Thin: intent classification + map building | Pi handles everything else |
-| **Skills** | Auto-discovered from pi-books `.pi/skills/` | `DefaultResourceLoader({ cwd: piBooksCwd })` |
+| **Skills** | Auto-discovered from pi-library `.pi/skills/` | `DefaultResourceLoader({ cwd: piLibraryCwd })` |
 | **AI context** | CustomEntry NOT in LLM context | AI sees messages only; our metadata is for the UI. Inject map summary via steer message when needed |
 | **Model E features** | Each follows: prompt → store as CustomEntry → render | No new SDK APIs needed; just prompt engineering + storage |

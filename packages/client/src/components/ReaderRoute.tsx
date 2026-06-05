@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import type { Book } from "@pi-reader/shared";
+import type { Book } from "@pi-books/shared";
 import { fetchBook } from "../api";
 import { useUser } from "../UserContext";
 import { Reader } from "./Reader";

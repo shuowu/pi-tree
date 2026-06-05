@@ -1,4 +1,4 @@
-import type { Book } from "@pi-reader/shared";
+import type { Book } from "@pi-books/shared";
 import { BookOpen, MessageCircle } from "lucide-react";
 import "./WelcomeState.css";
 

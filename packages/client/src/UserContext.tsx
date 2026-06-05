@@ -8,8 +8,8 @@ import {
 } from "react";
 import { createUser } from "./api";
 
-const LS_USER_ID = "pi-reader-user-id";
-const LS_DISPLAY_NAME = "pi-reader-display-name";
+const LS_USER_ID = "pi-books-user-id";
+const LS_DISPLAY_NAME = "pi-books-display-name";
 
 interface UserContextValue {
   userId: string | null;
@@ -27,8 +27,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Read from localStorage on mount
   useEffect(() => {
-    const storedId = localStorage.getItem(LS_USER_ID);
-    const storedName = localStorage.getItem(LS_DISPLAY_NAME);
+    let storedId = localStorage.getItem(LS_USER_ID);
+    let storedName = localStorage.getItem(LS_DISPLAY_NAME);
+
+    // Fallback and migration for previous user identity
+    if (!storedId) {
+      const oldId = localStorage.getItem("pi-reader-user-id");
+      const oldName = localStorage.getItem("pi-reader-display-name");
+      if (oldId && oldName) {
+        localStorage.setItem(LS_USER_ID, oldId);
+        localStorage.setItem(LS_DISPLAY_NAME, oldName);
+        storedId = oldId;
+        storedName = oldName;
+      }
+    }
+
     if (storedId && storedName) {
       setUserId(storedId);
       setDisplayName(storedName);

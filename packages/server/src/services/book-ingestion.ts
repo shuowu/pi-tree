@@ -1,4 +1,4 @@
-import type { Book } from "@pi-reader/shared";
+import type { Book } from "@pi-books/shared";
 import { eq, sql } from "drizzle-orm";
 import { mkdir, writeFile, rm, readdir, stat } from "node:fs/promises";
 import { join, extname } from "node:path";
@@ -7,7 +7,7 @@ import { getParser } from "../parsers/index.js";
 
 const dataPath =
   process.env.DATA_PATH ??
-  join(process.env.HOME ?? "~", ".local", "share", "pi-reader");
+  join(process.env.HOME ?? "~", ".local", "share", "pi-books");
 
 const booksBasePath = join(dataPath, "books");
 

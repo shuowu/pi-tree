@@ -1,8 +1,8 @@
-# pi-reader
+# pi-books
 
 AI-assisted book reading with tree-structured conversations.
 
-Built on top of [pi-books](../pi-books) — reads from its library, wraps the [Pi SDK](https://pi.dev/docs/latest/sdk) for AI-powered reading sessions.
+Built on top of [pi-library](../pi-library) — reads from its library, wraps the [Pi SDK](https://pi.dev/docs/latest/sdk) for AI-powered reading sessions.
 
 ## Architecture
 
@@ -42,4 +42,4 @@ Open http://localhost:3847 (serves both frontend and API).
 
 ## Data Source
 
-Points at `~/repos/pi-books/library/` by default. Set `LIBRARY_PATH` in `.env` to customize.
+Points at `~/repos/pi-library/library/` by default. Set `LIBRARY_PATH` in `.env` to customize.
