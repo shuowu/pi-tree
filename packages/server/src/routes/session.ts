@@ -74,6 +74,11 @@ sessionRoutes.post("/message/stream", async (c) => {
           data: JSON.stringify({ type: "tree_update", ...update }),
         });
       },
+      onCompaction: async (event: { type: string; reason: string }) => {
+        await stream.writeSSE({
+          data: JSON.stringify({ type: event.type, reason: event.reason }),
+        });
+      },
       onDone: async (result: Record<string, unknown>) => {
         await stream.writeSSE({
           data: JSON.stringify({ type: "done", ...result }),

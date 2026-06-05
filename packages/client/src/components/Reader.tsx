@@ -35,6 +35,7 @@ export function Reader({ book }: ReaderProps) {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
+  const [isCompacting, setIsCompacting] = useState(false);
   const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
@@ -102,9 +103,13 @@ export function Reader({ book }: ReaderProps) {
         onToken: (token) => {
           setStreamingContent((prev) => (prev ?? "") + token);
         },
+        onCompaction: (compacting) => {
+          setIsCompacting(compacting);
+        },
         onDone: (result) => {
           setStreamingContent(null);
           setIsLoading(false);
+          setIsCompacting(false);
           applySessionData(result);
           // Server may have changed the active node — replace (not push)
           updateUrl(result.viewNodeId, true);
@@ -112,6 +117,7 @@ export function Reader({ book }: ReaderProps) {
         onError: (err) => {
           setStreamingContent(null);
           setIsLoading(false);
+          setIsCompacting(false);
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
             role: "assistant",
@@ -473,6 +479,7 @@ export function Reader({ book }: ReaderProps) {
           <ChatView
             messages={messages}
             isLoading={isLoading}
+            isCompacting={isCompacting}
             streamingContent={streamingContent}
             onSendMessage={handleSendMessage}
             branches={branches}

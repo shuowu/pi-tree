@@ -94,7 +94,7 @@ export interface Book {
   /** Whether the book has a cover image */
   hasCover?: boolean;
 
-  /** BOOK.md preferences, if present */
+  /** Per-book reading preferences (user-configured) */
   preferences?: BookPreferences;
 }
 
@@ -169,11 +169,13 @@ export interface SummaryConfig {
 }
 
 export interface CompactionConfig {
+  /**
+   * Whether auto-compaction is enabled. When true, Pi SDK automatically
+   * compacts older messages into a summary when context nears the model's
+   * window limit. This is append-only — raw messages remain in the JSONL
+   * and are always visible in the tree/chat UI.
+   */
   autoCompact: boolean;
-  /** Number of messages before auto-compaction triggers */
-  threshold: number;
-  /** Always keep the last N messages in full (not compacted) */
-  keepRecent: number;
 }
 
 export interface NavigationConfig {
@@ -200,8 +202,6 @@ export const DEFAULT_CONFIG: ReaderConfig = {
   },
   compaction: {
     autoCompact: true,
-    threshold: 40,
-    keepRecent: 15,
   },
   navigation: {
     autoBranchOnChapter: true,

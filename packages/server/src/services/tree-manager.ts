@@ -75,7 +75,6 @@ export class TreeManager {
       TreeManager.writeActiveSession(userId, bookId, sessionFile);
     }
 
-    // TODO: Load per-book config from BOOK.md
     return new TreeManager(piSession, userId, bookId, library);
   }
 
@@ -220,6 +219,7 @@ export class TreeManager {
     callbacks: {
       onToken: (token: string) => Promise<void>;
       onTreeUpdate: (update: Record<string, unknown>) => Promise<void>;
+      onCompaction?: (event: { type: string; reason: string }) => Promise<void>;
       onDone: (result: Record<string, unknown>) => Promise<void>;
     },
   ): Promise<void> {
@@ -237,6 +237,7 @@ export class TreeManager {
     const { response } = await this.piSession.sendMessageStreaming(
       message,
       callbacks.onToken,
+      callbacks.onCompaction,
     );
 
     await callbacks.onDone({

@@ -146,6 +146,7 @@ export async function sendMessageStreaming(
   viewNodeId: string | null,
   callbacks: {
     onToken: (token: string) => void;
+    onCompaction?: (isCompacting: boolean) => void;
     onDone: (result: SessionState & { response: string }) => void;
     onError: (error: Error) => void;
   },
@@ -187,6 +188,12 @@ export async function sendMessageStreaming(
         switch (event.type) {
           case "token":
             callbacks.onToken(event.token);
+            break;
+          case "compaction_start":
+            callbacks.onCompaction?.(true);
+            break;
+          case "compaction_end":
+            callbacks.onCompaction?.(false);
             break;
           case "done":
             // The server sends the full state + response in the done event
@@ -237,8 +244,7 @@ export async function viewScope(
 export async function fetchTree(userId: string, bookId: string): Promise<TreeNodeView> {
   const res = await fetch(`${API}/session/tree/${userId}/${bookId}`);
   if (!res.ok) throw new Error(`Failed to fetch tree: ${res.status}`);
-  const data = await res.json();
-  return data.tree;
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------

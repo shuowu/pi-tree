@@ -14,6 +14,7 @@ marked.setOptions({
 interface ChatViewProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  isCompacting: boolean;
   /** Partial content streaming in from AI, or null when not streaming */
   streamingContent: string | null;
   onSendMessage: (message: string) => void;
@@ -30,6 +31,7 @@ interface ChatViewProps {
 export function ChatView({
   messages,
   isLoading,
+  isCompacting,
   streamingContent,
   onSendMessage,
   branches,
@@ -126,7 +128,7 @@ export function ChatView({
         ))}
 
         {isLoading && streamingContent !== null && streamingContent.length > 0 && (
-          <StreamingBubble content={streamingContent} />
+          <StreamingBubble content={streamingContent} isCompacting={isCompacting} />
         )}
 
         {isLoading && (streamingContent === null || streamingContent.length === 0) && (
@@ -212,7 +214,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 }
 
 /** Live-updating bubble that renders partial markdown as it streams in */
-function StreamingBubble({ content }: { content: string }) {
+function StreamingBubble({ content, isCompacting }: { content: string; isCompacting?: boolean }) {
   const html = useMemo(() => {
     return marked.parse(content) as string;
   }, [content]);
@@ -225,6 +227,12 @@ function StreamingBubble({ content }: { content: string }) {
           className="chat-content markdown streaming"
           dangerouslySetInnerHTML={{ __html: html }}
         />
+        {isCompacting && (
+          <div className="compaction-indicator">
+            <span className="compaction-dot" />
+            Organizing reading notes…
+          </div>
+        )}
       </div>
     </div>
   );

@@ -133,6 +133,12 @@ export class PiSession {
       });
 
       agent = session;
+
+      // Enable auto-compaction — Pi SDK monitors context tokens after each turn
+      // and triggers LLM-powered summarization when nearing the context window.
+      // This is append-only: old messages stay in the JSONL, only the LLM's
+      // context view is compacted. Tree/chat UI reads raw entries, unaffected.
+      agent.setAutoCompactionEnabled(true);
     } catch (err) {
       console.warn(
         `[pi-reader] Could not create agent session (missing API key?): ${err}`,
@@ -243,6 +249,7 @@ export class PiSession {
   async sendMessageStreaming(
     message: string,
     onToken: (token: string) => Promise<void>,
+    onCompaction?: (event: { type: "compaction_start" | "compaction_end"; reason: string }) => Promise<void>,
   ): Promise<{ response: string; entryId: string }> {
     if (!this.agent) {
       return this.sendMessageNoAgent(message);
@@ -267,6 +274,13 @@ export class PiSession {
         if (event.type === "message_end") {
           const leaf = this.sm.getLeafEntry();
           if (leaf) responseEntryId = leaf.id;
+        }
+        // Forward compaction events so the client can show a status indicator
+        if (event.type === "compaction_start" && onCompaction) {
+          await onCompaction({ type: "compaction_start", reason: event.reason });
+        }
+        if (event.type === "compaction_end" && onCompaction) {
+          await onCompaction({ type: "compaction_end", reason: event.reason });
         }
       },
     );
@@ -389,15 +403,26 @@ export class PiSession {
 
   /**
    * Compact context for the current branch.
+   * Uses Pi SDK's LLM-powered compaction — summarizes old messages and
+   * replaces them in the LLM's context view while keeping raw entries intact.
    */
-  async compact(_customInstructions?: string): Promise<string> {
-    // TODO: Use the agent's compact method for LLM-powered compaction.
-    // For now, create a placeholder compaction entry.
-    const summary = _customInstructions
-      ? `Compaction: ${_customInstructions}`
-      : "Compaction summary";
-    const leafId = this.sm.getLeafId() ?? "";
-    return this.sm.appendCompaction(summary, leafId, 0);
+  async compact(customInstructions?: string): Promise<string> {
+    if (!this.agent) {
+      // Session-only mode — no LLM available for summarization
+      const summary = customInstructions ?? "Compaction summary (no AI)";
+      const leafId = this.sm.getLeafId() ?? "";
+      return this.sm.appendCompaction(summary, leafId, 0);
+    }
+
+    const result = await this.agent.compact(customInstructions);
+    return result.summary;
+  }
+
+  /**
+   * Check if compaction is currently in progress.
+   */
+  get isCompacting(): boolean {
+    return this.agent?.isCompacting ?? false;
   }
 
   // -------------------------------------------------------------------------
