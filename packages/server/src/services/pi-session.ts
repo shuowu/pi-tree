@@ -84,36 +84,56 @@ export class PiSession {
     dataPath: string,
     options?: { resumeSession?: string },
   ): Promise<PiSession> {
-    const piBooksCwd = join(libraryPath, "..");
+    // Repo root — where .pi/skills/ lives (pi-reader's own copy)
+    const repoRoot = join(import.meta.dirname, "../../../..");
 
     // Session storage: each user+book gets its own session directory
     const sessionDir = join(dataPath, "sessions", bookId, userId);
 
+    // SessionManager cwd: use repo root so SDK discovers .pi/skills/
     let sm: SessionManager;
     if (options?.resumeSession) {
       sm = SessionManager.open(options.resumeSession, sessionDir);
     } else {
-      sm = SessionManager.create(piBooksCwd, sessionDir);
+      sm = SessionManager.create(repoRoot, sessionDir);
     }
 
     // Try to create a full agent session. Falls back to session-only mode
     // if auth is not configured (no API keys).
     let agent: AgentSession | null = null;
     try {
-      const authStorage = AuthStorage.create();
+      const serverConfig = getServerConfig();
+
+      // Auth: prefer env var (standalone/Docker), fall back to ~/.pi/agent/auth.json (local dev)
+      let authStorage: AuthStorage;
+      if (serverConfig.apiKey && serverConfig.provider) {
+        authStorage = AuthStorage.inMemory();
+        authStorage.setRuntimeApiKey(serverConfig.provider, serverConfig.apiKey);
+        console.log(`[pi-session] Auth: using env var API key for provider "${serverConfig.provider}"`);
+      } else {
+        authStorage = AuthStorage.create();
+        console.log(`[pi-session] Auth: using ~/.pi/agent/auth.json`);
+      }
+
       const modelRegistry = ModelRegistry.create(authStorage);
 
-      // ResourceLoader auto-discovers .pi/skills/ and .pi/extensions/
-      // from piBooksCwd — loads interactive-reading, book-outline, etc.
+      // If using env var auth with a custom base URL, register the provider dynamically
+      if (serverConfig.apiKey && serverConfig.provider && serverConfig.baseUrl) {
+        modelRegistry.registerProvider(serverConfig.provider, {
+          baseUrl: serverConfig.baseUrl,
+        });
+        console.log(`[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}`);
+      }
+
+      // ResourceLoader: discover .pi/skills/ from pi-reader repo root
       const agentDir = getAgentDir();
       const resourceLoader = new DefaultResourceLoader({
-        cwd: piBooksCwd,
+        cwd: repoRoot,
         agentDir,
       });
       await resourceLoader.reload();
 
-      // Model selection: use global server config
-      const serverConfig = getServerConfig();
+      // Model selection
       const modelId = serverConfig.readingModel;
       const allModels = modelRegistry.getAll();
       const selectedModel = allModels.find((m) => m.id === modelId);
@@ -124,11 +144,12 @@ export class PiSession {
       }
 
       const { session } = await createAgentSession({
-        cwd: piBooksCwd,
+        // cwd for tools (read, grep, etc.) — point at library so AI can read books
+        cwd: libraryPath,
         tools: ["read", "grep", "find", "ls"], // read-only for book reading
         resourceLoader,
         sessionManager: sm,
-        settingsManager: SettingsManager.create(piBooksCwd),
+        settingsManager: SettingsManager.create(repoRoot),
         authStorage,
         modelRegistry,
         ...(selectedModel ? { model: selectedModel } : {}),
