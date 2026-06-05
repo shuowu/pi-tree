@@ -24,12 +24,22 @@ packages/
 ## Quick Start
 
 ```bash
+cp .env.example .env   # edit with your API key and paths
 npm install
 npm run dev
 ```
 
-Server runs on :3001, client on :5173.
+Server runs on `:3847`, client on `:5173`. Open http://localhost:5173.
+
+## Docker
+
+```bash
+cp .env.example .env   # edit with your API key and ABSOLUTE paths
+docker compose up --build
+```
+
+Open http://localhost:3847 (serves both frontend and API).
 
 ## Data Source
 
-Points at `~/repos/pi-books/library/` by default. Set `LIBRARY_PATH` to customize.
+Points at `~/repos/pi-books/library/` by default. Set `LIBRARY_PATH` in `.env` to customize.
