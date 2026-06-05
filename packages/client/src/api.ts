@@ -1,6 +1,6 @@
 /**
  * API client for pi-reader server.
- * All calls go through the Vite dev proxy → localhost:3001.
+ * All calls go through the Vite dev proxy → localhost:3847.
  */
 
 import type {

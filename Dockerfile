@@ -47,10 +47,10 @@ COPY --from=build /app/packages/client/dist ./packages/client/dist
 COPY --from=build /app/.pi ./.pi
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3847
 ENV LIBRARY_PATH=/library
 ENV DATA_PATH=/data
 
-EXPOSE 3001
+EXPOSE 3847
 
 CMD ["node", "packages/server/dist/index.js"]

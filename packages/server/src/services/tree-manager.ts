@@ -52,7 +52,7 @@ export class TreeManager {
   ): Promise<TreeManager> {
     const library = new LibraryService();
     const dataPath =
-      process.env.DATA_PATH ?? join(os.homedir(), ".pi-reader");
+      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-reader");
 
     // Auto-resume: if no explicit session given, check the DB for an active session
     let resumeSession = options?.resumeSession;

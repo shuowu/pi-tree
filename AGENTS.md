@@ -32,7 +32,7 @@ packages/
 
 ## Database
 
-SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-reader.db` (default: `~/.pi-reader/`).
+SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-reader.db` (default: `~/.local/share/pi-reader/`).
 
 Tables:
 - `users` — simple identity (slug id, displayName, avatarUrl)
@@ -55,7 +55,7 @@ Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/s
 
 Reads from `~/repos/pi-books/library/` (configurable via `LIBRARY_PATH` env var). This is read-only.
 
-Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.pi-reader/`).
+Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-reader/`).
 
 ## Data Isolation
 
@@ -95,7 +95,7 @@ No auth — users are slug-based identity records in SQLite.
 
 ```bash
 npm install
-npm run dev          # starts both server (:3001) and client (:5173)
+npm run dev          # starts both server (:3847) and client (:5173)
 npm run dev:server   # server only
 npm run dev:client   # client only
 ```

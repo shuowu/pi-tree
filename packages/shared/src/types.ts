@@ -250,7 +250,7 @@ export const DEFAULT_CONFIG: ReaderConfig = {
  *   PI_MODEL        → readingModel  (default: "glm-5-turbo")
  *   PI_LOOKUP_MODEL → lookupModel   (default: same as readingModel)
  *   LIBRARY_PATH    → libraryPath   (default: ~/repos/pi-books/library)
- *   DATA_PATH       → dataPath      (default: ~/.pi-reader)
+ *   DATA_PATH       → dataPath      (default: ~/.local/share/pi-reader)
  */
 export interface ServerConfig {
   /** Model used for main reading conversations */
