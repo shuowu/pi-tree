@@ -92,6 +92,31 @@ export async function fetchHeadings(bookId: string): Promise<BookHeading[]> {
   return data.headings ?? [];
 }
 
+export async function uploadBook(file: File, meta: {
+  title: string; author: string; year?: number;
+}): Promise<Book> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', meta.title);
+  formData.append('author', meta.author);
+  if (meta.year) formData.append('year', String(meta.year));
+
+  const res = await fetch(`${API}/library/books`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || `Upload failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteBook(bookId: string): Promise<void> {
+  const res = await fetch(`${API}/library/books/${bookId}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+}
+
 // ---------------------------------------------------------------------------
 // Session
 // ---------------------------------------------------------------------------

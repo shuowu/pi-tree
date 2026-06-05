@@ -11,6 +11,7 @@ import { startSession, resetSession, sendMessageStreaming, viewScope, streamLook
 import { useUser } from "../UserContext";
 import { ChatView } from "./ChatView";
 import { WelcomeState, type SessionMode } from "./WelcomeState";
+import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, type DictEntry } from "./DictionaryPanel";
@@ -485,7 +486,13 @@ export function Reader({ book }: ReaderProps) {
           isScoped={viewNodeId !== null}
           panelToggles={panelToggles}
         />
-        {showWelcome ? (
+        {showWelcome && book.hasMarkdown && !book.hasOutline ? (
+          <BookSetupState
+            book={book}
+            onSkipToChat={() => handleSelectMode('qa')}
+            onProcess={() => console.log('Processing not yet implemented')}
+          />
+        ) : showWelcome ? (
           <WelcomeState
             book={book}
             onSelectMode={handleSelectMode}
