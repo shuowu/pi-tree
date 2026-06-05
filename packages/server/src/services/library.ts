@@ -6,9 +6,10 @@ import { getDb, books as booksTable, tags as tagsTable, bookTags } from "../db/i
 import { BookIngestionService } from "./book-ingestion.js";
 
 /**
- * LibraryService — reads books from the pi-library library on disk.
+ * LibraryService — reads books from a user-configured library path on disk.
  *
- * Points at a configurable library path (defaults to ~/repos/pi-library/library).
+ * Set LIBRARY_PATH env var to point at your book collection, or upload books
+ * through the UI. Defaults to ~/.local/share/pi-reader/library if not set.
  * Reads the existing folder structure: book/, markdown/, analysis/, notes/.
  */
 export class LibraryService {
@@ -21,7 +22,7 @@ export class LibraryService {
     this.libraryPath =
       libraryPath ??
       process.env.LIBRARY_PATH ??
-      join(process.env.HOME ?? "~", "repos", "pi-library", "library");
+      join(process.env.HOME ?? "~", ".local", "share", "pi-reader", "library");
     const dp =
       dataPath ??
       process.env.DATA_PATH ??

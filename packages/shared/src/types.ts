@@ -249,7 +249,7 @@ export const DEFAULT_CONFIG: ReaderConfig = {
  * Env vars:
  *   PI_MODEL        → readingModel  (default: "glm-5-turbo")
  *   PI_LOOKUP_MODEL → lookupModel   (default: same as readingModel)
- *   LIBRARY_PATH    → libraryPath   (default: ~/repos/pi-library/library)
+ *   LIBRARY_PATH    → libraryPath   (default: ~/.local/share/pi-reader/library)
  *   DATA_PATH       → dataPath      (default: ~/.local/share/pi-books)
  */
 export interface ServerConfig {
@@ -257,7 +257,7 @@ export interface ServerConfig {
   readingModel: string;
   /** Model used for dictionary lookups (fast/cheap preferred) */
   lookupModel: string;
-  /** Path to the pi-library library */
+  /** Path to the book library on disk */
   libraryPath?: string;
   /** Path for mutable state (sessions, DB) */
   dataPath?: string;

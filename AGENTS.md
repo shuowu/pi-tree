@@ -27,7 +27,7 @@ packages/
 - Hono framework (lightweight, Electron-compatible)
 - TreeManager: intent classification → tree operations → Pi SDK
 - DictionaryService: standalone dictionary lookup + glossary CRUD (independent from reading sessions, uses in-memory Pi SDK sessions)
-- LibraryService: reads from pi-library library on disk
+- LibraryService: reads from user-configured book library on disk
 - SSE streaming for real-time AI responses
 - SQLite + Drizzle ORM for user/session/config/glossary metadata
 
@@ -54,7 +54,7 @@ Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/s
 
 ## Data Source
 
-Reads from `~/repos/pi-library/library/` (configurable via `LIBRARY_PATH` env var). This is read-only.
+Reads from `~/.local/share/pi-reader/library/` by default (configurable via `LIBRARY_PATH` env var). Users can also upload books via the UI. This is read-only.
 
 Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-books/`).
 

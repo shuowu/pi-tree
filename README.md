@@ -1,17 +1,8 @@
-# pi-books
+# pi-reader
 
-AI-assisted book reading with tree-structured conversations.
+AI-assisted book reading with tree-structured conversations. Upload your own books (EPUB, MOBI, PDF) or point at a local collection, then explore them through AI-powered chat with branching topic trees.
 
-Built on top of [pi-library](../pi-library) — reads from its library, wraps the [Pi SDK](https://pi.dev/docs/latest/sdk) for AI-powered reading sessions.
-
-## Architecture
-
-```
-packages/
-  shared/    — TypeScript types shared between client and server
-  server/    — Hono API server wrapping Pi SDK + tree manager
-  client/    — React + Vite frontend (future: Electron desktop app)
-```
+> **Bring Your Own Key** — pi-reader runs locally. You provide your own LLM API key. No data leaves your machine except API calls to your chosen provider.
 
 ## Key Concepts
 
@@ -20,16 +11,30 @@ packages/
 - **Zoom in/out**: Go deeper on a concept (branch), pull back with summary (zoom out). The breadcrumb shows your depth.
 - **TOC + Chat**: Navigate via clickable table of contents OR conversationally. Both work.
 - **Free-form depth**: No rigid Book→Part→Chapter→Tangent hierarchy. Every node is just a topic.
+- **Multi-user**: Slug-based user identity — each user gets isolated sessions, config, and glossary per book.
+
+## Architecture
+
+```
+packages/
+  shared/    — TypeScript types shared between client and server
+  server/    — Hono API server wrapping Pi SDK + tree manager
+  client/    — React + Vite frontend
+```
+
+Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) for AI-powered reading sessions.
 
 ## Quick Start
 
 ```bash
-cp .env.example .env   # edit with your API key and paths
+cp .env.example .env   # edit with your API key and provider
 npm install
 npm run dev
 ```
 
 Server runs on `:3847`, client on `:5847`. Open http://localhost:5847.
+
+You'll need an API key from a supported LLM provider (Anthropic, OpenAI, Google, DeepSeek, Zhipu, etc). See `.env.example` for details.
 
 ## Docker
 
@@ -40,6 +45,17 @@ docker compose up --build
 
 Open http://localhost:3847 (serves both frontend and API).
 
-## Data Source
+## Book Content
 
-Points at `~/repos/pi-library/library/` by default. Set `LIBRARY_PATH` in `.env` to customize.
+Pi-reader is a **reading tool** — no book content is included in this repository.
+
+You can add books in two ways:
+1. **Upload** via the Library UI (supports EPUB, MOBI, PDF)
+2. **Local folder** — set `LIBRARY_PATH` in `.env` to point at your book collection
+
+> [!IMPORTANT]
+> Users are responsible for ensuring they have the right to use any content loaded into pi-reader. This project does not distribute, host, or provide access to any copyrighted material.
+
+## License
+
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
