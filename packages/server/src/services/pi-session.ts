@@ -24,6 +24,7 @@ import {
   type SessionEntry,
   type CustomEntry,
 } from "@earendil-works/pi-coding-agent";
+import { getServerConfig } from "../config.js";
 
 // SessionTreeNode is not exported from the main barrel — define locally
 interface SessionTreeNode {
@@ -111,12 +112,13 @@ export class PiSession {
       });
       await resourceLoader.reload();
 
-      // Model selection: PI_MODEL env var → default to glm-5-turbo for speed
-      const modelId = process.env.PI_MODEL ?? "glm-5-turbo";
+      // Model selection: use global server config
+      const serverConfig = getServerConfig();
+      const modelId = serverConfig.readingModel;
       const allModels = modelRegistry.getAll();
       const selectedModel = allModels.find((m) => m.id === modelId);
       if (selectedModel) {
-        console.log(`[pi-session] Using model: ${selectedModel.provider}/${selectedModel.id}`);
+        console.log(`[pi-session] Using reading model: ${selectedModel.provider}/${selectedModel.id}`);
       } else {
         console.log(`[pi-session] Model "${modelId}" not found, using SDK default. Available: ${allModels.map((m) => `${m.provider}/${m.id}`).join(", ")}`);
       }

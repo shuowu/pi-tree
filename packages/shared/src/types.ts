@@ -193,11 +193,9 @@ export interface LookupConfig {
    * Override this to customise lookup behavior per book/user.
    */
   promptTemplate: string;
-  /** Preferred model for lookups (fast/cheap). Falls back to session model if unavailable. */
-  model?: string;
 }
 
-/** Default bilingual (EN/ZH) lookup prompt */
+/** Default lookup prompt template */
 export const DEFAULT_LOOKUP_PROMPT = [
   'Define "{{term}}" concisely in the context of the book "{{bookTitle}}".',
   "",
@@ -208,7 +206,6 @@ export const DEFAULT_LOOKUP_PROMPT = [
   "",
   "Guidelines:",
   "- If this is a book-specific concept, explain the author's intended meaning.",
-  "- If the term is in Chinese, respond in Chinese. If in English, respond in English.",
   "- Keep your answer to 2–3 sentences. No markdown headers.",
   "- Do not repeat the term at the start of your answer.",
 ].join("\n");
@@ -241,6 +238,35 @@ export const DEFAULT_CONFIG: ReaderConfig = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Server Config — global settings from environment variables
+// ---------------------------------------------------------------------------
+
+/**
+ * Server-level configuration, read from env vars at startup.
+ * NOT per-user — these are infrastructure/deployment settings.
+ *
+ * Env vars:
+ *   PI_MODEL        → readingModel  (default: "glm-5-turbo")
+ *   PI_LOOKUP_MODEL → lookupModel   (default: same as readingModel)
+ *   LIBRARY_PATH    → libraryPath   (default: ~/repos/pi-books/library)
+ *   DATA_PATH       → dataPath      (default: ~/.pi-reader)
+ */
+export interface ServerConfig {
+  /** Model used for main reading conversations */
+  readingModel: string;
+  /** Model used for dictionary lookups (fast/cheap preferred) */
+  lookupModel: string;
+  /** Path to the pi-books library */
+  libraryPath?: string;
+  /** Path for mutable state (sessions, DB) */
+  dataPath?: string;
+}
+
+export const DEFAULT_SERVER_CONFIG: ServerConfig = {
+  readingModel: "glm-5-turbo",
+  lookupModel: "glm-5-turbo",
+};
 
 // ---------------------------------------------------------------------------
 // Intent Classification — server decides branch vs continue
