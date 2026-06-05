@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, BranchOption } from "@pi-reader/shared";
 import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Cpu } from "lucide-react";
 import { useUser } from "../UserContext";
+import { fetchServerConfig } from "../api";
 import "./ChatView.css";
 
 marked.setOptions({
@@ -41,10 +42,16 @@ export function ChatView({
   onDefine,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
+  const [modelName, setModelName] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMsgIdsRef = useRef<string>("");
+
+  // Fetch model info once
+  useEffect(() => {
+    fetchServerConfig().then((cfg) => setModelName(cfg.readingModel));
+  }, []);
 
   // Smart scroll: scroll to top on navigation, bottom on new message
   useEffect(() => {
@@ -158,9 +165,9 @@ export function ChatView({
       </div>
 
       <div className="chat-input-container">
-        {willBranch && (
-          <div className="chat-branch-hint">
-            ⑂ New branch — your message will start a new thread from this point
+        {modelName && (
+          <div className="chat-input-meta">
+            <span className="chat-model-badge"><Cpu size={11} /> {modelName}</span>
           </div>
         )}
         <div className="chat-input-wrapper">

@@ -148,7 +148,8 @@
 .chat-input-container {
   padding: var(--space-4) var(--space-4) var(--space-6);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
 }
 
 .chat-input-wrapper {
@@ -213,14 +214,30 @@
   cursor: not-allowed;
 }
 
-/* ── Branch Hint ── */
+/* ── Input Meta (model) ── */
 
-.chat-branch-hint {
+.chat-input-meta {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: var(--chat-max-width);
+  padding: 0 var(--space-1) var(--space-1);
   font-size: var(--text-xs);
-  color: var(--accent);
-  padding: var(--space-2) var(--space-4);
-  text-align: center;
-  animation: fadeIn 0.2s ease;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.chat-model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 /* ── Inline Branches ── */
