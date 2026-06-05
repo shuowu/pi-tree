@@ -17,7 +17,7 @@ import type {
 } from "@pi-books/shared";
 import { DEFAULT_CONFIG } from "@pi-books/shared";
 import { eq, and } from "drizzle-orm";
-import { getDb, users, userBookSessions } from "../db/index.js";
+import { getDb, users, userBookSessions, books } from "../db/index.js";
 import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
 import { LibraryService } from "./library.js";
 import { join } from "node:path";
@@ -37,15 +37,17 @@ export class TreeManager {
     private userId: string,
     private bookId: string,
     private library: LibraryService,
-    config?: Partial<ReaderConfig>,
   ) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...DEFAULT_CONFIG };
   }
 
   // ---------------------------------------------------------------------------
   // Factory
   // ---------------------------------------------------------------------------
 
+  /**
+   * Load an existing tree session or start a new one.
+   */
   static async loadOrCreate(
     userId: string,
     bookId: string,
@@ -61,10 +63,17 @@ export class TreeManager {
       resumeSession = TreeManager.readActiveSession(userId, bookId);
     }
 
+    const db = getDb();
+    const bookRow = db.select().from(books).where(eq(books.id, bookId)).get();
+    const isUpload = bookRow && bookRow.source !== "library";
+    const resolvedLibraryPath = isUpload
+      ? join(dataPath, "books")
+      : library.getLibraryPath();
+
     const piSession = await PiSession.create(
       userId,
       bookId,
-      library.getLibraryPath(),
+      resolvedLibraryPath,
       dataPath,
       resumeSession ? { resumeSession } : undefined,
     );

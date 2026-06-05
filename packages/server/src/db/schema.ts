@@ -112,3 +112,19 @@ export const bookTags = sqliteTable("book_tags", {
   bookId: text("book_id").notNull(),
   tagId: integer("tag_id").notNull().references(() => tags.id),
 }, () => []);
+
+// ---------------------------------------------------------------------------
+// Background Jobs — tracks async background processing (parsing, outlines, etc.)
+// ---------------------------------------------------------------------------
+
+export const backgroundJobs = sqliteTable("background_jobs", {
+  id: text("id").primaryKey(), // job ID (uuid or slug)
+  bookId: text("book_id").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'completed' | 'failed'
+  progress: integer("progress").notNull().default(0), // 0 to 100
+  step: text("step").notNull().default("queued"), // e.g. 'parsing', 'outline', 'summary'
+  error: text("error"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+

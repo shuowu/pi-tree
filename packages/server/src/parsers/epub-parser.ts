@@ -1,4 +1,4 @@
-import EPub from "epub2";
+import { EPub } from "epub2";
 import TurndownService from "turndown";
 import { extname } from "node:path";
 import type { BookParser, ParseResult } from "./types.js";

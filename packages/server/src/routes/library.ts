@@ -3,12 +3,13 @@ import { LibraryService } from "../services/library.js";
 import { BookIngestionService } from "../services/book-ingestion.js";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
+import { JobQueueService } from "../services/job-queue.js";
 
 export const libraryRoutes = new Hono();
 
 const dataPath =
   process.env.DATA_PATH ??
-  join(process.env.HOME ?? "~", ".local", "share", "pi-reader");
+  join(process.env.HOME ?? "~", ".local", "share", "pi-books");
 
 const library = new LibraryService(undefined, dataPath);
 const bookIngestion = new BookIngestionService();
@@ -139,6 +140,53 @@ libraryRoutes.delete("/books/:bookId", async (c) => {
 
     await bookIngestion.deleteBook(bookId);
     return c.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 500);
+  }
+});
+
+/** Process an uploaded book (enqueue job to generate outline and summary) */
+libraryRoutes.post("/books/:bookId/process", async (c) => {
+  const bookId = c.req.param("bookId");
+  try {
+    const book = await library.getBook(bookId);
+    if (!book) {
+      return c.json({ error: "Book not found" }, 404);
+    }
+
+    const job = await JobQueueService.getInstance().createJob(bookId);
+    return c.json({ success: true, job });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 500);
+  }
+});
+
+/** Get the latest background job for a book */
+libraryRoutes.get("/books/:bookId/job", async (c) => {
+  const bookId = c.req.param("bookId");
+  const job = JobQueueService.getInstance().getLatestJobForBook(bookId);
+  return c.json({ job });
+});
+
+/** Get all background jobs */
+libraryRoutes.get("/jobs", async (c) => {
+  try {
+    const jobs = JobQueueService.getInstance().getAllJobs();
+    const bookList = await library.listBooks();
+    const bookMap = new Map(bookList.map((b) => [b.id, b]));
+
+    const jobsWithBooks = jobs.map((job) => {
+      const book = bookMap.get(job.bookId);
+      return {
+        ...job,
+        bookTitle: book?.title || job.bookId,
+        bookAuthor: book?.author || "Unknown",
+      };
+    });
+
+    return c.json({ jobs: jobsWithBooks });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return c.json({ error: message }, 500);

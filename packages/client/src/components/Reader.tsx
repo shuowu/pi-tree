@@ -7,7 +7,7 @@ import type {
   TreeNodeView,
   BranchOption,
 } from "@pi-books/shared";
-import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary, fetchGlossary, deleteNode, renameNode } from "../api";
+import { startSession, resetSession, sendMessageStreaming, viewScope, streamLookup, saveGlossary, fetchGlossary, deleteNode, renameNode, processBook, fetchJobStatus, type Job } from "../api";
 import { useUser } from "../UserContext";
 import { ChatView } from "./ChatView";
 import { WelcomeState, type SessionMode } from "./WelcomeState";
@@ -16,7 +16,7 @@ import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, DictQuickCard, type DictEntry } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
-import { SettingsModal } from "./SettingsModal";
+import { BookSettingsModal } from "./BookSettingsModal";
 import { GitBranch, BookA, BookOpen, X, Settings } from "lucide-react";
 import "./Reader.css";
 
@@ -28,6 +28,75 @@ export function Reader({ book }: ReaderProps) {
   const navigate = useNavigate();
   const { userId } = useUser();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const [currentBook, setCurrentBook] = useState<Book>(book);
+  const [currentJob, setCurrentJob] = useState<Job | null>(null);
+
+  useEffect(() => {
+    setCurrentBook(book);
+  }, [book]);
+
+  useEffect(() => {
+    if (currentBook.status === "processing" || currentBook.status === "pending") {
+      fetchJobStatus(currentBook.id).then(setCurrentJob);
+    }
+  }, [currentBook.status, currentBook.id]);
+
+  useEffect(() => {
+    if (currentBook.status !== "processing" && currentBook.status !== "pending") return;
+
+    const timer = setInterval(async () => {
+      try {
+        const job = await fetchJobStatus(currentBook.id);
+        if (job) {
+          setCurrentJob(job);
+          if (job.status === "completed") {
+            clearInterval(timer);
+            const bookRes = await fetch(`/api/library/books/${currentBook.id}`);
+            if (bookRes.ok) {
+              const updatedBook = await bookRes.json();
+              setCurrentBook(updatedBook);
+              window.location.reload();
+            }
+          } else if (job.status === "failed") {
+            clearInterval(timer);
+            const bookRes = await fetch(`/api/library/books/${currentBook.id}`);
+            if (bookRes.ok) {
+              const updatedBook = await bookRes.json();
+              setCurrentBook(updatedBook);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, [currentBook.status, currentBook.id]);
+
+  const handleProcessBook = async () => {
+    try {
+      await processBook(currentBook.id);
+      setCurrentBook((prev) => ({ ...prev, status: "processing" }));
+      const job = await fetchJobStatus(currentBook.id);
+      if (job) setCurrentJob(job);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleReprocessBook = useCallback(async () => {
+    if (!confirm("Are you sure you want to re-process this book? This will regenerate the outline, table of contents, and summary. It runs in the background and takes 30-60 seconds.")) return;
+    try {
+      await processBook(currentBook.id);
+      setCurrentBook((prev) => ({ ...prev, status: "processing" }));
+      const job = await fetchJobStatus(currentBook.id);
+      if (job) setCurrentJob(job);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
+  }, [currentBook.id]);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -43,7 +112,7 @@ export function Reader({ book }: ReaderProps) {
   const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
   const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
   const [showWelcome, setShowWelcome] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showBookSettings, setShowBookSettings] = useState(false);
   const [quickLookupId, setQuickLookupId] = useState<string | null>(null);
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
@@ -524,7 +593,7 @@ export function Reader({ book }: ReaderProps) {
     { id: "nav", icon: <GitBranch size={16} />, label: "Session Tree", active: sidebarOpen, onClick: toggleNavigator },
     { id: "dict", icon: <BookA size={16} />, label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
     { id: "book", icon: <BookOpen size={16} />, label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
-    { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettingsModal, onClick: () => setShowSettingsModal(true) },
+    { id: "settings", icon: <Settings size={16} />, label: "Book Settings", active: showBookSettings, onClick: () => setShowBookSettings(true) },
   ];
 
   const cssVars = {
@@ -549,7 +618,6 @@ export function Reader({ book }: ReaderProps) {
         onNavigate={handleNavigate}
         onDeleteNode={handleDeleteNode}
         onRenameNode={handleRenameNode}
-        onResetSession={handleResetSession}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -565,15 +633,16 @@ export function Reader({ book }: ReaderProps) {
           isScoped={viewNodeId !== null}
           panelToggles={panelToggles}
         />
-        {showWelcome && book.hasMarkdown && !book.hasOutline ? (
+        {currentBook.status === "processing" || currentBook.status === "pending" || (showWelcome && currentBook.hasMarkdown && !currentBook.hasOutline) ? (
           <BookSetupState
-            book={book}
+            book={currentBook}
+            job={currentJob}
             onSkipToChat={() => handleSelectMode('qa')}
-            onProcess={() => console.log('Processing not yet implemented')}
+            onProcess={handleProcessBook}
           />
         ) : showWelcome ? (
           <WelcomeState
-            book={book}
+            book={currentBook}
             onSelectMode={handleSelectMode}
             isLoading={isLoading}
           />
@@ -643,8 +712,13 @@ export function Reader({ book }: ReaderProps) {
         </div>
       </aside>
 
-      {showSettingsModal && (
-        <SettingsModal onClose={() => setShowSettingsModal(false)} />
+      {showBookSettings && (
+        <BookSettingsModal
+          book={currentBook}
+          onClose={() => setShowBookSettings(false)}
+          onReprocess={handleReprocessBook}
+          onClearSession={handleResetSession}
+        />
       )}
     </div>
   );

@@ -1,14 +1,33 @@
 import type { Book } from "@pi-books/shared";
+import type { Job } from "../api";
 import { Cpu, MessageCircle } from "lucide-react";
 import "./BookSetupState.css";
 
 interface BookSetupStateProps {
   book: Book;
+  job: Job | null;
   onSkipToChat: () => void;
   onProcess: () => void;
 }
 
-export function BookSetupState({ book, onSkipToChat, onProcess }: BookSetupStateProps) {
+export function BookSetupState({ book, job, onSkipToChat, onProcess }: BookSetupStateProps) {
+  const isProcessing = book.status === "processing";
+
+  const getStepLabel = (step?: string) => {
+    switch (step) {
+      case "queued": return "Queued in line";
+      case "parsing_file": return "Parsing ebook files";
+      case "writing_markdown": return "Saving formatted markdown";
+      case "generating_outline": return "AI Analysis: Creating outline & TOC";
+      case "generating_summary": return "AI Analysis: Writing summaries";
+      case "finished": return "Finalizing book contents";
+      default: return "Processing book";
+    }
+  };
+
+  const progress = job?.progress ?? (isProcessing ? 5 : 0);
+  const stepLabel = getStepLabel(job?.step);
+
   return (
     <div className="setup-state">
       <div className="setup-content">
@@ -18,24 +37,43 @@ export function BookSetupState({ book, onSkipToChat, onProcess }: BookSetupState
         </div>
 
         <div className="setup-options">
-          <button
-            className="setup-option"
-            onClick={onProcess}
-            disabled
-          >
-            <div className="setup-option-icon">
-              <Cpu size={24} strokeWidth={1.5} />
+          {isProcessing ? (
+            <div className="setup-option processing-card">
+              <div className="setup-option-icon animate-pulse">
+                <Cpu size={24} strokeWidth={1.5} />
+              </div>
+              <div className="setup-option-text" style={{ width: "100%" }}>
+                <div className="processing-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <span className="setup-option-label" style={{ fontWeight: 600 }}>{stepLabel}</span>
+                  <span className="processing-percentage" style={{ fontWeight: 600, fontSize: "14px" }}>{progress}%</span>
+                </div>
+                <div className="progress-bar-container" style={{ width: "100%", height: "6px", backgroundColor: "rgba(0, 0, 0, 0.08)", borderRadius: "3px", overflow: "hidden", marginBottom: "8px" }}>
+                  <div className="progress-bar-fill" style={{ width: `${progress}%`, height: "100%", backgroundColor: "var(--primary, #3b82f6)", borderRadius: "3px", transition: "width 0.4s ease" }} />
+                </div>
+                <span className="setup-option-desc">
+                  We are generating a navigation outline, table of contents, and a high-level summary. This runs in the background; you can safely close this tab or navigate away.
+                </span>
+              </div>
             </div>
-            <div className="setup-option-text">
-              <span className="setup-option-label">Process Book</span>
-              <span className="setup-option-desc">
-                Processing generates an outline and table of contents to enable interactive reading. This takes 2–5 minutes.
-              </span>
-              <span className="setup-option-note">
-                Coming soon — processing will be available in a future update
-              </span>
-            </div>
-          </button>
+          ) : (
+            <button
+              className="setup-option"
+              onClick={onProcess}
+            >
+              <div className="setup-option-icon">
+                <Cpu size={24} strokeWidth={1.5} />
+              </div>
+              <div className="setup-option-text">
+                <span className="setup-option-label">Process Book</span>
+                <span className="setup-option-desc">
+                  Processing generates an outline and table of contents to enable interactive reading. This takes 30–60 seconds.
+                </span>
+                <span className="setup-option-note">
+                  Now available! Click to begin processing.
+                </span>
+              </div>
+            </button>
+          )}
 
           <div className="setup-divider">or</div>
 

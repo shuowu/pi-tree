@@ -21,6 +21,7 @@ export {
   books,
   tags,
   bookTags,
+  backgroundJobs,
 } from "./schema.js";
 
 // ---------------------------------------------------------------------------
@@ -136,6 +137,17 @@ function ensureTables(sqlite: Database.Database): void {
       book_id   TEXT NOT NULL,
       tag_id    INTEGER NOT NULL REFERENCES tags(id),
       PRIMARY KEY (book_id, tag_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS background_jobs (
+      id          TEXT PRIMARY KEY,
+      book_id     TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      progress    INTEGER NOT NULL DEFAULT 0,
+      step        TEXT NOT NULL DEFAULT 'queued',
+      error       TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
     );
   `);
 

@@ -146,7 +146,7 @@ export class DictionaryService {
    */
   private resolveLookupPrompt(bookId?: string): string {
     const dataPath =
-      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-reader");
+      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-books");
 
     // Per-book user override
     if (bookId) {

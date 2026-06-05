@@ -182,6 +182,40 @@ export async function deleteBook(bookId: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }
 
+export async function processBook(bookId: string): Promise<void> {
+  const res = await fetch(`${API}/library/books/${bookId}/process`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Processing trigger failed: ${res.status}`);
+}
+
+export interface Job {
+  id: string;
+  bookId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  step: string;
+  error?: string | null;
+}
+
+export interface JobWithBook extends Job {
+  bookTitle: string;
+  bookAuthor: string;
+}
+
+export async function fetchJobStatus(bookId: string): Promise<Job | null> {
+  const res = await fetch(`${API}/library/books/${bookId}/job`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.job;
+}
+
+export async function fetchJobs(): Promise<JobWithBook[]> {
+  const res = await fetch(`${API}/library/jobs`);
+  if (!res.ok) throw new Error(`Failed to fetch jobs: ${res.status}`);
+  const data = await res.json();
+  return data.jobs || [];
+}
+
+
 // ---------------------------------------------------------------------------
 // Session
 // ---------------------------------------------------------------------------

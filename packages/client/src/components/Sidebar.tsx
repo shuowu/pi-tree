@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type TreeNodeView } from "@pi-books/shared";
-import { GitBranch, X, Trash2, Pencil, RotateCcw } from "lucide-react";
+import { GitBranch, X, Trash2, Pencil } from "lucide-react";
 import { buildTooltip } from "../utils/tree-utils";
 import "./Sidebar.css";
 
@@ -11,12 +11,11 @@ interface SidebarProps {
   onNavigate: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onRenameNode?: (nodeId: string, newLabel: string) => void;
-  onResetSession?: () => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function Sidebar({ tree, viewNodeId, onNavigate, onDeleteNode, onRenameNode, onResetSession, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ tree, viewNodeId, onNavigate, onDeleteNode, onRenameNode, isOpen, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${isOpen ? "open" : ""}`}>
       <div className="sidebar-header">
@@ -34,13 +33,6 @@ export function Sidebar({ tree, viewNodeId, onNavigate, onDeleteNode, onRenameNo
           onRenameNode={onRenameNode}
         />
       </div>
-      {onResetSession && (
-        <div className="sidebar-footer">
-          <button className="sidebar-reset-btn-full" onClick={onResetSession} title="Clear Session">
-            <RotateCcw size={14} /> Clear Session
-          </button>
-        </div>
-      )}
     </aside>
   );
 }
