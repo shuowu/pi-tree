@@ -40,11 +40,7 @@ COPY --from=build /app/packages/server/dist ./packages/server/dist
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/server/node_modules ./packages/server/node_modules 2>/dev/null || true
 
-# Copy client build output
-# TODO: Configure the Hono server to serve packages/client/dist as static files
-# in production (e.g. using hono/serve-static or a serveStatic middleware).
-# For now the server API is fully functional; the client static files are
-# included and ready to be served once the server-side route is added.
+# Copy client build output (served by Hono serveStatic in production mode)
 COPY --from=build /app/packages/client/dist ./packages/client/dist
 
 ENV NODE_ENV=production
