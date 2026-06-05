@@ -42,6 +42,27 @@
   gap: var(--space-3);
 }
 
+.library-config-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 5px var(--space-3);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.library-config-btn:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
 .library-add-btn {
   display: inline-flex;
   align-items: center;

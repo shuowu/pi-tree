@@ -6,7 +6,7 @@ import { libraryRoutes } from "./routes/library.js";
 import { sessionRoutes } from "./routes/session.js";
 import { userRoutes } from "./routes/users.js";
 import { dictionaryRoutes } from "./routes/dictionary.js";
-import { getServerConfig } from "./config.js";
+import { getServerConfig, saveServerConfig } from "./config.js";
 
 export const app = new Hono();
 
@@ -36,10 +36,35 @@ app.route("/api/session", sessionRoutes);
 app.route("/api/users", userRoutes);
 app.route("/api/dict", dictionaryRoutes);
 
-// Non-sensitive server config (model names only — no keys/URLs)
+// Server config endpoints
 app.get("/api/config", (c) => {
   const cfg = getServerConfig();
-  return c.json({ readingModel: cfg.readingModel, lookupModel: cfg.lookupModel });
+  return c.json({
+    readingModel: cfg.readingModel,
+    lookupModel: cfg.lookupModel,
+    provider: cfg.provider ?? "",
+    apiKey: cfg.apiKey ? "••••••••" : "",
+    baseUrl: cfg.baseUrl ?? "",
+  });
+});
+
+app.put("/api/config", async (c) => {
+  try {
+    const body = await c.req.json();
+    const updated = saveServerConfig(body);
+    return c.json({
+      success: true,
+      config: {
+        readingModel: updated.readingModel,
+        lookupModel: updated.lookupModel,
+        provider: updated.provider ?? "",
+        apiKey: updated.apiKey ? "••••••••" : "",
+        baseUrl: updated.baseUrl ?? "",
+      },
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
 });
 
 // ---------------------------------------------------------------------------

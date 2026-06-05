@@ -16,7 +16,8 @@ import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, DictQuickCard, type DictEntry } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
-import { GitBranch, BookA, BookOpen, X, RotateCcw } from "lucide-react";
+import { SettingsModal } from "./SettingsModal";
+import { GitBranch, BookA, BookOpen, X, Settings } from "lucide-react";
 import "./Reader.css";
 
 interface ReaderProps {
@@ -42,6 +43,7 @@ export function Reader({ book }: ReaderProps) {
   const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
   const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [quickLookupId, setQuickLookupId] = useState<string | null>(null);
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
@@ -479,7 +481,7 @@ export function Reader({ book }: ReaderProps) {
     { id: "nav", icon: <GitBranch size={16} />, label: "Session Tree", active: sidebarOpen, onClick: toggleNavigator },
     { id: "dict", icon: <BookA size={16} />, label: "Dictionary", active: rightPanelOpen && rightTab === "dict", onClick: toggleDict },
     { id: "book", icon: <BookOpen size={16} />, label: "Book", active: rightPanelOpen && rightTab === "book", onClick: toggleBook },
-    { id: "reset", icon: <RotateCcw size={16} />, label: "Clear Session", active: false, onClick: handleResetSession },
+    { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettingsModal, onClick: () => setShowSettingsModal(true) },
   ];
 
   const cssVars = {
@@ -504,6 +506,7 @@ export function Reader({ book }: ReaderProps) {
         onNavigate={handleNavigate}
         onDeleteNode={handleDeleteNode}
         onRenameNode={handleRenameNode}
+        onResetSession={handleResetSession}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -596,6 +599,10 @@ export function Reader({ book }: ReaderProps) {
           </div>
         </div>
       </aside>
+
+      {showSettingsModal && (
+        <SettingsModal onClose={() => setShowSettingsModal(false)} />
+      )}
     </div>
   );
 }

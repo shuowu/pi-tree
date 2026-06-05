@@ -20,15 +20,33 @@ const API = "/api";
 export interface ClientServerConfig {
   readingModel: string;
   lookupModel: string;
+  provider: string;
+  apiKey: string;
+  baseUrl: string;
 }
 
 let _configCache: ClientServerConfig | null = null;
 
-export async function fetchServerConfig(): Promise<ClientServerConfig> {
-  if (_configCache) return _configCache;
+export async function fetchServerConfig(force = false): Promise<ClientServerConfig> {
+  if (_configCache && !force) return _configCache;
   const res = await fetch(`${API}/config`);
-  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown" };
+  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown", provider: "", apiKey: "", baseUrl: "" };
   _configCache = await res.json();
+  return _configCache!;
+}
+
+export async function saveServerConfig(cfg: Partial<ClientServerConfig>): Promise<ClientServerConfig> {
+  const res = await fetch(`${API}/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cfg),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Failed to save config: ${res.status}`);
+  }
+  const data = await res.json();
+  _configCache = data.config;
   return _configCache!;
 }
 

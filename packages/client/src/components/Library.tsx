@@ -3,9 +3,10 @@ import { useNavigate } from "react-router";
 import type { Book } from "@pi-reader/shared";
 import { fetchBooks, fetchTags, addBookTag, removeBookTag } from "../api";
 import { useUser } from "../UserContext";
-import { BookOpen, LogOut, Plus, Search, Tag, X } from "lucide-react";
+import { BookOpen, LogOut, Plus, Search, Tag, X, Settings } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
+import { SettingsModal } from "./SettingsModal";
 import "./Library.css";
 
 export function Library() {
@@ -15,6 +16,7 @@ export function Library() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Search & filter state
   const [searchInput, setSearchInput] = useState("");
@@ -138,6 +140,14 @@ export function Library() {
           <h1><BookOpen size={24} strokeWidth={1.5} /> <span>Pi Reader</span></h1>
         </div>
         <div className="library-header-right">
+          <button
+            className="library-config-btn"
+            onClick={() => setShowSettingsModal(true)}
+            title="Global AI Settings"
+          >
+            <Settings size={16} strokeWidth={2} />
+            Settings
+          </button>
           <button
             className="library-add-btn"
             onClick={() => setShowAddModal(true)}
@@ -340,6 +350,12 @@ export function Library() {
         <AddBookModal
           onClose={() => setShowAddModal(false)}
           onSuccess={() => { setShowAddModal(false); load(searchQuery, selectedTags); }}
+        />
+      )}
+
+      {showSettingsModal && (
+        <SettingsModal
+          onClose={() => setShowSettingsModal(false)}
         />
       )}
     </div>

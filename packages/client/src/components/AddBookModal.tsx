@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, FileText, X, Loader2, Check } from "lucide-react";
 import { uploadBook } from "../api";
-import type { Book } from "@pi-reader/shared";
 import "./AddBookModal.css";
 
 interface AddBookModalProps {
