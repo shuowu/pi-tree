@@ -75,3 +75,20 @@ export const glossaryEntries = sqliteTable("glossary_entries", {
   definition: text("definition"),
   createdAt: text("created_at").notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Books — user-uploaded books
+// ---------------------------------------------------------------------------
+
+export const books = sqliteTable("books", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  author: text("author").notNull(),
+  year: integer("year"),
+  sourceFormat: text("source_format").notNull(),
+  status: text("status").notNull().default("pending"),
+  error: text("error"),
+  originalFilename: text("original_filename").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

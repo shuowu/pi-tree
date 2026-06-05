@@ -94,6 +94,15 @@ export interface Book {
   /** Whether the book has a cover image */
   hasCover?: boolean;
 
+  /** Where this book came from */
+  source: "library" | "upload";
+
+  /** Import status for uploaded books */
+  status?: "pending" | "processing" | "ready" | "failed";
+
+  /** Error message if import failed */
+  error?: string;
+
   /** Per-book reading preferences (user-configured) */
   preferences?: BookPreferences;
 }

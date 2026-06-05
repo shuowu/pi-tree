@@ -18,6 +18,7 @@ export {
   userBookConfig,
   userBookProgress,
   glossaryEntries,
+  books,
 } from "./schema.js";
 
 // ---------------------------------------------------------------------------
@@ -107,6 +108,19 @@ function ensureTables(sqlite: Database.Database): void {
       term        TEXT NOT NULL,
       definition  TEXT,
       created_at  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS books (
+      id                TEXT PRIMARY KEY,
+      title             TEXT NOT NULL,
+      author            TEXT NOT NULL,
+      year              INTEGER,
+      source_format     TEXT NOT NULL,
+      status            TEXT NOT NULL DEFAULT 'pending',
+      error             TEXT,
+      original_filename TEXT NOT NULL,
+      created_at        TEXT NOT NULL,
+      updated_at        TEXT NOT NULL
     );
   `);
 }
