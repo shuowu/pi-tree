@@ -1,3 +1,8 @@
+// Load .env from repo root before anything reads process.env
+import { config as loadEnv } from "dotenv";
+import { resolve } from "node:path";
+loadEnv({ path: resolve(import.meta.dirname, "../../../.env") });
+
 import { serve } from "@hono/node-server";
 import { app } from "./app.js";
 
