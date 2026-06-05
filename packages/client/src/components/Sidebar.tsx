@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type TreeNodeView } from "@pi-reader/shared";
-import { GitBranch, X } from "lucide-react";
+import { GitBranch, X, Trash2, Pencil } from "lucide-react";
+import { buildTooltip } from "../utils/tree-utils";
 import "./Sidebar.css";
 
 interface SidebarProps {
@@ -8,11 +9,13 @@ interface SidebarProps {
   tree: TreeNodeView | null;
   viewNodeId: string | null;
   onNavigate: (nodeId: string) => void;
+  onDeleteNode?: (nodeId: string) => void;
+  onRenameNode?: (nodeId: string, newLabel: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function Sidebar({ tree, viewNodeId, onNavigate, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ tree, viewNodeId, onNavigate, onDeleteNode, onRenameNode, isOpen, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${isOpen ? "open" : ""}`}>
       <div className="sidebar-header">
@@ -22,7 +25,13 @@ export function Sidebar({ tree, viewNodeId, onNavigate, isOpen, onClose }: Sideb
         </button>
       </div>
       <div className="sidebar-content">
-        <TreeView tree={tree} viewNodeId={viewNodeId} onNavigate={onNavigate} />
+        <TreeView
+          tree={tree}
+          viewNodeId={viewNodeId}
+          onNavigate={onNavigate}
+          onDeleteNode={onDeleteNode}
+          onRenameNode={onRenameNode}
+        />
       </div>
     </aside>
   );
@@ -34,12 +43,32 @@ function TreeView({
   tree,
   viewNodeId,
   onNavigate,
+  onDeleteNode,
+  onRenameNode,
 }: {
   tree: TreeNodeView | null;
   viewNodeId: string | null;
   onNavigate: (nodeId: string) => void;
+  onDeleteNode?: (nodeId: string) => void;
+  onRenameNode?: (nodeId: string, newLabel: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string; label: string } | null>(null);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  // Close context menu on click anywhere or Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    document.addEventListener("click", close);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [contextMenu]);
 
   if (!tree) {
     return (
@@ -62,6 +91,43 @@ function TreeView({
     });
   };
 
+  const handleContextMenu = (e: React.MouseEvent, nodeId: string, label: string) => {
+    // Don't show context menu for the root node
+    if (nodeId === tree.id) return;
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, nodeId, label });
+  };
+
+  const handleDelete = () => {
+    if (contextMenu && onDeleteNode) {
+      onDeleteNode(contextMenu.nodeId);
+      setContextMenu(null);
+    }
+  };
+
+  const handleStartRename = () => {
+    if (contextMenu) {
+      setEditingNodeId(contextMenu.nodeId);
+      // Strip the ✦ prefix for AI nodes so user edits the actual label
+      const label = contextMenu.label;
+      setEditValue(label.startsWith("✦ ") ? label.slice(2) : label);
+      setContextMenu(null);
+    }
+  };
+
+  const handleFinishRename = () => {
+    if (editingNodeId && editValue.trim() && onRenameNode) {
+      onRenameNode(editingNodeId, editValue.trim());
+    }
+    setEditingNodeId(null);
+    setEditValue("");
+  };
+
+  const handleCancelRename = () => {
+    setEditingNodeId(null);
+    setEditValue("");
+  };
+
   return (
     <div className="tree-view">
       <TreeNode
@@ -71,7 +137,32 @@ function TreeView({
         collapsed={collapsed}
         onToggleCollapse={toggleCollapse}
         onNavigate={onNavigate}
+        onContextMenu={handleContextMenu}
+        editingNodeId={editingNodeId}
+        editValue={editValue}
+        onEditChange={setEditValue}
+        onEditFinish={handleFinishRename}
+        onEditCancel={handleCancelRename}
       />
+      {contextMenu && (
+        <div
+          className="tree-context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          {onRenameNode && (
+            <button className="tree-context-item" onClick={handleStartRename}>
+              <Pencil size={12} />
+              Rename
+            </button>
+          )}
+          {onDeleteNode && (
+            <button className="tree-context-item delete" onClick={handleDelete}>
+              <Trash2 size={12} />
+              Remove branch
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -81,6 +172,7 @@ function TreeView({
  * - Single child → render inline (no indent increase)
  * - Multiple children → indent and show branch indicators
  * - Collapsible branches
+ * - Inline editing support for rename
  */
 function TreeNode({
   node,
@@ -89,6 +181,12 @@ function TreeNode({
   collapsed,
   onToggleCollapse,
   onNavigate,
+  onContextMenu,
+  editingNodeId,
+  editValue,
+  onEditChange,
+  onEditFinish,
+  onEditCancel,
 }: {
   node: TreeNodeView;
   depth: number;
@@ -96,12 +194,28 @@ function TreeNode({
   collapsed: Set<string>;
   onToggleCollapse: (id: string) => void;
   onNavigate: (id: string) => void;
+  onContextMenu: (e: React.MouseEvent, nodeId: string, label: string) => void;
+  editingNodeId: string | null;
+  editValue: string;
+  onEditChange: (value: string) => void;
+  onEditFinish: () => void;
+  onEditCancel: () => void;
 }) {
   const isAssistant = node.label.startsWith("✦");
   const isViewing = node.id === viewNodeId;
   const hasBranches = (node.children?.length ?? 0) > 1;
   const isCollapsed = collapsed.has(node.id);
   const childCount = node.children?.length ?? 0;
+  const isEditing = editingNodeId === node.id;
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus edit input
+  useEffect(() => {
+    if (isEditing && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [isEditing]);
 
   return (
     <>
@@ -111,11 +225,13 @@ function TreeNode({
           isAssistant ? "assistant" : "user",
           node.isCurrent ? "current" : "",
           isViewing ? "viewing" : "",
+          isEditing ? "editing" : "",
         ]
           .filter(Boolean)
           .join(" ")}
         style={{ paddingLeft: depth * 16 + 12 }}
-        onClick={() => onNavigate(node.id)}
+        onClick={() => !isEditing && onNavigate(node.id)}
+        onContextMenu={(e) => onContextMenu(e, node.id, node.label)}
         role="button"
         tabIndex={0}
       >
@@ -132,8 +248,23 @@ function TreeNode({
           </button>
         )}
         <span className={`tree-dot status-${node.status}`} />
-        <span className="tree-label">{node.label}</span>
-        {hasBranches && (
+        {isEditing ? (
+          <input
+            ref={editInputRef}
+            className="tree-rename-input"
+            value={editValue}
+            onChange={(e) => onEditChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onEditFinish();
+              if (e.key === "Escape") onEditCancel();
+            }}
+            onBlur={onEditFinish}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="tree-label" title={buildTooltip(node)}>{node.label}</span>
+        )}
+        {hasBranches && !isEditing && (
           <span className="tree-branch-count">⑂{childCount}</span>
         )}
       </div>
@@ -148,6 +279,12 @@ function TreeNode({
             collapsed={collapsed}
             onToggleCollapse={onToggleCollapse}
             onNavigate={onNavigate}
+            onContextMenu={onContextMenu}
+            editingNodeId={editingNodeId}
+            editValue={editValue}
+            onEditChange={onEditChange}
+            onEditFinish={onEditFinish}
+            onEditCancel={onEditCancel}
           />
         ))}
     </>

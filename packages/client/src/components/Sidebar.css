@@ -195,6 +195,73 @@
   opacity: 0.7;
 }
 
+/* ── Context Menu ── */
+
+.tree-context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 160px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1);
+  backdrop-filter: blur(12px);
+  animation: ctx-fade-in 0.12s ease-out;
+}
+
+@keyframes ctx-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tree-context-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tree-context-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tree-context-item.delete:hover {
+  background: hsl(0 70% 50% / 0.12);
+  color: hsl(0 70% 60%);
+}
+
+/* ── Inline Rename ── */
+
+.tree-entry.editing {
+  cursor: default;
+}
+
+.tree-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  padding: 1px 6px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
 /* ── Mobile ── */
 
 @media (max-width: 768px) {
