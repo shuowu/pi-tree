@@ -1,6 +1,8 @@
 import type { Book, BookOutline, OutlineEntry } from "@pi-reader/shared";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { eq, sql } from "drizzle-orm";
+import { getDb, books as booksTable, tags as tagsTable, bookTags } from "../db/index.js";
 import { BookIngestionService } from "./book-ingestion.js";
 
 /**
@@ -13,6 +15,7 @@ export class LibraryService {
   private libraryPath: string;
   private userBooksPath: string;
   private ingestion: BookIngestionService;
+  private synced = false;
 
   constructor(libraryPath?: string, dataPath?: string) {
     this.libraryPath =
@@ -70,8 +73,185 @@ export class LibraryService {
       });
     }
 
+    // Sync library books to DB (idempotent) so they can be tagged
+    if (!this.synced) {
+      this.syncBooksToDb(libraryBooks);
+      this.synced = true;
+    }
+
     const uploadedBooks = await this.ingestion.listUploadedBooks();
-    return [...libraryBooks, ...uploadedBooks];
+    const allBooks = [...libraryBooks, ...uploadedBooks];
+
+    // Attach tags from DB
+    const bookIds = allBooks.map((b) => b.id);
+    const tagMap = this.getBookTags(bookIds);
+    for (const book of allBooks) {
+      book.tags = tagMap.get(book.id) ?? [];
+    }
+
+    return allBooks;
+  }
+
+  /**
+   * Search and filter books by query text and/or tags.
+   */
+  async searchBooks(query?: string, filterTags?: string[]): Promise<Book[]> {
+    let books = await this.listBooks();
+
+    if (query) {
+      const q = query.toLowerCase();
+      books = books.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          b.author.toLowerCase().includes(q),
+      );
+    }
+
+    if (filterTags && filterTags.length > 0) {
+      books = books.filter((b) => {
+        const bookTagSet = new Set(b.tags ?? []);
+        return filterTags.every((t) => bookTagSet.has(t));
+      });
+    }
+
+    return books;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Book sync — upsert library books into DB for tagging
+  // ---------------------------------------------------------------------------
+
+  private syncBooksToDb(libraryBooks: Book[]): void {
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    for (const book of libraryBooks) {
+      db.insert(booksTable)
+        .values({
+          id: book.id,
+          title: book.title,
+          author: book.author,
+          year: book.year,
+          source: "library",
+          sourceFormat: "library",
+          status: "ready",
+          originalFilename: book.folderName,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tag management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get tags for a list of book IDs. Returns a map of bookId → tag names.
+   */
+  getBookTags(bookIds: string[]): Map<string, string[]> {
+    const result = new Map<string, string[]>();
+    if (bookIds.length === 0) return result;
+
+    const db = getDb();
+    // Use raw SQL for efficient join query
+    const rows = db.all<{ book_id: string; name: string }>(
+      sql`SELECT bt.book_id, t.name
+          FROM book_tags bt
+          JOIN tags t ON t.id = bt.tag_id
+          WHERE bt.book_id IN (${sql.join(
+            bookIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})`,
+    );
+
+    for (const row of rows) {
+      const existing = result.get(row.book_id);
+      if (existing) {
+        existing.push(row.name);
+      } else {
+        result.set(row.book_id, [row.name]);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Add a tag to a book. Creates the tag if it doesn't exist.
+   */
+  async addTag(bookId: string, tagName: string): Promise<void> {
+    const db = getDb();
+    const name = tagName.toLowerCase().trim();
+    if (!name) return;
+
+    // Ensure the book exists in DB (sync if needed)
+    if (!this.synced) {
+      await this.listBooks();
+    }
+
+    // Create tag if it doesn't exist
+    db.insert(tagsTable)
+      .values({ name, createdAt: new Date().toISOString() })
+      .onConflictDoNothing()
+      .run();
+
+    // Get the tag id
+    const tag = db
+      .select({ id: tagsTable.id })
+      .from(tagsTable)
+      .where(eq(tagsTable.name, name))
+      .get();
+    if (!tag) return;
+
+    // Insert junction row
+    db.run(
+      sql`INSERT OR IGNORE INTO book_tags (book_id, tag_id) VALUES (${bookId}, ${tag.id})`,
+    );
+  }
+
+  /**
+   * Remove a tag from a book. Cleans up orphaned tags.
+   */
+  async removeTag(bookId: string, tagName: string): Promise<void> {
+    const db = getDb();
+    const name = tagName.toLowerCase().trim();
+
+    const tag = db
+      .select({ id: tagsTable.id })
+      .from(tagsTable)
+      .where(eq(tagsTable.name, name))
+      .get();
+    if (!tag) return;
+
+    // Remove junction row
+    db.run(
+      sql`DELETE FROM book_tags WHERE book_id = ${bookId} AND tag_id = ${tag.id}`,
+    );
+
+    // Clean up orphaned tag (no books reference it)
+    const usage = db
+      .select({ count: sql<number>`count(*)` })
+      .from(bookTags)
+      .where(eq(bookTags.tagId, tag.id))
+      .get();
+    if (usage && usage.count === 0) {
+      db.delete(tagsTable).where(eq(tagsTable.id, tag.id)).run();
+    }
+  }
+
+  /**
+   * List all unique tag names.
+   */
+  listTags(): string[] {
+    const db = getDb();
+    const rows = db
+      .select({ name: tagsTable.name })
+      .from(tagsTable)
+      .orderBy(tagsTable.name)
+      .all();
+    return rows.map((r) => r.name);
   }
 
   async getBook(bookId: string): Promise<Book | null> {

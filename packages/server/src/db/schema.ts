@@ -85,6 +85,7 @@ export const books = sqliteTable("books", {
   title: text("title").notNull(),
   author: text("author").notNull(),
   year: integer("year"),
+  source: text("source").notNull().default("upload"),
   sourceFormat: text("source_format").notNull(),
   status: text("status").notNull().default("pending"),
   error: text("error"),
@@ -92,3 +93,22 @@ export const books = sqliteTable("books", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Tags — global tag definitions
+// ---------------------------------------------------------------------------
+
+export const tags = sqliteTable("tags", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  createdAt: text("created_at").notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// Book ↔ Tag junction
+// ---------------------------------------------------------------------------
+
+export const bookTags = sqliteTable("book_tags", {
+  bookId: text("book_id").notNull(),
+  tagId: integer("tag_id").notNull().references(() => tags.id),
+}, () => []);

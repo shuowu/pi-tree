@@ -105,6 +105,9 @@ export interface Book {
 
   /** Per-book reading preferences (user-configured) */
   preferences?: BookPreferences;
+
+  /** User-defined tags for categorization and filtering */
+  tags?: string[];
 }
 
 export interface BookPreferences {

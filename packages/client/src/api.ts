@@ -47,11 +47,39 @@ export async function fetchUser(userId: string): Promise<UserInfo> {
 // Library
 // ---------------------------------------------------------------------------
 
-export async function fetchBooks(): Promise<Book[]> {
-  const res = await fetch(`${API}/library/books`);
+export async function fetchBooks(opts?: { search?: string; tags?: string[] }): Promise<Book[]> {
+  const params = new URLSearchParams();
+  if (opts?.search) params.set('search', opts.search);
+  if (opts?.tags?.length) params.set('tags', opts.tags.join(','));
+  const qs = params.toString();
+  const url = `${API}/library/books${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch books: ${res.status}`);
   const data = await res.json();
   return data.books;
+}
+
+export async function fetchTags(): Promise<string[]> {
+  const res = await fetch(`${API}/library/tags`);
+  if (!res.ok) throw new Error(`Failed to fetch tags: ${res.status}`);
+  const data = await res.json();
+  return data.tags;
+}
+
+export async function addBookTag(bookId: string, tag: string): Promise<void> {
+  const res = await fetch(`${API}/library/books/${encodeURIComponent(bookId)}/tags`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tag }),
+  });
+  if (!res.ok) throw new Error(`Failed to add tag: ${res.status}`);
+}
+
+export async function removeBookTag(bookId: string, tag: string): Promise<void> {
+  const res = await fetch(`${API}/library/books/${encodeURIComponent(bookId)}/tags/${encodeURIComponent(tag)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Failed to remove tag: ${res.status}`);
 }
 
 export async function fetchBook(bookId: string): Promise<Book> {

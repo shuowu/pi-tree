@@ -13,9 +13,16 @@ const dataPath =
 const library = new LibraryService(undefined, dataPath);
 const bookIngestion = new BookIngestionService();
 
-/** List all books in the library */
+/** List all books in the library (with optional search/tag filter) */
 libraryRoutes.get("/books", async (c) => {
-  const books = await library.listBooks();
+  const search = c.req.query("search");
+  const tagsParam = c.req.query("tags");
+  const filterTags = tagsParam ? tagsParam.split(",").filter(Boolean) : undefined;
+
+  const books =
+    search || (filterTags && filterTags.length > 0)
+      ? await library.searchBooks(search, filterTags)
+      : await library.listBooks();
   return c.json({ books });
 });
 
@@ -136,5 +143,34 @@ libraryRoutes.delete("/books/:bookId", async (c) => {
     const message = err instanceof Error ? err.message : String(err);
     return c.json({ error: message }, 500);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Tags
+// ---------------------------------------------------------------------------
+
+/** List all tags */
+libraryRoutes.get("/tags", async (c) => {
+  const tagList = library.listTags();
+  return c.json({ tags: tagList });
+});
+
+/** Add a tag to a book */
+libraryRoutes.post("/books/:bookId/tags", async (c) => {
+  const bookId = c.req.param("bookId");
+  const body = await c.req.json<{ tag: string }>();
+  if (!body.tag || typeof body.tag !== "string") {
+    return c.json({ error: "tag is required" }, 400);
+  }
+  await library.addTag(bookId, body.tag);
+  return c.json({ success: true });
+});
+
+/** Remove a tag from a book */
+libraryRoutes.delete("/books/:bookId/tags/:tagName", async (c) => {
+  const bookId = c.req.param("bookId");
+  const tagName = decodeURIComponent(c.req.param("tagName"));
+  await library.removeTag(bookId, tagName);
+  return c.json({ success: true });
 });
 

@@ -1,5 +1,5 @@
 import type { Book } from "@pi-reader/shared";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { mkdir, writeFile, rm, readdir, stat } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { getDb, books } from "../db/index.js";
@@ -168,7 +168,9 @@ export class BookIngestionService {
 
   async listUploadedBooks(): Promise<Book[]> {
     const db = getDb();
-    const rows = db.select().from(books).all();
+    const rows = db.select().from(books).where(
+      sql`${books.source} != 'library' OR ${books.source} IS NULL`
+    ).all();
     const result: Book[] = [];
 
     for (const row of rows) {

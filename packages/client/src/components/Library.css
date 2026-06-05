@@ -342,3 +342,289 @@
   background: var(--bg-tertiary);
   border-radius: var(--radius-full);
 }
+
+/* -----------------------------------------------------------------------
+   Search + Filter bar
+   ----------------------------------------------------------------------- */
+
+.library-filters {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.library-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color 0.15s ease;
+}
+
+.library-search:focus-within {
+  border-color: var(--accent);
+}
+
+.library-search svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.library-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+}
+
+.library-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.library-search-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+}
+
+.library-search-clear:hover {
+  color: var(--text-primary);
+}
+
+/* -----------------------------------------------------------------------
+   Tag filter chips
+   ----------------------------------------------------------------------- */
+
+.library-tag-filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tag-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.tag-filter-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tag-filter-chip.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* -----------------------------------------------------------------------
+   Tag badge on book cards
+   ----------------------------------------------------------------------- */
+
+.badge-tag {
+  background: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+}
+
+/* -----------------------------------------------------------------------
+   Tag management button
+   ----------------------------------------------------------------------- */
+
+.book-card-tag-btn {
+  position: absolute;
+  bottom: var(--space-2);
+  right: var(--space-2);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  z-index: 2;
+}
+
+.book-card:hover .book-card-tag-btn {
+  opacity: 1;
+}
+
+.book-card-tag-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* -----------------------------------------------------------------------
+   Tag management modal
+   ----------------------------------------------------------------------- */
+
+.tag-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.tag-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.tag-modal-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+}
+
+.tag-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.tag-modal-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-6);
+}
+
+.tag-modal-title svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.tag-modal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.tag-modal-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+}
+
+.tag-modal-tag button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.tag-modal-tag button:hover {
+  opacity: 1;
+}
+
+.tag-modal-empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.tag-modal-input-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.tag-modal-input-row input {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  outline: none;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s ease;
+}
+
+.tag-modal-input-row input:focus {
+  border-color: var(--accent);
+}
+
+.tag-modal-input-row input::placeholder {
+  color: var(--text-muted);
+}
+
+.tag-modal-add-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: filter 0.15s ease;
+}
+
+.tag-modal-add-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.tag-modal-add-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

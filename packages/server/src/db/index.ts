@@ -19,6 +19,8 @@ export {
   userBookProgress,
   glossaryEntries,
   books,
+  tags,
+  bookTags,
 } from "./schema.js";
 
 // ---------------------------------------------------------------------------
@@ -115,6 +117,7 @@ function ensureTables(sqlite: Database.Database): void {
       title             TEXT NOT NULL,
       author            TEXT NOT NULL,
       year              INTEGER,
+      source            TEXT NOT NULL DEFAULT 'upload',
       source_format     TEXT NOT NULL,
       status            TEXT NOT NULL DEFAULT 'pending',
       error             TEXT,
@@ -122,5 +125,24 @@ function ensureTables(sqlite: Database.Database): void {
       created_at        TEXT NOT NULL,
       updated_at        TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS tags (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT NOT NULL UNIQUE,
+      created_at  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS book_tags (
+      book_id   TEXT NOT NULL,
+      tag_id    INTEGER NOT NULL REFERENCES tags(id),
+      PRIMARY KEY (book_id, tag_id)
+    );
   `);
+
+  // Add source column to existing books tables (may already exist)
+  try {
+    sqlite.exec(`ALTER TABLE books ADD COLUMN source TEXT NOT NULL DEFAULT 'upload';`);
+  } catch {
+    // Column already exists — ignore
+  }
 }
