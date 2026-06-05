@@ -109,3 +109,17 @@
     to { opacity: 1; }
   }
 }
+
+/* ── Panel Dragging Utilities ── */
+body.is-resizing-panels * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  cursor: col-resize !important;
+}
+
+body.is-resizing-panels .sidebar,
+body.is-resizing-panels .right-sidebar,
+body.is-resizing-panels .reader-main {
+  transition: none !important;
+}
+
