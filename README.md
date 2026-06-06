@@ -46,7 +46,9 @@ npm install
 npm run dev
 ```
 
-Server runs on `:3847`, client on `:5847`. Open http://localhost:5847.
+Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
+
+Dev uses a separate database (`~/.local/share/pi-books-dev/`) so it never collides with Docker. Overrides live in `.env.dev` (auto-created, gitignored).
 
 You'll need an API key from a supported LLM provider (Anthropic, OpenAI, Google, DeepSeek, Zhipu, etc). See `.env.example` for details.
 
