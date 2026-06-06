@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useMermaid } from "../hooks/useMermaid";
 import { marked } from "marked";
 import { fetchHeadings, fetchContent, type BookHeading } from "../api";
 import { SelectionToolbar } from "./SelectionToolbar";
@@ -138,6 +139,9 @@ function BookContent({
   onBack: () => void;
 }) {
   const html = marked.parse(content) as string;
+  const markdownRef = useRef<HTMLDivElement>(null);
+
+  useMermaid(markdownRef, html);
 
   return (
     <div className="book-content-view">
@@ -157,6 +161,7 @@ function BookContent({
           <div className="book-content-loading">Loading…</div>
         ) : (
           <div
+            ref={markdownRef}
             className="book-content-markdown"
             dangerouslySetInnerHTML={{ __html: html }}
           />

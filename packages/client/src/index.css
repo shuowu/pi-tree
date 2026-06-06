@@ -160,3 +160,28 @@ a:hover {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
+
+/* ── Mermaid Diagrams ── */
+
+.mermaid-diagram {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Failed mermaid blocks — keep code visible with a subtle error hint */
+pre.mermaid-error {
+  border-left: 3px solid var(--red);
+  opacity: 0.8;
+}
+

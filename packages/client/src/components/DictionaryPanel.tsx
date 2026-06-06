@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useMermaid } from "../hooks/useMermaid";
 import { marked } from "marked";
 import { BookA, X } from "lucide-react";
 import "./DictionaryPanel.css";
@@ -59,6 +60,9 @@ function DictCard({
   onRemove: (id: string) => void;
 }) {
   const html = marked.parse(entry.definition) as string;
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useMermaid(bodyRef, html);
 
   return (
     <div className={`dict-card ${entry.streaming ? "streaming" : ""}`}>
@@ -73,10 +77,11 @@ function DictCard({
         </button>
       </div>
       <div
+        ref={bodyRef}
         className="dict-card-body"
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {entry.streaming && <span className="dict-card-cursor">▊</span>}
+      {entry.streaming && <span className="dict-card-cursor">█</span>}
     </div>
   );
 }
@@ -95,6 +100,9 @@ export function DictQuickCard({
   onGoToDict: () => void;
 }) {
   const html = marked.parse(entry.definition) as string;
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useMermaid(bodyRef, html);
 
   return (
     <div className={`dict-quick-card ${entry.streaming ? "streaming" : ""}`}>
@@ -109,10 +117,11 @@ export function DictQuickCard({
         </button>
       </div>
       <div
+        ref={bodyRef}
         className="dict-card-body"
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {entry.streaming && <span className="dict-card-cursor">▊</span>}
+      {entry.streaming && <span className="dict-card-cursor">█</span>}
       {!entry.streaming && (
         <button className="dict-quick-card-link" onClick={onGoToDict}>
           View in Dictionary →

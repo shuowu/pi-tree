@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMermaid } from "../hooks/useMermaid";
 import type { ChatMessage, BranchOption } from "@pi-books/shared";
 import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
@@ -272,11 +273,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   const isAssistant = message.role === "assistant";
   const isUser = message.role === "user";
   const isMarkdown = isAssistant || (isUser && message.content.trim().startsWith(">"));
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const html = useMemo(() => {
     if (!isMarkdown) return "";
     return marked.parse(message.content) as string;
   }, [message.content, isMarkdown]);
+
+  useMermaid(contentRef, html);
 
   return (
     <div className={`chat-message chat-message-${message.role}`}>
@@ -284,6 +288,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <div className="chat-bubble">
         {isMarkdown ? (
           <div
+            ref={contentRef}
             className="chat-content markdown"
             dangerouslySetInnerHTML={{ __html: html }}
           />
@@ -297,15 +302,21 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
 /** Live-updating bubble that renders partial markdown as it streams in */
 function StreamingBubble({ content, isCompacting }: { content: string; isCompacting?: boolean }) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const html = useMemo(() => {
     return marked.parse(content) as string;
   }, [content]);
+
+  // Skip mermaid during streaming — incomplete fences would produce errors.
+  // Once streaming ends, content moves to MessageBubble which renders mermaid.
+  useMermaid(contentRef, html, /* enabled */ false);
 
   return (
     <div className="chat-message chat-message-assistant">
       <div className="chat-avatar">✦</div>
       <div className="chat-bubble">
         <div
+          ref={contentRef}
           className="chat-content markdown streaming"
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -458,15 +469,19 @@ function InlineBranches({
 
 /** AI message rendered inside an inline branch — uses same style as regular chat */
 function InlineAIMessage({ content }: { content: string }) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const html = useMemo(() => {
     return marked.parse(content) as string;
   }, [content]);
+
+  useMermaid(contentRef, html);
 
   return (
     <div className="chat-message chat-message-assistant">
       <div className="chat-avatar">✦</div>
       <div className="chat-bubble">
         <div
+          ref={contentRef}
           className="chat-content markdown"
           dangerouslySetInnerHTML={{ __html: html }}
         />
