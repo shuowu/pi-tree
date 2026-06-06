@@ -1,6 +1,7 @@
 services:
   pi-books:
     build: .
+    restart: unless-stopped
     ports:
       - "${PORT:-3847}:${PORT:-3847}"
     env_file: .env

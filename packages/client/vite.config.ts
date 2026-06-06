@@ -4,12 +4,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5847,
+    port: 5947,
     host: true,
     proxy: {
       '/api': {
-        // All calls go through the Vite dev proxy → localhost:3847
-        target: 'http://localhost:3847',
+        // Dev proxy → dev server on :3947 (Docker keeps :3847)
+        target: 'http://localhost:3947',
         changeOrigin: true,
       },
     },

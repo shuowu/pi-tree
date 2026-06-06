@@ -31,6 +31,7 @@ import { wrapTokenWithEarlyTreeUpdate } from "./streaming-utils.js";
 
 export class TreeManager {
   private config: ReaderConfig;
+  private sessionDbId: number = 0;
 
   private constructor(
     private piSession: PiSession,
@@ -41,26 +42,39 @@ export class TreeManager {
     this.config = { ...DEFAULT_CONFIG };
   }
 
+  /** Get the DB row ID of the active session */
+  getSessionId(): number {
+    return this.sessionDbId;
+  }
+
   // ---------------------------------------------------------------------------
   // Factory
   // ---------------------------------------------------------------------------
 
   /**
    * Load an existing tree session or start a new one.
+   *
+   * @param options.sessionId — When provided, loads the specific session by
+   *   DB row ID. When omitted, loads the most recently active session for
+   *   the user+book (backward compatible).
+   * @param options.resumeSession — Legacy: explicit JSONL file path to resume.
    */
   static async loadOrCreate(
     userId: string,
     bookId: string,
-    options?: { resumeSession?: string },
+    options?: { sessionId?: number; resumeSession?: string },
   ): Promise<TreeManager> {
     const library = new LibraryService();
     const dataPath =
       process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-books");
 
-    // Auto-resume: if no explicit session given, check the DB for an active session
+    // Resolve which session file to resume:
+    // 1. Explicit resumeSession path (legacy)
+    // 2. sessionId → look up that specific row
+    // 3. Most recently active session for user+book
     let resumeSession = options?.resumeSession;
     if (!resumeSession) {
-      resumeSession = TreeManager.readActiveSession(userId, bookId);
+      resumeSession = TreeManager.readActiveSession(userId, bookId, options?.sessionId);
     }
 
     const db = getDb();
@@ -81,22 +95,49 @@ export class TreeManager {
     // Persist the active session file path in DB so server restarts resume correctly
     const sessionFile = piSession.getSessionFile();
     console.log(`[tree-manager] Session created — user: ${userId}, file: ${sessionFile}`);
+    let dbId: number | undefined;
     if (sessionFile) {
-      TreeManager.writeActiveSession(userId, bookId, sessionFile);
+      dbId = TreeManager.writeActiveSession(userId, bookId, sessionFile, options?.sessionId);
     }
 
-    return new TreeManager(piSession, userId, bookId, library);
+    const tm = new TreeManager(piSession, userId, bookId, library);
+    tm.sessionDbId = dbId ?? TreeManager.readSessionDbId(userId, bookId, options?.sessionId) ?? 0;
+    return tm;
   }
 
   /**
    * Read the active session file path for a user+book from the DB.
+   *
+   * @param sessionId — When provided, looks up that specific row by ID.
+   *   When omitted, finds the most recently active session.
    */
   private static readActiveSession(
     userId: string,
     bookId: string,
+    sessionId?: number,
   ): string | undefined {
     try {
       const db = getDb();
+
+      // If a specific session ID was requested, look it up directly
+      if (sessionId !== undefined) {
+        const row = db
+          .select()
+          .from(userBookSessions)
+          .where(
+            and(
+              eq(userBookSessions.id, sessionId),
+              eq(userBookSessions.userId, userId),
+              eq(userBookSessions.bookId, bookId),
+            ),
+          )
+          .get();
+        if (!row) return undefined;
+        console.log(`[tree-manager] Resuming session #${sessionId} for ${userId}/${bookId}: ${row.sessionFile}`);
+        return row.sessionFile;
+      }
+
+      // Fallback: most recently active session
       const row = db
         .select()
         .from(userBookSessions)
@@ -119,22 +160,87 @@ export class TreeManager {
   }
 
   /**
+   * Read the DB row ID of the active session for a user+book.
+   *
+   * @param sessionId — When provided, verifies that specific row exists.
+   *   When omitted, finds the most recently active session.
+   */
+  private static readSessionDbId(
+    userId: string,
+    bookId: string,
+    sessionId?: number,
+  ): number | undefined {
+    try {
+      const db = getDb();
+
+      if (sessionId !== undefined) {
+        const row = db
+          .select({ id: userBookSessions.id })
+          .from(userBookSessions)
+          .where(
+            and(
+              eq(userBookSessions.id, sessionId),
+              eq(userBookSessions.userId, userId),
+              eq(userBookSessions.bookId, bookId),
+            ),
+          )
+          .get();
+        return row?.id;
+      }
+
+      const row = db
+        .select({ id: userBookSessions.id })
+        .from(userBookSessions)
+        .where(
+          and(
+            eq(userBookSessions.userId, userId),
+            eq(userBookSessions.bookId, bookId),
+            eq(userBookSessions.isActive, 1),
+          ),
+        )
+        .get();
+      return row?.id;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Write/upsert the active session file path to the DB.
-   * Deactivates any previous active sessions for this user+book.
+   *
+   * When sessionId is provided, updates that specific row (multi-session mode).
+   * When sessionId is omitted, deactivates previous sessions and inserts/upserts
+   * (legacy single-session behavior).
+   *
+   * @returns The DB row ID of the written/updated session.
    */
   private static writeActiveSession(
     userId: string,
     bookId: string,
     sessionFile: string,
-  ): void {
+    sessionId?: number,
+  ): number | undefined {
     try {
       const db = getDb();
       const now = new Date().toISOString();
 
-      // Ensure the "default" user exists for backward compatibility
+      // Ensure the user exists for backward compatibility
       TreeManager.ensureUser(userId);
 
-      // Deactivate previous sessions for this user+book
+      // If we have a specific session ID, update that row directly
+      if (sessionId !== undefined) {
+        db.update(userBookSessions)
+          .set({
+            sessionFile,
+            isActive: 1,
+            lastActiveAt: now,
+          })
+          .where(eq(userBookSessions.id, sessionId))
+          .run();
+        return sessionId;
+      }
+
+      // Legacy: deactivate previous sessions for this user+book
       db.update(userBookSessions)
         .set({ isActive: 0 })
         .where(
@@ -167,8 +273,23 @@ export class TreeManager {
           },
         })
         .run();
+
+      // Return the ID of the row we just wrote
+      const row = db
+        .select({ id: userBookSessions.id })
+        .from(userBookSessions)
+        .where(
+          and(
+            eq(userBookSessions.userId, userId),
+            eq(userBookSessions.bookId, bookId),
+            eq(userBookSessions.isActive, 1),
+          ),
+        )
+        .get();
+      return row?.id;
     } catch (err) {
       console.warn(`[tree-manager] Failed to persist session: ${err}`);
+      return undefined;
     }
   }
 
@@ -365,6 +486,7 @@ export class TreeManager {
       : [];
 
     return {
+      sessionId: this.sessionDbId,
       userId: this.userId,
       bookId: this.bookId,
       activeNodeId:

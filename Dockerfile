@@ -42,8 +42,10 @@ COPY --from=build /app/node_modules ./node_modules
 # Copy client build output (served by Hono serveStatic in production mode)
 COPY --from=build /app/packages/client/dist ./packages/client/dist
 
-# Copy .pi/skills/ — reading skills for the AI (interactive-reading, etc.)
-COPY --from=build /app/.pi ./.pi
+# Copy extension package (parsers + skills for the AI)
+COPY --from=build /app/packages/extension/package.json ./packages/extension/
+COPY --from=build /app/packages/extension/dist ./packages/extension/dist
+COPY --from=build /app/packages/extension/skills ./packages/extension/skills
 
 ENV NODE_ENV=production
 ENV PORT=3847

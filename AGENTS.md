@@ -17,13 +17,15 @@ packages/
 ## Docs
 
 - `docs/ARCHITECTURE.md` — How the server wraps Pi SDK, data ownership (Pi SDK owns JSONL sessions, pi-books owns SQLite metadata), extension package design
+- `docs/SESSION-MANAGEMENT.md` — Multi-session model, context binding, session lifecycle, API reference, future agent extensibility
 - `docs/SELF-HOSTING.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
 - `docs/VISION.md` — Design philosophy and product direction
 
 ## Key Concepts
 
 - **Conversation-first**: The AI conversation IS the reading experience
-- **Tree-structured sessions**: Each book has a topic tree; branches on semantic shifts only
+- **Multi-session per book**: Each user+book can have multiple independent sessions (reading, Q&A, custom) — each with its own conversation tree and optional context configuration
+- **Tree-structured sessions**: Each session has a topic tree; branches on semantic shifts only
 - **Free-form depth**: Every node is a TopicNode — no rigid hierarchy
 - **TOC + Chat navigation**: Clickable table of contents alongside conversational navigation
 - **Configurable summaries**: Brief/medium/detailed, per-book overrides via BOOK.md
@@ -44,7 +46,7 @@ SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-books.db` (d
 
 Tables:
 - `users` — simple identity (slug id, displayName, avatarUrl)
-- `user_book_sessions` — tracks Pi SDK JSONL session files per user+book
+- `user_book_sessions` — tracks Pi SDK JSONL session files per user+book. Supports multiple sessions per user+book with `title`, `context` (JSON blob of SessionContext), and `is_active` flag
 - `user_book_config` — per-user per-book ReaderConfig JSON blob
 - `user_book_progress` — reading position tracking
 - `glossary_entries` — per-user per-book term definitions
@@ -69,13 +71,27 @@ Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-b
 
 | Data | Location | Scope |
 |------|----------|-------|
-| Session JSONL | `<DATA_PATH>/sessions/<bookId>/<userId>/` | Per user per book |
+| Session JSONL | `<DATA_PATH>/sessions/<bookId>/<userId>/` | Per session per user per book |
 | SQLite DB | `<DATA_PATH>/pi-books.db` | All users |
-| Session metadata | SQLite `user_book_sessions` | Per user per book |
+| Session metadata | SQLite `user_book_sessions` | Per session per user per book |
 | Config | SQLite `user_book_config` | Per user per book |
 | Glossary | SQLite `glossary_entries` | Per user per book |
 | Book content | `<LIBRARY_PATH>/<bookId>/markdown/` | Shared (read-only) |
 | Outlines | `<LIBRARY_PATH>/<bookId>/analysis/` | Shared (read-only) |
+
+## Session Management
+
+Multiple sessions per user+book. Each session has a `SessionContext` (mode, optional skills/prompt/model overrides) stored as JSON. See `docs/SESSION-MANAGEMENT.md` for full architecture.
+
+**Session API** (CRUD):
+- `GET /api/sessions/:userId/:bookId` — list all sessions
+- `POST /api/sessions/:userId/:bookId` — create `{ title, context? }`
+- `PUT /api/sessions/:userId/:bookId/:sessionId` — update `{ title?, context? }`
+- `DELETE /api/sessions/:userId/:bookId/:sessionId` — soft-delete
+
+**Session interaction routes** (`/api/session/*`) all accept optional `sessionId` in request body. When omitted, defaults to most recently active session.
+
+**URL**: `/book/:bookId?session=<id>&node=<nodeId>`
 ## Multi-User Flow
 
 No auth — users are slug-based identity records in SQLite.
@@ -101,18 +117,32 @@ No auth — users are slug-based identity records in SQLite.
 
 ## Development
 
+Dev uses different ports and a separate DB so it never collides with Docker.
+
+- `.env` — shared config (API keys, models, `LIBRARY_PATH`)
+- `.env.dev` — dev-only overrides (`PORT=3947`, `DATA_PATH=~/.local/share/pi-books-dev`)
+- In dev mode, `load-env.ts` loads `.env` then overlays `.env.dev` (skipped when `NODE_ENV=production`).
+
 ```bash
 npm install
-npm run dev          # starts both server (:3847) and client (:5847)
+npm run dev          # starts both server (:3947) and client (:5947)
 npm run dev:server   # server only
 npm run dev:client   # client only
 ```
+
+| | Dev | Docker |
+|---|---|---|
+| Server port | 3947 | 3847 |
+| Client port | 5947 | — (served by Hono) |
+| DB path | `~/.local/share/pi-books-dev/pi-books.db` | `/data/pi-books.db` (named volume) |
 
 ## Docker
 
 ```bash
 docker compose up --build
 ```
+
+The container has `restart: unless-stopped` so it auto-starts with Docker.
 
 Volumes:
 - `LIBRARY_PATH` (or `./library`) → `/library` (read-only content)
