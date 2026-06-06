@@ -7,9 +7,11 @@ interface BookSettingsModalProps {
   onClose: () => void;
   onReprocess: () => void;
   onClearSession: () => void;
+  /** Label of the currently active session, if any */
+  sessionLabel?: string | null;
 }
 
-export function BookSettingsModal({ book, onClose, onReprocess, onClearSession }: BookSettingsModalProps) {
+export function BookSettingsModal({ book, onClose, onReprocess, onClearSession, sessionLabel }: BookSettingsModalProps) {
   return (
     <div className="book-settings-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="book-settings-modal">
@@ -43,10 +45,15 @@ export function BookSettingsModal({ book, onClose, onReprocess, onClearSession }
 
           <div className="book-settings-section">
             <div className="book-settings-section-info">
-              <h3>Clear Reading Session</h3>
+              <h3>Clear Current Session</h3>
               <p>
-                Reset your reading position and erase all chat history/conversation tree 
-                for this book. This action is irreversible.
+                {sessionLabel
+                  ? <>Reset the <strong>{sessionLabel}</strong> session — erases all chat history and conversation tree for this session. This action is irreversible.</>
+                  : <>Reset your current reading session and erase all chat history/conversation tree. This action is irreversible.</>
+                }
+              </p>
+              <p className="book-settings-hint">
+                To manage all sessions (rename, delete, or create new ones), use the session picker from the breadcrumb bar.
               </p>
             </div>
             <button className="book-settings-action-btn clear-session-btn" onClick={() => { onClearSession(); onClose(); }}>

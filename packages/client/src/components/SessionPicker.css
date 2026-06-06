@@ -1,0 +1,442 @@
+/* ── SessionPicker — multi-session selection screen ── */
+
+.session-picker {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  animation: fadeIn 0.3s ease;
+}
+
+.session-picker-content {
+  max-width: 520px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+/* ── Book header ── */
+
+.session-picker-book-info {
+  text-align: center;
+}
+
+.session-picker-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-bottom: var(--space-2);
+}
+
+.session-picker-author {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.session-picker-prompt {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ── Session list ── */
+
+.session-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* ── Session card ── */
+
+.session-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.session-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.session-card-deleting {
+  border-color: var(--red);
+}
+
+.session-card-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--accent-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-card-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-card-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Session card actions (visible on hover) ── */
+
+.session-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.session-card:hover .session-card-actions {
+  opacity: 1;
+}
+
+.session-card-action-btn {
+  background: none;
+  border: none;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.session-card-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.session-card-action-delete:hover {
+  color: var(--red);
+}
+
+.session-card-resume-btn {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.session-card-resume-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+}
+
+.session-card-resume-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Inline rename ── */
+
+.session-card-edit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.session-card-edit-input {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
+  outline: none;
+  min-width: 0;
+  flex: 1;
+}
+
+.session-card-edit-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.session-card-edit-btn:hover {
+  color: var(--text-primary);
+}
+
+/* ── Delete confirmation ── */
+
+.session-card-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) 0;
+}
+
+.session-card-delete-confirm p {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.session-card-delete-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.session-card-delete-yes {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  background: var(--red);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.session-card-delete-yes:hover {
+  opacity: 0.85;
+}
+
+.session-card-delete-no {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.session-card-delete-no:hover {
+  background: var(--bg-active);
+}
+
+/* ── New session button ── */
+
+.session-picker-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: all var(--transition-base);
+}
+
+.session-picker-new-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(122, 90, 56, 0.12);
+  box-shadow: var(--shadow-sm);
+}
+
+.session-picker-new-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── New session expanded mode picker ── */
+
+.session-picker-new-expanded {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.session-picker-new-label {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.session-picker-cancel-btn {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.session-picker-cancel-btn:hover {
+  color: var(--text-secondary);
+}
+
+/* ── Mode options (reused for both empty and expanded states) ── */
+
+.session-picker-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.session-picker-mode-options.compact {
+  gap: var(--space-2);
+}
+
+.session-picker-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-base);
+}
+
+.session-picker-mode-options.compact .session-picker-mode-option {
+  padding: var(--space-4);
+}
+
+.session-picker-mode-option:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.session-picker-mode-option:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.session-picker-mode-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-picker-mode-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent-dim);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.session-picker-mode-options.compact .session-picker-mode-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.session-picker-mode-option:hover:not(:disabled) .session-picker-mode-icon {
+  background: rgba(122, 90, 56, 0.18);
+}
+
+.session-picker-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.session-picker-mode-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.session-picker-mode-options.compact .session-picker-mode-label {
+  font-size: var(--text-base);
+}
+
+.session-picker-mode-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+/* ── Fade-in keyframe (shared with WelcomeState) ── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .session-picker {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .session-card {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* Always show actions on mobile (no hover) */
+  .session-card-actions {
+    opacity: 1;
+  }
+
+  .session-picker-mode-option {
+    padding: var(--space-4);
+  }
+}

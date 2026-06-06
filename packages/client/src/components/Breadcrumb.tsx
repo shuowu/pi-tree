@@ -17,6 +17,8 @@ interface BreadcrumbProps {
   isScoped: boolean;
   /** All header action icons, rendered on the right */
   panelToggles?: PanelToggle[];
+  /** Currently active session name, shown as a subtle label */
+  sessionLabel?: string | null;
 }
 
 /** Truncate a label to maxLen chars */
@@ -25,7 +27,7 @@ function truncate(text: string, maxLen: number): string {
   return text.slice(0, maxLen) + "…";
 }
 
-export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggles }: BreadcrumbProps) {
+export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggles, sessionLabel }: BreadcrumbProps) {
   // Only show the last 2 breadcrumb items; collapse earlier ones into "…"
   const collapsed = items.length > 2;
   const visibleItems = collapsed ? items.slice(-2) : items;
@@ -39,6 +41,12 @@ export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggle
           </button>
         ) : (
           <span className="breadcrumb-book">{truncate(bookTitle, 30)}</span>
+        )}
+
+        {sessionLabel && (
+          <span className="breadcrumb-session-label" title={sessionLabel}>
+            {truncate(sessionLabel, 20)}
+          </span>
         )}
 
         {collapsed && (

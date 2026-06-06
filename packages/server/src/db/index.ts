@@ -81,6 +81,8 @@ function ensureTables(sqlite: Database.Database): void {
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id        TEXT NOT NULL REFERENCES users(id),
       book_id        TEXT NOT NULL,
+      title          TEXT NOT NULL DEFAULT 'Reading Session',
+      context        TEXT NOT NULL DEFAULT '{"mode":"reading"}',
       session_file   TEXT NOT NULL,
       is_active      INTEGER NOT NULL DEFAULT 1,
       created_at     TEXT NOT NULL,
@@ -154,6 +156,18 @@ function ensureTables(sqlite: Database.Database): void {
   // Add source column to existing books tables (may already exist)
   try {
     sqlite.exec(`ALTER TABLE books ADD COLUMN source TEXT NOT NULL DEFAULT 'upload';`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Multi-session migration: add title + context columns to existing DBs
+  try {
+    sqlite.exec(`ALTER TABLE user_book_sessions ADD COLUMN title TEXT NOT NULL DEFAULT 'Reading Session';`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    sqlite.exec(`ALTER TABLE user_book_sessions ADD COLUMN context TEXT NOT NULL DEFAULT '{"mode":"reading"}';`);
   } catch {
     // Column already exists — ignore
   }

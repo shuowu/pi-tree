@@ -29,6 +29,8 @@ export const userBookSessions = sqliteTable("user_book_sessions", {
     .notNull()
     .references(() => users.id),
   bookId: text("book_id").notNull(),
+  title: text("title").notNull().default("Reading Session"),
+  context: text("context").notNull().default('{"mode":"reading"}'), // JSON blob of SessionContext
   sessionFile: text("session_file").notNull(), // absolute path to JSONL
   isActive: integer("is_active").notNull().default(1), // boolean: 1 = active
   createdAt: text("created_at").notNull(),

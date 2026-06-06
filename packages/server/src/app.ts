@@ -4,6 +4,7 @@ import { logger } from "hono/logger";
 import { getDb } from "./db/index.js";
 import { libraryRoutes } from "./routes/library.js";
 import { sessionRoutes } from "./routes/session.js";
+import { sessionCrudRoutes } from "./routes/sessions.js";
 import { userRoutes } from "./routes/users.js";
 import { dictionaryRoutes } from "./routes/dictionary.js";
 import { getServerConfig, saveServerConfig } from "./config.js";
@@ -33,6 +34,7 @@ app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
 // API routes
 app.route("/api/library", libraryRoutes);
 app.route("/api/session", sessionRoutes);
+app.route("/api/sessions", sessionCrudRoutes);
 app.route("/api/users", userRoutes);
 app.route("/api/dict", dictionaryRoutes);
 

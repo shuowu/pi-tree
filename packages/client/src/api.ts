@@ -6,6 +6,8 @@
 import type {
   Book,
   BookOutline,
+  BookSession,
+  SessionContext,
   SessionState,
   TreeNodeView,
   UserInfo,
@@ -217,7 +219,70 @@ export async function fetchJobs(): Promise<JobWithBook[]> {
 
 
 // ---------------------------------------------------------------------------
-// Session
+// Session Management (CRUD) — multi-session per book
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch all sessions for a user+book pair.
+ */
+export async function fetchSessions(userId: string, bookId: string): Promise<BookSession[]> {
+  const res = await fetch(`${API}/sessions/${userId}/${bookId}`);
+  if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.status}`);
+  const data = await res.json();
+  return data.sessions;
+}
+
+/**
+ * Create a new session for a user+book pair.
+ */
+export async function createSession(
+  userId: string,
+  bookId: string,
+  title: string,
+  context?: SessionContext,
+): Promise<BookSession> {
+  const res = await fetch(`${API}/sessions/${userId}/${bookId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, context }),
+  });
+  if (!res.ok) throw new Error(`Failed to create session: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Update a session's title or context.
+ */
+export async function updateSession(
+  userId: string,
+  bookId: string,
+  sessionId: number,
+  updates: { title?: string; context?: SessionContext },
+): Promise<void> {
+  const res = await fetch(`${API}/sessions/${userId}/${bookId}/${sessionId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error(`Failed to update session: ${res.status}`);
+}
+
+/**
+ * Delete (soft-delete) a session.
+ */
+export async function deleteSession(
+  userId: string,
+  bookId: string,
+  sessionId: number,
+): Promise<void> {
+  const res = await fetch(`${API}/sessions/${userId}/${bookId}/${sessionId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to delete session: ${res.status}`);
+}
+
+// ---------------------------------------------------------------------------
+// Session Interaction — all accept sessionId
 // ---------------------------------------------------------------------------
 
 /**
@@ -225,11 +290,11 @@ export async function fetchJobs(): Promise<JobWithBook[]> {
  * Returns existing state (with messages) if the session already exists,
  * or a fresh empty state for a new session.
  */
-export async function startSession(userId: string, bookId: string): Promise<SessionState> {
+export async function startSession(userId: string, bookId: string, sessionId: number): Promise<SessionState> {
   const res = await fetch(`${API}/session/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId }),
+    body: JSON.stringify({ userId, bookId, sessionId }),
   });
   if (!res.ok) throw new Error(`Failed to start session: ${res.status}`);
   return res.json();
@@ -239,11 +304,11 @@ export async function startSession(userId: string, bookId: string): Promise<Sess
  * Reset a book's session — clears all history.
  * The next startSession call will create a fresh session.
  */
-export async function resetSession(userId: string, bookId: string): Promise<void> {
+export async function resetSession(userId: string, bookId: string, sessionId: number): Promise<void> {
   const res = await fetch(`${API}/session/reset`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId }),
+    body: JSON.stringify({ userId, bookId, sessionId }),
   });
   if (!res.ok) throw new Error(`Failed to reset session: ${res.status}`);
 }
@@ -251,13 +316,14 @@ export async function resetSession(userId: string, bookId: string): Promise<void
 export async function sendMessage(
   userId: string,
   bookId: string,
+  sessionId: number,
   message: string,
   viewNodeId?: string | null,
 ): Promise<SessionState & { response: string }> {
   const res = await fetch(`${API}/session/message`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, message, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, sessionId, message, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Failed to send message: ${res.status}`);
   return res.json();
@@ -266,6 +332,7 @@ export async function sendMessage(
 export async function sendMessageStreaming(
   userId: string,
   bookId: string,
+  sessionId: number,
   message: string,
   viewNodeId: string | null,
   callbacks: {
@@ -279,7 +346,7 @@ export async function sendMessageStreaming(
   const res = await fetch(`${API}/session/message/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, message, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, sessionId, message, viewNodeId }),
   });
 
   if (!res.ok) {
@@ -338,13 +405,14 @@ export async function sendMessageStreaming(
 export async function navigateTo(
   userId: string,
   bookId: string,
+  sessionId: number,
   nodeId: string,
   options?: { summarize?: boolean },
 ): Promise<SessionState> {
   const res = await fetch(`${API}/session/navigate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, targetNodeId: nodeId, ...options }),
+    body: JSON.stringify({ userId, bookId, sessionId, targetNodeId: nodeId, ...options }),
   });
   if (!res.ok) throw new Error(`Navigate failed: ${res.status}`);
   return res.json();
@@ -358,19 +426,24 @@ export async function navigateTo(
 export async function viewScope(
   userId: string,
   bookId: string,
+  sessionId: number,
   viewNodeId: string | null,
 ): Promise<SessionState> {
   const res = await fetch(`${API}/session/view`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, sessionId, viewNodeId }),
   });
   if (!res.ok) throw new Error(`View scope failed: ${res.status}`);
   return res.json();
 }
 
-export async function fetchTree(userId: string, bookId: string): Promise<TreeNodeView> {
-  const res = await fetch(`${API}/session/tree/${userId}/${bookId}`);
+export async function fetchTree(userId: string, bookId: string, sessionId: number): Promise<TreeNodeView> {
+  const res = await fetch(`${API}/session/tree`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, bookId, sessionId }),
+  });
   if (!res.ok) throw new Error(`Failed to fetch tree: ${res.status}`);
   return res.json();
 }
@@ -382,13 +455,14 @@ export async function fetchTree(userId: string, bookId: string): Promise<TreeNod
 export async function deleteNode(
   userId: string,
   bookId: string,
+  sessionId: number,
   nodeId: string,
   viewNodeId?: string | null,
 ): Promise<SessionState> {
   const res = await fetch(`${API}/session/delete-node`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, nodeId, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, sessionId, nodeId, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Delete node failed: ${res.status}`);
   return res.json();
@@ -400,6 +474,7 @@ export async function deleteNode(
 export async function renameNode(
   userId: string,
   bookId: string,
+  sessionId: number,
   nodeId: string,
   newLabel: string,
   viewNodeId?: string | null,
@@ -407,7 +482,7 @@ export async function renameNode(
   const res = await fetch(`${API}/session/rename-node`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, nodeId, newLabel, viewNodeId }),
+    body: JSON.stringify({ userId, bookId, sessionId, nodeId, newLabel, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Rename node failed: ${res.status}`);
   return res.json();

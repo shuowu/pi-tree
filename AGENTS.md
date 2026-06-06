@@ -57,7 +57,8 @@ Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/s
 
 - React + Vite (future: Electron desktop app)
 - UserContext + UserPicker for user selection (stored in localStorage)
-- Chat view with breadcrumb bar
+- SessionPicker for multi-session management (list, create, rename, delete sessions per book)
+- Chat view with breadcrumb bar (shows active session label)
 - Side panel: TOC tab + Tree tab
 - Zoom in/out controls
 

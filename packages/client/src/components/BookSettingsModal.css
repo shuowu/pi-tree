@@ -102,6 +102,12 @@
   margin: 0;
 }
 
+.book-settings-hint {
+  margin-top: var(--space-2) !important;
+  font-style: italic;
+  color: var(--text-muted) !important;
+}
+
 .book-settings-action-btn {
   display: inline-flex;
   align-items: center;

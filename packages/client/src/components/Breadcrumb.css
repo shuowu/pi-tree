@@ -28,6 +28,19 @@
   text-overflow: ellipsis;
 }
 
+.breadcrumb-session-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--accent-dim);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  flex-shrink: 0;
+}
+
 .breadcrumb-segment {
   display: flex;
   align-items: center;

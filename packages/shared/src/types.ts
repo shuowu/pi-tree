@@ -19,6 +19,44 @@ export interface UserInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Session — multi-session per book support
+// ---------------------------------------------------------------------------
+
+/**
+ * Configuration context bound to a specific session.
+ *
+ * Captures the *intent* of the session at creation time. Today all sessions
+ * run the same skills/prompt/model, but storing context now lets us wire
+ * per-session behaviour later without schema changes.
+ *
+ * Future: the server can use this to filter skills, swap system prompts,
+ * or select a different model per session.
+ */
+export interface SessionContext {
+  /** Which mode the user picked — extensible to future modes */
+  mode: 'reading' | 'qa' | 'custom';
+  /** Optional custom system prompt override */
+  systemPrompt?: string;
+  /** Optional skill filter — which skills to enable for this session */
+  skills?: string[];
+  /** Optional model override — e.g. use a cheaper model for casual Q&A */
+  model?: string;
+}
+
+/**
+ * A reading session record as returned by the session management API.
+ * One user+book pair can have many BookSessions.
+ */
+export interface BookSession {
+  id: number;
+  title: string;
+  context: SessionContext;
+  createdAt: string;
+  lastActiveAt: string;
+  isActive: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Topic Node — the universal tree node
 // ---------------------------------------------------------------------------
 
@@ -308,6 +346,8 @@ export interface TreeNodeView {
 }
 
 export interface SessionState {
+  /** Database session ID — identifies which session within user+book */
+  sessionId: number;
   userId: string;
   bookId: string;
   activeNodeId: string;
