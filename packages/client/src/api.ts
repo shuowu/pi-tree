@@ -1,5 +1,5 @@
 /**
- * API client for pi-reader server.
+ * API client for pi-books server.
  * All calls go through the Vite dev proxy → localhost:3847.
  */
 

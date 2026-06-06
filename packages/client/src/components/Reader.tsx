@@ -18,7 +18,7 @@ import { Breadcrumb } from "./Breadcrumb";
 import { DictionaryPanel, DictQuickCard, type DictEntry } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
 import { BookSettingsModal } from "./BookSettingsModal";
-import { PanelLeft, PanelRight, FileText, Home, X, Settings } from "lucide-react";
+import { PanelLeft, PanelRight, Home, X, Settings } from "lucide-react";
 import "./Reader.css";
 
 interface ReaderProps {
@@ -540,18 +540,6 @@ export function Reader({ book }: ReaderProps) {
     } else {
       setRightPanelOpen(true);
       setRightTab("dict");
-      if (window.innerWidth <= 1024) {
-        setSidebarOpen(false);
-      }
-    }
-  }, [rightPanelOpen, rightTab]);
-
-  const toggleBook = useCallback(() => {
-    if (rightPanelOpen && rightTab === "book") {
-      setRightPanelOpen(false);
-    } else {
-      setRightPanelOpen(true);
-      setRightTab("book");
       if (window.innerWidth <= 1024) {
         setSidebarOpen(false);
       }

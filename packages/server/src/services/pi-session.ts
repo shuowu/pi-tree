@@ -93,7 +93,7 @@ export class PiSession {
     dataPath: string,
     options?: { resumeSession?: string },
   ): Promise<PiSession> {
-    // Repo root — where .pi/skills/ lives (pi-reader's own copy)
+    // Repo root — where .pi/skills/ lives (pi-books's own copy)
     const repoRoot = join(import.meta.dirname, "../../../..");
 
     // Session storage: each user+book gets its own session directory
@@ -134,7 +134,7 @@ export class PiSession {
         console.log(`[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}`);
       }
 
-      // ResourceLoader: discover .pi/skills/ from pi-reader repo root
+      // ResourceLoader: discover .pi/skills/ from pi-books repo root
       const agentDir = getAgentDir();
       const resourceLoader = new DefaultResourceLoader({
         cwd: repoRoot,

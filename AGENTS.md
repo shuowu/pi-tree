@@ -54,7 +54,7 @@ Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/s
 
 ## Data Source
 
-Reads from `~/.local/share/pi-reader/library/` by default (configurable via `LIBRARY_PATH` env var). Users can also upload books via the UI. This is read-only.
+Reads from `~/.local/share/pi-books/library/` by default (configurable via `LIBRARY_PATH` env var). Users can also upload books via the UI. This is read-only.
 
 Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-books/`).
 

@@ -1,16 +1,16 @@
-# pi-reader
+# pi-books
 
 AI-assisted book reading with tree-structured conversations. Upload your own books (EPUB, MOBI, PDF) or point at a local collection, then explore them through AI-powered chat with branching topic trees.
 
-> **Bring Your Own Key** — pi-reader runs locally. You provide your own LLM API key. No data leaves your machine except API calls to your chosen provider.
+> **Bring Your Own Key** — pi-books runs locally. You provide your own LLM API key. No data leaves your machine except API calls to your chosen provider.
 
 ## Why
 
 I started reading with AI in the terminal — using [Pi](https://pi.dev), a minimalist AI agent that gives you total freedom. No menus, no preset workflows, just a conversation tree and your curiosity. It was the best reading experience I'd ever had. But it was also mine alone — no one else in my family could use a terminal tool, and that felt like a waste. The power of AI-assisted reading shouldn't require a developer's setup.
 
-At the same time, most AI apps go the other direction: they box you into the builder's vision of how things should work. Pi-reader tries to find the middle ground — a real UI that anyone can pick up, built on the same minimalist, tree-structured conversation model that makes the terminal experience so powerful.
+At the same time, most AI apps go the other direction: they box you into the builder's vision of how things should work. Pi-books tries to find the middle ground — a real UI that anyone can pick up, built on the same minimalist, tree-structured conversation model that makes the terminal experience so powerful.
 
-I also believe AI is heading toward specialization: not one model that does everything, but focused tools that each do one thing exceptionally well. Pi-reader is that kind of tool — it doesn't try to be a general chatbot. It's a **reading companion**, and every design decision serves that single purpose. And it runs entirely on your machine — your books, your data, your API keys never leave your control. As local AI models get better, you won't even need a cloud API; plug in Ollama or any local provider, and the whole experience stays offline and private.
+I also believe AI is heading toward specialization: not one model that does everything, but focused tools that each do one thing exceptionally well. Pi-books is that kind of tool — it doesn't try to be a general chatbot. It's a **reading companion**, and every design decision serves that single purpose. And it runs entirely on your machine — your books, your data, your API keys never leave your control. As local AI models get better, you won't even need a cloud API; plug in Ollama or any local provider, and the whole experience stays offline and private.
 
 *Read more about the design philosophy → [docs/VISION.md](docs/VISION.md)*
 
@@ -57,14 +57,14 @@ Open http://localhost:3847 (serves both frontend and API).
 
 ## Book Content
 
-Pi-reader is a **reading tool** — no book content is included in this repository.
+Pi-books is a **reading tool** — no book content is included in this repository.
 
 You can add books in two ways:
 1. **Upload** via the Library UI (supports EPUB, MOBI, PDF)
 2. **Local folder** — set `LIBRARY_PATH` in `.env` to point at your book collection
 
 > [!IMPORTANT]
-> Users are responsible for ensuring they have the right to use any content loaded into pi-reader. This project does not distribute, host, or provide access to any copyrighted material.
+> Users are responsible for ensuring they have the right to use any content loaded into pi-books. This project does not distribute, host, or provide access to any copyrighted material.
 
 ## License
 

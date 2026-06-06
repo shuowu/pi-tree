@@ -1,5 +1,5 @@
 /**
- * Core types for the pi-reader reading tree.
+ * Core types for the pi-books reading tree.
  *
  * Every node in the reading tree is a TopicNode — no rigid hierarchy.
  * Chapters, sub-topics, tangents, and cross-book references are all just
@@ -249,7 +249,7 @@ export const DEFAULT_CONFIG: ReaderConfig = {
  * Env vars:
  *   PI_MODEL        → readingModel  (default: "glm-5-turbo")
  *   PI_LOOKUP_MODEL → lookupModel   (default: same as readingModel)
- *   LIBRARY_PATH    → libraryPath   (default: ~/.local/share/pi-reader/library)
+ *   LIBRARY_PATH    → libraryPath   (default: ~/.local/share/pi-books/library)
  *   DATA_PATH       → dataPath      (default: ~/.local/share/pi-books)
  */
 export interface ServerConfig {
