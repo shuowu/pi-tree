@@ -135,10 +135,29 @@ export class PiSession {
       }
 
       // ResourceLoader: discover .pi/skills/ from pi-books repo root
+      // plus any user-mounted skills/extensions (Docker: DATA_PATH/skills/, DATA_PATH/extensions/)
       const agentDir = getAgentDir();
+
+      // Additional paths for Docker extensibility — users can mount custom
+      // skills/extensions at these locations without modifying the image.
+      const additionalSkillPaths: string[] = [];
+      const additionalExtensionPaths: string[] = [];
+
+      // Extension package's skills directory (always included)
+      const extensionPkgSkills = join(import.meta.dirname, "../../../extension/skills");
+      additionalSkillPaths.push(extensionPkgSkills);
+
+      // User-configurable paths via env vars or DATA_PATH convention
+      const userSkillsPath = process.env.SKILLS_PATH || join(dataPath, "skills");
+      const userExtensionsPath = process.env.EXTENSIONS_PATH || join(dataPath, "extensions");
+      additionalSkillPaths.push(userSkillsPath);
+      additionalExtensionPaths.push(userExtensionsPath);
+
       const resourceLoader = new DefaultResourceLoader({
         cwd: repoRoot,
         agentDir,
+        additionalSkillPaths,
+        additionalExtensionPaths,
       });
       await resourceLoader.reload();
 

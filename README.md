@@ -27,12 +27,16 @@ I also believe AI is heading toward specialization: not one model that does ever
 
 ```
 packages/
-  shared/    — TypeScript types shared between client and server
-  server/    — Hono API server wrapping Pi SDK + tree manager
-  client/    — React + Vite frontend
+  shared/      — TypeScript types shared between client and server
+  extension/   — Pi Package: skills, ebook parsers, Pi extensions (publishable)
+  server/      — Hono API server wrapping Pi SDK + tree manager
+  client/      — React + Vite frontend
 ```
 
-Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) for AI-powered reading sessions.
+Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) for AI-powered reading sessions. The extension package can also be installed in the [Pi terminal](https://pi.dev) for book reading from the CLI.
+
+*Architecture deep dive → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)*
+*Self-hosting, Docker, custom skills → [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)*
 
 ## Quick Start
 

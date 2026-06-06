@@ -37,9 +37,9 @@ Determine the source type:
 - **Local path** — if the user provides a file path, use it
 - **Filename only** — look in `~/Downloads/`
 - **Title or partial name** — search `~/Downloads/` for matches:
-```bash
-ls ~/Downloads/*.{epub,pdf,mobi,azw3,fb2,html,txt} 2>/dev/null | grep -i "<query>"
-```
+  ```bash
+  ls ~/Downloads/*.{epub,pdf,mobi,azw3,fb2,html,txt} 2>/dev/null | grep -i "<query>"
+  ```
 - If ambiguous, list matches and ask the user to confirm
 
 ---

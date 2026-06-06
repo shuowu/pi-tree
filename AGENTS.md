@@ -4,14 +4,21 @@ AI-assisted book reading app with tree-structured conversations.
 
 ## Architecture
 
-Monorepo with three packages:
+Monorepo with four packages:
 
 ```
 packages/
-  shared/    — TypeScript types (TopicNode, Book, SessionState, UserInfo, etc.)
-  server/    — Hono API server (tree manager, library service, Pi SDK wrapper, SQLite DB)
-  client/    — React + Vite frontend (chat UI, TOC, tree panel, user picker)
+  shared/      — TypeScript types (TopicNode, Book, SessionState, UserInfo, etc.)
+  extension/   — Pi Package: skills, ebook parsers, Pi extensions (publishable)
+  server/      — Hono API server (tree manager, library service, Pi SDK wrapper, SQLite DB)
+  client/      — React + Vite frontend (chat UI, TOC, tree panel, user picker)
 ```
+
+## Docs
+
+- `docs/ARCHITECTURE.md` — How the server wraps Pi SDK, data ownership (Pi SDK owns JSONL sessions, pi-books owns SQLite metadata), extension package design
+- `docs/SELF-HOSTING.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
+- `docs/VISION.md` — Design philosophy and product direction
 
 ## Key Concepts
 

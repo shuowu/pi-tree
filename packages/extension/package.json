@@ -1,0 +1,45 @@
+{
+  "name": "@pi-books/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pi Package for AI-assisted book reading — skills, extensions, and parsers",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./parsers": {
+      "types": "./dist/parsers/index.d.ts",
+      "import": "./dist/parsers/index.js"
+    }
+  },
+  "pi": {
+    "skills": "skills",
+    "extensions": "extensions"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lingo-reader/mobi-parser": "^0.4.6",
+    "epub2": "^3.0.2",
+    "pdf-parse": "^2.4.5",
+    "turndown": "^7.2.4"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.78.0"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "^0.34.49"
+  }
+}
