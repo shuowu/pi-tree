@@ -319,7 +319,7 @@ export function useReaderSession(
   // ---------------------------------------------------------------------------
 
   const handleSelectMode = useCallback(
-    (mode: "reading" | "qa") => {
+    (_mode: "reading" | "qa") => {
       // Redirect to sessions page — the user can create a session there
       navigate(`/book/${book.id}/sessions`);
     },
