@@ -106,16 +106,10 @@ Pi-books doesn't need frontier-class models — book reading is more about conte
 |----------|-------|-------|
 | DeepSeek | `deepseek-v4-flash` | Very cheap, strong reading comprehension |
 | Google | `gemini-2.5-flash` | Fast, large context window |
+| Anthropic | `claude-haiku-4-20250514` | Fast, great quality-to-cost ratio |
 | Zhipu | `glm-5-turbo` | Good Chinese + English bilingual support |
-| Anthropic | `claude-sonnet-4-20250514` | Higher quality, higher cost |
 
-**Local models** — completely offline, no API costs. Use [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/) to run models locally:
-
-| Model | Size | Notes |
-|-------|------|-------|
-| Gemma 4 | 12B | Best local option — 256K context, runs on 16GB RAM |
-| Qwen 3.6 | 8B / 30B | Strong multilingual, good for non-English books |
-| DeepSeek R1 Distill | 8B / 32B | Deep reasoning, good for dense material |
+**Local models** — completely offline, no API costs. Use [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/) to run models locally. Gemma 4 (12B, 256K context) and Qwen 3.6 are good starting points — explore what works for your hardware and reading language.
 
 Point pi-books at your local server in `.env`:
 
