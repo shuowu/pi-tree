@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { getDb } from "./db/index.js";
+
 import { libraryRoutes } from "./routes/library.js";
 import { sessionRoutes } from "./routes/session.js";
 import { sessionCrudRoutes } from "./routes/sessions.js";
@@ -11,8 +11,7 @@ import { getServerConfig, saveServerConfig } from "./config.js";
 
 export const app = new Hono();
 
-// Initialize database on startup
-getDb();
+
 
 // Middleware
 app.use("*", logger());

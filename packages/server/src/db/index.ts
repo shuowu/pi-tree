@@ -63,6 +63,23 @@ export function getDb(): BetterSQLite3Database<typeof schema> {
   return _db;
 }
 
+/**
+ * Reset the database connection. Used in tests to get a fresh DB.
+ * Closes the underlying SQLite connection and clears the singleton.
+ */
+export function resetDb(): void {
+  if (_db) {
+    try {
+      // Drizzle wraps the sqlite instance; close it to release the file lock
+      (_db as any)._.session.client.close();
+    } catch {
+      // Ignore if already closed
+    }
+    _db = null;
+  }
+}
+
+
 // ---------------------------------------------------------------------------
 // Table creation — equivalent to drizzle-kit push for bootstrap
 // ---------------------------------------------------------------------------

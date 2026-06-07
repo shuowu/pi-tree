@@ -80,6 +80,13 @@ export function getServerConfig(): ServerConfigFull {
 }
 
 /**
+ * Reset the cached config. Used in tests to ensure fresh config reads.
+ */
+export function resetServerConfig(): void {
+  _config = null;
+}
+
+/**
  * Save server configuration dynamically and update the in-memory singleton.
  */
 export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerConfigFull {

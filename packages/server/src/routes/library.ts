@@ -7,12 +7,31 @@ import { JobQueueService } from "../services/job-queue.js";
 
 export const libraryRoutes = new Hono();
 
-const dataPath =
-  process.env.DATA_PATH ??
-  join(process.env.HOME ?? "~", ".local", "share", "pi-books");
+let _library: LibraryService | null = null;
+let _bookIngestion: BookIngestionService | null = null;
 
-const library = new LibraryService(undefined, dataPath);
-const bookIngestion = new BookIngestionService();
+function getLibrary(): LibraryService {
+  if (!_library) {
+    const dataPath =
+      process.env.DATA_PATH ??
+      join(process.env.HOME ?? "~", ".local", "share", "pi-books");
+    _library = new LibraryService(undefined, dataPath);
+  }
+  return _library;
+}
+
+function getBookIngestion(): BookIngestionService {
+  if (!_bookIngestion) {
+    _bookIngestion = new BookIngestionService();
+  }
+  return _bookIngestion;
+}
+
+/** @internal — used by tests to reset singletons */
+export function _resetLibraryServices(): void {
+  _library = null;
+  _bookIngestion = null;
+}
 
 /** List all books in the library (with optional search/tag filter) */
 libraryRoutes.get("/books", async (c) => {
@@ -22,15 +41,15 @@ libraryRoutes.get("/books", async (c) => {
 
   const books =
     search || (filterTags && filterTags.length > 0)
-      ? await library.searchBooks(search, filterTags)
-      : await library.listBooks();
+      ? await getLibrary().searchBooks(search, filterTags)
+      : await getLibrary().listBooks();
   return c.json({ books });
 });
 
 /** Get a book's cover image */
 libraryRoutes.get("/books/:bookId/cover", async (c) => {
   const bookId = c.req.param("bookId");
-  const coverPath = await library.getCoverPath(bookId);
+  const coverPath = await getLibrary().getCoverPath(bookId);
   if (!coverPath) return c.json({ error: "Cover not found" }, 404);
 
   try {
@@ -53,7 +72,7 @@ libraryRoutes.get("/books/:bookId/cover", async (c) => {
 /** Get a single book's details + outline */
 libraryRoutes.get("/books/:bookId", async (c) => {
   const bookId = c.req.param("bookId");
-  const book = await library.getBook(bookId);
+  const book = await getLibrary().getBook(bookId);
   if (!book) return c.json({ error: "Book not found" }, 404);
   return c.json(book);
 });
@@ -61,7 +80,7 @@ libraryRoutes.get("/books/:bookId", async (c) => {
 /** Get a book's outline (TOC) */
 libraryRoutes.get("/books/:bookId/outline", async (c) => {
   const bookId = c.req.param("bookId");
-  const outline = await library.getOutline(bookId);
+  const outline = await getLibrary().getOutline(bookId);
   if (!outline) return c.json({ error: "Outline not found" }, 404);
   return c.json(outline);
 });
@@ -71,7 +90,7 @@ libraryRoutes.get("/books/:bookId/content", async (c) => {
   const bookId = c.req.param("bookId");
   const startLine = Number(c.req.query("start") ?? 1);
   const endLine = Number(c.req.query("end") ?? startLine + 50);
-  const content = await library.readContent(bookId, startLine, endLine);
+  const content = await getLibrary().readContent(bookId, startLine, endLine);
   if (!content) return c.json({ error: "Content not found" }, 404);
   return c.json({ content, startLine, endLine });
 });
@@ -79,7 +98,7 @@ libraryRoutes.get("/books/:bookId/content", async (c) => {
 /** Get headings from the book's markdown (lightweight TOC with line numbers) */
 libraryRoutes.get("/books/:bookId/headings", async (c) => {
   const bookId = c.req.param("bookId");
-  const headings = await library.getHeadings(bookId);
+  const headings = await getLibrary().getHeadings(bookId);
   if (!headings) return c.json({ error: "Book not found" }, 404);
   return c.json({ headings });
 });
@@ -111,7 +130,7 @@ libraryRoutes.post("/books", async (c) => {
     const buffer = Buffer.from(await (file as File).arrayBuffer());
     const filename = (file as File).name ?? "upload.epub";
 
-    const book = await bookIngestion.addBook(buffer, filename, {
+    const book = await getBookIngestion().addBook(buffer, filename, {
       title,
       author,
       year: year && !isNaN(year) ? year : undefined,
@@ -129,7 +148,7 @@ libraryRoutes.delete("/books/:bookId", async (c) => {
   const bookId = c.req.param("bookId");
 
   try {
-    const book = await library.getBook(bookId);
+    const book = await getLibrary().getBook(bookId);
     if (!book) {
       return c.json({ error: "Book not found" }, 404);
     }
@@ -138,7 +157,7 @@ libraryRoutes.delete("/books/:bookId", async (c) => {
       return c.json({ error: "Cannot delete library books" }, 403);
     }
 
-    await bookIngestion.deleteBook(bookId);
+    await getBookIngestion().deleteBook(bookId);
     return c.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -150,7 +169,7 @@ libraryRoutes.delete("/books/:bookId", async (c) => {
 libraryRoutes.post("/books/:bookId/process", async (c) => {
   const bookId = c.req.param("bookId");
   try {
-    const book = await library.getBook(bookId);
+    const book = await getLibrary().getBook(bookId);
     if (!book) {
       return c.json({ error: "Book not found" }, 404);
     }
@@ -174,7 +193,7 @@ libraryRoutes.get("/books/:bookId/job", async (c) => {
 libraryRoutes.get("/jobs", async (c) => {
   try {
     const jobs = JobQueueService.getInstance().getAllJobs();
-    const bookList = await library.listBooks();
+    const bookList = await getLibrary().listBooks();
     const bookMap = new Map(bookList.map((b) => [b.id, b]));
 
     const jobsWithBooks = jobs.map((job) => {
@@ -199,7 +218,7 @@ libraryRoutes.get("/jobs", async (c) => {
 
 /** List all tags */
 libraryRoutes.get("/tags", async (c) => {
-  const tagList = library.listTags();
+  const tagList = getLibrary().listTags();
   return c.json({ tags: tagList });
 });
 
@@ -210,7 +229,7 @@ libraryRoutes.post("/books/:bookId/tags", async (c) => {
   if (!body.tag || typeof body.tag !== "string") {
     return c.json({ error: "tag is required" }, 400);
   }
-  await library.addTag(bookId, body.tag);
+  await getLibrary().addTag(bookId, body.tag);
   return c.json({ success: true });
 });
 
@@ -218,7 +237,7 @@ libraryRoutes.post("/books/:bookId/tags", async (c) => {
 libraryRoutes.delete("/books/:bookId/tags/:tagName", async (c) => {
   const bookId = c.req.param("bookId");
   const tagName = decodeURIComponent(c.req.param("tagName"));
-  await library.removeTag(bookId, tagName);
+  await getLibrary().removeTag(bookId, tagName);
   return c.json({ success: true });
 });
 

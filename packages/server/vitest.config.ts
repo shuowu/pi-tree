@@ -1,0 +1,12 @@
+import { defineConfig } from "vitest/config";
+import { join } from "node:path";
+
+export default defineConfig({
+  test: {
+    // Use a per-process temp dir so parallel runs don't collide
+    env: {
+      DATA_PATH: join("/tmp", `pi-books-test-${process.pid}`),
+      LIBRARY_PATH: join("/tmp", `pi-books-test-library-${process.pid}`),
+    },
+  },
+});
