@@ -33,5 +33,60 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Build Docker image
         run: docker build -t pi-books:ci .
+
+      # Spin up the container and verify it actually works
+      - name: Start container
+        run: |
+          mkdir -p /tmp/ci-library
+          docker run -d --name pi-books-ci \
+            -p 3847:3847 \
+            -v /tmp/ci-library:/library:ro \
+            -e LIBRARY_PATH=/library \
+            -e DATA_PATH=/data \
+            pi-books:ci
+
+      - name: Wait for healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3847/health; then
+              echo ""
+              echo "✓ Server is healthy"
+              exit 0
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 1
+          done
+          echo "✗ Server failed to start"
+          docker logs pi-books-ci
+          exit 1
+
+      - name: Smoke test endpoints
+        run: |
+          # Health check
+          curl -sf http://localhost:3847/health | grep '"status":"ok"'
+          echo "✓ /health"
+
+          # API responds
+          curl -sf http://localhost:3847/api/users | grep '"users"'
+          echo "✓ /api/users"
+
+          curl -sf http://localhost:3847/api/library/books | grep '"books"'
+          echo "✓ /api/library/books"
+
+          curl -sf http://localhost:3847/api/config | grep '"readingModel"'
+          echo "✓ /api/config"
+
+          # Frontend loads (production static serving)
+          curl -sf http://localhost:3847/ | grep '</html>'
+          echo "✓ Frontend HTML served"
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker logs pi-books-ci
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f pi-books-ci 2>/dev/null || true
