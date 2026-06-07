@@ -3,10 +3,11 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "../../..");
 
-// Load base .env first
+// Load .env
 loadEnv({ path: resolve(root, ".env") });
 
-// In non-production, overlay .env.dev (overrides PORT, DATA_PATH, etc.)
+// Dev defaults — separate port/DB so dev never collides with Docker
 if (process.env.NODE_ENV !== "production") {
-  loadEnv({ path: resolve(root, ".env.dev"), override: true });
+  process.env.PORT ??= "3947";
+  process.env.DATA_PATH ??= "~/.local/share/pi-books-dev";
 }

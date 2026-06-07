@@ -3,6 +3,7 @@ dist
 .git
 .gitignore
 *.md
+!packages/extension/skills/**/*.md
 .env
 .env.*
 .vscode

@@ -467,16 +467,16 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     try {
       let fullResponse = "";
       const unsubscribe = session.subscribe(async (event) => {
-        console.log(`[agent-event-raw]`, JSON.stringify(event));
+        if (process.env.LOG_LEVEL === "debug") console.log(`[agent-event-raw]`, JSON.stringify(event));
         if (event.type === "message_update") {
           const assistant = event.assistantMessageEvent;
           if (assistant?.type === "text_delta" && assistant.delta) {
             fullResponse += assistant.delta;
             process.stdout.write(assistant.delta);
           } else if (assistant?.type === "toolcall_start" && (assistant as any).toolCall) {
-            console.log(`\n[agent-tool-call] Starting tool: ${(assistant as any).toolCall.name} with args: ${JSON.stringify((assistant as any).toolCall.arguments)}`);
+            if (process.env.LOG_LEVEL === "debug") console.log(`\n[agent-tool-call] Starting tool: ${(assistant as any).toolCall.name} with args: ${JSON.stringify((assistant as any).toolCall.arguments)}`);
           } else if (assistant?.type === "toolcall_end" && (assistant as any).toolCall) {
-            console.log(`\n[agent-tool-call] Finished tool: ${(assistant as any).toolCall.name}`);
+            if (process.env.LOG_LEVEL === "debug") console.log(`\n[agent-tool-call] Finished tool: ${(assistant as any).toolCall.name}`);
           }
         }
       });

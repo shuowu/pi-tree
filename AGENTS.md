@@ -121,8 +121,7 @@ No auth — users are slug-based identity records in SQLite.
 Dev uses different ports and a separate DB so it never collides with Docker.
 
 - `.env` — shared config (API keys, models, `LIBRARY_PATH`)
-- `.env.dev` — dev-only overrides (`PORT=3947`, `DATA_PATH=~/.local/share/pi-books-dev`)
-- In dev mode, `load-env.ts` loads `.env` then overlays `.env.dev` (skipped when `NODE_ENV=production`).
+- In dev mode, `load-env.ts` loads `.env` then applies dev defaults (`PORT=3947`, `DATA_PATH=~/.local/share/pi-books-dev`) via `??=` so they can be overridden.
 
 ```bash
 npm install

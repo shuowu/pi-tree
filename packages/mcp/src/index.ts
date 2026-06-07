@@ -30,8 +30,11 @@ import { registerReferenceTools } from "./tools/reference.js";
 
 const root = resolve(import.meta.dirname, "../../..");
 loadEnv({ path: resolve(root, ".env") });
+
+// Dev defaults — separate port/DB so dev never collides with Docker
 if (process.env.NODE_ENV !== "production") {
-  loadEnv({ path: resolve(root, ".env.dev"), override: true });
+  process.env.PORT ??= "3947";
+  process.env.DATA_PATH ??= "~/.local/share/pi-books-dev";
 }
 
 // ---------------------------------------------------------------------------
