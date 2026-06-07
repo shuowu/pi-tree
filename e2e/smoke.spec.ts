@@ -36,7 +36,7 @@ test.describe("Smoke", () => {
 
   test("switching user returns to UserPicker", async ({ page }) => {
     // Set up: create user via API so we have a known state
-    const baseURL = page.url().replace(/\/$/, "") || "http://localhost:3847";
+    const baseURL = process.env.BASE_URL ?? "http://localhost:3847";
     await page.request.post(`${baseURL}/api/users`, {
       data: { id: TEST_USER_ID + "-switch", displayName: "Switch Test" },
     });
