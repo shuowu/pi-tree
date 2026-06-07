@@ -8,7 +8,7 @@ It was genuinely the best way I'd ever read a non-fiction book. The tree structu
 
 But it was also a terminal tool. And that meant I was the only person in my family who could use it.
 
-My wife reads more books than I do. My parents are curious about ideas but would never open a terminal. The gap between "this is incredible" and "nobody else can use it" felt like a problem worth solving.
+My wife reads more books than I do. My kids are curious about everything but need something they can just click around in. My parents would never open a terminal. The gap between "this is incredible" and "nobody else can use it" felt like a problem worth solving.
 
 ## The GUI Trap
 

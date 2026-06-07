@@ -114,21 +114,18 @@ export class PiSession {
     try {
       const serverConfig = getServerConfig();
 
-      // Auth: prefer env var (standalone/Docker), fall back to ~/.pi/agent/auth.json (local dev)
-      let authStorage: AuthStorage;
+      // Auth: start with file-based auth (~/.pi/agent/auth.json + models.json providers),
+      // then layer env var API key on top so both sources merge.
+      const authStorage = AuthStorage.create();
       if (serverConfig.apiKey && serverConfig.provider) {
-        authStorage = AuthStorage.inMemory();
         authStorage.setRuntimeApiKey(serverConfig.provider, serverConfig.apiKey);
-        console.log(`[pi-session] Auth: using env var API key for provider "${serverConfig.provider}"`);
-      } else {
-        authStorage = AuthStorage.create();
-        console.log(`[pi-session] Auth: using ~/.pi/agent/auth.json`);
+        console.log(`[pi-session] Auth: env var API key layered for provider "${serverConfig.provider}"`);
       }
 
       const modelRegistry = ModelRegistry.create(authStorage);
 
-      // If using env var auth with a custom base URL, register the provider dynamically
-      if (serverConfig.apiKey && serverConfig.provider && serverConfig.baseUrl) {
+      // If env var specifies a custom base URL, register/override that provider
+      if (serverConfig.provider && serverConfig.baseUrl) {
         modelRegistry.registerProvider(serverConfig.provider, {
           baseUrl: serverConfig.baseUrl,
         });

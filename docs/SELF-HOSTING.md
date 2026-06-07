@@ -17,6 +17,45 @@ This guide covers configuration, customization, and extending pi-books for self-
 | `EXTENSIONS_PATH` | `<DATA_PATH>/extensions` | Custom extensions directory |
 | `PORT` | `3847` | Server port |
 
+Env vars are the simplest way to configure a single provider. For multiple providers, use `models.json` below.
+
+## Multi-Provider Models (`models.json`)
+
+Pi-books uses Pi's native [`models.json`](https://pi.dev/docs/latest/models) for advanced model configuration. This lets you define multiple providers and models — e.g., Ollama for offline reading and DeepSeek for cloud — and switch between them at runtime.
+
+Place the file at `~/.pi/agent/models.json`:
+
+```json
+{
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "models": [
+        { "id": "gemma4:12b" },
+        { "id": "qwen3.6:8b" }
+      ]
+    },
+    "deepseek": {
+      "apiKey": "$DEEPSEEK_API_KEY",
+      "models": [
+        { "id": "deepseek-v4-flash" }
+      ]
+    }
+  }
+}
+```
+
+**Resolution order**: env vars and `models.json` merge automatically. If you set `PI_PROVIDER` + `PI_API_KEY` in `.env` *and* have providers in `models.json`, all providers are available. The env var provider's API key takes precedence over `models.json` for that specific provider.
+
+For Docker, mount the file into the container:
+
+```yaml
+volumes:
+  - ~/.pi/agent/models.json:/root/.pi/agent/models.json:ro
+```
+
 ## Data Layout
 
 ```

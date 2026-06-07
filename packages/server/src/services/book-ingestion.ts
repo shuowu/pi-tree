@@ -426,17 +426,15 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     const repoRoot = join(import.meta.dirname, "../../../..");
     const agentDir = getAgentDir();
 
-    let authStorage: AuthStorage;
+    // Auth: file-based + env var overlay (same pattern as pi-session.ts)
+    const authStorage = AuthStorage.create();
     if (serverConfig.apiKey && serverConfig.provider) {
-      authStorage = AuthStorage.inMemory();
       authStorage.setRuntimeApiKey(serverConfig.provider, serverConfig.apiKey);
-    } else {
-      authStorage = AuthStorage.create();
     }
 
     const modelRegistry = ModelRegistry.create(authStorage);
 
-    if (serverConfig.apiKey && serverConfig.provider && serverConfig.baseUrl) {
+    if (serverConfig.provider && serverConfig.baseUrl) {
       modelRegistry.registerProvider(serverConfig.provider, {
         baseUrl: serverConfig.baseUrl,
       });
