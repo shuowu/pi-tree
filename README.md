@@ -4,6 +4,14 @@ AI-assisted book reading with tree-structured conversations. Upload your own boo
 
 > **Bring Your Own Key** — pi-books runs locally. You provide your own LLM API key. No data leaves your machine except API calls to your chosen provider.
 
+<p align="center">
+  <img src="docs/images/library.png" alt="Pi-books library view — browse your book collection with covers, search, and one-click access" width="720" />
+</p>
+
+<p align="center">
+  <img src="docs/images/reading-session.png" alt="Pi-books reading session — tree-structured conversation with chapter briefing, branching topics, and breadcrumb navigation" width="720" />
+</p>
+
 ## Why
 
 ### Why Pi
