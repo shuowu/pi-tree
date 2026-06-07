@@ -55,13 +55,17 @@ export function useReaderSession(
   const [isCompacting, setIsCompacting] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
   const [activeToolCall, setActiveToolCall] = useState<{ toolName: string; args: Record<string, unknown> } | null>(null);
+  // Track which tree nodes have in-flight AI responses (for tree spinner)
+  const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(new Set());
 
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
   // browser-initiated changes (back/forward) vs our own updates.
   const lastViewNodeIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<number | null>(sessionId);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Generation counter — incremented on each new message or navigation.
+  // Stale streams (gen !== current) silently finish without updating UI.
+  const streamGenRef = useRef(0);
 
   // Keep ref in sync
   useEffect(() => {
@@ -120,10 +124,17 @@ export function useReaderSession(
       const sid = sessionIdRef.current;
       if (sid === null) return;
 
-      // Cancel any in-flight request for this session
-      abortControllerRef.current?.abort();
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
+      // Bump the generation — any in-flight stream from a previous message
+      // will keep running on the server (response gets saved) but its
+      // callbacks become no-ops so it won't touch the UI.
+      const gen = ++streamGenRef.current;
+
+      // Track which node is generating (for tree panel spinner).
+      // Use the current viewNodeId — that's the branch we're sending from.
+      const sendingNodeId = lastViewNodeIdRef.current;
+      if (sendingNodeId) {
+        setGeneratingNodeIds((prev) => new Set(prev).add(sendingNodeId));
+      }
 
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -137,43 +148,59 @@ export function useReaderSession(
 
       await sendMessageStreaming(userId, book.id, sid, message, lastViewNodeIdRef.current, {
         onToken: (token) => {
-          // No longer queued — real output is arriving
+          if (gen !== streamGenRef.current) return;
           setIsQueued(false);
-          // Clear tool call indicator — real output is arriving
           setActiveToolCall(null);
           setStreamingContent((prev) => (prev ?? "") + token);
         },
         onTurnEnd: () => {
-          // Agent finished an intermediate turn (e.g. "Let me look that up…"
-          // before a tool call). Clear the streaming buffer so only the
-          // final turn's real answer is displayed.
+          if (gen !== streamGenRef.current) return;
           setStreamingContent("");
         },
         onToolCall: (info) => {
+          if (gen !== streamGenRef.current) return;
           setActiveToolCall(info);
         },
         onCompaction: (compacting) => {
+          if (gen !== streamGenRef.current) return;
           setIsCompacting(compacting);
         },
         onQueued: () => {
+          if (gen !== streamGenRef.current) return;
           setIsQueued(true);
         },
         onTreeUpdate: (updatedTree) => {
+          if (gen !== streamGenRef.current) return;
           setTree(updatedTree);
         },
         onDone: (result) => {
-          abortControllerRef.current = null;
+          // Always clear from generating set (even if stale)
+          if (sendingNodeId) {
+            setGeneratingNodeIds((prev) => {
+              const next = new Set(prev);
+              next.delete(sendingNodeId);
+              return next;
+            });
+          }
+          if (gen !== streamGenRef.current) return;
           setStreamingContent(null);
           setIsLoading(false);
           setIsCompacting(false);
           setIsQueued(false);
           setActiveToolCall(null);
           applySessionData(result);
-          // Server may have changed the active node — replace (not push)
           updateUrl(result.viewNodeId, sid, true);
         },
         onError: (err) => {
-          abortControllerRef.current = null;
+          // Always clear from generating set (even if stale)
+          if (sendingNodeId) {
+            setGeneratingNodeIds((prev) => {
+              const next = new Set(prev);
+              next.delete(sendingNodeId);
+              return next;
+            });
+          }
+          if (gen !== streamGenRef.current) return;
           setStreamingContent(null);
           setIsLoading(false);
           setIsCompacting(false);
@@ -187,7 +214,7 @@ export function useReaderSession(
           };
           setMessages((prev) => [...prev, errorMsg]);
         },
-      }, abortController.signal);
+      });
     },
     [userId, book.id, applySessionData, updateUrl],
   );
@@ -202,16 +229,15 @@ export function useReaderSession(
       const sid = sessionIdRef.current;
       if (sid === null) return;
 
-      // Abort any in-flight streaming request — prevents stale tokens
-      // from the old branch appearing in the new branch's view
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-        setStreamingContent(null);
-        setIsCompacting(false);
-        setIsQueued(false);
-        setActiveToolCall(null);
-      }
+      // Detach from any in-flight stream — bump the generation so the
+      // old stream's callbacks become no-ops.  The server keeps running
+      // the prompt and saves the response; user will see it when they
+      // navigate back.
+      streamGenRef.current++;
+      setStreamingContent(null);
+      setIsCompacting(false);
+      setIsQueued(false);
+      setActiveToolCall(null);
 
       // Auto-close sidebar on mobile after navigating
       if (isMobile()) {
@@ -498,6 +524,7 @@ export function useReaderSession(
     messages,
     isLoading,
     isQueued,
+    generatingNodeIds,
     breadcrumb,
     tree,
     branches,

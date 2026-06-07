@@ -18,6 +18,8 @@ interface SidebarProps {
   bookId: string;
   tree: TreeNodeView | null;
   viewNodeId: string | null;
+  /** Node IDs that have in-flight AI responses (show spinner) */
+  generatingNodeIds: Set<string>;
   onNavigate: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onRenameNode?: (nodeId: string, newLabel: string) => void;
@@ -25,7 +27,7 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-export function Sidebar({ tree, viewNodeId, onNavigate, onDeleteNode, onRenameNode, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDeleteNode, onRenameNode, isOpen, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${isOpen ? "open" : ""}`}>
       <div className="sidebar-header">
@@ -38,6 +40,7 @@ export function Sidebar({ tree, viewNodeId, onNavigate, onDeleteNode, onRenameNo
         <TreeView
           tree={tree}
           viewNodeId={viewNodeId}
+          generatingNodeIds={generatingNodeIds}
           onNavigate={onNavigate}
           onDeleteNode={onDeleteNode}
           onRenameNode={onRenameNode}
@@ -52,12 +55,14 @@ export function Sidebar({ tree, viewNodeId, onNavigate, onDeleteNode, onRenameNo
 function TreeView({
   tree,
   viewNodeId,
+  generatingNodeIds,
   onNavigate,
   onDeleteNode,
   onRenameNode,
 }: {
   tree: TreeNodeView | null;
   viewNodeId: string | null;
+  generatingNodeIds: Set<string>;
   onNavigate: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onRenameNode?: (nodeId: string, newLabel: string) => void;
@@ -153,6 +158,7 @@ function TreeView({
         node={tree}
         depth={0}
         viewNodeId={viewNodeId}
+        generatingNodeIds={generatingNodeIds}
         collapsed={collapsed}
         onToggleCollapse={toggleCollapse}
         onNavigate={onNavigate}
@@ -197,6 +203,7 @@ function TreeNode({
   node,
   depth,
   viewNodeId,
+  generatingNodeIds,
   collapsed,
   onToggleCollapse,
   onNavigate,
@@ -210,6 +217,7 @@ function TreeNode({
   node: TreeNodeView;
   depth: number;
   viewNodeId: string | null;
+  generatingNodeIds: Set<string>;
   collapsed: Set<string>;
   onToggleCollapse: (id: string) => void;
   onNavigate: (id: string) => void;
@@ -226,6 +234,7 @@ function TreeNode({
   const isCollapsed = collapsed.has(node.id);
   const childCount = node.children?.length ?? 0;
   const isEditing = editingNodeId === node.id;
+  const isGenerating = generatingNodeIds.has(node.id);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus edit input
@@ -266,7 +275,7 @@ function TreeNode({
             ›
           </button>
         )}
-        <span className={`tree-dot status-${node.status}`} />
+        <span className={`tree-dot status-${node.status}${isGenerating ? " generating" : ""}`} />
         {isEditing ? (
           <input
             ref={editInputRef}
@@ -295,6 +304,7 @@ function TreeNode({
             node={child}
             depth={childCount > 1 ? depth + 1 : depth}
             viewNodeId={viewNodeId}
+            generatingNodeIds={generatingNodeIds}
             collapsed={collapsed}
             onToggleCollapse={onToggleCollapse}
             onNavigate={onNavigate}

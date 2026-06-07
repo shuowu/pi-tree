@@ -82,6 +82,7 @@ export function Reader() {
         bookId={book.id}
         tree={session.tree}
         viewNodeId={session.viewNodeId}
+        generatingNodeIds={session.generatingNodeIds}
         onNavigate={session.handleNavigate}
         onDeleteNode={session.handleDeleteNode}
         onRenameNode={session.handleRenameNode}

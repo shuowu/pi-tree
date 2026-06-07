@@ -19,6 +19,8 @@ interface ChatViewProps {
   messages: ChatMessage[];
   isLoading: boolean;
   isCompacting: boolean;
+  /** Whether the request is queued behind another in-flight operation */
+  isQueued: boolean;
   /** Partial content streaming in from AI, or null when not streaming */
   streamingContent: string | null;
   /** Currently executing tool call, or null when not in a tool call */
@@ -42,6 +44,7 @@ export function ChatView({
   messages,
   isLoading,
   isCompacting,
+  isQueued,
   streamingContent,
   activeToolCall,
   onSendMessage,
@@ -199,11 +202,18 @@ export function ChatView({
           <div className="chat-message chat-message-assistant">
             <div className="chat-avatar">✦</div>
             <div className="chat-bubble">
-              <div className="chat-loading">
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
-              </div>
+              {isQueued ? (
+                <div className="chat-queued">
+                  <span className="queued-spinner" />
+                  Finishing a response on another branch — yours is next
+                </div>
+              ) : (
+                <div className="chat-loading">
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
+              )}
             </div>
           </div>
         )}

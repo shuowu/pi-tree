@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { getSession, closeSession } from "../services/session-store.js";
+import { getSession, closeSession, withSessionLock } from "../services/session-store.js";
 
 export const sessionRoutes = new Hono();
 
@@ -76,8 +76,9 @@ sessionRoutes.post("/message", async (c) => {
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
 
-  const manager = await getSession(userId, body.bookId, sessionId);
-  const result = await manager.handleMessage(body.message, body.viewNodeId ?? null);
+  const result = await withSessionLock(userId, body.bookId, sessionId, async (manager) => {
+    return manager.handleMessage(body.message, body.viewNodeId ?? null);
+  });
   return c.json(result);
 });
 
@@ -93,41 +94,44 @@ sessionRoutes.post("/message/stream", async (c) => {
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
 
-  const manager = await getSession(userId, body.bookId, sessionId);
-
   return streamSSE(c, async (stream) => {
     try {
-      await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, {
-        onToken: async (token: string) => {
-          await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
-        },
-        onTurnEnd: async () => {
-          await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
-        },
-        onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
-          await stream.writeSSE({
-            data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
-          });
-        },
-        onTreeUpdate: async (update: Record<string, unknown>) => {
-          await stream.writeSSE({
-            data: JSON.stringify({ type: "tree_update", ...update }),
-          });
-        },
-        onCompaction: async (event: { type: string; reason: string }) => {
-          await stream.writeSSE({
-            data: JSON.stringify({ type: event.type, reason: event.reason }),
-          });
-        },
-        onDone: async (result: Record<string, unknown>) => {
-          await stream.writeSSE({
-            data: JSON.stringify({ type: "done", ...result }),
-          });
-        },
+      // Let the client know this request is queued behind another operation
+      await stream.writeSSE({ data: JSON.stringify({ type: "queued" }) });
+
+      await withSessionLock(userId, body.bookId, sessionId, async (manager) => {
+        await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, {
+          onToken: async (token: string) => {
+            await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
+          },
+          onTurnEnd: async () => {
+            await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
+          },
+          onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
+            await stream.writeSSE({
+              data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
+            });
+          },
+          onTreeUpdate: async (update: Record<string, unknown>) => {
+            await stream.writeSSE({
+              data: JSON.stringify({ type: "tree_update", ...update }),
+            });
+          },
+          onCompaction: async (event: { type: string; reason: string }) => {
+            await stream.writeSSE({
+              data: JSON.stringify({ type: event.type, reason: event.reason }),
+            });
+          },
+          onDone: async (result: Record<string, unknown>) => {
+            await stream.writeSSE({
+              data: JSON.stringify({ type: "done", ...result }),
+            });
+          },
+        });
       });
     } catch (err) {
+      // Send error event to client before closing the stream
       const message = err instanceof Error ? err.message : "Unknown error";
-      console.error("[stream] Error in /message/stream:", err);
       await stream.writeSSE({
         data: JSON.stringify({ type: "error", error: message }),
       });
