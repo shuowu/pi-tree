@@ -129,6 +129,7 @@ export class TreeManager {
               eq(userBookSessions.id, sessionId),
               eq(userBookSessions.userId, userId),
               eq(userBookSessions.bookId, bookId),
+              eq(userBookSessions.isActive, 1),
             ),
           )
           .get();
@@ -182,6 +183,7 @@ export class TreeManager {
               eq(userBookSessions.id, sessionId),
               eq(userBookSessions.userId, userId),
               eq(userBookSessions.bookId, bookId),
+              eq(userBookSessions.isActive, 1),
             ),
           )
           .get();
@@ -232,10 +234,14 @@ export class TreeManager {
         db.update(userBookSessions)
           .set({
             sessionFile,
-            isActive: 1,
             lastActiveAt: now,
           })
-          .where(eq(userBookSessions.id, sessionId))
+          .where(
+            and(
+              eq(userBookSessions.id, sessionId),
+              eq(userBookSessions.isActive, 1),
+            ),
+          )
           .run();
         return sessionId;
       }

@@ -1,25 +1,21 @@
 import { useNavigate, useSearchParams } from "react-router";
-import type { Book } from "@pi-books/shared";
+import { useBook } from "./BookLayout";
 import { useUser } from "../UserContext";
 import { useBookProcessing } from "../hooks/useBookProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
 import { ChatView } from "./ChatView";
-import { SessionPicker } from "./SessionPicker";
 import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
 import { Breadcrumb } from "./Breadcrumb";
 import { RightPanel } from "./RightPanel";
 import { BookSettingsModal } from "./BookSettingsModal";
-import { PanelLeft, PanelRight, Home, Settings, ArrowLeft } from "lucide-react";
+import { PanelLeft, PanelRight, Home, Settings, Layers } from "lucide-react";
 import "./Reader.css";
 
-interface ReaderProps {
-  book: Book;
-}
-
-export function Reader({ book }: ReaderProps) {
+export function Reader() {
+  const book = useBook();
   const navigate = useNavigate();
   const { userId } = useUser();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -45,6 +41,7 @@ export function Reader({ book }: ReaderProps) {
     isMobile: panel.isMobile,
     setSidebarOpen: panel.setSidebarOpen,
     setDictEntries: dict.setDictEntries,
+    navigate,
   });
 
   // ---------------------------------------------------------------------------
@@ -55,9 +52,7 @@ export function Reader({ book }: ReaderProps) {
 
   const panelToggles = [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },
-    ...(session.sessionId !== null ? [
-      { id: "sessions", icon: <ArrowLeft size={16} />, label: "Sessions", active: false, onClick: session.handleBackToSessions },
-    ] : []),
+    { id: "sessions", icon: <Layers size={16} />, label: "Sessions", active: false, onClick: session.handleBackToSessions },
     { id: "nav", icon: <PanelLeft size={16} />, label: "Session Tree", active: panel.sidebarOpen, onClick: panel.toggleNavigator },
     { id: "dict", icon: <PanelRight size={16} />, label: "Dictionary", active: panel.rightPanelOpen && panel.rightTab === "dict", onClick: panel.toggleDict },
     { id: "settings", icon: <Settings size={16} />, label: "Book Settings", active: panel.showBookSettings, onClick: () => panel.setShowBookSettings(true) },
@@ -67,7 +62,7 @@ export function Reader({ book }: ReaderProps) {
   const showBookSetup =
     currentBook.status === "processing" ||
     currentBook.status === "pending" ||
-    (session.showSessionPicker && currentBook.hasMarkdown && !currentBook.hasOutline);
+    (currentBook.hasMarkdown && !currentBook.hasOutline && session.sessionId === null);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -111,16 +106,6 @@ export function Reader({ book }: ReaderProps) {
             job={currentJob}
             onSkipToChat={() => session.handleSelectMode('qa')}
             onProcess={handleProcessBook}
-          />
-        ) : session.showSessionPicker && session.sessionsLoaded ? (
-          <SessionPicker
-            book={currentBook}
-            sessions={session.sessions}
-            onSelectSession={session.handleSelectSession}
-            onNewSession={session.handleNewSession}
-            onDeleteSession={session.handleDeleteSession}
-            onRenameSession={session.handleRenameSession}
-            isLoading={session.isLoading}
           />
         ) : session.sessionId !== null ? (
           <ChatView

@@ -92,7 +92,9 @@ Multiple sessions per user+book. Each session has a `SessionContext` (mode, opti
 
 **Session interaction routes** (`/api/session/*`) all accept optional `sessionId` in request body. When omitted, defaults to most recently active session.
 
-**URL**: `/book/:bookId?session=<id>&node=<nodeId>`
+**URLs**:
+- Sessions management: `/book/:bookId/sessions`
+- Reading session: `/book/:bookId?session=<id>&node=<nodeId>`
 ## Multi-User Flow
 
 No auth — users are slug-based identity records in SQLite.

@@ -16,17 +16,15 @@ import {
   deleteNode,
   renameNode,
   fetchSessions,
-  createSession,
-  updateSession,
   deleteSession as deleteSessionApi,
 } from "../api";
-import type { SessionMode } from "../components/WelcomeState";
 import type { DictEntry } from "../components/DictionaryPanel";
 
 interface UseReaderSessionDeps {
   isMobile: () => boolean;
   setSidebarOpen: (open: boolean) => void;
   setDictEntries: React.Dispatch<React.SetStateAction<DictEntry[]>>;
+  navigate: (to: string, opts?: { replace?: boolean }) => void;
 }
 
 export function useReaderSession(
@@ -36,7 +34,7 @@ export function useReaderSession(
   setSearchParams: ReturnType<typeof import("react-router").useSearchParams>[1],
   deps: UseReaderSessionDeps,
 ) {
-  const { isMobile, setSidebarOpen, setDictEntries } = deps;
+  const { isMobile, setSidebarOpen, setDictEntries, navigate } = deps;
 
   // ---------------------------------------------------------------------------
   // Session state
@@ -47,8 +45,6 @@ export function useReaderSession(
     return param ? Number(param) : null;
   });
   const [sessions, setSessions] = useState<BookSession[]>([]);
-  const [showSessionPicker, setShowSessionPicker] = useState(false);
-  const [sessionsLoaded, setSessionsLoaded] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,6 +86,8 @@ export function useReaderSession(
           } else {
             next.delete("session");
           }
+          // Clean up the "new" param if present
+          next.delete("new");
           return next;
         },
         { replace },
@@ -226,7 +224,7 @@ export function useReaderSession(
   }, [userId, book.id, applySessionData, updateUrl]);
 
   // ---------------------------------------------------------------------------
-  // Session management: select, create, rename, delete
+  // Session loading
   // ---------------------------------------------------------------------------
 
   /** Load a specific session by ID and update URL */
@@ -234,7 +232,6 @@ export function useReaderSession(
     async (sid: number, initialNodeId?: string | null) => {
       if (!userId) return;
       setIsLoading(true);
-      setShowSessionPicker(false);
       setSessionId(sid);
 
       try {
@@ -285,128 +282,48 @@ export function useReaderSession(
     [userId, book.id, applySessionData, updateUrl, setDictEntries],
   );
 
-  /** User selected an existing session from the picker */
-  const handleSelectSession = useCallback(
-    (session: BookSession) => {
-      loadSession(session.id);
-    },
-    [loadSession],
-  );
+  // ---------------------------------------------------------------------------
+  // Session actions available from within the Reader
+  // ---------------------------------------------------------------------------
 
-  /** User wants to create a new session with a chosen mode */
-  const handleNewSession = useCallback(
-    async (mode: SessionMode) => {
-      if (!userId) return;
-      setIsLoading(true);
-
-      try {
-        const title = mode === "reading" ? "Interactive Reading" : "Freeform Q&A";
-        const newSession = await createSession(userId, book.id, title, { mode });
-
-        // Add to local sessions list
-        setSessions((prev) => [newSession, ...prev]);
-        setSessionId(newSession.id);
-        setShowSessionPicker(false);
-        updateUrl(null, newSession.id, true);
-
-        // Start the session on the server
-        await startSession(userId, book.id, newSession.id);
-
-        // Send the initial mode-specific message
-        // We need sessionIdRef to be updated before calling handleSendMessage,
-        // so set it directly here
-        sessionIdRef.current = newSession.id;
-
-        setIsLoading(false);
-
-        if (mode === "reading") {
-          handleSendMessage(
-            `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`,
-          );
-        } else {
-          handleSendMessage(
-            `I'd like to explore "${book.title}" by ${book.author} through Q&A. I'll ask questions about the book — its themes, arguments, key passages, and ideas. Start by briefly introducing the book's main thesis in 2-3 sentences, then let me lead with questions.`,
-          );
-        }
-      } catch (err) {
-        console.error("Create session failed:", err);
-        setIsLoading(false);
-      }
-    },
-    [userId, book, handleSendMessage, updateUrl],
-  );
-
-  /** Rename a session */
-  const handleRenameSession = useCallback(
-    async (sid: number, newTitle: string) => {
-      if (!userId) return;
-      try {
-        await updateSession(userId, book.id, sid, { title: newTitle });
-        setSessions((prev) =>
-          prev.map((s) => (s.id === sid ? { ...s, title: newTitle } : s)),
-        );
-      } catch (err) {
-        console.error("Rename session failed:", err);
-      }
-    },
-    [userId, book.id],
-  );
-
-  /** Delete a session */
+  /** Delete a session (e.g. from settings modal) */
   const handleDeleteSession = useCallback(
     async (sid: number) => {
       if (!userId) return;
       try {
         await deleteSessionApi(userId, book.id, sid);
-        setSessions((prev) => prev.filter((s) => s.id !== sid));
 
-        // If we deleted the active session, go back to the picker
+        // If we deleted the active session, navigate to sessions page
         if (sessionId === sid) {
           setSessionId(null);
           setMessages([]);
           setTree(null);
           setBreadcrumb([]);
           setBranches([]);
-          setShowSessionPicker(true);
-          updateUrl(null, null, true);
+          navigate(`/book/${book.id}/sessions`, { replace: true });
         }
       } catch (err) {
         console.error("Delete session failed:", err);
       }
     },
-    [userId, book.id, sessionId, updateUrl],
+    [userId, book.id, sessionId, navigate],
   );
 
-  /** Go back to the session picker from within a session */
-  const handleBackToSessions = useCallback(async () => {
-    if (!userId) return;
-
-    // Refresh sessions list
-    try {
-      const freshSessions = await fetchSessions(userId, book.id);
-      setSessions(freshSessions);
-    } catch {
-      // keep existing list
-    }
-
-    setSessionId(null);
-    setMessages([]);
-    setTree(null);
-    setBreadcrumb([]);
-    setBranches([]);
-    setShowSessionPicker(true);
-    updateUrl(null, null, true);
-  }, [userId, book.id, updateUrl]);
+  /** Navigate to the sessions management page */
+  const handleBackToSessions = useCallback(() => {
+    navigate(`/book/${book.id}/sessions`);
+  }, [book.id, navigate]);
 
   // ---------------------------------------------------------------------------
-  // Handle mode selection from WelcomeState / BookSetupState skip-to-chat
+  // Handle mode selection from BookSetupState skip-to-chat
   // ---------------------------------------------------------------------------
 
   const handleSelectMode = useCallback(
-    (mode: SessionMode) => {
-      handleNewSession(mode);
+    (mode: "reading" | "qa") => {
+      // Redirect to sessions page — the user can create a session there
+      navigate(`/book/${book.id}/sessions`);
     },
-    [handleNewSession],
+    [book.id, navigate],
   );
 
   const handleDeleteNode = useCallback(async (nodeId: string) => {
@@ -456,7 +373,7 @@ export function useReaderSession(
   }, [userId, book.id, handleBackToSessions]);
 
   // ---------------------------------------------------------------------------
-  // On mount: fetch sessions list, then decide what to show
+  // On mount: load the session from URL, or redirect to sessions page
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
@@ -466,37 +383,48 @@ export function useReaderSession(
 
     const initialSessionId = searchParams.get("session");
     const initialNodeId = searchParams.get("node") ?? null;
+    const newSessionMode = searchParams.get("new"); // "reading" or "qa"
     lastViewNodeIdRef.current = initialNodeId;
+
+    if (!initialSessionId) {
+      // No session param — redirect to sessions page
+      navigate(`/book/${book.id}/sessions`, { replace: true });
+      return;
+    }
+
+    const sid = Number(initialSessionId);
 
     (async () => {
       setIsLoading(true);
       try {
-        // Fetch sessions list for this user+book
+        // Fetch sessions list (for session label in breadcrumb)
         const sessionsList = await fetchSessions(userId, book.id);
         setSessions(sessionsList);
-        setSessionsLoaded(true);
 
-        if (initialSessionId) {
-          // URL has ?session= — load that specific session
-          const sid = Number(initialSessionId);
-          setSessionId(sid);
-          await loadSession(sid, initialNodeId);
-        } else if (sessionsList.length > 0) {
-          // Sessions exist but no param — show picker
-          setIsLoading(false);
-          setShowSessionPicker(true);
-        } else {
-          // No sessions at all — show picker (which shows "Start New Session" mode)
-          setIsLoading(false);
-          setShowSessionPicker(true);
+        // Load the session
+        setSessionId(sid);
+        await loadSession(sid, initialNodeId);
+
+        // If this is a newly created session (from SessionsPage), send the
+        // initial mode-specific message
+        if (newSessionMode) {
+          sessionIdRef.current = sid;
+          if (newSessionMode === "reading") {
+            handleSendMessage(
+              `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`,
+            );
+          } else if (newSessionMode === "qa") {
+            handleSendMessage(
+              `I'd like to explore "${book.title}" by ${book.author} through Q&A. I'll ask questions about the book — its themes, arguments, key passages, and ideas. Start by briefly introducing the book's main thesis in 2-3 sentences, then let me lead with questions.`,
+            );
+          }
         }
       } catch {
-        setIsLoading(false);
-        setShowSessionPicker(true);
-        setSessionsLoaded(true);
+        // Session load failed — go to sessions page
+        navigate(`/book/${book.id}/sessions`, { replace: true });
       }
     })();
-  }, [userId, book, loadSession, searchParams]);
+  }, [userId, book, loadSession, searchParams, navigate, handleSendMessage]);
 
   // React to browser back/forward: when viewNodeId changes from a popstate
   // (not from our own programmatic update), re-fetch the node data.
@@ -540,9 +468,6 @@ export function useReaderSession(
 
   return {
     sessionId,
-    sessions,
-    showSessionPicker,
-    sessionsLoaded,
     messages,
     isLoading,
     breadcrumb,
@@ -556,9 +481,6 @@ export function useReaderSession(
     handleSendMessage,
     handleNavigate,
     handleBackToRoot,
-    handleSelectSession,
-    handleNewSession,
-    handleRenameSession,
     handleDeleteSession,
     handleBackToSessions,
     handleSelectMode,

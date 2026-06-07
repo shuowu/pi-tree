@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useOutletContext, Outlet } from "react-router";
 import type { Book } from "@pi-books/shared";
 import { fetchBook } from "../api";
 import { useUser } from "../UserContext";
-import { Reader } from "./Reader";
 
 /**
- * Route wrapper that resolves bookId from URL params,
- * fetches the Book object, and renders the Reader.
+ * Layout route for /book/:bookId/*.
+ *
+ * Resolves bookId from URL params, fetches the Book object, and renders
+ * child routes via <Outlet> with the book passed as context.
  */
-export function ReaderRoute() {
+export function BookLayout() {
   const { bookId } = useParams<{ bookId: string }>();
   const { userId } = useUser();
   const navigate = useNavigate();
@@ -51,5 +52,10 @@ export function ReaderRoute() {
     );
   }
 
-  return <Reader book={book} />;
+  return <Outlet context={{ book }} />;
+}
+
+/** Hook for child routes to access the Book loaded by BookLayout. */
+export function useBook(): Book {
+  return useOutletContext<{ book: Book }>().book;
 }

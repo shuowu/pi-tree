@@ -81,7 +81,7 @@ export function BookSettingsModal({ book, onClose, onReprocess, onClearSession, 
                 }
               </p>
               <p className="book-settings-hint">
-                To manage all sessions (rename, delete, or create new ones), use the session picker from the breadcrumb bar.
+                To manage all sessions (rename, delete, or create new ones), use the Sessions button in the toolbar.
               </p>
             </div>
             <button className="book-settings-action-btn clear-session-btn" onClick={() => { onClearSession(); onClose(); }}>

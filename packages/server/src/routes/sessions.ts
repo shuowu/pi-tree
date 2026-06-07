@@ -59,6 +59,7 @@ sessionCrudRoutes.get("/:userId/:bookId", (c) => {
       and(
         eq(userBookSessions.userId, userId),
         eq(userBookSessions.bookId, bookId),
+        eq(userBookSessions.isActive, 1),
       ),
     )
     .orderBy(desc(userBookSessions.lastActiveAt))
