@@ -118,10 +118,39 @@ No auth — users are slug-based identity records in SQLite.
 
 ## Development
 
-Dev uses different ports and a separate DB so it never collides with Docker.
+Dev and Docker run on separate ports with separate databases so they can coexist:
 
-- `.env` — shared config (API keys, models, `LIBRARY_PATH`)
-- In dev mode, `load-env.ts` loads `.env` then applies dev defaults (`PORT=3947`, `DATA_PATH=~/.local/share/pi-books-dev`) via `??=` so they can be overridden.
+| | Dev | Docker |
+|---|---|---|
+| Server port | 3947 | 3847 |
+| Client port | 5947 | — (served by Hono) |
+| DB path | `~/.local/share/pi-books-dev/pi-books.db` | `/data/pi-books.db` (named volume) |
+
+### Environment layering
+
+Env vars are resolved in this order (first wins):
+
+1. **direnv** (`.envrc`) — loads `.env` for shared secrets, then forces dev overrides (`PORT=3947`, `DATA_PATH=~/.local/share/pi-books-dev`)
+2. **dotenv** (`load-env.ts`) — fills in anything not already set from `.env` (effectively a no-op in dev since direnv already loaded everything)
+3. **Hardcoded defaults** — `PORT=3847`, `DATA_PATH=~/.local/share/pi-books` (safety net)
+
+Docker bypasses direnv entirely — it reads `.env` via `env_file` in `docker-compose.yml`.
+
+### Prerequisites
+
+- **direnv**: Auto-loads `.envrc` when you `cd` into the project. Install it and add the shell hook:
+  ```bash
+  # Install (https://direnv.net/docs/installation.html)
+  curl -sfL https://direnv.net/install.sh | bash
+
+  # Add shell hook to ~/.bashrc (or ~/.zshrc)
+  echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
+
+  # Allow the project's .envrc
+  cd /path/to/pi-books && direnv allow
+  ```
+
+### Running
 
 ```bash
 npm install
@@ -129,12 +158,6 @@ npm run dev          # starts both server (:3947) and client (:5947)
 npm run dev:server   # server only
 npm run dev:client   # client only
 ```
-
-| | Dev | Docker |
-|---|---|---|
-| Server port | 3947 | 3847 |
-| Client port | 5947 | — (served by Hono) |
-| DB path | `~/.local/share/pi-books-dev/pi-books.db` | `/data/pi-books.db` (named volume) |
 
 ## Docker
 
@@ -144,8 +167,11 @@ docker compose up --build
 
 The container has `restart: unless-stopped` so it auto-starts with Docker.
 
+Docker reads `.env` directly via `env_file` and uses `PORT=3847` as-is. The `docker-compose.yml` overrides `LIBRARY_PATH` and `DATA_PATH` for the container filesystem.
+
 Volumes:
 - `LIBRARY_PATH` (or `./library`) → `/library` (read-only content)
 - `pi-books-data` named volume → `/data` (mutable state: sessions + SQLite DB)
 
 Env vars: `LIBRARY_PATH`, `DATA_PATH`, `PORT`, `PI_MODEL`.
+

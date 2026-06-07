@@ -23,11 +23,10 @@ tmux new-session -d -s "$SESSION_NAME" -n "dev" -c "$REPO_ROOT"
 # Split pane horizontally
 tmux split-window -h -c "$REPO_ROOT"
 
-# Run server in the left pane (pane 0)
-tmux send-keys -t "$SESSION_NAME:0.0" "npm run dev:server" C-m
-
-# Run client in the right pane (pane 1)
-tmux send-keys -t "$SESSION_NAME:0.1" "npm run dev:client" C-m
+# Load direnv env before starting each service (ensures PORT/DATA_PATH are set
+# even if the shell hook isn't configured yet)
+tmux send-keys -t "$SESSION_NAME:0.0" 'eval "$(direnv export bash 2>/dev/null)"; npm run dev:server' C-m
+tmux send-keys -t "$SESSION_NAME:0.1" 'eval "$(direnv export bash 2>/dev/null)"; npm run dev:client' C-m
 
 # Select the left pane by default
 tmux select-pane -t "$SESSION_NAME:0.0"
@@ -35,3 +34,4 @@ tmux select-pane -t "$SESSION_NAME:0.0"
 echo "Started server and client in tmux session '$SESSION_NAME'."
 echo "To attach to the session, run:"
 echo "  tmux attach-session -t $SESSION_NAME"
+

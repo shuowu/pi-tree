@@ -3,4 +3,5 @@ dist/
 *.tsbuildinfo
 .env
 .env.*
+.envrc
 test-results/

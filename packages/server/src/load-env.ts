@@ -1,13 +1,15 @@
 import { config as loadEnv } from "dotenv";
-import { resolve } from "node:path";
+import os from "node:os";
+import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "../../..");
 
-// Load .env
+// dotenv only sets vars that are NOT already in the environment.
+// In dev, direnv pre-loads .envrc (which sources .env + applies dev overrides),
+// so dotenv is effectively a no-op. In Docker, env_file loads .env directly.
 loadEnv({ path: resolve(root, ".env") });
 
-// Dev defaults — separate port/DB so dev never collides with Docker
-if (process.env.NODE_ENV !== "production") {
-  process.env.PORT ??= "3947";
-  process.env.DATA_PATH ??= "~/.local/share/pi-books-dev";
-}
+// Last-resort defaults — safety net when neither direnv nor .env provides them
+process.env.PORT ??= "3847";
+process.env.DATA_PATH ??= join(os.homedir(), ".local", "share", "pi-books");
+
