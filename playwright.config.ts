@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -11,6 +11,12 @@ export default defineConfig({
     screenshot: "off",
     video: "off",
   },
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
   // No webServer config — expects the server to already be running
   // (Docker container in CI, or `npm run dev` locally)
 });
