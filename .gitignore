@@ -4,3 +4,4 @@ dist/
 .env
 .env.dev
 .env.local
+test-results/

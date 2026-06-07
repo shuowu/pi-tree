@@ -13,9 +13,11 @@
     "build": "npm run build -w @pi-books/shared && npm run build -w @pi-books/extension && npm run build -w @pi-books/server && npm run build -w @pi-books/mcp && npm run build -w @pi-books/client",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm test --workspaces --if-present"
+    "test": "npm test --workspaces --if-present",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "concurrently": "^9.1.0",
     "typescript": "^5.7.0"
   }

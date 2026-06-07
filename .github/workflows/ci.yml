@@ -83,6 +83,21 @@ jobs:
           curl -sf http://localhost:3847/ | grep '</html>'
           echo "✓ Frontend HTML served"
 
+      # Layer 3: Playwright E2E (piggyback on running container)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke test
+        run: npm run e2e -- --project=chromium
+        env:
+          BASE_URL: http://localhost:3847
+
       - name: Dump logs on failure
         if: failure()
         run: docker logs pi-books-ci
