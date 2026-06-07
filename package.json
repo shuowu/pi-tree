@@ -8,6 +8,17 @@
     "url": "https://github.com/shuowu/pi-books.git"
   },
   "description": "AI-assisted book reading with tree-structured conversations",
+  "keywords": [
+    "pi",
+    "pi-books",
+    "pi-sdk",
+    "pi-extension",
+    "pi-agent",
+    "ai-reading",
+    "book-reader",
+    "tree-structure",
+    "local-first"
+  ],
   "engines": {
     "node": ">=22"
   },

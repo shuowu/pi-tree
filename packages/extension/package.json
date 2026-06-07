@@ -4,6 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Pi Package for AI-assisted book reading — skills, extensions, and parsers",
+  "keywords": [
+    "pi",
+    "pi-sdk",
+    "pi-extension",
+    "pi-package",
+    "pi-agent"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
