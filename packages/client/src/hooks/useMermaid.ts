@@ -8,8 +8,6 @@ function ensureMermaidInit() {
   mermaid.initialize({
     startOnLoad: false,
     theme: "neutral",
-    // Prevent mermaid from auto-scanning on import
-    suppressErrors: true,
     fontFamily: "inherit",
   });
   mermaidInitialized = true;
