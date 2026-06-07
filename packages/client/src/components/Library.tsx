@@ -61,11 +61,15 @@ export function Library() {
 
   // Load books when search/tags change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(searchQuery, selectedTags);
   }, [searchQuery, selectedTags, load]);
 
   // Load tags on mount
-  useEffect(() => { loadTags(); }, [loadTags]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadTags();
+  }, [loadTags]);
 
   // Background jobs state
   const [jobs, setJobs] = useState<JobWithBook[]>([]);
@@ -99,6 +103,7 @@ export function Library() {
 
   // Load jobs on mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadJobs();
   }, [loadJobs]);
 

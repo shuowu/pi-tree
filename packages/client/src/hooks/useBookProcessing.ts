@@ -4,11 +4,13 @@ import { processBook, fetchJobStatus, type Job } from "../api";
 
 export function useBookProcessing(book: Book) {
   const [currentBook, setCurrentBook] = useState<Book>(book);
+  const [prevBook, setPrevBook] = useState<Book>(book);
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
 
-  useEffect(() => {
+  if (book.id !== prevBook.id || book.status !== prevBook.status) {
+    setPrevBook(book);
     setCurrentBook(book);
-  }, [book]);
+  }
 
   useEffect(() => {
     if (currentBook.status === "processing" || currentBook.status === "pending") {

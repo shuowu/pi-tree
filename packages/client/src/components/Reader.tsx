@@ -104,7 +104,7 @@ export function Reader() {
           <BookSetupState
             book={currentBook}
             job={currentJob}
-            onSkipToChat={() => session.handleSelectMode('qa')}
+            onSkipToChat={() => session.handleSelectMode()}
             onProcess={handleProcessBook}
           />
         ) : session.sessionId !== null ? (
@@ -112,6 +112,7 @@ export function Reader() {
             messages={session.messages}
             isLoading={session.isLoading}
             isCompacting={session.isCompacting}
+            isQueued={session.isQueued}
             streamingContent={session.streamingContent}
             activeToolCall={session.activeToolCall}
             onSendMessage={session.handleSendMessage}

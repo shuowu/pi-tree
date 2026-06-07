@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -20,34 +19,30 @@ interface UserContextValue {
 
 const UserContext = createContext<UserContextValue | null>(null);
 
+/* eslint-disable react-refresh/only-export-components */
+
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
-
-  // Read from localStorage on mount
-  useEffect(() => {
-    let storedId = localStorage.getItem(LS_USER_ID);
-    let storedName = localStorage.getItem(LS_DISPLAY_NAME);
-
-    // Fallback and migration for previous user identity
-    if (!storedId) {
-      const oldId = localStorage.getItem("pi-reader-user-id");
-      const oldName = localStorage.getItem("pi-reader-display-name");
-      if (oldId && oldName) {
-        localStorage.setItem(LS_USER_ID, oldId);
-        localStorage.setItem(LS_DISPLAY_NAME, oldName);
-        storedId = oldId;
-        storedName = oldName;
-      }
+  const [userId, setUserId] = useState<string | null>(() => {
+    const storedId = localStorage.getItem(LS_USER_ID);
+    if (storedId) return storedId;
+    const oldId = localStorage.getItem("pi-reader-user-id");
+    if (oldId) {
+      localStorage.setItem(LS_USER_ID, oldId);
+      return oldId;
     }
+    return null;
+  });
 
-    if (storedId && storedName) {
-      setUserId(storedId);
-      setDisplayName(storedName);
+  const [displayName, setDisplayName] = useState<string | null>(() => {
+    const storedName = localStorage.getItem(LS_DISPLAY_NAME);
+    if (storedName) return storedName;
+    const oldName = localStorage.getItem("pi-reader-display-name");
+    if (oldName) {
+      localStorage.setItem(LS_DISPLAY_NAME, oldName);
+      return oldName;
     }
-    setInitialized(true);
-  }, []);
+    return null;
+  });
 
   const setUser = useCallback(async (id: string, name?: string) => {
     const display = name || id;
@@ -70,9 +65,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setUserId(null);
     setDisplayName(null);
   }, []);
-
-  // Don't render children until we've checked localStorage
-  if (!initialized) return null;
 
   return (
     <UserContext.Provider value={{ userId, displayName, setUser, clearUser }}>

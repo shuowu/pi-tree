@@ -1,8 +1,10 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useOutletContext, Outlet } from "react-router";
 import type { Book } from "@pi-books/shared";
 import { fetchBook } from "../api";
 import { useUser } from "../UserContext";
+
 
 /**
  * Layout route for /book/:bookId/*.

@@ -53,6 +53,7 @@ export function useReaderSession(
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
+  const [isQueued, setIsQueued] = useState(false);
   const [activeToolCall, setActiveToolCall] = useState<{ toolName: string; args: Record<string, unknown> } | null>(null);
 
   const initialized = useRef(false);
@@ -60,6 +61,7 @@ export function useReaderSession(
   // browser-initiated changes (back/forward) vs our own updates.
   const lastViewNodeIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<number | null>(sessionId);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Keep ref in sync
   useEffect(() => {
@@ -118,6 +120,11 @@ export function useReaderSession(
       const sid = sessionIdRef.current;
       if (sid === null) return;
 
+      // Cancel any in-flight request for this session
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
         role: "user",
@@ -130,6 +137,8 @@ export function useReaderSession(
 
       await sendMessageStreaming(userId, book.id, sid, message, lastViewNodeIdRef.current, {
         onToken: (token) => {
+          // No longer queued — real output is arriving
+          setIsQueued(false);
           // Clear tool call indicator — real output is arriving
           setActiveToolCall(null);
           setStreamingContent((prev) => (prev ?? "") + token);
@@ -146,22 +155,29 @@ export function useReaderSession(
         onCompaction: (compacting) => {
           setIsCompacting(compacting);
         },
+        onQueued: () => {
+          setIsQueued(true);
+        },
         onTreeUpdate: (updatedTree) => {
           setTree(updatedTree);
         },
         onDone: (result) => {
+          abortControllerRef.current = null;
           setStreamingContent(null);
           setIsLoading(false);
           setIsCompacting(false);
+          setIsQueued(false);
           setActiveToolCall(null);
           applySessionData(result);
           // Server may have changed the active node — replace (not push)
           updateUrl(result.viewNodeId, sid, true);
         },
         onError: (err) => {
+          abortControllerRef.current = null;
           setStreamingContent(null);
           setIsLoading(false);
           setIsCompacting(false);
+          setIsQueued(false);
           setActiveToolCall(null);
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
@@ -171,7 +187,7 @@ export function useReaderSession(
           };
           setMessages((prev) => [...prev, errorMsg]);
         },
-      });
+      }, abortController.signal);
     },
     [userId, book.id, applySessionData, updateUrl],
   );
@@ -185,6 +201,17 @@ export function useReaderSession(
       if (!userId) return;
       const sid = sessionIdRef.current;
       if (sid === null) return;
+
+      // Abort any in-flight streaming request — prevents stale tokens
+      // from the old branch appearing in the new branch's view
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+        setStreamingContent(null);
+        setIsCompacting(false);
+        setIsQueued(false);
+        setActiveToolCall(null);
+      }
 
       // Auto-close sidebar on mobile after navigating
       if (isMobile()) {
@@ -319,7 +346,7 @@ export function useReaderSession(
   // ---------------------------------------------------------------------------
 
   const handleSelectMode = useCallback(
-    (_mode: "reading" | "qa") => {
+    () => {
       // Redirect to sessions page — the user can create a session there
       navigate(`/book/${book.id}/sessions`);
     },
@@ -470,6 +497,7 @@ export function useReaderSession(
     sessionId,
     messages,
     isLoading,
+    isQueued,
     breadcrumb,
     tree,
     branches,
