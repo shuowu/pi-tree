@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Cpu, RotateCcw, X } from "lucide-react";
 import type { Book } from "@pi-books/shared";
+import { getBranchesCollapsed, setBranchesCollapsed as saveBranchesCollapsed } from "../utils/preferences";
 import "./BookSettingsModal.css";
 
 interface BookSettingsModalProps {
@@ -12,6 +14,13 @@ interface BookSettingsModalProps {
 }
 
 export function BookSettingsModal({ book, onClose, onReprocess, onClearSession, sessionLabel }: BookSettingsModalProps) {
+  const [branchesCollapsed, setBranchesCollapsed] = useState(getBranchesCollapsed);
+
+  const toggleBranchesCollapsed = () => {
+    const next = !branchesCollapsed;
+    setBranchesCollapsed(next);
+    saveBranchesCollapsed(next);
+  };
   return (
     <div className="book-settings-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="book-settings-modal">
@@ -29,6 +38,25 @@ export function BookSettingsModal({ book, onClose, onReprocess, onClearSession, 
           </div>
 
           <hr className="book-settings-divider" />
+
+          <div className="book-settings-section">
+            <div className="book-settings-section-info">
+              <h3>Branch Previews</h3>
+              <p>
+                When collapsed, branch previews show only the header (label, message count, and Open button).
+                When expanded, a preview of the branch conversation is shown inline.
+              </p>
+            </div>
+            <label className="book-settings-toggle">
+              <input
+                type="checkbox"
+                checked={branchesCollapsed}
+                onChange={toggleBranchesCollapsed}
+              />
+              <span className="toggle-slider" />
+              <span className="toggle-label">{branchesCollapsed ? "Collapsed" : "Expanded"}</span>
+            </label>
+          </div>
 
           <div className="book-settings-section">
             <div className="book-settings-section-info">

@@ -26,6 +26,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
 import { isAbandoned as checkAbandoned } from "./tree-filter.js";
+import { shouldShowAssistantNode } from "./conversation-tree.js";
 
 // SessionTreeNode is not exported from the main barrel — define locally
 interface SessionTreeNode {
@@ -509,7 +510,7 @@ export class PiSession {
       return {
         entryId: entry.id,
         parentId: entry.parentId ?? "",
-        label: this.inferLabel(entry),
+        label: this.labelOverrides.get(entry.id) ?? this.inferLabel(entry),
         source: "user" as const,
         status: "active" as const,
         messageCount: this.countMessages(piNode),
@@ -543,21 +544,23 @@ export class PiSession {
         return null;
       }
 
-      // Has text — show if it's the final AI response in a turn:
-      // - Leaf: no follow-up yet (current response)
-      // - Branch point: multiple users branched from this response
-      // - Final response: a user followed up after this (has user-initiated children)
-      const isLeaf = piNode.children.length === 0;
-      const isBranchPoint = children.length > 1;
-      const isFinalResponse = children.some(c => c.source === "user" || c.source === "outline");
+      // Has text — use extracted decision logic to determine visibility
+      const decision = shouldShowAssistantNode({
+        rawChildCount: piNode.children.length,
+        meaningfulChildren: children.map(c => ({
+          entryId: c.entryId,
+          source: c.source,
+          label: c.label,
+        })),
+      });
 
-      if (isLeaf || isBranchPoint || isFinalResponse) {
+      if (decision.show) {
         return {
           entryId: entry.id,
           parentId: entry.parentId ?? "",
-          label: "✦ " + this.inferAssistantLabel(entry),
+          label: this.labelOverrides.get(entry.id) ?? ("✦ " + this.inferAssistantLabel(entry)),
           source: "auto" as const,
-          status: isLeaf ? "active" as const : "completed" as const,
+          status: decision.status ?? "active",
           messageCount: 0,
           isCurrent: entry.id === leafId,
           children,
@@ -565,7 +568,7 @@ export class PiSession {
       }
 
       // Single-child assistant → flatten, pass children through
-      if (children.length === 1) return children[0];
+      if (decision.flatten && children.length === 1) return children[0];
       return null;
     }
 
@@ -744,12 +747,19 @@ export class PiSession {
   }
 
   updateStatus(entryId: string, status: "active" | "completed" | "abandoned"): void {
+    // Save leaf position — appendCustomEntry advances the cursor, which
+    // would create a parasitic child node in the conversation tree.
+    const savedLeafId = this.sm.getLeafId();
+
     // Append-only: store a status update entry
     this.sm.appendCustomEntry(CUSTOM_TYPE, {
       kind: "section_status",
       targetEntryId: entryId,
       newStatus: status,
     } satisfies SectionStatusMeta);
+
+    // Restore leaf position so the tree structure is unaffected
+    if (savedLeafId) this.sm.branch(savedLeafId);
 
     // Keep in-memory state in sync so isAbandoned() works immediately
     this.statusOverrides.set(entryId, status);
@@ -760,11 +770,18 @@ export class PiSession {
   }
 
   updateLabel(entryId: string, newLabel: string): void {
+    // Save leaf position — appendCustomEntry advances the cursor, which
+    // would create a parasitic child node in the conversation tree.
+    const savedLeafId = this.sm.getLeafId();
+
     this.sm.appendCustomEntry(CUSTOM_TYPE, {
       kind: "section_label",
       targetEntryId: entryId,
       newLabel,
     } satisfies SectionLabelMeta);
+
+    // Restore leaf position so the tree structure is unaffected
+    if (savedLeafId) this.sm.branch(savedLeafId);
 
     // Keep in-memory state in sync
     this.labelOverrides.set(entryId, newLabel);

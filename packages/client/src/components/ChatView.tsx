@@ -6,6 +6,7 @@ import { SelectionToolbar } from "./SelectionToolbar";
 import { BookOpen, Cpu, ChevronDown } from "lucide-react";
 import { useUser } from "../UserContext";
 import { fetchServerConfig } from "../api";
+import { getBranchesCollapsed } from "../utils/preferences";
 import { useScrollDirection, type ScrollDirection } from "../utils/useScrollDirection";
 import "./ChatView.css";
 
@@ -29,6 +30,8 @@ interface ChatViewProps {
   isScoped: boolean;
   /** Book ID for dictionary lookups */
   bookId: string;
+  /** Session ID for branch preview fetches */
+  sessionId: number | null;
   /** Define handler — sends term + surrounding context to right sidebar */
   onDefine: (term: string, context?: string) => void;
   /** Reports scroll direction changes for shy-header behavior */
@@ -46,6 +49,7 @@ export function ChatView({
   onDrillDown,
   isScoped,
   bookId,
+  sessionId,
   onDefine,
   onScrollDirectionChange,
 }: ChatViewProps) {
@@ -205,7 +209,7 @@ export function ChatView({
         )}
 
         {branches.length > 0 && !isLoading && (
-          <InlineBranches branches={branches} onDrillDown={onDrillDown} bookId={bookId} />
+          <InlineBranches branches={branches} onDrillDown={onDrillDown} bookId={bookId} sessionId={sessionId} />
         )}
 
         <SelectionToolbar
@@ -347,17 +351,23 @@ function InlineBranches({
   branches,
   onDrillDown,
   bookId,
+  sessionId,
 }: {
   branches: BranchOption[];
   onDrillDown: (nodeId: string) => void;
   bookId: string;
+  sessionId: number | null;
 }) {
   const { userId } = useUser();
   const [branchData, setBranchData] = useState<
     Record<string, { messages: ChatMessage[]; branches: BranchOption[] }>
   >({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Initialize collapse state from user preference (default: collapsed)
+  const defaultCollapsed = useMemo(() => getBranchesCollapsed(), []);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(branches.map((b) => [b.nodeId, defaultCollapsed])),
+  );
 
   // Auto-fetch all branch data on mount / when branches change
   useEffect(() => {
@@ -367,8 +377,8 @@ function InlineBranches({
         if (branchData[b.nodeId]) continue; // already loaded
         setLoading((prev) => ({ ...prev, [b.nodeId]: true }));
         try {
-          if (!userId) continue;
-          const state = await viewScope(userId, bookId, b.nodeId);
+          if (!userId || sessionId === null) continue;
+          const state = await viewScope(userId, bookId, sessionId, b.nodeId);
           setBranchData((prev) => ({
             ...prev,
             [b.nodeId]: { messages: state.messages, branches: state.branches },
@@ -394,7 +404,7 @@ function InlineBranches({
 
       {branches.map((b) => {
         const data = branchData[b.nodeId];
-        const isCollapsed = collapsed[b.nodeId];
+        const isCollapsed = collapsed[b.nodeId] ?? defaultCollapsed;
         const isLoading = loading[b.nodeId];
 
         // Find user and assistant messages from the branch data

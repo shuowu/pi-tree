@@ -4,6 +4,16 @@ import { GitBranch, X, Trash2, Pencil } from "lucide-react";
 import { buildTooltip } from "../utils/tree-utils";
 import "./Sidebar.css";
 
+/** Find a node's label by ID in the tree (DFS). */
+function findNodeLabel(tree: TreeNodeView, nodeId: string): string | null {
+  if (tree.id === nodeId) return tree.label;
+  for (const child of tree.children ?? []) {
+    const found = findNodeLabel(child, nodeId);
+    if (found) return found;
+  }
+  return null;
+}
+
 interface SidebarProps {
   bookId: string;
   tree: TreeNodeView | null;
@@ -115,9 +125,18 @@ function TreeView({
     }
   };
 
+  /** Track whether the node being renamed is an AI node (✦ prefix) */
+  const wasAINode = editingNodeId
+    ? !!findNodeLabel(tree, editingNodeId)?.startsWith("✦")
+    : false;
+
   const handleFinishRename = () => {
     if (editingNodeId && editValue.trim() && onRenameNode) {
-      onRenameNode(editingNodeId, editValue.trim());
+      // Preserve ✦ prefix for AI nodes so isAINode() keeps working
+      const newLabel = wasAINode
+        ? `✦ ${editValue.trim()}`
+        : editValue.trim();
+      onRenameNode(editingNodeId, newLabel);
     }
     setEditingNodeId(null);
     setEditValue("");

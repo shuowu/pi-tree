@@ -428,11 +428,14 @@ export function useReaderSession(
     if (sid === null) return;
     try {
       const state = await renameNode(userId, book.id, sid, nodeId, newLabel, viewNodeId);
-      applySessionData(state);
+      // Only update tree + breadcrumb — don't touch messages/branches.
+      // This avoids disrupting in-progress streaming conversations.
+      setTree(state.tree);
+      setBreadcrumb(state.breadcrumb);
     } catch (err) {
       console.error("Rename node failed:", err);
     }
-  }, [userId, book.id, viewNodeId, applySessionData]);
+  }, [userId, book.id, viewNodeId]);
 
   const handleResetSession = useCallback(async () => {
     if (!userId) return;

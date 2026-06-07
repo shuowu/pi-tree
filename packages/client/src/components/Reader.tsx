@@ -134,6 +134,7 @@ export function Reader({ book }: ReaderProps) {
             onDrillDown={session.handleNavigate}
             isScoped={session.viewNodeId !== null}
             bookId={book.id}
+            sessionId={session.sessionId}
             onDefine={dict.handleDefine}
             onScrollDirectionChange={panel.setScrollDirection}
           />
