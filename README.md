@@ -73,7 +73,7 @@ Built on the [Pi SDK](https://pi.dev/docs/latest/sdk). The same `extension` pack
 
 ### Local setup (no Docker)
 
-Prerequisites: [Node.js](https://nodejs.org/) 18+, npm.
+Prerequisites: [Node.js](https://nodejs.org/) 22+, npm.
 
 ```bash
 cp .env.example .env   # edit with your API key and provider

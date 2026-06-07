@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "license": "AGPL-3.0-only",
   "description": "AI-assisted book reading with tree-structured conversations",
+  "engines": {
+    "node": ">=22"
+  },
   "workspaces": [
     "packages/*"
   ],
