@@ -10,7 +10,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "npm run dev -w @pi-books/client",
     "dev:server": "npm run dev -w @pi-books/server",
-    "build": "npm run build -w @pi-books/shared && npm run build -w @pi-books/extension && npm run build -w @pi-books/server && npm run build -w @pi-books/client",
+    "build": "npm run build -w @pi-books/shared && npm run build -w @pi-books/extension && npm run build -w @pi-books/server && npm run build -w @pi-books/mcp && npm run build -w @pi-books/client",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
