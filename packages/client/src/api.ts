@@ -25,6 +25,7 @@ export interface ClientServerConfig {
   provider: string;
   apiKey: string;
   baseUrl: string;
+  api: string;
 }
 
 let _configCache: ClientServerConfig | null = null;
@@ -32,7 +33,7 @@ let _configCache: ClientServerConfig | null = null;
 export async function fetchServerConfig(force = false): Promise<ClientServerConfig> {
   if (_configCache && !force) return _configCache;
   const res = await fetch(`${API}/config`);
-  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown", provider: "", apiKey: "", baseUrl: "" };
+  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown", provider: "", apiKey: "", baseUrl: "", api: "" };
   _configCache = await res.json();
   return _configCache!;
 }
@@ -363,6 +364,7 @@ export async function sendMessageStreaming(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let receivedDone = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -401,8 +403,12 @@ export async function sendMessageStreaming(
           case "tree_update":
             callbacks.onTreeUpdate?.(event.tree);
             break;
+          case "error":
+            callbacks.onError(new Error(event.error || "Unknown streaming error"));
+            return;
           case "done":
             // The server sends the full state + response in the done event
+            receivedDone = true;
             callbacks.onDone(event as SessionState & { response: string });
             break;
         }
@@ -410,6 +416,10 @@ export async function sendMessageStreaming(
         // Skip malformed events
       }
     }
+  }
+
+  if (!receivedDone) {
+    callbacks.onError(new Error("Stream ended unexpectedly"));
   }
 }
 

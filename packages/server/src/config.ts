@@ -15,6 +15,8 @@ export interface ServerConfigFull extends ServerConfig {
   apiKey?: string;
   /** Optional custom base URL for the provider */
   baseUrl?: string;
+  /** Optional API type override (e.g., "openai-completions", "anthropic-messages") */
+  api?: string;
 }
 
 let _config: ServerConfigFull | null = null;
@@ -68,12 +70,20 @@ export function getServerConfig(): ServerConfigFull {
       fileConfig.baseUrl ||
       process.env.PI_BASE_URL ||
       "",
+    api:
+      fileConfig.api ||
+      process.env.PI_API_TYPE ||
+      process.env.PI_API ||
+      "",
   };
 
   console.log(`[config] Reading model: ${_config.readingModel}`);
   console.log(`[config] Lookup model: ${_config.lookupModel}`);
   if (_config.provider) {
     console.log(`[config] Provider: ${_config.provider}`);
+  }
+  if (_config.api) {
+    console.log(`[config] API Type: ${_config.api}`);
   }
 
   return _config;
@@ -121,6 +131,7 @@ export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerCo
   if (newConfig.readingModel?.trim()) toSave.readingModel = newConfig.readingModel.trim();
   if (newConfig.lookupModel?.trim()) toSave.lookupModel = newConfig.lookupModel.trim();
   if (newConfig.baseUrl?.trim()) toSave.baseUrl = newConfig.baseUrl.trim();
+  if (newConfig.api?.trim()) toSave.api = newConfig.api.trim();
   if (finalFileApiKey) toSave.apiKey = finalFileApiKey;
 
   // 4. Save to disk
@@ -142,6 +153,7 @@ export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerCo
     provider: toSave.provider || process.env.PI_PROVIDER || "",
     apiKey: toSave.apiKey || process.env.PI_API_KEY || "",
     baseUrl: toSave.baseUrl || process.env.PI_BASE_URL || "",
+    api: toSave.api || process.env.PI_API_TYPE || process.env.PI_API || "",
   };
 
   return _config;

@@ -46,6 +46,7 @@ app.get("/api/config", (c) => {
     provider: cfg.provider ?? "",
     apiKey: cfg.apiKey ? "••••••••" : "",
     baseUrl: cfg.baseUrl ?? "",
+    api: cfg.api ?? "",
   });
 });
 
@@ -61,6 +62,7 @@ app.put("/api/config", async (c) => {
         provider: updated.provider ?? "",
         apiKey: updated.apiKey ? "••••••••" : "",
         baseUrl: updated.baseUrl ?? "",
+        api: updated.api ?? "",
       },
     });
   } catch (err: any) {

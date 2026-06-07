@@ -47,13 +47,14 @@ export class DictionaryService {
     const serverConfig = getServerConfig();
     const repoRoot = join(import.meta.dirname, "../../../..");
 
-    // Auth: file-based + env var overlay (same pattern as pi-session.ts)
-    const authStorage = AuthStorage.create();
+    // Auth: in-memory (no ~/.pi/ file I/O) — API keys set programmatically from env vars
+    const authStorage = AuthStorage.inMemory();
     if (serverConfig.apiKey && serverConfig.provider) {
       authStorage.setRuntimeApiKey(serverConfig.provider, serverConfig.apiKey);
     }
 
-    const modelRegistry = ModelRegistry.create(authStorage);
+    // In-memory model registry — loads SDK built-in models, skips ~/.pi/agent/models.json
+    const modelRegistry = ModelRegistry.inMemory(authStorage);
 
     if (serverConfig.provider && serverConfig.baseUrl) {
       modelRegistry.registerProvider(serverConfig.provider, {

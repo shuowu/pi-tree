@@ -96,34 +96,42 @@ sessionRoutes.post("/message/stream", async (c) => {
   const manager = await getSession(userId, body.bookId, sessionId);
 
   return streamSSE(c, async (stream) => {
-    await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, {
-      onToken: async (token: string) => {
-        await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
-      },
-      onTurnEnd: async () => {
-        await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
-      },
-      onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
-        await stream.writeSSE({
-          data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
-        });
-      },
-      onTreeUpdate: async (update: Record<string, unknown>) => {
-        await stream.writeSSE({
-          data: JSON.stringify({ type: "tree_update", ...update }),
-        });
-      },
-      onCompaction: async (event: { type: string; reason: string }) => {
-        await stream.writeSSE({
-          data: JSON.stringify({ type: event.type, reason: event.reason }),
-        });
-      },
-      onDone: async (result: Record<string, unknown>) => {
-        await stream.writeSSE({
-          data: JSON.stringify({ type: "done", ...result }),
-        });
-      },
-    });
+    try {
+      await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, {
+        onToken: async (token: string) => {
+          await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
+        },
+        onTurnEnd: async () => {
+          await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
+        },
+        onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
+          await stream.writeSSE({
+            data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
+          });
+        },
+        onTreeUpdate: async (update: Record<string, unknown>) => {
+          await stream.writeSSE({
+            data: JSON.stringify({ type: "tree_update", ...update }),
+          });
+        },
+        onCompaction: async (event: { type: string; reason: string }) => {
+          await stream.writeSSE({
+            data: JSON.stringify({ type: event.type, reason: event.reason }),
+          });
+        },
+        onDone: async (result: Record<string, unknown>) => {
+          await stream.writeSSE({
+            data: JSON.stringify({ type: "done", ...result }),
+          });
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[stream] Error in /message/stream:", err);
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "error", error: message }),
+      });
+    }
   });
 });
 

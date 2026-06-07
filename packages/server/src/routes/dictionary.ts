@@ -16,16 +16,24 @@ dictionaryRoutes.post("/lookup/stream", async (c) => {
   const dictService = DictionaryService.getInstance();
 
   return streamSSE(c, async (stream) => {
-    const definition = await dictService.streamLookup(body.term, {
-      bookId: body.bookId,
-      context: body.context,
-      onToken: async (token: string) => {
-        await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
-      },
-    });
-    await stream.writeSSE({
-      data: JSON.stringify({ type: "done", definition }),
-    });
+    try {
+      const definition = await dictService.streamLookup(body.term, {
+        bookId: body.bookId,
+        context: body.context,
+        onToken: async (token: string) => {
+          await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
+        },
+      });
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "done", definition }),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[stream] Error in /lookup/stream:", err);
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "error", error: message }),
+      });
+    }
   });
 });
 

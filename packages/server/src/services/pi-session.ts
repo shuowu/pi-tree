@@ -114,22 +114,57 @@ export class PiSession {
     try {
       const serverConfig = getServerConfig();
 
-      // Auth: start with file-based auth (~/.pi/agent/auth.json + models.json providers),
-      // then layer env var API key on top so both sources merge.
-      const authStorage = AuthStorage.create();
+      // Auth: use in-memory auth (no file I/O) so the server never implicitly
+      // reads ~/.pi/agent/auth.json. API keys are set programmatically from env vars.
+      const authStorage = AuthStorage.inMemory();
       if (serverConfig.apiKey && serverConfig.provider) {
         authStorage.setRuntimeApiKey(serverConfig.provider, serverConfig.apiKey);
         console.log(`[pi-session] Auth: env var API key layered for provider "${serverConfig.provider}"`);
       }
 
-      const modelRegistry = ModelRegistry.create(authStorage);
+      // In-memory model registry — loads SDK built-in models but skips ~/.pi/agent/models.json
+      const modelRegistry = ModelRegistry.inMemory(authStorage);
 
-      // If env var specifies a custom base URL, register/override that provider
+      // If env var specifies a custom base URL, register/override that provider.
+      // The API type (e.g. "anthropic-messages") must be explicitly configured
+      // via PI_API_TYPE env var or the Settings UI — no auto-detection, so
+      // behavior is identical between local dev and Docker.
       if (serverConfig.provider && serverConfig.baseUrl) {
-        modelRegistry.registerProvider(serverConfig.provider, {
-          baseUrl: serverConfig.baseUrl,
-        });
-        console.log(`[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}`);
+        const apiType = serverConfig.api || undefined;
+
+        if (apiType) {
+          // When overriding the API type, we must re-register models explicitly.
+          // registerProvider without a models array only updates the URL but
+          // leaves built-in models' api field unchanged (e.g. "openai-completions").
+          const existingModels = modelRegistry
+            .getAll()
+            .filter((m) => m.provider === serverConfig.provider);
+
+          const modelsConfig = existingModels.map((m) => ({
+            id: m.id,
+            name: m.name ?? m.id,
+            api: apiType as any,
+            reasoning: m.reasoning ?? false,
+            input: (m.input ?? ["text"]) as ("text" | "image")[],
+            cost: m.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            contextWindow: m.contextWindow ?? 200000,
+            maxTokens: m.maxTokens ?? 16384,
+          }));
+
+          modelRegistry.registerProvider(serverConfig.provider, {
+            baseUrl: serverConfig.baseUrl,
+            api: apiType as any,
+            apiKey: serverConfig.apiKey,
+            models: modelsConfig.length > 0 ? modelsConfig : undefined,
+          });
+        } else {
+          modelRegistry.registerProvider(serverConfig.provider, {
+            baseUrl: serverConfig.baseUrl,
+          });
+        }
+        console.log(
+          `[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}${apiType ? ` (API: ${apiType})` : ""}`,
+        );
       }
 
       // ResourceLoader: discover .pi/skills/ from pi-books repo root

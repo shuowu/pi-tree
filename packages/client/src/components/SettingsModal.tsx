@@ -17,6 +17,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  const [api, setApi] = useState("");
   const [readingModel, setReadingModel] = useState("");
   const [lookupModel, setLookupModel] = useState("");
 
@@ -30,6 +31,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         setProvider(cfg.provider || "");
         setApiKey(cfg.apiKey || "");
         setBaseUrl(cfg.baseUrl || "");
+        setApi(cfg.api || "");
         setReadingModel(cfg.readingModel || "");
         setLookupModel(cfg.lookupModel || "");
       } catch (err) {
@@ -66,6 +68,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         provider: activeProvider,
         apiKey: apiKey.trim(),
         baseUrl: baseUrl.trim() || undefined,
+        api: api.trim() || undefined,
         readingModel: readingModel.trim(),
         lookupModel: lookupModel.trim() || readingModel.trim(),
       });
@@ -160,6 +163,22 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               />
               <p className="form-help">
                 Optional custom endpoint target. Leave blank for provider defaults.
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="settings-api-type">API Type (Optional)</label>
+              <select
+                id="settings-api-type"
+                value={api}
+                onChange={(e) => setApi(e.target.value)}
+              >
+                <option value="">Default / Auto-detect</option>
+                <option value="openai-completions">openai-completions</option>
+                <option value="anthropic-messages">anthropic-messages</option>
+              </select>
+              <p className="form-help">
+                Specifies the request format protocol for custom base URLs.
               </p>
             </div>
 
