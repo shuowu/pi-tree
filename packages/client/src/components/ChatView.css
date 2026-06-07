@@ -108,17 +108,40 @@
   letter-spacing: 0.01em;
 }
 
-/* Streaming cursor */
-.chat-content.streaming::after {
-  content: "▊";
-  color: var(--accent);
-  animation: blink 0.8s step-end infinite;
-  margin-left: 2px;
+/* ── Streaming (in-progress) indicators ──
+ * Industry-standard pattern: progressive markdown + visual generation cues.
+ * 1. Pulsing avatar glow  — signals "AI is working"
+ * 2. Blinking cursor       — shows insertion point
+ * 3. Shimmer border        — subtle bubble glow that fades on completion
+ * All indicators live on `.chat-message.streaming` and vanish when the
+ * streaming bubble is replaced by a regular MessageBubble.
+ */
+
+/* 1 ▸ Pulsing avatar */
+.chat-message.streaming .chat-avatar {
+  animation: avatar-pulse 2s ease-in-out infinite;
 }
 
-@keyframes blink {
+@keyframes avatar-pulse {
+  0%, 100% { opacity: 1; text-shadow: 0 0 0 transparent; }
+  50%      { opacity: 0.6; text-shadow: 0 0 8px var(--accent); }
+}
+
+/* 2 ▸ Blinking insertion cursor */
+.chat-message.streaming .chat-content::after {
+  content: "▊";
+  color: var(--accent);
+  animation: cursor-blink 0.8s step-end infinite;
+  margin-left: 2px;
+  font-size: 0.85em;
+  vertical-align: baseline;
+}
+
+@keyframes cursor-blink {
   50% { opacity: 0; }
 }
+
+
 
 /* ── Loading dots ── */
 
@@ -147,6 +170,36 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Tool call progress indicator ── */
+
+.tool-call-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  animation: fadeIn 200ms ease-out;
+}
+
+.tool-call-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tool-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes tool-spin {
+  to { transform: rotate(360deg); }
+}
+
+.tool-call-label {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-style: italic;
 }
 
 /* ── Input ── */

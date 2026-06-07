@@ -20,6 +20,8 @@ interface ChatViewProps {
   isCompacting: boolean;
   /** Partial content streaming in from AI, or null when not streaming */
   streamingContent: string | null;
+  /** Currently executing tool call, or null when not in a tool call */
+  activeToolCall: { toolName: string; args: Record<string, unknown> } | null;
   onSendMessage: (message: string) => void;
   branches: BranchOption[];
   onDrillDown: (nodeId: string) => void;
@@ -38,6 +40,7 @@ export function ChatView({
   isLoading,
   isCompacting,
   streamingContent,
+  activeToolCall,
   onSendMessage,
   branches,
   onDrillDown,
@@ -184,7 +187,11 @@ export function ChatView({
           <StreamingBubble content={streamingContent} isCompacting={isCompacting} />
         )}
 
-        {isLoading && (streamingContent === null || streamingContent.length === 0) && (
+        {isLoading && activeToolCall && (
+          <ToolCallIndicator toolName={activeToolCall.toolName} args={activeToolCall.args} />
+        )}
+
+        {isLoading && !activeToolCall && (streamingContent === null || streamingContent.length === 0) && (
           <div className="chat-message chat-message-assistant">
             <div className="chat-avatar">✦</div>
             <div className="chat-bubble">
@@ -300,7 +307,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-/** Live-updating bubble that renders partial markdown as it streams in */
+/**
+ * Live-updating bubble that renders progressive markdown while streaming.
+ * Industry-standard pattern (ChatGPT, Claude, Gemini): markdown renders in
+ * real-time with a pulsing avatar + blinking cursor to signal generation.
+ * When streaming ends, content moves to MessageBubble and indicators vanish.
+ */
 function StreamingBubble({ content, isCompacting }: { content: string; isCompacting?: boolean }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const html = useMemo(() => {
@@ -312,12 +324,12 @@ function StreamingBubble({ content, isCompacting }: { content: string; isCompact
   useMermaid(contentRef, html, /* enabled */ false);
 
   return (
-    <div className="chat-message chat-message-assistant">
+    <div className="chat-message chat-message-assistant streaming">
       <div className="chat-avatar">✦</div>
       <div className="chat-bubble">
         <div
           ref={contentRef}
-          className="chat-content markdown streaming"
+          className="chat-content markdown"
           dangerouslySetInnerHTML={{ __html: html }}
         />
         {isCompacting && (
@@ -485,6 +497,41 @@ function InlineAIMessage({ content }: { content: string }) {
           className="chat-content markdown"
           dangerouslySetInnerHTML={{ __html: html }}
         />
+      </div>
+    </div>
+  );
+}
+
+/** Produce a human-readable label for a tool call */
+function describeToolCall(toolName: string, args: Record<string, unknown>): string {
+  const path = (args.path ?? args.file ?? args.pattern ?? args.query ?? "") as string;
+  const shortPath = path ? path.split("/").slice(-2).join("/") : "";
+
+  switch (toolName) {
+    case "read":
+      return shortPath ? `Reading ${shortPath}` : "Reading book content";
+    case "grep":
+      return shortPath ? `Searching for "${shortPath}"` : "Searching content";
+    case "find":
+    case "ls":
+      return shortPath ? `Browsing ${shortPath}` : "Browsing files";
+    default:
+      return `Running ${toolName}`;
+  }
+}
+
+/** Compact status indicator shown while the agent executes a tool call */
+function ToolCallIndicator({ toolName, args }: { toolName: string; args: Record<string, unknown> }) {
+  const label = describeToolCall(toolName, args);
+
+  return (
+    <div className="chat-message chat-message-assistant">
+      <div className="chat-avatar">✦</div>
+      <div className="chat-bubble">
+        <div className="tool-call-indicator">
+          <span className="tool-call-spinner" />
+          <span className="tool-call-label">{label}</span>
+        </div>
       </div>
     </div>
   );

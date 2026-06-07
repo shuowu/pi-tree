@@ -337,6 +337,8 @@ export async function sendMessageStreaming(
   viewNodeId: string | null,
   callbacks: {
     onToken: (token: string) => void;
+    onTurnEnd?: () => void;
+    onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => void;
     onCompaction?: (isCompacting: boolean) => void;
     onTreeUpdate?: (tree: import("@pi-books/shared").TreeNodeView) => void;
     onDone: (result: SessionState & { response: string }) => void;
@@ -380,6 +382,15 @@ export async function sendMessageStreaming(
         switch (event.type) {
           case "token":
             callbacks.onToken(event.token);
+            break;
+          case "turn_end":
+            callbacks.onTurnEnd?.();
+            break;
+          case "tool_call":
+            callbacks.onToolCall?.({
+              toolName: event.toolName,
+              args: event.args ?? {},
+            });
             break;
           case "compaction_start":
             callbacks.onCompaction?.(true);

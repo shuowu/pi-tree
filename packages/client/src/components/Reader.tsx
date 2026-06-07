@@ -128,6 +128,7 @@ export function Reader({ book }: ReaderProps) {
             isLoading={session.isLoading}
             isCompacting={session.isCompacting}
             streamingContent={session.streamingContent}
+            activeToolCall={session.activeToolCall}
             onSendMessage={session.handleSendMessage}
             branches={session.branches}
             onDrillDown={session.handleNavigate}

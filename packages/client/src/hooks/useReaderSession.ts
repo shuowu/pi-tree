@@ -57,6 +57,7 @@ export function useReaderSession(
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
+  const [activeToolCall, setActiveToolCall] = useState<{ toolName: string; args: Record<string, unknown> } | null>(null);
 
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
@@ -131,7 +132,18 @@ export function useReaderSession(
 
       await sendMessageStreaming(userId, book.id, sid, message, lastViewNodeIdRef.current, {
         onToken: (token) => {
+          // Clear tool call indicator — real output is arriving
+          setActiveToolCall(null);
           setStreamingContent((prev) => (prev ?? "") + token);
+        },
+        onTurnEnd: () => {
+          // Agent finished an intermediate turn (e.g. "Let me look that up…"
+          // before a tool call). Clear the streaming buffer so only the
+          // final turn's real answer is displayed.
+          setStreamingContent("");
+        },
+        onToolCall: (info) => {
+          setActiveToolCall(info);
         },
         onCompaction: (compacting) => {
           setIsCompacting(compacting);
@@ -143,6 +155,7 @@ export function useReaderSession(
           setStreamingContent(null);
           setIsLoading(false);
           setIsCompacting(false);
+          setActiveToolCall(null);
           applySessionData(result);
           // Server may have changed the active node — replace (not push)
           updateUrl(result.viewNodeId, sid, true);
@@ -151,6 +164,7 @@ export function useReaderSession(
           setStreamingContent(null);
           setIsLoading(false);
           setIsCompacting(false);
+          setActiveToolCall(null);
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
             role: "assistant",
@@ -533,6 +547,7 @@ export function useReaderSession(
     branches,
     streamingContent,
     isCompacting,
+    activeToolCall,
     viewNodeId,
     sessionLabel,
     handleSendMessage,

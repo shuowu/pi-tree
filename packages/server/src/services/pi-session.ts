@@ -300,6 +300,8 @@ export class PiSession {
   async sendMessageStreaming(
     message: string,
     onToken: (token: string) => Promise<void>,
+    onTurnEnd?: () => Promise<void>,
+    onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => Promise<void>,
     onCompaction?: (event: { type: "compaction_start" | "compaction_end"; reason: string }) => Promise<void>,
   ): Promise<{ response: string; entryId: string }> {
     if (!this.agent) {
@@ -325,6 +327,15 @@ export class PiSession {
         if (event.type === "message_end") {
           const leaf = this.sm.getLeafEntry();
           if (leaf) responseEntryId = leaf.id;
+          // Reset for the next turn — only keep the final turn's text.
+          // This clears preamble like "Let me look that up…" before a tool
+          // call so the client only shows the real answer.
+          fullResponse = "";
+          if (onTurnEnd) await onTurnEnd();
+        }
+        // Forward tool execution start so the client can show progress
+        if (event.type === "tool_execution_start" && onToolCall) {
+          await onToolCall({ toolName: event.toolName, args: event.args ?? {} });
         }
         // Forward compaction events so the client can show a status indicator
         if (event.type === "compaction_start" && onCompaction) {

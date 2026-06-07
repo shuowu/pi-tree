@@ -100,6 +100,14 @@ sessionRoutes.post("/message/stream", async (c) => {
       onToken: async (token: string) => {
         await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
       },
+      onTurnEnd: async () => {
+        await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
+      },
+      onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
+        await stream.writeSSE({
+          data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
+        });
+      },
       onTreeUpdate: async (update: Record<string, unknown>) => {
         await stream.writeSSE({
           data: JSON.stringify({ type: "tree_update", ...update }),
