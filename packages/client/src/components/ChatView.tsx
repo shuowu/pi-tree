@@ -173,12 +173,15 @@ export function ChatView({
 
   const handleSubmit = () => {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if ((!trimmed && !quotedText) || isLoading) return;
 
-    let finalMessage = trimmed;
+    let finalMessage: string;
     if (quotedText) {
-      finalMessage = `> ${quotedText}\n\n${trimmed}`;
+      const userPart = trimmed || "Explain this";
+      finalMessage = `> ${quotedText}\n\n${userPart}`;
       setQuotedText(null);
+    } else {
+      finalMessage = trimmed;
     }
 
     onSendMessage(finalMessage);
@@ -196,7 +199,7 @@ export function ChatView({
   // Determine if typing will create a branch (scoped view with existing branches)
   const willBranch = isScoped && branches.length > 0;
   const placeholder = quotedText
-    ? "Ask a question about the quoted text…"
+    ? "Press Enter to explain, or type your question…"
     : willBranch
       ? "New branch from this point…"
       : isScoped
