@@ -60,6 +60,27 @@ Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
 
 ### Docker
 
+Pre-built images are published to GitHub Container Registry on every release (linux/amd64 + linux/arm64):
+
+```bash
+docker pull ghcr.io/shuowu/pi-books:latest
+```
+
+**Quick start with the pre-built image:**
+
+```bash
+cp .env.example .env   # edit with your API key and paths
+
+docker run -d --name pi-books \
+  --env-file .env \
+  -p 3847:3847 \
+  -v /path/to/your/books:/library:ro \
+  -v pi-books-data:/data \
+  ghcr.io/shuowu/pi-books:latest
+```
+
+**Or build from source:**
+
 ```bash
 cp .env.example .env   # edit with your API key and ABSOLUTE paths
 docker compose up --build
