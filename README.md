@@ -1,87 +1,54 @@
 # pi-books
 
-AI-assisted book reading with tree-structured conversations. Upload your own books (EPUB, MOBI, PDF) or point at a local collection, then explore them through AI-powered chat with branching topic trees.
+**Turn any book into a conversation you can explore like a tree.**
 
-> **Bring Your Own Key** — pi-books runs locally. You provide your own LLM API key. No data leaves your machine except API calls to your chosen provider.
+You load your own books. An AI reads them *with* you — not as a flat Q&A, but as a branching conversation that captures how you actually think about the material. Go deep on a concept, branch into a tangent, zoom back out. Your reading path is a navigable tree, not a disposable chat log.
 
-<p align="center">
-  <img src="docs/images/library.png" alt="Pi-books library view — browse your book collection with covers, search, and one-click access" width="720" />
-</p>
+> **Local-first, bring your own key.** Runs entirely on your machine. No cloud account, no subscription. Works with cloud APIs (DeepSeek, Gemini, Claude) or fully offline with [Ollama](https://ollama.com) / local models.
 
-<p align="center">
-  <img src="docs/images/reading-session.png" alt="Pi-books reading session — tree-structured conversation with chapter briefing, branching topics, and breadcrumb navigation" width="720" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="docs/images/library.png" alt="Pi-books library view" height="320" />
+      <br />
+      <sub>Browse your library — upload EPUBs, MOBIs, or PDFs</sub>
+    </td>
+    <td align="center">
+      <img src="docs/images/reading-session.png" alt="Pi-books reading session" height="320" />
+      <br />
+      <sub>Branching conversation with topic tree navigation</sub>
+    </td>
+  </tr>
+</table>
 
-## Why
+## The Problem
 
-### Why Pi
+Most AI tools treat books the same way they treat any prompt: paste text in, get a summary out, conversation gone. There's no structure, no persistence, no sense of *journey* through the material.
 
-[Pi](https://pi.dev) is a minimalist AI agent — no menus, no preset workflows, just a conversation tree and your curiosity. What makes it special for reading is the **tree-structured session model**: every conversation is a tree of topics, not a flat chat log. You can branch into a tangent — *"how does this connect to what I read last week?"* — and the branch preserves full context. Zoom back out without losing your place. The tree becomes a map of how you actually think about the material.
+Reading a non-fiction book isn't linear. You branch — *"wait, how does this connect to X?"* — then come back. You re-read a section with new context. You accumulate a personal vocabulary of terms and ideas. Flat chat threads can't capture any of this.
 
-Most AI chat tools give you a linear thread that grows until you start a new one. Pi gives you a persistent, navigable structure — and that's the foundation pi-books is built on.
+**Pi-books fixes this.** Each book gets a tree-structured conversation where:
 
-### Why a GUI
+- **Branches happen on semantic shifts** — go deeper, switch chapters, follow a tangent — each gets its own branch with full context preserved
+- **You can zoom in and out** — dive deep on a concept, then pull back with a summary without losing your place
+- **Every user gets their own tree** — multiple people can read the same book independently, each with their own conversation, glossary, and reading history
+- **The conversation IS the reading** — no separate "reader" and "chat." The AI surfaces book content as quotes within the conversation
+- **Everything stays local** — your books, sessions, questions, and intellectual journey never leave your machine
 
-The terminal version of Pi for reading was genuinely the best way I'd ever read a non-fiction book. But it was also mine alone — no one else in my family could use a terminal tool, and that felt like a waste.
+## Who Is This For
 
-As *The Pragmatic Programmer* puts it:
-
-> *"A benefit of GUIs is WYSIWYG — what you see is what you get. The disadvantage is WYSIAYG — what you see is **all** you get."*
-
-Most AI apps fall into this trap: they build a polished GUI but box you into the builder's vision of how things should work. You get preset workflows, fixed layouts, and interaction patterns that work for the demo but break for real use.
-
-Pi-books tries to find the middle ground: a real GUI that anyone can pick up — my wife, my kids, my parents, anyone curious about ideas — built on the same minimalist, tree-structured model that makes the terminal experience so powerful. The UI makes the tree *visible* and *clickable* (TOC, breadcrumbs, branch navigation) without imposing a rigid structure on how you read.
-
-### Why Local-First
-
-Pi-books runs entirely on your machine. No cloud backend, no account to create, no subscription gating your reading. Your books, sessions, conversations, and glossaries never leave your control.
-
-This isn't just a privacy feature — it's about **ownership**. You pick the AI model. You pick the provider. You control the cost. Point it at [Ollama](https://ollama.com) or any OpenAI-compatible local server, and the whole experience runs offline — no tokens metered, no API costs, no data leaving your network.
-
-Reading is intimate. The questions you ask about a book — the tangents you explore, the connections you draw — reveal how you think. That data shouldn't live on someone else's infrastructure.
-
-### Specialization Over Generalization
-
-ChatGPT, Claude, Gemini can all summarize a book — but they do it in a flat, sessionless way. Context resets. There's no *structure*. Pi-books is a **reading companion**, not a general chatbot with books bolted on. Every design decision — tree structure, branching conversations, zoom controls, per-book glossaries — serves that single purpose.
-
-*Read more about the design philosophy → [docs/VISION.md](docs/VISION.md)*
-
-### Who is this for
-
-- Non-fiction readers who want to go deeper than highlights and summaries
-- Families and book clubs — everyone gets their own conversation tree for the same book
-- Privacy-conscious readers who don't want their reading habits on someone else's server
-- Self-hosters and tinkerers who want full control over their tools
-
-## Key Concepts
-
-- **Conversation-first**: The chat IS the reading experience. Book text is surfaced as quotes/context.
-- **Tree-structured sessions**: Each book has a topic tree. Branches are created on semantic shifts (deep dive, next chapter, cross-book), not on every message.
-- **Zoom in/out**: Go deeper on a concept (branch), pull back with summary (zoom out). The breadcrumb shows your depth.
-- **TOC + Chat**: Navigate via clickable table of contents OR conversationally. Both work.
-- **Free-form depth**: No rigid Book→Part→Chapter→Tangent hierarchy. Every node is just a topic.
-- **Multi-user**: Slug-based user identity — each user gets isolated sessions, config, and glossary per book.
-
-## Architecture
-
-```
-packages/
-  shared/      — TypeScript types shared between client and server
-  extension/   — Pi Package: skills, ebook parsers, Pi extensions (publishable)
-  server/      — Hono API server wrapping Pi SDK + tree manager
-  client/      — React + Vite frontend
-```
-
-Built on the [Pi SDK](https://pi.dev/docs/latest/sdk). The same `extension` package powers both the GUI and the [Pi terminal](https://pi.dev) — install it as a Pi Package for CLI reading, or use it through pi-books for the full GUI experience.
-
-*Architecture deep dive → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)*
-*Self-hosting, Docker, custom skills → [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)*
+- **Non-fiction readers** who want more than highlights and summaries — you want to *think through* a book
+- **Families and book clubs** — everyone gets their own conversation tree for the same book
+- **Privacy-conscious readers** who don't want their reading habits on someone else's server
+- **Self-hosters and tinkerers** who want full control over their tools
 
 ## Getting Started
 
-### Local setup (no Docker)
+### Prerequisites
 
-Prerequisites: [Node.js](https://nodejs.org/) 22+, npm.
+[Node.js](https://nodejs.org/) 22+, npm.
+
+### Local setup (no Docker)
 
 ```bash
 cp .env.example .env   # edit with your API key and provider
@@ -90,8 +57,6 @@ npm run dev
 ```
 
 Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
-
-Dev uses a separate database (`~/.local/share/pi-books-dev/`) so it never collides with Docker.
 
 ### Docker
 
@@ -144,11 +109,28 @@ You can add books in two ways:
 > [!IMPORTANT]
 > Users are responsible for ensuring they have the right to use any content loaded into pi-books. This project does not distribute, host, or provide access to any copyrighted material.
 
+## How It Works
+
+Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) — a minimalist AI agent with tree-structured conversations. The same `extension` package powers both the GUI and the [Pi terminal](https://pi.dev).
+
+```
+packages/
+  shared/      — TypeScript types shared between client and server
+  extension/   — Pi Package: skills, ebook parsers, Pi extensions (publishable)
+  server/      — Hono API server wrapping Pi SDK + tree manager
+  client/      — React + Vite frontend
+```
+
+Key architectural choices:
+- **Server is thin** — receives a message, passes it to a Pi SDK session with book context, streams the response back via SSE
+- **Skills shape behavior** — 11 built-in reading skills (markdown instruction files) control how the AI reads. Change a SKILL.md, change the behavior — no code changes needed
+- **Data separation** — Pi SDK owns conversation content (JSONL files); pi-books owns metadata (SQLite: users, sessions, config, glossary)
+
+*Architecture deep dive → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)*
+
 ## Extensions
 
-Pi-books supports custom **skills** (markdown instruction files that shape AI behavior) and **extensions** (TypeScript modules that add tools and commands). 11 reading skills are built in.
-
-Pi-books is built on [Pi](https://pi.dev), so any Pi-compatible extension works here. One worth adding:
+Pi-books supports custom **skills** and **extensions**. Since it's built on [Pi](https://pi.dev), any Pi-compatible extension works here. One worth adding:
 
 ```bash
 pi install npm:pi-web-search    # gives the AI web search during reading sessions
@@ -158,6 +140,12 @@ This lets the AI look up references, author background, or related concepts whil
 
 > [!NOTE]
 > Extension documentation is a work in progress. See [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md) for the current skill and extension format.
+
+## Design Philosophy
+
+More on why pi-books exists and the design decisions behind it → [docs/VISION.md](docs/VISION.md)
+
+The short version: general-purpose AI chatbots can summarize a book, but they do it in a flat, sessionless way. Pi-books is a **reading companion** — every design decision (tree structure, branching conversations, zoom controls, per-book glossaries) serves that single purpose.
 
 ## License
 
