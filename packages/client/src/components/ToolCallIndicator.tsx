@@ -7,7 +7,7 @@ function describeToolCall(toolName: string, args: Record<string, unknown>): stri
     case "read":
       return shortPath ? `Reading ${shortPath}` : "Reading book content";
     case "grep":
-      return shortPath ? `Searching for \"${shortPath}\"` : "Searching content";
+      return shortPath ? `Searching for "${shortPath}"` : "Searching content";
     case "find":
     case "ls":
       return shortPath ? `Browsing ${shortPath}` : "Browsing files";

@@ -146,10 +146,12 @@ export function ChatView({
 
   const newBranchIds = useMemo(() => {
     // Navigation just happened — everything in the new scope is "existing"
+    // eslint-disable-next-line react-hooks/refs
     if (scrollTopTrigger !== scrollTopTriggerRef.current) {
       return new Set<string>();
     }
     return new Set(
+      // eslint-disable-next-line react-hooks/refs
       branches.filter((b) => !prevBranchIdsRef.current.has(b.nodeId)).map((b) => b.nodeId),
     );
   }, [branches, scrollTopTrigger]);

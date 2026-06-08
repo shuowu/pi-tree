@@ -40,6 +40,8 @@ function getStreamKey(bookId: string, sessionId: number): string {
   return `${bookId}:${sessionId}`;
 }
 
+/* eslint-disable react-refresh/only-export-components */
+
 export function StreamProvider({ children }: { children: ReactNode }) {
   const [streams, setStreams] = useState<Record<string, ActiveStreamState>>({});
   const streamGensRef = useRef<Record<string, number>>({});

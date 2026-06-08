@@ -143,6 +143,7 @@ export function useReaderSession(
       }
     } else if (activeStream.status === "done") {
       if (sendingNodeId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setGeneratingNodeIds((prev) => {
           const next = new Set(prev);
           next.delete(sendingNodeId);

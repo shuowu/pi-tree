@@ -33,11 +33,13 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "concurrently": "^9.1.0",
+    "husky": "^9.1.7",
     "typescript": "^5.7.0"
   }
 }
