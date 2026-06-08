@@ -5,3 +5,4 @@ dist/
 .env.*
 .envrc
 test-results/
+local-docs/
