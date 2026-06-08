@@ -10,7 +10,6 @@ import type {
 import {
   startSession,
   resetSession,
-  sendMessageStreaming,
   viewScope,
   fetchGlossary,
   deleteNode,
@@ -19,6 +18,7 @@ import {
   deleteSession as deleteSessionApi,
 } from "../api";
 import type { DictEntry } from "../components/DictionaryPanel";
+import { useStream } from "../StreamContext";
 
 interface UseReaderSessionDeps {
   isMobile: () => boolean;
@@ -26,7 +26,6 @@ interface UseReaderSessionDeps {
   setDictEntries: React.Dispatch<React.SetStateAction<DictEntry[]>>;
   navigate: (to: string, opts?: { replace?: boolean }) => void;
 }
-
 export function useReaderSession(
   userId: string | null,
   book: Book,
@@ -66,9 +65,8 @@ export function useReaderSession(
   // browser-initiated changes (back/forward) vs our own updates.
   const lastViewNodeIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<number | null>(sessionId);
-  // Generation counter — incremented on each new message or navigation.
-  // Stale streams (gen !== current) silently finish without updating UI.
-  const streamGenRef = useRef(0);
+
+  const { streams, startMessageStream, clearStream } = useStream();
 
   // Keep ref in sync
   useEffect(() => {
@@ -121,19 +119,83 @@ export function useReaderSession(
     [],
   );
 
+  // Reactive effect to sync global streaming state into the component
+  useEffect(() => {
+    const key = `${book.id}:${sessionId}`;
+    const activeStream = streams[key];
+
+    if (!activeStream) return;
+
+    const sendingNodeId = activeStream.sendingNodeId;
+
+    if (activeStream.status === "streaming") {
+      if (lastViewNodeIdRef.current === sendingNodeId) {
+        setStreamingContent(activeStream.accumulatedText);
+        setIsQueued(activeStream.isQueued);
+        setActiveToolCall(activeStream.activeToolCall);
+        setIsCompacting(activeStream.isCompacting);
+        setIsLoading(true);
+      } else {
+        setStreamingContent(null);
+        setIsQueued(false);
+        setActiveToolCall(null);
+        setIsCompacting(false);
+      }
+    } else if (activeStream.status === "done") {
+      if (sendingNodeId) {
+        setGeneratingNodeIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sendingNodeId);
+          return next;
+        });
+      }
+      if (lastViewNodeIdRef.current === sendingNodeId) {
+        setStreamingContent(null);
+        setIsLoading(false);
+        setIsCompacting(false);
+        setIsQueued(false);
+        setActiveToolCall(null);
+        if (activeStream.result) {
+          applySessionData(activeStream.result);
+          updateUrl(activeStream.result.viewNodeId, sessionId, true);
+        }
+      }
+      clearStream(book.id, sessionId!);
+    } else if (activeStream.status === "error") {
+      if (sendingNodeId) {
+        setGeneratingNodeIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sendingNodeId);
+          return next;
+        });
+      }
+      if (lastViewNodeIdRef.current === sendingNodeId) {
+        setStreamingContent(null);
+        setIsLoading(false);
+        setIsCompacting(false);
+        setIsQueued(false);
+        setActiveToolCall(null);
+        if (activeStream.error) {
+          const errorMsg: ChatMessage = {
+            id: `error-${Date.now()}`,
+            role: "assistant",
+            content: `⚠️ Error: ${activeStream.error.message}`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, errorMsg]);
+        }
+      }
+      clearStream(book.id, sessionId!);
+    }
+  }, [streams, viewNodeId, book.id, sessionId, applySessionData, updateUrl, clearStream]);
+
   const handleSendMessage = useCallback(
     async (message: string) => {
       if (!userId) return;
       const sid = sessionIdRef.current;
       if (sid === null) return;
 
-      // Bump the generation — any in-flight stream from a previous message
-      // will keep running on the server (response gets saved) but its
-      // callbacks become no-ops so it won't touch the UI.
-      const gen = ++streamGenRef.current;
-
       // Track which node is generating (for tree panel spinner).
-      // Use the current viewNodeId — that's the branch we're sending from.
       const sendingNodeId = lastViewNodeIdRef.current;
       if (sendingNodeId) {
         setGeneratingNodeIds((prev) => new Set(prev).add(sendingNodeId));
@@ -149,77 +211,13 @@ export function useReaderSession(
       setIsLoading(true);
       setStreamingContent("");
 
-      await sendMessageStreaming(userId, book.id, sid, message, lastViewNodeIdRef.current, {
-        onToken: (token) => {
-          if (gen !== streamGenRef.current) return;
-          setIsQueued(false);
-          setActiveToolCall(null);
-          setStreamingContent((prev) => (prev ?? "") + token);
-        },
-        onTurnEnd: () => {
-          if (gen !== streamGenRef.current) return;
-          setStreamingContent("");
-        },
-        onToolCall: (info) => {
-          if (gen !== streamGenRef.current) return;
-          setActiveToolCall(info);
-        },
-        onCompaction: (compacting) => {
-          if (gen !== streamGenRef.current) return;
-          setIsCompacting(compacting);
-        },
-        onQueued: () => {
-          if (gen !== streamGenRef.current) return;
-          setIsQueued(true);
-        },
-        onTreeUpdate: (updatedTree) => {
-          if (gen !== streamGenRef.current) return;
-          setTree(updatedTree);
-        },
-        onDone: (result) => {
-          // Always clear from generating set (even if stale)
-          if (sendingNodeId) {
-            setGeneratingNodeIds((prev) => {
-              const next = new Set(prev);
-              next.delete(sendingNodeId);
-              return next;
-            });
-          }
-          if (gen !== streamGenRef.current) return;
-          setStreamingContent(null);
-          setIsLoading(false);
-          setIsCompacting(false);
-          setIsQueued(false);
-          setActiveToolCall(null);
-          applySessionData(result);
-          updateUrl(result.viewNodeId, sid, true);
-        },
-        onError: (err) => {
-          // Always clear from generating set (even if stale)
-          if (sendingNodeId) {
-            setGeneratingNodeIds((prev) => {
-              const next = new Set(prev);
-              next.delete(sendingNodeId);
-              return next;
-            });
-          }
-          if (gen !== streamGenRef.current) return;
-          setStreamingContent(null);
-          setIsLoading(false);
-          setIsCompacting(false);
-          setIsQueued(false);
-          setActiveToolCall(null);
-          const errorMsg: ChatMessage = {
-            id: `error-${Date.now()}`,
-            role: "assistant",
-            content: `⚠️ Error: ${err.message}`,
-            timestamp: new Date().toISOString(),
-          };
-          setMessages((prev) => [...prev, errorMsg]);
-        },
+      startMessageStream(userId, book.id, sid, message, sendingNodeId, (updatedTree) => {
+        setTree(updatedTree);
+      }).catch((err) => {
+        console.error("Stream start failed:", err);
       });
     },
-    [userId, book.id, applySessionData, updateUrl],
+    [userId, book.id, startMessageStream],
   );
 
   // ---------------------------------------------------------------------------
@@ -232,11 +230,6 @@ export function useReaderSession(
       const sid = sessionIdRef.current;
       if (sid === null) return;
 
-      // Detach from any in-flight stream — bump the generation so the
-      // old stream's callbacks become no-ops.  The server keeps running
-      // the prompt and saves the response; user will see it when they
-      // navigate back.
-      streamGenRef.current++;
       setStreamingContent(null);
       setIsCompacting(false);
       setIsQueued(false);
@@ -249,18 +242,24 @@ export function useReaderSession(
 
       setIsLoading(true);
       try {
+        const targetId = nodeId || null;
         // Empty nodeId = navigate to root
-        const state = await viewScope(userId, book.id, sid, nodeId || null);
+        const state = await viewScope(userId, book.id, sid, targetId);
         applySessionData(state);
         updateUrl(state.viewNodeId, sid, false); // push history entry
         setScrollTopTrigger((c) => c + 1);
       } catch (err) {
         console.error("Navigate failed:", err);
       } finally {
-        setIsLoading(false);
+        const targetId = nodeId || null;
+        const activeStream = streams[`${book.id}:${sid}`];
+        const isRestoring = activeStream && activeStream.sendingNodeId === targetId && activeStream.status === "streaming";
+        if (!isRestoring) {
+          setIsLoading(false);
+        }
       }
     },
-    [userId, book.id, applySessionData, updateUrl, isMobile, setSidebarOpen],
+    [userId, book.id, applySessionData, updateUrl, isMobile, setSidebarOpen, streams],
   );
 
   const handleBackToRoot = useCallback(async () => {
@@ -277,9 +276,13 @@ export function useReaderSession(
     } catch (err) {
       console.error("Back to root failed:", err);
     } finally {
-      setIsLoading(false);
+      const activeStream = streams[`${book.id}:null`] || streams[`${book.id}:${sid}`];
+      const isRestoring = activeStream && activeStream.sendingNodeId === null && activeStream.status === "streaming";
+      if (!isRestoring) {
+        setIsLoading(false);
+      }
     }
-  }, [userId, book.id, applySessionData, updateUrl]);
+  }, [userId, book.id, applySessionData, updateUrl, streams]);
 
   // ---------------------------------------------------------------------------
   // Session loading
@@ -505,10 +508,14 @@ export function useReaderSession(
       } catch (err) {
         console.error("Browser nav restore failed:", err);
       } finally {
-        setIsLoading(false);
+        const activeStream = streams[`${book.id}:${sid}`];
+        const isRestoring = activeStream && activeStream.sendingNodeId === viewNodeId && activeStream.status === "streaming";
+        if (!isRestoring) {
+          setIsLoading(false);
+        }
       }
     })();
-  }, [viewNodeId, userId, book.id, applySessionData]);
+  }, [viewNodeId, userId, book.id, applySessionData, streams]);
 
   // Escape key: go back one scope level
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router";
 import { UserProvider, useUser } from "./UserContext";
+import { StreamProvider } from "./StreamContext";
 import { UserPicker } from "./components/UserPicker";
 import { Library } from "./components/Library";
 import { BookLayout } from "./components/BookLayout";
@@ -30,7 +31,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <UserProvider>
-      <AppRoutes />
+      <StreamProvider>
+        <AppRoutes />
+      </StreamProvider>
     </UserProvider>
   );
 }
