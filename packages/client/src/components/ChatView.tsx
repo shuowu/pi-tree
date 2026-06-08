@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMermaid } from "../hooks/useMermaid";
 import type { ChatMessage, BranchOption } from "@pi-books/shared";
-import { marked } from "marked";
 import { SelectionToolbar } from "./SelectionToolbar";
-import { BookOpen, Cpu, ChevronDown } from "lucide-react";
-import { useUser } from "../UserContext";
+import { MessageBubble } from "./MessageBubble";
+import { StreamingBubble } from "./StreamingBubble";
+import { InlineBranches } from "./InlineBranches";
+import { ToolCallIndicator } from "./ToolCallIndicator";
+import { BookOpen, Cpu, ChevronDown, Loader } from "lucide-react";
 import { fetchServerConfig } from "../api";
-import { getBranchesCollapsed } from "../utils/preferences";
 import { useScrollDirection, type ScrollDirection } from "../utils/useScrollDirection";
 import "./ChatView.css";
-
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
 
 interface ChatViewProps {
   messages: ChatMessage[];
@@ -38,6 +33,8 @@ interface ChatViewProps {
   onDefine: (term: string, context?: string) => void;
   /** Reports scroll direction changes for shy-header behavior */
   onScrollDirectionChange?: (direction: ScrollDirection) => void;
+  /** Counter incremented on explicit navigation — triggers scroll-to-top */
+  scrollTopTrigger: number;
 }
 
 export function ChatView({
@@ -55,14 +52,17 @@ export function ChatView({
   sessionId,
   onDefine,
   onScrollDirectionChange,
+  scrollTopTrigger,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [modelName, setModelName] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const streamingBubbleRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const prevMsgIdsRef = useRef<string>("");
+  const wasStreamingRef = useRef(false);
+  const userJustSentRef = useRef(false);
 
   // Scroll direction tracking for shy-header UX
   const scrollDir = useScrollDirection({ scrollRef: messagesContainerRef, threshold: 50 });
@@ -97,33 +97,70 @@ export function ChatView({
     fetchServerConfig().then((cfg) => setModelName(cfg.readingModel));
   }, []);
 
-  // Smart scroll: scroll to top on navigation, bottom on new message
+  // ---------------------------------------------------------------------------
+  // Scroll management
+  // ---------------------------------------------------------------------------
+
+  // Scroll to top when the parent signals a navigation event.
+  // This is the ONLY place that auto-scrolls to top. Streaming completion
+  // never increments scrollTopTrigger, so the user's scroll position is
+  // preserved when a response finishes.
+  const scrollTopTriggerRef = useRef(scrollTopTrigger);
   useEffect(() => {
-    const currentIds = messages.map((m) => m.id).join(",");
-    const prevIds = prevMsgIdsRef.current;
-    prevMsgIdsRef.current = currentIds;
-
-    if (!prevIds) {
-      // Initial load — scroll to top
-      messagesContainerRef.current?.scrollTo({ top: 0 });
-      return;
-    }
-
-    if (currentIds.startsWith(prevIds) && currentIds !== prevIds) {
-      // New message appended — scroll to bottom
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } else {
-      // Different set of messages — navigated to new scope — scroll to top
+    if (scrollTopTrigger !== scrollTopTriggerRef.current) {
+      scrollTopTriggerRef.current = scrollTopTrigger;
       messagesContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [scrollTopTrigger]);
+
+  // One-shot scroll: when streaming begins, scroll the streaming bubble's top
+  // into view so the user sees the start of the response. After that, the user
+  // is free to scroll wherever they want — no forced scrolling during streaming.
+  useEffect(() => {
+    const isActive = streamingContent !== null && streamingContent.length > 0;
+    const justStarted = isActive && !wasStreamingRef.current;
+    wasStreamingRef.current = isActive;
+
+    if (justStarted && streamingBubbleRef.current) {
+      streamingBubbleRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [streamingContent]);
+
+  // After the user sends a message, scroll it into view so they see their
+  // question positioned at the bottom with room below for the AI response.
+  useEffect(() => {
+    if (userJustSentRef.current) {
+      userJustSentRef.current = false;
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Auto-scroll during streaming
-  useEffect(() => {
-    if (streamingContent !== null && streamingContent.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // ---------------------------------------------------------------------------
+  // New branch detection — tracked here (persists) because InlineBranches
+  // unmounts during loading. On navigation (scrollTopTrigger changes), all
+  // branches are "existing". On streaming completion, branches not previously
+  // seen are "new" and should default to expanded.
+  // ---------------------------------------------------------------------------
+
+  const prevBranchIdsRef = useRef<Set<string>>(new Set(branches.map((b) => b.nodeId)));
+
+  const newBranchIds = useMemo(() => {
+    // Navigation just happened — everything in the new scope is "existing"
+    if (scrollTopTrigger !== scrollTopTriggerRef.current) {
+      return new Set<string>();
     }
-  }, [streamingContent]);
+    return new Set(
+      branches.filter((b) => !prevBranchIdsRef.current.has(b.nodeId)).map((b) => b.nodeId),
+    );
+  }, [branches, scrollTopTrigger]);
+
+  useEffect(() => {
+    prevBranchIdsRef.current = new Set(branches.map((b) => b.nodeId));
+  }, [branches]);
+
+  // ---------------------------------------------------------------------------
+  // Input handling
+  // ---------------------------------------------------------------------------
 
   // Auto-resize textarea
   useEffect(() => {
@@ -146,6 +183,7 @@ export function ChatView({
 
     onSendMessage(finalMessage);
     setInput("");
+    userJustSentRef.current = true;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -176,6 +214,10 @@ export function ChatView({
     [],
   );
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
     <div className="chat-view">
       <div className="chat-messages" ref={messagesContainerRef} style={{ position: "relative" }}>
@@ -191,7 +233,7 @@ export function ChatView({
         ))}
 
         {isLoading && streamingContent !== null && streamingContent.length > 0 && (
-          <StreamingBubble content={streamingContent} isCompacting={isCompacting} />
+          <StreamingBubble ref={streamingBubbleRef} content={streamingContent} isCompacting={isCompacting} />
         )}
 
         {isLoading && activeToolCall && (
@@ -219,7 +261,13 @@ export function ChatView({
         )}
 
         {branches.length > 0 && !isLoading && (
-          <InlineBranches branches={branches} onDrillDown={onDrillDown} bookId={bookId} sessionId={sessionId} />
+          <InlineBranches
+            branches={branches}
+            onDrillDown={onDrillDown}
+            bookId={bookId}
+            sessionId={sessionId}
+            newBranchIds={newBranchIds}
+          />
         )}
 
         <SelectionToolbar
@@ -230,8 +278,9 @@ export function ChatView({
 
         <div ref={messagesEndRef} />
 
-        {/* Scroll-to-bottom FAB — standard chat UX (Slack, Discord, WhatsApp) */}
-        {!isNearBottom && (
+        {/* Scroll-to-bottom FAB — standard chat UX (Slack, Discord, WhatsApp)
+         * Hidden while the streaming banner is visible to avoid redundancy. */}
+        {!isNearBottom && !(isLoading && streamingContent !== null && streamingContent.length > 0) && (
           <button
             className="scroll-to-bottom"
             onClick={scrollToBottom}
@@ -243,6 +292,19 @@ export function ChatView({
       </div>
 
       <div className="chat-input-container">
+        {/* Streaming progress banner — positioned above the input area.
+         * Lives outside the scroll container so it's always visible as a
+         * floating overlay, regardless of scroll position. */}
+        {isLoading && streamingContent !== null && streamingContent.length > 0 && !isNearBottom && (
+          <button
+            className="streaming-progress-banner"
+            onClick={scrollToBottom}
+          >
+            <Loader size={14} className="streaming-progress-spinner" />
+            <span>Generating response…</span>
+            <ChevronDown size={14} />
+          </button>
+        )}
         {modelName && (
           <div className="chat-input-meta">
             <span className="chat-model-badge"><Cpu size={11} /> {modelName}</span>
@@ -253,7 +315,7 @@ export function ChatView({
             <div className="chat-quote-preview">
               <div className="chat-quote-content">
                 <span className="chat-quote-label">Quote</span>
-                <span className="chat-quote-text">“{quotedText}”</span>
+                <span className="chat-quote-text">"{quotedText}"</span>
               </div>
               <button
                 className="chat-quote-remove"
@@ -289,271 +351,3 @@ export function ChatView({
     </div>
   );
 }
-
-function MessageBubble({ message }: { message: ChatMessage }) {
-  const isAssistant = message.role === "assistant";
-  const isUser = message.role === "user";
-  const isMarkdown = isAssistant || (isUser && message.content.trim().startsWith(">"));
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  const html = useMemo(() => {
-    if (!isMarkdown) return "";
-    return marked.parse(message.content) as string;
-  }, [message.content, isMarkdown]);
-
-  useMermaid(contentRef, html);
-
-  return (
-    <div className={`chat-message chat-message-${message.role}`}>
-      {isAssistant && <div className="chat-avatar">✦</div>}
-      <div className="chat-bubble">
-        {isMarkdown ? (
-          <div
-            ref={contentRef}
-            className="chat-content markdown"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        ) : (
-          <div className="chat-content">{message.content}</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Live-updating bubble that renders progressive markdown while streaming.
- * Industry-standard pattern (ChatGPT, Claude, Gemini): markdown renders in
- * real-time with a pulsing avatar + blinking cursor to signal generation.
- * When streaming ends, content moves to MessageBubble and indicators vanish.
- */
-function StreamingBubble({ content, isCompacting }: { content: string; isCompacting?: boolean }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const html = useMemo(() => {
-    return marked.parse(content) as string;
-  }, [content]);
-
-  // Skip mermaid during streaming — incomplete fences would produce errors.
-  // Once streaming ends, content moves to MessageBubble which renders mermaid.
-  useMermaid(contentRef, html, /* enabled */ false);
-
-  return (
-    <div className="chat-message chat-message-assistant streaming">
-      <div className="chat-avatar">✦</div>
-      <div className="chat-bubble">
-        <div
-          ref={contentRef}
-          className="chat-content markdown"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-        {isCompacting && (
-          <div className="compaction-indicator">
-            <span className="compaction-dot" />
-            Organizing reading notes…
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InlineBranches({
-  branches,
-  onDrillDown,
-  bookId,
-  sessionId,
-}: {
-  branches: BranchOption[];
-  onDrillDown: (nodeId: string) => void;
-  bookId: string;
-  sessionId: number | null;
-}) {
-  const { userId } = useUser();
-  const [branchData, setBranchData] = useState<
-    Record<string, { messages: ChatMessage[]; branches: BranchOption[] }>
-  >({});
-  const [loading, setLoading] = useState<Record<string, boolean>>({});
-  // Initialize collapse state from user preference (default: collapsed)
-  const defaultCollapsed = useMemo(() => getBranchesCollapsed(), []);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(branches.map((b) => [b.nodeId, defaultCollapsed])),
-  );
-
-  // Auto-fetch all branch data on mount / when branches change
-  useEffect(() => {
-    const fetchAll = async () => {
-      const { viewScope } = await import("../api");
-      for (const b of branches) {
-        if (branchData[b.nodeId]) continue; // already loaded
-        setLoading((prev) => ({ ...prev, [b.nodeId]: true }));
-        try {
-          if (!userId || sessionId === null) continue;
-          const state = await viewScope(userId, bookId, sessionId, b.nodeId);
-          setBranchData((prev) => ({
-            ...prev,
-            [b.nodeId]: { messages: state.messages, branches: state.branches },
-          }));
-        } catch (err) {
-          console.error("Failed to load branch:", err);
-        } finally {
-          setLoading((prev) => ({ ...prev, [b.nodeId]: false }));
-        }
-      }
-    };
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branches.map((b) => b.nodeId).join(","), bookId]);
-
-  return (
-    <div className="inline-branches">
-      <div className="inline-branches-divider">
-        <span className="inline-branches-label">
-          ⑂ {branches.length} branch{branches.length > 1 ? "es" : ""}
-        </span>
-      </div>
-
-      {branches.map((b) => {
-        const data = branchData[b.nodeId];
-        const isCollapsed = collapsed[b.nodeId] ?? defaultCollapsed;
-        const isLoading = loading[b.nodeId];
-
-        // Find user and assistant messages from the branch data
-        const userMsg = data?.messages.find((m) => m.role === "user");
-        const aiMsg = data?.messages.find((m) => m.role === "assistant");
-
-        return (
-          <div key={b.nodeId} className="inline-branch">
-            {/* Branch action bar */}
-            <div className="inline-branch-header">
-              <button
-                className="inline-branch-collapse"
-                onClick={() => setCollapsed((prev) => ({ ...prev, [b.nodeId]: !isCollapsed }))}
-                aria-label={isCollapsed ? "Expand" : "Collapse"}
-              >
-                <span className={`inline-branch-chevron ${isCollapsed ? "" : "expanded"}`}>›</span>
-              </button>
-              <span className={`branch-dot status-${b.status}`} />
-              <span className="inline-branch-title">
-                {b.label}
-              </span>
-              {b.messageCount > 0 && (
-                <span className="branch-count">{b.messageCount}</span>
-              )}
-              <button
-                className="inline-branch-open"
-                onClick={() => onDrillDown(b.nodeId)}
-                title="Open this branch"
-              >
-                Open →
-              </button>
-            </div>
-
-            {/* Branch content — message-like rendering */}
-            {!isCollapsed && (
-              <div className="inline-branch-content">
-                {isLoading && (
-                  <div className="chat-message chat-message-assistant">
-                    <div className="chat-avatar">✦</div>
-                    <div className="chat-bubble">
-                      <div className="chat-loading">
-                        <span className="dot" /><span className="dot" /><span className="dot" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {userMsg && (
-                  <div className="chat-message chat-message-user">
-                    <div className="chat-bubble">
-                      <div className="chat-content">{userMsg.content}</div>
-                    </div>
-                  </div>
-                )}
-
-                {aiMsg && (
-                  <InlineAIMessage content={aiMsg.content} />
-                )}
-
-                {/* Sub-branches indicator */}
-                {data?.branches && data.branches.length > 0 && (
-                  <div className="inline-branch-sub">
-                    {data.branches.map((sub) => (
-                      <button
-                        key={sub.nodeId}
-                        className="inline-branch-sub-item"
-                        onClick={() => onDrillDown(sub.nodeId)}
-                      >
-                        <span className={`branch-dot status-${sub.status}`} />
-                        {sub.label}
-                        <span className="inline-branch-arrow">→</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** AI message rendered inside an inline branch — uses same style as regular chat */
-function InlineAIMessage({ content }: { content: string }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const html = useMemo(() => {
-    return marked.parse(content) as string;
-  }, [content]);
-
-  useMermaid(contentRef, html);
-
-  return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-avatar">✦</div>
-      <div className="chat-bubble">
-        <div
-          ref={contentRef}
-          className="chat-content markdown"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </div>
-    </div>
-  );
-}
-
-/** Produce a human-readable label for a tool call */
-function describeToolCall(toolName: string, args: Record<string, unknown>): string {
-  const path = (args.path ?? args.file ?? args.pattern ?? args.query ?? "") as string;
-  const shortPath = path ? path.split("/").slice(-2).join("/") : "";
-
-  switch (toolName) {
-    case "read":
-      return shortPath ? `Reading ${shortPath}` : "Reading book content";
-    case "grep":
-      return shortPath ? `Searching for "${shortPath}"` : "Searching content";
-    case "find":
-    case "ls":
-      return shortPath ? `Browsing ${shortPath}` : "Browsing files";
-    default:
-      return `Running ${toolName}`;
-  }
-}
-
-/** Compact status indicator shown while the agent executes a tool call */
-function ToolCallIndicator({ toolName, args }: { toolName: string; args: Record<string, unknown> }) {
-  const label = describeToolCall(toolName, args);
-
-  return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-avatar">✦</div>
-      <div className="chat-bubble">
-        <div className="tool-call-indicator">
-          <span className="tool-call-spinner" />
-          <span className="tool-call-label">{label}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-

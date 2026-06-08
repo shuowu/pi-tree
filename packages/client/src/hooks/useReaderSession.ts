@@ -57,6 +57,9 @@ export function useReaderSession(
   const [activeToolCall, setActiveToolCall] = useState<{ toolName: string; args: Record<string, unknown> } | null>(null);
   // Track which tree nodes have in-flight AI responses (for tree spinner)
   const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(new Set());
+  // Counter incremented on explicit navigation (not streaming completion).
+  // ChatView watches this to scroll-to-top only on navigation.
+  const [scrollTopTrigger, setScrollTopTrigger] = useState(0);
 
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
@@ -250,6 +253,7 @@ export function useReaderSession(
         const state = await viewScope(userId, book.id, sid, nodeId || null);
         applySessionData(state);
         updateUrl(state.viewNodeId, sid, false); // push history entry
+        setScrollTopTrigger((c) => c + 1);
       } catch (err) {
         console.error("Navigate failed:", err);
       } finally {
@@ -269,6 +273,7 @@ export function useReaderSession(
       const state = await viewScope(userId, book.id, sid, null);
       applySessionData(state);
       updateUrl(state.viewNodeId, sid, false); // push history entry
+      setScrollTopTrigger((c) => c + 1);
     } catch (err) {
       console.error("Back to root failed:", err);
     } finally {
@@ -321,6 +326,7 @@ export function useReaderSession(
           } else {
             applySessionData(state);
             updateUrl(state.viewNodeId, sid, true);
+            setScrollTopTrigger((c) => c + 1);
           }
         } else {
           // Fresh session (just created) — no messages yet, URL already updated
@@ -495,6 +501,7 @@ export function useReaderSession(
       try {
         const state = await viewScope(userId, book.id, sid, viewNodeId);
         applySessionData(state);
+        setScrollTopTrigger((c) => c + 1);
       } catch (err) {
         console.error("Browser nav restore failed:", err);
       } finally {
@@ -533,6 +540,7 @@ export function useReaderSession(
     activeToolCall,
     viewNodeId,
     sessionLabel,
+    scrollTopTrigger,
     handleSendMessage,
     handleNavigate,
     handleBackToRoot,

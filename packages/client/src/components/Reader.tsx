@@ -124,6 +124,7 @@ export function Reader() {
             sessionId={session.sessionId}
             onDefine={dict.handleDefine}
             onScrollDirectionChange={panel.setScrollDirection}
+            scrollTopTrigger={session.scrollTopTrigger}
           />
         ) : null}
       </main>

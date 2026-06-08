@@ -230,6 +230,7 @@
 /* ── Input ── */
 
 .chat-input-container {
+  position: relative;
   padding: var(--space-4) var(--space-4) var(--space-6);
   display: flex;
   flex-direction: column;
@@ -738,6 +739,45 @@
   border-color: var(--text-muted);
   box-shadow: var(--shadow-lg);
   transform: scale(1.1);
+}
+
+/* ── Streaming Progress Banner ──
+ * Floating overlay positioned just above the input area. Lives outside
+ * the scroll container so it's always visible when the user scrolls away
+ * from the actively-streaming response. Acts as both a status indicator
+ * ("still generating") and a quick-jump affordance.
+ */
+
+.streaming-progress-banner {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  color: var(--accent-hover);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-md), 0 0 12px rgba(124, 108, 240, 0.15);
+  z-index: 5;
+  animation: fadeIn 0.2s ease;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.streaming-progress-banner:hover {
+  background: var(--accent-dim);
+  box-shadow: var(--shadow-lg), 0 0 20px rgba(124, 108, 240, 0.25);
+}
+
+.streaming-progress-spinner {
+  animation: spin 1.2s linear infinite;
 }
 
 /* ─── Compaction indicator ──────────────────────────────────────────────── */
