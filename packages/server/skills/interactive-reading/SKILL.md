@@ -122,17 +122,6 @@ Pi's `/tree` navigation is a natural fit for interactive reading. The session is
 - Branch summaries keep context flowing between branches — suggest accepting summaries when switching
 - `/tree` is lighter-weight than bookmarks for within-session navigation; bookmarks remain best for cross-session resume
 
-## Routing to Other Skills
-
-| Trigger | Skill |
-|---|---|
-| "zoom in", "elaborate", "unpack this" | Handle inline — expand the passage/concept in the current turn |
-| "zoom out", "where am I", "big picture" | Handle inline — summarize current position in the book's arc |
-| "deep dive into X" (standalone) | `deep-dive` |
-| "save summary / key ideas / quotes" | `book-analysis` |
-| "what should I read next?" (after finishing) | `reading-list` |
-| After finishing a book | `taste-profile` + `reading-list` |
-
 ## Commands
 
 - `/convert <path>` — Convert an ebook to markdown

@@ -129,7 +129,7 @@ PiSession.create(config)          // @pi-tree/core — config injected by server
   ├── configureModelRegistry()    // Registers providers/models from config
   │
   ├── ResourceLoader discovers ALL skills from:
-  │   ├── packages/extension/skills/     (built-in)
+  │   ├── packages/server/skills/        (built-in)
   │   ├── DATA_PATH/skills/              (user-mounted)
   │   └── DATA_PATH/extensions/          (user-mounted)
   │

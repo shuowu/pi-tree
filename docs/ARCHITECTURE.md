@@ -31,7 +31,7 @@ graph TD
 
 **Server (`@pi-tree/server`) is the app layer**: It resolves environment variables, manages the database, serves HTTP routes, and injects config into core.
 
-**Skills shape behavior**: The AI doesn't have hardcoded reading logic. Skills like `interactive-reading`, `book-analysis`, and `deep-dive` are injected by the Pi SDK's resource loader. Changing a SKILL.md changes how the AI reads — no server code changes needed.
+**Skills shape behavior**: The AI doesn't have hardcoded reading logic. Three core skills ship with the repo — `interactive-reading`, `book-outline`, and `book-analysis` — and are injected by the Pi SDK's resource loader. Users add custom skills via `$DATA_PATH/skills/` (or `$SKILLS_PATH`); user skills load first (SDK first-wins dedup) so they can override core skills. Changing a SKILL.md changes how the AI reads — no server code changes needed.
 
 ## Data Separation
 
@@ -55,19 +55,17 @@ graph LR
 | Conversation content (messages, tree, compaction) | `sessions/<bookId>/<userId>/*.jsonl` | Pi SDK |
 | User identity, session pointers, config | `pi-tree.db` (SQLite) | pi-tree |
 | Book content (markdown, outlines, covers) | `library/` or `books/` | pi-tree |
-| Reading skills and extensions | `packages/extension/` + user paths | Pi SDK resource loader |
+| Core skills (3) | `packages/server/skills/` | Pi SDK resource loader |
+| User skills (overrides) | `$DATA_PATH/skills/` or `$SKILLS_PATH` | Pi SDK resource loader |
 
 The key insight: **pi-tree never reads or writes session JSONL directly**. It tells the Pi SDK "start session from this file" and "send this message" — the SDK manages the rest. SQLite only stores metadata that the SDK doesn't care about (which user, which book, UI config, glossary terms).
 
-## Extension Package
+## Server Package (Skills & Parsers)
 
-`packages/extension` is a publishable Pi Package containing skills, parsers, and tools:
+The core skills and ebook parsers live inside `packages/server`:
 
 ```
-packages/extension/
+packages/server/
 ├── skills/              → Discovered by Pi SDK via additionalSkillPaths
-├── extensions/          → Pi terminal tools (ebook_convert, etc.)
-└── src/parsers/         → Library code imported by server for book uploads
+└── src/parsers/         → Ebook parsers used by server for book uploads
 ```
-
-Same code, two consumers: the web app imports parsers as a library, the Pi terminal loads skills and extensions natively via `pi install`.

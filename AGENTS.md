@@ -4,14 +4,13 @@ AI-assisted book reading app with tree-structured conversations.
 
 ## Architecture
 
-Monorepo with five packages:
+Monorepo with four packages:
 
 ```
 packages/
   core/        — Pure library: PiSession, TreeManager, model-setup, types (no env vars, no fs)
   ui/          — React component library: ChatView, Breadcrumb, InlineBranches (pit-* namespaced)
-  extension/   — Pi Package: skills, ebook parsers, Pi extensions (publishable)
-  server/      — Hono API server (routes, config, DB, env resolution — app layer)
+  server/      — Hono API server (routes, config, DB, parsers, core skills, env resolution — app layer)
   client/      — React + Vite frontend (pages, app-specific panels, wiring to @pi-tree/ui)
 ```
 
@@ -21,7 +20,7 @@ packages/
 |---------|-----------|-------------|
 | `@pi-tree/core` | `@earendil-works/pi-coding-agent` | `process.env`, `import.meta.dirname`, file I/O |
 | `@pi-tree/ui` | `@pi-tree/core/types`, React, lucide, marked, mermaid | App-specific API calls, env vars |
-| `@pi-tree/server` | `@pi-tree/core`, `@pi-tree/extension`, node:fs | Client components |
+| `@pi-tree/server` | `@pi-tree/core`, node:fs | Client components |
 | `@pi-tree/client` | `@pi-tree/ui`, `@pi-tree/core/types` | Direct Pi SDK imports |
 
 **Key rule**: `@pi-tree/core` is a pure library. All environment resolution (API keys, model names, paths) happens in the server's app layer and is injected via `PiSessionConfig`.
@@ -57,6 +56,30 @@ Pure library — no `process.env`, no `import.meta.dirname`, no file system acce
 - Types: TopicNode, Book, SessionState, ChatMessage, BranchOption, etc.
 
 All config is injected via `PiSessionConfig` — the server resolves env vars and passes them in.
+
+## Server Core Skills & Parsers
+
+The core skills and ebook parsers live inside the `@pi-tree/server` package.
+
+### Core Skills (3)
+
+Located in `packages/server/skills/`:
+
+- `interactive-reading` — Core reading flow: chapter briefings, navigation, Q&A, bookmarks
+- `book-outline` — Structural overview: navigation map with line numbers, toc.json
+- `book-analysis` — Generate structured analysis (summary, key-ideas, quotes, comparison)
+
+### Skill Override Mechanism
+
+User skills live at `$DATA_PATH/skills/` (or `$SKILLS_PATH` if set). The loading order:
+
+1. **User skills load FIRST** from `$DATA_PATH/skills/`
+2. **Core skills load SECOND** from `packages/server/skills/`
+3. Pi SDK uses **first-wins dedup by skill name** — if a user skill has the same name as a core skill, the user version wins
+
+This means users can:
+- **Override core skills** by creating a skill directory with the same name (e.g., `$DATA_PATH/skills/interactive-reading/`)
+- **Add new skills** by creating new skill directories (e.g., `$DATA_PATH/skills/my-custom-skill/`)
 
 ## UI (`@pi-tree/ui`)
 
@@ -141,6 +164,7 @@ Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-t
 | Glossary | SQLite `glossary_entries` | Per user per book |
 | Book content | `<LIBRARY_PATH>/<bookId>/markdown/` | Shared (read-only) |
 | Outlines | `<LIBRARY_PATH>/<bookId>/analysis/` | Shared (read-only) |
+| User skills | `<DATA_PATH>/skills/` (or `$SKILLS_PATH`) | Shared (mutable) |
 
 ## Session Management
 

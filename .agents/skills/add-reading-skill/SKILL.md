@@ -1,14 +1,19 @@
 ---
 name: add-reading-skill
 description: >
-  Scaffold a new reading skill in packages/extension/skills/.
+  Scaffold a new reading skill for the user's pi-tree instance.
   Invoke when the user asks to "add a skill", "create a new reading skill",
   "new skill", or similar.
 ---
 
 # Add Reading Skill
 
-Create a new reading skill in the extension package.
+Create a new reading skill for the user's pi-tree setup.
+
+## Where Skills Live
+
+- **Core skills** (repo): `packages/server/skills/` — only `interactive-reading`, `book-outline`, `book-analysis`. These are code-dependent and ship with the product. Don't add skills here unless they're used by server code.
+- **User skills** (filesystem): `$DATA_PATH/skills/` (default: `~/.local/share/pi-tree/skills/`). This is where new skills go. They load first and can override core skills by name.
 
 ## Gather Information
 
@@ -19,7 +24,7 @@ Ask the user for:
 
 ## Create the Skill
 
-Create `packages/extension/skills/<skill-name>/SKILL.md` with this structure:
+Create `<DATA_PATH>/skills/<skill-name>/SKILL.md` with this structure:
 
 ```markdown
 ---
@@ -64,18 +69,12 @@ Follow these conventions from existing skills:
    - ❌ "This skill provides Socratic questioning"
    - ✅ "When discussing a concept, ask the reader what they think before explaining"
 
-4. **Scope clearly** — each skill should handle one distinct reading activity. Don't overlap with existing skills:
+4. **Scope clearly** — each skill should handle one distinct reading activity. Don't overlap with core skills:
    - `interactive-reading` — core reading flow
-   - `deep-dive` — dedicated topic exploration
-   - `book-analysis` — structured analysis
-   - `book-context` — author/historical context
-   - `book-notes` — personal annotations
-   - `book-outline` — structural overview
-   - `reading-list` — recommendations
-   - `reference-book` — cross-book search
-   - `taste-profile` — reading preferences
-   - `trend-radar` — trending books
-   - `add-book` — importing books
+   - `book-analysis` — structured analysis (summary, key-ideas, quotes)
+   - `book-outline` — structural overview and navigation map
+
+5. **Override core skills** — if the user wants to customize a core skill, create a skill with the **same name** in their skills directory. User skills load first and win on name collision (SDK first-wins dedup).
 
 ## Verify
 
@@ -83,7 +82,7 @@ After creating the skill, confirm it's discoverable:
 
 1. Check the file exists:
    ```bash
-   cat packages/extension/skills/<skill-name>/SKILL.md
+   cat <DATA_PATH>/skills/<skill-name>/SKILL.md
    ```
 
 2. Verify frontmatter is valid YAML (name + description fields present).

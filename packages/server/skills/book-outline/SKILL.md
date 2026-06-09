@@ -9,7 +9,7 @@ Generate a structured outline and overview of a book — a bird's-eye view of it
 
 The outline has two audiences:
 1. **The user** — wants to see what a book covers, plan reading order, understand the arc
-2. **Other skills** (`interactive-reading`, `deep-dive`, `book-analysis`) — need a machine-parseable navigation map with line-number anchors to jump directly to sections via `read` offset
+2. **Other skills** (`interactive-reading`, `book-analysis`) — need a machine-parseable navigation map with line-number anchors to jump directly to sections via `read` offset
 
 The Navigation Map (line-numbered heading tree) is the most important section for agent consumption. Always generate it.
 
@@ -46,7 +46,7 @@ grep -n '^#' "markdown/<book>.md" | head -200
 
 This gives you all headings with line numbers without loading the full file.
 
-**Build the Navigation Map:** From the grep output, generate a compact navigation map (see template). This is the most important section — it's what other skills (`interactive-reading`, `deep-dive`) use for direct `read` offset navigation. Every heading gets its line number preserved as `L<line>`. The map is essentially cleaned grep output: trivially parseable by agents, no table-parsing needed.
+**Build the Navigation Map:** From the grep output, generate a compact navigation map (see template). This is the most important section — it's what other skills (`interactive-reading`, `book-analysis`) use for direct `read` offset navigation. Every heading gets its line number preserved as `L<line>`. The map is essentially cleaned grep output: trivially parseable by agents, no table-parsing needed.
 
 ### 3. Read Key Passages
 
@@ -119,7 +119,7 @@ library/<Title>_<Author>_<Year>/analysis/toc.json
 ## Navigation Map
 
 Line-number indexed heading tree. Use `read` with `offset=<line>` to jump to any section.
-Other skills (interactive-reading, deep-dive) depend on this map for navigation.
+Other skills (interactive-reading, book-analysis) depend on this map for navigation.
 
 ```
 L9     # <Book Title>

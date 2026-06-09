@@ -41,7 +41,7 @@ Legacy path: `analysis/<Title>_<Author>_<Year>/`.
 
 ### 2. Read the Content
 
-- Use `ctx_execute_file` or `ctx_execute` to process the markdown
+- Use `read` with offset/limit to process the markdown in chunks
 - For full-book analysis, read in chunks using offset/limit
 - For targeted analysis, search for specific topics/themes
 
@@ -91,8 +91,6 @@ After saving, suggest:
 - Extracting quotes from what was discussed
 - Comparing with another book in the library
 - Generating a key-ideas summary
-- Updating the taste profile via the `taste-profile` skill (new analysis enriches future recommendations)
-- Getting fresh book recommendations via the `reading-list` skill
 
 ## Tips
 
@@ -100,6 +98,6 @@ After saving, suggest:
 - Quote the text directly (with `>`) rather than paraphrasing for quotes files
 - Keep summaries concise — the user can always re-read the chapter
 - For large books, offer to do chapter-by-chapter analysis rather than all at once
-- Cross-reference with `ctx_search` for any previously indexed content
+- Cross-reference with `grep` for any previously indexed content
 - When doing comparison, list all books being compared in the header
 - If previous analysis exists for a book, read it first and build on it rather than overwriting

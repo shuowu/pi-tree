@@ -80,7 +80,7 @@ volumes:
 
 ## Custom Skills
 
-Skills are markdown instruction files that shape how the AI behaves during reading sessions. Pi-books ships with 11 built-in skills (in `packages/extension/skills/`). You can add your own.
+Skills are markdown instruction files that shape how the AI behaves during reading sessions. Pi-tree ships with 3 core skills — `interactive-reading`, `book-outline`, and `book-analysis` (in `packages/server/skills/`). You can add your own or override the core ones.
 
 ### Creating a skill
 
@@ -117,14 +117,22 @@ When discussing book content with the reader:
 
 Skills follow the [Pi Agent Skills standard](https://agentskills.io). The same format works in the Pi terminal.
 
+### Overriding core skills
+
+To override a core skill, create a skill with the same name in your user skills directory:
+
+```
+<DATA_PATH>/skills/interactive-reading/SKILL.md
+```
+
+User skills load first. The Pi SDK uses first-wins dedup, so if a user skill has the same `name` as a core skill, the user version wins.
+
 ### How skills are discovered
 
 On each new reading session, the server scans:
 
-1. `packages/extension/skills/` — built-in skills (shipped with the app)
-2. `.pi/skills/` — project-local skills (if running from source)
-3. `<DATA_PATH>/skills/` — user skills (customizable at runtime)
-4. `<SKILLS_PATH>/` — override via environment variable
+1. `<DATA_PATH>/skills/` (or `<SKILLS_PATH>/`) — **user skills (loaded first, wins on name collision)**
+2. `packages/server/skills/` — core skills (shipped with the app)
 
 No restart is needed — new skills are picked up when a reading session starts.
 

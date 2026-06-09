@@ -90,7 +90,8 @@ export class TreeManager {
     // Core (PiSession) never reads process.env directly.
     const serverCfg = getServerConfig();
     const repoRoot = join(import.meta.dirname, "../../../..");
-    const extensionPkgSkills = join(import.meta.dirname, "../../extension/skills");
+    const coreSkills = join(import.meta.dirname, "../../skills");
+    const userSkills = process.env.SKILLS_PATH || join(dataPath, "skills");
 
     const piSession = await PiSession.create(
       userId,
@@ -103,8 +104,8 @@ export class TreeManager {
           ...serverCfg,
           repoRoot,
           skillPaths: [
-            extensionPkgSkills,
-            process.env.SKILLS_PATH || join(dataPath, "skills"),
+            userSkills,     // first: user overrides win (SDK first-wins dedup)
+            coreSkills,     // second: core skills from repo
           ],
           extensionPaths: [
             process.env.EXTENSIONS_PATH || join(dataPath, "extensions"),

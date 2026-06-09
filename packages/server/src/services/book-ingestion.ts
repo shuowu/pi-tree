@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { mkdir, writeFile, rm, readdir, stat, readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { getDb, books } from "../db/index.js";
-import { getParser } from "@pi-tree/extension/parsers";
+import { getParser } from "../parsers/index.js";
 import { createAgentSession, SessionManager, AuthStorage, ModelRegistry, DefaultResourceLoader, getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
 
@@ -441,11 +441,15 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
       });
     }
 
+    const coreSkills = join(import.meta.dirname, "../../skills");
+    const userSkills = process.env.SKILLS_PATH || join(dataPath, "skills");
+
     const resourceLoader = new DefaultResourceLoader({
       cwd: repoRoot,
       agentDir,
       additionalSkillPaths: [
-        join(import.meta.dirname, "../../../extension/skills"),
+        userSkills,
+        coreSkills,
       ],
     });
     await resourceLoader.reload();

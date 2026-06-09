@@ -19,6 +19,7 @@ import {
   type AgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
+import { configureModelRegistry } from "@pi-tree/core";
 import { getDb, users, glossaryEntries } from "../db/index.js";
 import { DEFAULT_CONFIG } from "@pi-tree/shared";
 
@@ -47,25 +48,10 @@ export class DictionaryService {
     const serverConfig = getServerConfig();
     const repoRoot = join(import.meta.dirname, "../../../..");
 
-    // Auth: in-memory (no ~/.pi/ file I/O) — API keys set programmatically from env vars
-    const authStorage = AuthStorage.inMemory();
-    if (serverConfig.apiKey && serverConfig.provider) {
-      authStorage.setRuntimeApiKey(serverConfig.provider, serverConfig.apiKey);
-    }
-
-    // In-memory model registry — loads SDK built-in models, skips ~/.pi/agent/models.json
-    const modelRegistry = ModelRegistry.inMemory(authStorage);
-
-    if (serverConfig.provider && serverConfig.baseUrl) {
-      modelRegistry.registerProvider(serverConfig.provider, {
-        baseUrl: serverConfig.baseUrl,
-      });
-    }
-
-    // Use lookupModel (PI_LOOKUP_MODEL) instead of readingModel
-    const modelId = serverConfig.lookupModel;
-    const allModels = modelRegistry.getAll();
-    const selectedModel = allModels.find((m) => m.id === modelId);
+    const { authStorage, modelRegistry, selectedModel } = configureModelRegistry({
+      ...serverConfig,
+      readingModel: serverConfig.lookupModel || serverConfig.readingModel,
+    });
 
     const { session } = await createAgentSession({
       cwd: repoRoot,
