@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Book } from "@pi-books/shared";
+import type { Book } from "@pi-tree/shared";
 import { processBook, fetchJobStatus, type Job } from "../api";
 
 export function useBookProcessing(book: Book) {

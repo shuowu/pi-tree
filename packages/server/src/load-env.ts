@@ -11,5 +11,5 @@ loadEnv({ path: resolve(root, ".env") });
 
 // Last-resort defaults — safety net when neither direnv nor .env provides them
 process.env.PORT ??= "3847";
-process.env.DATA_PATH ??= join(os.homedir(), ".local", "share", "pi-books");
+process.env.DATA_PATH ??= join(os.homedir(), ".local", "share", "pi-tree");
 

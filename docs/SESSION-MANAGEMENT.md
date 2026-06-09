@@ -1,6 +1,6 @@
 # Session Management
 
-How pi-books manages reading sessions — the bridge between users, books, and AI agent conversations.
+How pi-tree manages reading sessions — the bridge between users, books, and AI agent conversations.
 
 ## Core Concept
 

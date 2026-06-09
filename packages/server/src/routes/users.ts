@@ -1,5 +1,5 @@
 /**
- * User routes — CRUD for pi-books users.
+ * User routes — CRUD for pi-tree users.
  *
  * Users are simple identity records (no auth). Each user gets their own
  * session directories and glossary entries per book.

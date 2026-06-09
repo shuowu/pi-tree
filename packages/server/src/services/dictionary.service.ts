@@ -20,7 +20,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
 import { getDb, users, glossaryEntries } from "../db/index.js";
-import { DEFAULT_CONFIG } from "@pi-books/shared";
+import { DEFAULT_CONFIG } from "@pi-tree/shared";
 
 // Singleton instance
 let _instance: DictionaryService | null = null;
@@ -144,7 +144,7 @@ export class DictionaryService {
    */
   private resolveLookupPrompt(bookId?: string): string {
     const dataPath =
-      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-books");
+      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-tree");
 
     // Per-book user override
     if (bookId) {

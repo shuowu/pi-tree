@@ -1,10 +1,10 @@
 {
-  "name": "@pi-books/mcp",
+  "name": "@pi-tree/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "pi-books-mcp": "./dist/index.js"
+    "pi-tree-mcp": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx watch --conditions=source src/index.ts",
@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "@pi-books/server": "*",
-    "@pi-books/shared": "*",
+    "@pi-tree/server": "*",
+    "@pi-tree/shared": "*",
     "dotenv": "^17.4.2",
     "zod": "^3.24.0"
   },

@@ -7,7 +7,7 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { LibraryService } from "@pi-books/server/services/library";
+import type { LibraryService } from "@pi-tree/server/services/library";
 import { z } from "zod";
 
 export function registerLibraryTools(

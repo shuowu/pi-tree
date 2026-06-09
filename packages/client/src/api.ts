@@ -1,5 +1,5 @@
 /**
- * API client for pi-books server.
+ * API client for pi-tree server.
  * All calls go through the Vite dev proxy → localhost:3847.
  */
 
@@ -11,7 +11,7 @@ import type {
   SessionState,
   TreeNodeView,
   UserInfo,
-} from "@pi-books/shared";
+} from "@pi-tree/shared";
 
 const API = "/api";
 
@@ -342,7 +342,7 @@ export async function sendMessageStreaming(
     onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => void;
     onQueued?: () => void;
     onCompaction?: (isCompacting: boolean) => void;
-    onTreeUpdate?: (tree: import("@pi-books/shared").TreeNodeView) => void;
+    onTreeUpdate?: (tree: import("@pi-tree/shared").TreeNodeView) => void;
     onDone: (result: SessionState & { response: string }) => void;
     onError: (error: Error) => void;
   },

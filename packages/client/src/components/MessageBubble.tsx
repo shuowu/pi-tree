@@ -1,6 +1,6 @@
 import { useRef, useMemo } from "react";
 import { useMermaid } from "../hooks/useMermaid";
-import type { ChatMessage } from "@pi-books/shared";
+import type { ChatMessage } from "@pi-tree/shared";
 import { marked } from "marked";
 
 export function MessageBubble({ message }: { message: ChatMessage }) {

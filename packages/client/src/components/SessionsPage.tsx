@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import type { BookSession } from "@pi-books/shared";
+import type { BookSession } from "@pi-tree/shared";
 import type { SessionMode } from "./WelcomeState";
 import { fetchSessions, createSession, updateSession, deleteSession } from "../api";
 import { useUser } from "../UserContext";

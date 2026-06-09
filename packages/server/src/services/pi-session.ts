@@ -1,5 +1,5 @@
 /**
- * PiSession — integration layer between pi-books and Pi SDK.
+ * PiSession — integration layer between pi-tree and Pi SDK.
  *
  * Pi handles: session storage, tree structure, AI responses, compaction,
  *             tool execution, streaming, context building.
@@ -10,7 +10,7 @@
  */
 
 import { join } from "node:path";
-import type { BookAnchor } from "@pi-books/shared";
+import type { BookAnchor } from "@pi-tree/shared";
 import {
   createAgentSession,
   getAgentDir,
@@ -38,7 +38,7 @@ interface SessionTreeNode {
 // Custom entry types stored in Pi session
 // ---------------------------------------------------------------------------
 
-const CUSTOM_TYPE = "pi-books";
+const CUSTOM_TYPE = "pi-tree";
 
 export interface TopicMeta {
   kind: "topic_node";
@@ -60,7 +60,7 @@ export interface SectionLabelMeta {
   newLabel: string;
 }
 
-export type PiBooksData = TopicMeta | SectionStatusMeta | SectionLabelMeta;
+export type PiTreeData = TopicMeta | SectionStatusMeta | SectionLabelMeta;
 
 // ---------------------------------------------------------------------------
 // PiSession
@@ -94,7 +94,7 @@ export class PiSession {
     dataPath: string,
     options?: { resumeSession?: string },
   ): Promise<PiSession> {
-    // Repo root — where .pi/skills/ lives (pi-books's own copy)
+    // Repo root — where .pi/skills/ lives (pi-tree's own copy)
     const repoRoot = join(import.meta.dirname, "../../../..");
 
     // Session storage: each user+book gets its own session directory
@@ -167,7 +167,7 @@ export class PiSession {
         );
       }
 
-      // ResourceLoader: discover .pi/skills/ from pi-books repo root
+      // ResourceLoader: discover .pi/skills/ from pi-tree repo root
       // plus any user-mounted skills/extensions (Docker: DATA_PATH/skills/, DATA_PATH/extensions/)
       const agentDir = getAgentDir();
 
@@ -225,9 +225,9 @@ export class PiSession {
       agent.setAutoCompactionEnabled(true);
     } catch (err) {
       console.warn(
-        `[pi-books] Could not create agent session (missing API key?): ${err}`,
+        `[pi-tree] Could not create agent session (missing API key?): ${err}`,
       );
-      console.warn(`[pi-books] Running in session-only mode (no AI responses)`);
+      console.warn(`[pi-tree] Running in session-only mode (no AI responses)`);
     }
 
     const piSession = new PiSession(sm, agent, bookId, libraryPath);
@@ -833,7 +833,7 @@ export class PiSession {
       const custom = entry as CustomEntry;
       if (custom.customType !== CUSTOM_TYPE && custom.customType !== "pi-reader") continue;
 
-      const data = custom.data as PiBooksData;
+      const data = custom.data as PiTreeData;
       if (data.kind === "topic_node") {
         this.topicCache.set(entry.id, data);
       } else if (data.kind === "section_status") {

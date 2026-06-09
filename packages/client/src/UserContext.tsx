@@ -7,8 +7,8 @@ import {
 } from "react";
 import { createUser } from "./api";
 
-const LS_USER_ID = "pi-books-user-id";
-const LS_DISPLAY_NAME = "pi-books-display-name";
+const LS_USER_ID = "pi-tree-user-id";
+const LS_DISPLAY_NAME = "pi-tree-display-name";
 
 interface UserContextValue {
   userId: string | null;

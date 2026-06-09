@@ -43,8 +43,8 @@ test.describe("Smoke", () => {
 
     // Login via localStorage (skip UserPicker)
     await page.addInitScript((userId: string) => {
-      localStorage.setItem("pi-books-user-id", userId);
-      localStorage.setItem("pi-books-display-name", "Switch Test");
+      localStorage.setItem("pi-tree-user-id", userId);
+      localStorage.setItem("pi-tree-display-name", "Switch Test");
     }, TEST_USER_ID + "-switch");
 
     await page.goto("/");

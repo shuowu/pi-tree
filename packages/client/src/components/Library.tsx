@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
-import type { Book } from "@pi-books/shared";
+import type { Book } from "@pi-tree/shared";
 import { fetchBooks, fetchTags, addBookTag, removeBookTag, fetchJobs, type JobWithBook } from "../api";
 import { useUser } from "../UserContext";
 import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu } from "lucide-react";

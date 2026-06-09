@@ -14,7 +14,7 @@ function getLibrary(): LibraryService {
   if (!_library) {
     const dataPath =
       process.env.DATA_PATH ??
-      join(process.env.HOME ?? "~", ".local", "share", "pi-books");
+      join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
     _library = new LibraryService(undefined, dataPath);
   }
   return _library;

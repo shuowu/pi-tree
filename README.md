@@ -1,4 +1,4 @@
-# pi-books
+# pi-tree
 
 **Turn any book into a conversation you can explore like a tree.**
 
@@ -63,7 +63,7 @@ Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
 Pre-built images are published to GitHub Container Registry on every release (linux/amd64 + linux/arm64):
 
 ```bash
-docker pull ghcr.io/shuowu/pi-books:latest
+docker pull ghcr.io/shuowu/pi-tree:latest
 ```
 
 **Quick start with the pre-built image:**
@@ -71,12 +71,12 @@ docker pull ghcr.io/shuowu/pi-books:latest
 ```bash
 cp .env.example .env   # edit with your API key and paths
 
-docker run -d --name pi-books \
+docker run -d --name pi-tree \
   --env-file .env \
   -p 3847:3847 \
   -v /path/to/your/books:/library:ro \
-  -v pi-books-data:/data \
-  ghcr.io/shuowu/pi-books:latest
+  -v pi-tree-data:/data \
+  ghcr.io/shuowu/pi-tree:latest
 ```
 
 **Or build from source:**
@@ -105,7 +105,7 @@ Pi-books doesn't need frontier-class models — book reading is more about conte
 
 **Local models** — completely offline, no API costs. Use [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/) to run models locally. Gemma 4 (12B, 256K context) and Qwen 3.6 are good starting points — explore what works for your hardware and reading language.
 
-Point pi-books at your local server in `.env`:
+Point pi-tree at your local server in `.env`:
 
 ```bash
 PI_PROVIDER=openai                              # Ollama/LM Studio expose an OpenAI-compatible API
@@ -128,7 +128,7 @@ You can add books in two ways:
 2. **Local folder** — set `LIBRARY_PATH` in `.env` to point at your book collection
 
 > [!IMPORTANT]
-> Users are responsible for ensuring they have the right to use any content loaded into pi-books. This project does not distribute, host, or provide access to any copyrighted material.
+> Users are responsible for ensuring they have the right to use any content loaded into pi-tree. This project does not distribute, host, or provide access to any copyrighted material.
 
 ## How It Works
 
@@ -145,7 +145,7 @@ packages/
 Key architectural choices:
 - **Server is thin** — receives a message, passes it to a Pi SDK session with book context, streams the response back via SSE
 - **Skills shape behavior** — 11 built-in reading skills (markdown instruction files) control how the AI reads. Change a SKILL.md, change the behavior — no code changes needed
-- **Data separation** — Pi SDK owns conversation content (JSONL files); pi-books owns metadata (SQLite: users, sessions, config, glossary)
+- **Data separation** — Pi SDK owns conversation content (JSONL files); pi-tree owns metadata (SQLite: users, sessions, config, glossary)
 
 *Architecture deep dive → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)*
 
@@ -164,7 +164,7 @@ This lets the AI look up references, author background, or related concepts whil
 
 ## Design Philosophy
 
-More on why pi-books exists and the design decisions behind it → [docs/VISION.md](docs/VISION.md)
+More on why pi-tree exists and the design decisions behind it → [docs/VISION.md](docs/VISION.md)
 
 The short version: general-purpose AI chatbots can summarize a book, but they do it in a flat, sessionless way. Pi-books is a **reading companion** — every design decision (tree structure, branching conversations, zoom controls, per-book glossaries) serves that single purpose.
 

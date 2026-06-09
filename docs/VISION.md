@@ -32,7 +32,7 @@ Pi-books doesn't have a cloud backend. There's no account to create, no data syn
 
 This isn't just a privacy feature — it's a design philosophy. When you own the entire stack, the tool can be truly yours. You pick the AI model. You pick the provider. You control the cost. And as local AI gets better, you won't need a cloud API at all.
 
-Today, you can already point pi-books at [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), or any OpenAI-compatible local server. The reading experience with a good 7B or 14B model running on your own hardware is surprisingly capable — and completely offline. No tokens metered, no API costs, no data leaving your network.
+Today, you can already point pi-tree at [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), or any OpenAI-compatible local server. The reading experience with a good 7B or 14B model running on your own hardware is surprisingly capable — and completely offline. No tokens metered, no API costs, no data leaving your network.
 
 This matters more than people think. Reading is intimate. The questions you ask about a book — the tangents you explore, the connections you draw — reveal how you think. That data shouldn't live on someone else's infrastructure. Local-first means your intellectual journey stays yours.
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMermaid } from "../hooks/useMermaid";
-import type { ChatMessage, BranchOption } from "@pi-books/shared";
+import type { ChatMessage, BranchOption } from "@pi-tree/shared";
 import { marked } from "marked";
 import { useUser } from "../UserContext";
 import { getBranchesCollapsed } from "../utils/preferences";

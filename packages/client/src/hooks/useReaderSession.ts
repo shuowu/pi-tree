@@ -6,7 +6,7 @@ import type {
   BreadcrumbItem,
   TreeNodeView,
   BranchOption,
-} from "@pi-books/shared";
+} from "@pi-tree/shared";
 import {
   startSession,
   resetSession,

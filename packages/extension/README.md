@@ -1,11 +1,11 @@
-# @pi-books/extension
+# @pi-tree/extension
 
 Pi Package for AI-assisted book reading — skills, extensions, and ebook parsers.
 
 ## For Pi Terminal Users
 
 ```bash
-pi install npm:@pi-books/extension
+pi install npm:@pi-tree/extension
 ```
 
 This installs 11 reading skills and ebook tools into your Pi terminal.
@@ -13,7 +13,7 @@ This installs 11 reading skills and ebook tools into your Pi terminal.
 ## For Web App (packages/server)
 
 ```typescript
-import { getParser } from "@pi-books/extension/parsers";
+import { getParser } from "@pi-tree/extension/parsers";
 
 const parser = getParser("book.epub");
 const result = await parser.parse("/path/to/book.epub");

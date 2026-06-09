@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { TreeNodeView } from "@pi-books/shared";
+import type { TreeNodeView } from "@pi-tree/shared";
 import {
   collectScopeMessages,
   buildBreadcrumb,

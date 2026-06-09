@@ -99,7 +99,7 @@ library/<Title>_<Author>_<Year>/analysis/toc.json
 
 **Always generate both files:**
 - `outline.md` — Human-readable outline with Navigation Map (for agents and users)
-- `toc.json` — Machine-readable TOC (for pi-books app, zero-parsing)
+- `toc.json` — Machine-readable TOC (for pi-tree app, zero-parsing)
 
 #### outline.md Template
 

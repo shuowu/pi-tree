@@ -6,7 +6,7 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { DictionaryService } from "@pi-books/server/services/dictionary.service";
+import type { DictionaryService } from "@pi-tree/server/services/dictionary.service";
 import { z } from "zod";
 
 export function registerReferenceTools(

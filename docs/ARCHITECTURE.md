@@ -37,7 +37,7 @@ graph LR
         JSONL["Session JSONL<br/><i>Conversation tree, messages,<br/>compaction, tool calls</i>"]
     end
     
-    subgraph App["Owned by pi-books"]
+    subgraph App["Owned by pi-tree"]
         DB["SQLite<br/><i>Users, session pointers,<br/>config, glossary, book metadata</i>"]
         Books["Book Files<br/><i>Markdown, covers, outlines</i>"]
     end
@@ -49,11 +49,11 @@ graph LR
 | What | Where | Owner |
 |------|-------|-------|
 | Conversation content (messages, tree, compaction) | `sessions/<bookId>/<userId>/*.jsonl` | Pi SDK |
-| User identity, session pointers, config | `pi-books.db` (SQLite) | pi-books |
-| Book content (markdown, outlines, covers) | `library/` or `books/` | pi-books |
+| User identity, session pointers, config | `pi-tree.db` (SQLite) | pi-tree |
+| Book content (markdown, outlines, covers) | `library/` or `books/` | pi-tree |
 | Reading skills and extensions | `packages/extension/` + user paths | Pi SDK resource loader |
 
-The key insight: **pi-books never reads or writes session JSONL directly**. It tells the Pi SDK "start session from this file" and "send this message" — the SDK manages the rest. SQLite only stores metadata that the SDK doesn't care about (which user, which book, UI config, glossary terms).
+The key insight: **pi-tree never reads or writes session JSONL directly**. It tells the Pi SDK "start session from this file" and "send this message" — the SDK manages the rest. SQLite only stores metadata that the SDK doesn't care about (which user, which book, UI config, glossary terms).
 
 ## Extension Package
 

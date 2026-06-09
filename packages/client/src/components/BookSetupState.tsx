@@ -1,4 +1,4 @@
-import type { Book } from "@pi-books/shared";
+import type { Book } from "@pi-tree/shared";
 import type { Job } from "../api";
 import { Cpu, MessageCircle } from "lucide-react";
 import "./BookSetupState.css";
