@@ -1,8 +1,8 @@
 /**
  * Client-side preferences — localStorage-backed settings.
  *
- * All keys follow the `pi-books-*` naming convention, consistent
- * with UserContext's `pi-books-user-id` and `pi-books-display-name`.
+ * All keys follow the `pi-tree-*` naming convention, consistent
+ * with UserContext's `pi-tree-user-id` and `pi-tree-display-name`.
  *
  * Add new preferences here rather than scattering localStorage calls
  * across components.
@@ -10,7 +10,7 @@
 
 // ─── Keys ───────────────────────────────────────────────────────────────────
 
-const LS_BRANCHES_COLLAPSED = "pi-books-branches-collapsed";
+const LS_BRANCHES_COLLAPSED = "pi-tree-branches-collapsed";
 
 // ─── Branch Previews ────────────────────────────────────────────────────────
 

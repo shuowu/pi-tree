@@ -1,5 +1,5 @@
 {
-  "name": "@pi-books/server",
+  "name": "@pi-tree/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -38,8 +38,8 @@
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.78.0",
     "@hono/node-server": "^1.14.0",
-    "@pi-books/extension": "*",
-    "@pi-books/shared": "*",
+    "@pi-tree/extension": "*",
+    "@pi-tree/shared": "*",
     "better-sqlite3": "^12.10.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

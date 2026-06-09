@@ -1,4 +1,4 @@
-import type { BreadcrumbItem } from "@pi-books/shared";
+import type { BreadcrumbItem } from "@pi-tree/shared";
 import type { ReactNode } from "react";
 import "./Breadcrumb.css";
 

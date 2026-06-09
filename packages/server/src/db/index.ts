@@ -1,7 +1,7 @@
 /**
  * Database connection — singleton backed by better-sqlite3 + Drizzle ORM.
  *
- * The DB file lives at `<DATA_PATH>/pi-books.db` (default: ~/.local/share/pi-books/).
+ * The DB file lives at `<DATA_PATH>/pi-tree.db` (default: ~/.local/share/pi-tree/).
  * Tables are created via Drizzle's push-style migration on first access.
  */
 
@@ -40,10 +40,10 @@ export function getDb(): BetterSQLite3Database<typeof schema> {
 
   const dataPath =
     process.env.DATA_PATH ??
-    path.join(process.env.HOME ?? "~", ".local", "share", "pi-books");
+    path.join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
 
   const dbDir = dataPath;
-  const dbPath = path.join(dbDir, "pi-books.db");
+  const dbPath = path.join(dbDir, "pi-tree.db");
 
   // Ensure the directory exists
   mkdirSync(dbDir, { recursive: true });

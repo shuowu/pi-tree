@@ -1,4 +1,4 @@
-# Pi-Books
+# Pi-Tree
 
 AI-assisted book reading app with tree-structured conversations.
 
@@ -16,7 +16,7 @@ packages/
 
 ## Docs
 
-- `docs/ARCHITECTURE.md` — How the server wraps Pi SDK, data ownership (Pi SDK owns JSONL sessions, pi-books owns SQLite metadata), extension package design
+- `docs/ARCHITECTURE.md` — How the server wraps Pi SDK, data ownership (Pi SDK owns JSONL sessions, pi-tree owns SQLite metadata), extension package design
 - `docs/SESSION-MANAGEMENT.md` — Multi-session model, context binding, session lifecycle, API reference, future agent extensibility
 - `docs/SELF-HOSTING.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
 - `docs/VISION.md` — Design philosophy and product direction
@@ -42,7 +42,7 @@ packages/
 
 ## Database
 
-SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-books.db` (default: `~/.local/share/pi-books/`).
+SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-tree.db` (default: `~/.local/share/pi-tree/`).
 
 Tables:
 - `users` — simple identity (slug id, displayName, avatarUrl)
@@ -64,16 +64,16 @@ Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/s
 
 ## Data Source
 
-Reads from `~/.local/share/pi-books/library/` by default (configurable via `LIBRARY_PATH` env var). Users can also upload books via the UI. This is read-only.
+Reads from `~/.local/share/pi-tree/library/` by default (configurable via `LIBRARY_PATH` env var). Users can also upload books via the UI. This is read-only.
 
-Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-books/`).
+Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-tree/`).
 
 ## Data Isolation
 
 | Data | Location | Scope |
 |------|----------|-------|
 | Session JSONL | `<DATA_PATH>/sessions/<bookId>/<userId>/` | Per session per user per book |
-| SQLite DB | `<DATA_PATH>/pi-books.db` | All users |
+| SQLite DB | `<DATA_PATH>/pi-tree.db` | All users |
 | Session metadata | SQLite `user_book_sessions` | Per session per user per book |
 | Config | SQLite `user_book_config` | Per user per book |
 | Glossary | SQLite `glossary_entries` | Per user per book |
@@ -103,7 +103,7 @@ No auth — users are slug-based identity records in SQLite.
 - Username (slug): lowercase alphanumeric + hyphens/underscores (e.g. `shuo`)
 - Display name: freeform (e.g. `Shuo`)
 - Creates a row in `users` table via `POST /api/users`
-- Slug + display name saved in `localStorage` (`pi-books-user-id`, `pi-books-display-name`)
+- Slug + display name saved in `localStorage` (`pi-tree-user-id`, `pi-tree-display-name`)
 
 **Returning visit**: Auto-reads from localStorage → skips UserPicker → straight to Library.
 
@@ -126,15 +126,15 @@ Dev and Docker run on separate ports with separate databases so they can coexist
 |---|---|---|
 | Server port | 3947 | 3847 |
 | Client port | 5947 | — (served by Hono) |
-| DB path | `~/.local/share/pi-books-dev/pi-books.db` | `/data/pi-books.db` (named volume) |
+| DB path | `~/.local/share/pi-tree-dev/pi-tree.db` | `/data/pi-tree.db` (named volume) |
 
 ### Environment layering
 
 Env vars are resolved in this order (first wins):
 
-1. **direnv** (`.envrc`) — loads `.env` for shared secrets, then forces dev overrides (`PORT=3947`, `DATA_PATH=~/.local/share/pi-books-dev`)
+1. **direnv** (`.envrc`) — loads `.env` for shared secrets, then forces dev overrides (`PORT=3947`, `DATA_PATH=~/.local/share/pi-tree-dev`)
 2. **dotenv** (`load-env.ts`) — fills in anything not already set from `.env` (effectively a no-op in dev since direnv already loaded everything)
-3. **Hardcoded defaults** — `PORT=3847`, `DATA_PATH=~/.local/share/pi-books` (safety net)
+3. **Hardcoded defaults** — `PORT=3847`, `DATA_PATH=~/.local/share/pi-tree` (safety net)
 
 Docker bypasses direnv entirely — it reads `.env` via `env_file` in `docker-compose.yml`.
 
@@ -149,7 +149,7 @@ Docker bypasses direnv entirely — it reads `.env` via `env_file` in `docker-co
   echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
 
   # Allow the project's .envrc
-  cd /path/to/pi-books && direnv allow
+  cd /path/to/pi-tree && direnv allow
   ```
 
 ### Running
@@ -173,7 +173,7 @@ Docker reads `.env` directly via `env_file` and uses `PORT=3847` as-is. The `doc
 
 Volumes:
 - `LIBRARY_PATH` (or `./library`) → `/library` (read-only content)
-- `pi-books-data` named volume → `/data` (mutable state: sessions + SQLite DB)
+- `pi-tree-data` named volume → `/data` (mutable state: sessions + SQLite DB)
 
 Env vars: `LIBRARY_PATH`, `DATA_PATH`, `PORT`, `PI_MODEL`.
 

@@ -1,15 +1,15 @@
-import type { Book } from "@pi-books/shared";
+import type { Book } from "@pi-tree/shared";
 import { eq, sql } from "drizzle-orm";
 import { mkdir, writeFile, rm, readdir, stat, readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { getDb, books } from "../db/index.js";
-import { getParser } from "@pi-books/extension/parsers";
+import { getParser } from "@pi-tree/extension/parsers";
 import { createAgentSession, SessionManager, AuthStorage, ModelRegistry, DefaultResourceLoader, getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
 
 const dataPath =
   process.env.DATA_PATH ??
-  join(process.env.HOME ?? "~", ".local", "share", "pi-books");
+  join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
 
 const booksBasePath = join(dataPath, "books");
 

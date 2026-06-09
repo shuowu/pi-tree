@@ -1,5 +1,5 @@
 services:
-  pi-books:
+  pi-tree:
     build: .
     restart: unless-stopped
     ports:
@@ -7,11 +7,11 @@ services:
     env_file: .env
     volumes:
       - ${LIBRARY_PATH:-./library}:/library:ro
-      - pi-books-data:/data
+      - pi-tree-data:/data
     environment:
       # Override paths for container filesystem
       - LIBRARY_PATH=/library
       - DATA_PATH=/data
 
 volumes:
-  pi-books-data:
+  pi-tree-data:

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SESSION_NAME="pi-books"
+SESSION_NAME="pi-tree"
 
 # Check if session already exists
 tmux has-session -t "$SESSION_NAME" 2>/dev/null
@@ -17,7 +17,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "Creating new tmux session: $SESSION_NAME in $REPO_ROOT"
 
-# Create a new session, detached, named pi-books, in the root directory
+# Create a new session, detached, named pi-tree, in the root directory
 tmux new-session -d -s "$SESSION_NAME" -n "dev" -c "$REPO_ROOT"
 
 # Split pane horizontally

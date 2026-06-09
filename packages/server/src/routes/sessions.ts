@@ -12,7 +12,7 @@ import { Hono } from "hono";
 import { eq, and, desc } from "drizzle-orm";
 import { getDb, userBookSessions } from "../db/index.js";
 import { closeSession } from "../services/session-store.js";
-import type { BookSession, SessionContext } from "@pi-books/shared";
+import type { BookSession, SessionContext } from "@pi-tree/shared";
 
 export const sessionCrudRoutes = new Hono();
 

@@ -15,11 +15,11 @@ Please delete options that are not relevant.
 
 ## Packages Affected
 Which packages are modified by this PR?
-- [ ] `@pi-books/client` (Frontend React app)
-- [ ] `@pi-books/server` (Backend Hono app)
-- [ ] `@pi-books/extension` (Reading skills and ebook parsers)
-- [ ] `@pi-books/shared` (Shared TypeScript types)
-- [ ] `@pi-books/mcp` (MCP package)
+- [ ] `@pi-tree/client` (Frontend React app)
+- [ ] `@pi-tree/server` (Backend Hono app)
+- [ ] `@pi-tree/extension` (Reading skills and ebook parsers)
+- [ ] `@pi-tree/shared` (Shared TypeScript types)
+- [ ] `@pi-tree/mcp` (MCP package)
 - [ ] Infrastructure / Config (Docker, CI/CD, scripts, etc.)
 
 ## Checklist
@@ -28,6 +28,6 @@ Please verify all of the following:
 - [ ] I have run `npm run lint` and resolved any lint issues
 - [ ] I have run `npm run typecheck` and resolved any type issues
 - [ ] I have run `npm test` and all unit tests pass
-- [ ] (If schema changed) I have run `npm run db:push -w @pi-books/server` locally and updated the database
+- [ ] (If schema changed) I have run `npm run db:push -w @pi-tree/server` locally and updated the database
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] I have documented new settings, env vars, or skills where appropriate

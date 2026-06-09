@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Book, BookSession } from "@pi-books/shared";
+import type { Book, BookSession } from "@pi-tree/shared";
 import type { SessionMode } from "./WelcomeState";
 import { BookOpen, MessageCircle, Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import "./SessionPicker.css";

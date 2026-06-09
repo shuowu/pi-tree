@@ -1,6 +1,6 @@
 # Self-Hosting Setup
 
-This guide covers configuration, customization, and extending pi-books for self-hosted deployments.
+This guide covers configuration, customization, and extending pi-tree for self-hosted deployments.
 
 ## Environment Variables
 
@@ -11,8 +11,8 @@ This guide covers configuration, customization, and extending pi-books for self-
 | `PI_BASE_URL` | — | Custom base URL (for proxies or self-hosted models) |
 | `PI_MODEL` | — | Model ID for reading sessions (e.g., `claude-sonnet-4-20250514`) |
 | `PI_LOOKUP_MODEL` | — | Model ID for dictionary lookups (can be a cheaper/faster model) |
-| `LIBRARY_PATH` | `~/.local/share/pi-books/library` | Path to your book library (read-only) |
-| `DATA_PATH` | `~/.local/share/pi-books` | Mutable state: sessions, database, user skills |
+| `LIBRARY_PATH` | `~/.local/share/pi-tree/library` | Path to your book library (read-only) |
+| `DATA_PATH` | `~/.local/share/pi-tree` | Mutable state: sessions, database, user skills |
 | `SKILLS_PATH` | `<DATA_PATH>/skills` | Custom skills directory |
 | `EXTENSIONS_PATH` | `<DATA_PATH>/extensions` | Custom extensions directory |
 | `PORT` | `3847` | Server port |
@@ -59,8 +59,8 @@ volumes:
 ## Data Layout
 
 ```
-<DATA_PATH>/                          # ~/.local/share/pi-books by default
-├── pi-books.db                       # SQLite database (users, sessions, config)
+<DATA_PATH>/                          # ~/.local/share/pi-tree by default
+├── pi-tree.db                       # SQLite database (users, sessions, config)
 ├── sessions/                         # Pi SDK session JSONL files
 │   └── <bookId>/<userId>/            # Per-user per-book sessions
 ├── books/                            # Uploaded books (from UI)
@@ -171,7 +171,7 @@ Extensions are loaded at runtime via [jiti](https://github.com/unjs/jiti) — no
 
 ```yaml
 services:
-  pi-books:
+  pi-tree:
     build: .
     ports:
       - "3847:3847"
@@ -181,10 +181,10 @@ services:
       - PI_MODEL=claude-sonnet-4-20250514
     volumes:
       - ./library:/library:ro          # your books (read-only)
-      - pi-books-data:/data            # mutable state
+      - pi-tree-data:/data            # mutable state
 
 volumes:
-  pi-books-data:
+  pi-tree-data:
 ```
 
 ### With custom skills
@@ -193,7 +193,7 @@ Mount a host directory into the data volume's skills path:
 
 ```yaml
 services:
-  pi-books:
+  pi-tree:
     build: .
     ports:
       - "3847:3847"
@@ -204,12 +204,12 @@ services:
       - EXTENSIONS_PATH=/data/extensions
     volumes:
       - ./library:/library:ro
-      - pi-books-data:/data
+      - pi-tree-data:/data
       - ./my-skills:/data/skills:ro        # your custom skills
       - ./my-extensions:/data/extensions:ro # your custom extensions
 
 volumes:
-  pi-books-data:
+  pi-tree-data:
 ```
 
 ### Using a local LLM (Ollama, etc.)

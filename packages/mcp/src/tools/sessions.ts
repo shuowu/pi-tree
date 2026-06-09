@@ -6,11 +6,11 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { LibraryService } from "@pi-books/server/services/library";
+import type { LibraryService } from "@pi-tree/server/services/library";
 import { z } from "zod";
 import { eq, and, desc } from "drizzle-orm";
-import { getDb, userBookSessions } from "@pi-books/server/db";
-import { getSession } from "@pi-books/server/services/session-store";
+import { getDb, userBookSessions } from "@pi-tree/server/db";
+import { getSession } from "@pi-tree/server/services/session-store";
 
 /** Session mode — matches the DB context.mode values. */
 type SessionMode = "reading" | "qa" | "custom";

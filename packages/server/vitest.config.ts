@@ -6,8 +6,8 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/dist/**"],
     // Use a per-process temp dir so parallel runs don't collide
     env: {
-      DATA_PATH: join("/tmp", `pi-books-test-${process.pid}`),
-      LIBRARY_PATH: join("/tmp", `pi-books-test-library-${process.pid}`),
+      DATA_PATH: join("/tmp", `pi-tree-test-${process.pid}`),
+      LIBRARY_PATH: join("/tmp", `pi-tree-test-library-${process.pid}`),
     },
   },
 });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Cpu, RotateCcw, X } from "lucide-react";
-import type { Book } from "@pi-books/shared";
+import type { Book } from "@pi-tree/shared";
 import { getBranchesCollapsed, setBranchesCollapsed as saveBranchesCollapsed } from "../utils/preferences";
 import "./BookSettingsModal.css";
 

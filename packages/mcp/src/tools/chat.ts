@@ -7,9 +7,9 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { LibraryService } from "@pi-books/server/services/library";
+import type { LibraryService } from "@pi-tree/server/services/library";
 import { z } from "zod";
-import { getSession } from "@pi-books/server/services/session-store";
+import { getSession } from "@pi-tree/server/services/session-store";
 
 export function registerChatTools(
   server: McpServer,

@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { sendMessageStreaming } from "./api";
-import type { TreeNodeView, SessionState } from "@pi-books/shared";
+import type { TreeNodeView, SessionState } from "@pi-tree/shared";
 
 export interface ActiveStreamState {
   gen: number;

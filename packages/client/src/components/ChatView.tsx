@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, BranchOption } from "@pi-books/shared";
+import type { ChatMessage, BranchOption } from "@pi-tree/shared";
 import { SelectionToolbar } from "./SelectionToolbar";
 import { MessageBubble } from "./MessageBubble";
 import { StreamingBubble } from "./StreamingBubble";

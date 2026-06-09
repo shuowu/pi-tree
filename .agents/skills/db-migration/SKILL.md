@@ -18,9 +18,9 @@ Apply Drizzle ORM schema changes to the SQLite database.
    ```
    If no changes, confirm with the user what they want to do.
 
-2. **Verify the dev server is running** — the database file must exist at `DATA_PATH` (default: `~/.local/share/pi-books/pi-books.db`):
+2. **Verify the dev server is running** — the database file must exist at `DATA_PATH` (default: `~/.local/share/pi-tree/pi-tree.db`):
    ```bash
-   ls -la ~/.local/share/pi-books/pi-books.db
+   ls -la ~/.local/share/pi-tree/pi-tree.db
    ```
 
 ## Schema Change Checklist
@@ -39,7 +39,7 @@ Before pushing, verify these common issues:
 Run from the server package directory:
 
 ```bash
-npm run db:push -w @pi-books/server
+npm run db:push -w @pi-tree/server
 ```
 
 This uses `drizzle-kit push` which:
@@ -53,13 +53,13 @@ This uses `drizzle-kit push` which:
 
 2. **Inspect the database** (optional):
    ```bash
-   npm run db:studio -w @pi-books/server
+   npm run db:studio -w @pi-tree/server
    ```
    This opens Drizzle Studio in the browser to inspect tables and data.
 
 3. **Restart the dev server** if it's running — the server caches the DB connection:
    ```bash
-   tmux kill-session -t pi-books && ./scripts/start-dev-tmux.sh
+   tmux kill-session -t pi-tree && ./scripts/start-dev-tmux.sh
    ```
 
 ## Common Patterns
@@ -90,5 +90,5 @@ newColumn: text("new_column").default(""),
 
 - **Schema location**: `packages/server/src/db/schema.ts`
 - **Drizzle config**: `packages/server/drizzle.config.ts`
-- **DB file**: `<DATA_PATH>/pi-books.db` (default: `~/.local/share/pi-books/pi-books.db`)
+- **DB file**: `<DATA_PATH>/pi-tree.db` (default: `~/.local/share/pi-tree/pi-tree.db`)
 - **`db:push` is for development only** — it can drop columns. For production deployments, generate migration files with `drizzle-kit generate`.

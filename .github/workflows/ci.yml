@@ -26,8 +26,8 @@ jobs:
       - name: Test
         run: npm test
         env:
-          DATA_PATH: /tmp/pi-books-ci
-          LIBRARY_PATH: /tmp/pi-books-ci-library
+          DATA_PATH: /tmp/pi-tree-ci
+          LIBRARY_PATH: /tmp/pi-tree-ci-library
 
   docker:
     runs-on: ubuntu-latest
@@ -35,18 +35,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t pi-books:ci .
+        run: docker build -t pi-tree:ci .
 
       # Spin up the container and verify it actually works
       - name: Start container
         run: |
           mkdir -p /tmp/ci-library
-          docker run -d --name pi-books-ci \
+          docker run -d --name pi-tree-ci \
             -p 3847:3847 \
             -v /tmp/ci-library:/library:ro \
             -e LIBRARY_PATH=/library \
             -e DATA_PATH=/data \
-            pi-books:ci
+            pi-tree:ci
 
       - name: Wait for healthy
         run: |
@@ -60,7 +60,7 @@ jobs:
             sleep 1
           done
           echo "✗ Server failed to start"
-          docker logs pi-books-ci
+          docker logs pi-tree-ci
           exit 1
 
       - name: Smoke test endpoints
@@ -100,8 +100,8 @@ jobs:
 
       - name: Dump logs on failure
         if: failure()
-        run: docker logs pi-books-ci
+        run: docker logs pi-tree-ci
 
       - name: Cleanup
         if: always()
-        run: docker rm -f pi-books-ci 2>/dev/null || true
+        run: docker rm -f pi-tree-ci 2>/dev/null || true

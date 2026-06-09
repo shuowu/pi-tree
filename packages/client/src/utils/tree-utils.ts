@@ -1,4 +1,4 @@
-import type { TreeNodeView } from "@pi-books/shared";
+import type { TreeNodeView } from "@pi-tree/shared";
 
 /**
  * Build a native tooltip string for a tree node.
