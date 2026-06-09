@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { isAbandoned, filterAbandonedNodes } from "@pi-tree/core";
-import type { TopicMeta } from "@pi-tree/core";
+import { isAbandoned, filterAbandonedNodes } from "../tree-filter.js";
+import type { TopicMeta } from "../../types/index.js";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 

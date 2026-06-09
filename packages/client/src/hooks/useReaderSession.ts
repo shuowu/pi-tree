@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
-  Book,
-  BookSession,
   ChatMessage,
   BreadcrumbItem,
   TreeNodeView,
   BranchOption,
+} from "@pi-tree/core/types";
+import type {
+  Book,
+  BookSession,
 } from "@pi-tree/shared";
 import {
   startSession,

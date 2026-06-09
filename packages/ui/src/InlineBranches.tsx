@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMermaid } from "../hooks/useMermaid";
-import type { ChatMessage, BranchOption } from "@pi-tree/shared";
+import { useMermaid } from "./hooks/useMermaid.js";
+import type { ChatMessage, BranchOption } from "@pi-tree/core/types";
 import { marked } from "marked";
-import { useUser } from "../UserContext";
-import { getBranchesCollapsed } from "../utils/preferences";
+
+/** Data returned when fetching a branch's content for inline preview */
+export interface BranchPreviewData {
+  messages: ChatMessage[];
+  branches: BranchOption[];
+}
 
 interface InlineBranchesProps {
   branches: BranchOption[];
@@ -13,6 +17,18 @@ interface InlineBranchesProps {
   /** Branch IDs that were just created (e.g. from a streaming response).
    *  These default to expanded regardless of the user's collapse preference. */
   newBranchIds: Set<string>;
+  /** User ID for branch preview fetches */
+  userId: string;
+  /** Whether branches should default to collapsed (default: true) */
+  defaultCollapsed?: boolean;
+  /** Fetch branch preview data for inline display.
+   *  Called with (userId, bookId, sessionId, nodeId). */
+  fetchBranchPreview?: (
+    userId: string,
+    bookId: string,
+    sessionId: number,
+    nodeId: string,
+  ) => Promise<BranchPreviewData>;
 }
 
 export function InlineBranches({
@@ -21,14 +37,16 @@ export function InlineBranches({
   bookId,
   sessionId,
   newBranchIds,
+  userId,
+  defaultCollapsed: defaultCollapsedProp,
+  fetchBranchPreview,
 }: InlineBranchesProps) {
-  const { userId } = useUser();
+  const defaultCollapsed = defaultCollapsedProp ?? true;
   const [branchData, setBranchData] = useState<
     Record<string, { messages: ChatMessage[]; branches: BranchOption[] }>
   >({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   // Initialize collapse state from user preference, but expand new branches
-  const defaultCollapsed = useMemo(() => getBranchesCollapsed(), []);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
       branches.map((b) => [b.nodeId, newBranchIds.has(b.nodeId) ? false : defaultCollapsed]),
@@ -37,14 +55,15 @@ export function InlineBranches({
 
   // Auto-fetch all branch data on mount / when branches change
   useEffect(() => {
+    if (!fetchBranchPreview) return;
+
     const fetchAll = async () => {
-      const { viewScope } = await import("../api");
       for (const b of branches) {
         if (branchData[b.nodeId]) continue; // already loaded
         setLoading((prev) => ({ ...prev, [b.nodeId]: true }));
         try {
           if (!userId || sessionId === null) continue;
-          const state = await viewScope(userId, bookId, sessionId, b.nodeId);
+          const state = await fetchBranchPreview(userId, bookId, sessionId, b.nodeId);
           setBranchData((prev) => ({
             ...prev,
             [b.nodeId]: { messages: state.messages, branches: state.branches },
@@ -61,9 +80,9 @@ export function InlineBranches({
   }, [branches.map((b) => b.nodeId).join(","), bookId]);
 
   return (
-    <div className="inline-branches">
-      <div className="inline-branches-divider">
-        <span className="inline-branches-label">
+    <div className="pit-inline-branches">
+      <div className="pit-inline-branches-divider">
+        <span className="pit-inline-branches-label">
           ⑂ {branches.length} branch{branches.length > 1 ? "es" : ""}
         </span>
       </div>
@@ -78,25 +97,25 @@ export function InlineBranches({
         const aiMsg = data?.messages.find((m) => m.role === "assistant");
 
         return (
-          <div key={b.nodeId} className="inline-branch">
+          <div key={b.nodeId} className="pit-inline-branch">
             {/* Branch action bar */}
-            <div className="inline-branch-header">
+            <div className="pit-inline-branch-header">
               <button
-                className="inline-branch-collapse"
+                className="pit-inline-branch-collapse"
                 onClick={() => setCollapsed((prev) => ({ ...prev, [b.nodeId]: !isCollapsed }))}
                 aria-label={isCollapsed ? "Expand" : "Collapse"}
               >
-                <span className={`inline-branch-chevron ${isCollapsed ? "" : "expanded"}`}>›</span>
+                <span className={`pit-inline-branch-chevron ${isCollapsed ? "" : "pit-expanded"}`}>›</span>
               </button>
-              <span className={`branch-dot status-${b.status}`} />
-              <span className="inline-branch-title">
+              <span className={`pit-branch-dot pit-status-${b.status}`} />
+              <span className="pit-inline-branch-title">
                 {b.label}
               </span>
               {b.messageCount > 0 && (
-                <span className="branch-count">{b.messageCount}</span>
+                <span className="pit-branch-count">{b.messageCount}</span>
               )}
               <button
-                className="inline-branch-open"
+                className="pit-inline-branch-open"
                 onClick={() => onDrillDown(b.nodeId)}
                 title="Open this branch"
               >
@@ -106,22 +125,22 @@ export function InlineBranches({
 
             {/* Branch content — message-like rendering */}
             {!isCollapsed && (
-              <div className="inline-branch-content">
+              <div className="pit-inline-branch-content">
                 {isLoading && (
-                  <div className="chat-message chat-message-assistant">
-                    <div className="chat-avatar">✦</div>
-                    <div className="chat-bubble">
-                      <div className="chat-loading">
-                        <span className="dot" /><span className="dot" /><span className="dot" />
+                  <div className="pit-chat-message pit-chat-message-assistant">
+                    <div className="pit-chat-avatar">✦</div>
+                    <div className="pit-chat-bubble">
+                      <div className="pit-chat-loading">
+                        <span className="pit-dot" /><span className="pit-dot" /><span className="pit-dot" />
                       </div>
                     </div>
                   </div>
                 )}
 
                 {userMsg && (
-                  <div className="chat-message chat-message-user">
-                    <div className="chat-bubble">
-                      <div className="chat-content">{userMsg.content}</div>
+                  <div className="pit-chat-message pit-chat-message-user">
+                    <div className="pit-chat-bubble">
+                      <div className="pit-chat-content">{userMsg.content}</div>
                     </div>
                   </div>
                 )}
@@ -132,16 +151,16 @@ export function InlineBranches({
 
                 {/* Sub-branches indicator */}
                 {data?.branches && data.branches.length > 0 && (
-                  <div className="inline-branch-sub">
+                  <div className="pit-inline-branch-sub">
                     {data.branches.map((sub) => (
                       <button
                         key={sub.nodeId}
-                        className="inline-branch-sub-item"
+                        className="pit-inline-branch-sub-item"
                         onClick={() => onDrillDown(sub.nodeId)}
                       >
-                        <span className={`branch-dot status-${sub.status}`} />
+                        <span className={`pit-branch-dot pit-status-${sub.status}`} />
                         {sub.label}
-                        <span className="inline-branch-arrow">→</span>
+                        <span className="pit-inline-branch-arrow">→</span>
                       </button>
                     ))}
                   </div>
@@ -165,12 +184,12 @@ function InlineAIMessage({ content }: { content: string }) {
   useMermaid(contentRef, html);
 
   return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-avatar">✦</div>
-      <div className="chat-bubble">
+    <div className="pit-chat-message pit-chat-message-assistant">
+      <div className="pit-chat-avatar">✦</div>
+      <div className="pit-chat-bubble">
         <div
           ref={contentRef}
-          className="chat-content markdown"
+          className="pit-chat-content pit-markdown"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>

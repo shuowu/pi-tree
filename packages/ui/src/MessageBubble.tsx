@@ -1,6 +1,6 @@
 import { useRef, useMemo } from "react";
-import { useMermaid } from "../hooks/useMermaid";
-import type { ChatMessage } from "@pi-tree/shared";
+import { useMermaid } from "./hooks/useMermaid.js";
+import type { ChatMessage } from "@pi-tree/core/types";
 import { marked } from "marked";
 
 export function MessageBubble({ message }: { message: ChatMessage }) {
@@ -17,17 +17,17 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   useMermaid(contentRef, html);
 
   return (
-    <div className={`chat-message chat-message-${message.role}`}>
-      {isAssistant && <div className="chat-avatar">✦</div>}
-      <div className="chat-bubble">
+    <div className={`pit-chat-message pit-chat-message-${message.role}`}>
+      {isAssistant && <div className="pit-chat-avatar">✦</div>}
+      <div className="pit-chat-bubble">
         {isMarkdown ? (
           <div
             ref={contentRef}
-            className="chat-content markdown"
+            className="pit-chat-content pit-markdown"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ) : (
-          <div className="chat-content">{message.content}</div>
+          <div className="pit-chat-content">{message.content}</div>
         )}
       </div>
     </div>

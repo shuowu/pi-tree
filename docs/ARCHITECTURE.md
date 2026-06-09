@@ -1,14 +1,15 @@
 # Architecture
 
-Pi-books is a web app built around the Pi SDK. The server doesn't implement AI logic — it delegates to Pi SDK sessions and shapes behavior through skills.
+Pi-tree is a web app built around the Pi SDK. AI orchestration logic lives in `@pi-tree/core` (a pure library); the server is a thin app layer that resolves configuration and delegates to core.
 
 ## How It Works
 
 ```mermaid
 graph TD
-    Client["React Client"] -->|HTTP / SSE| Server["Hono Server"]
+    Client["React Client<br/><i>@pi-tree/client + @pi-tree/ui</i>"] -->|HTTP / SSE| Server["Hono Server<br/><i>@pi-tree/server</i>"]
     
-    Server --> TM["TreeManager<br/><i>Session orchestration</i>"]
+    Server -->|injects config| Core["@pi-tree/core<br/><i>Pure library</i>"]
+    Core --> TM["TreeManager<br/><i>Session orchestration</i>"]
     TM --> PS["PiSession<br/><i>Pi SDK wrapper</i>"]
     
     PS --> SDK["Pi SDK<br/><i>AgentSession</i>"]
@@ -21,11 +22,14 @@ graph TD
 
     style Client fill:#0891b2,color:#fff,stroke:none
     style Server fill:#4f46e5,color:#fff,stroke:none
+    style Core fill:#7c3aed,color:#fff,stroke:none
     style SDK fill:#d97706,color:#fff,stroke:none
     style Skills fill:#059669,color:#fff,stroke:none
 ```
 
-**The server's role is thin**: receive a user message, pass it to a Pi SDK session (with book context prepended), and stream the response back as SSE events. The Pi SDK owns the conversation tree, compaction, tool execution, and session persistence.
+**Core (`@pi-tree/core`) owns AI logic**: PiSession wraps the Pi SDK, TreeManager orchestrates sessions, and `configureModelRegistry()` handles provider/model setup. Core is a pure library — no `process.env`, no file I/O. All configuration is injected via `PiSessionConfig`.
+
+**Server (`@pi-tree/server`) is the app layer**: It resolves environment variables, manages the database, serves HTTP routes, and injects config into core.
 
 **Skills shape behavior**: The AI doesn't have hardcoded reading logic. Skills like `interactive-reading`, `book-analysis`, and `deep-dive` are injected by the Pi SDK's resource loader. Changing a SKILL.md changes how the AI reads — no server code changes needed.
 

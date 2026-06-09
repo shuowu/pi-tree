@@ -21,12 +21,12 @@ export function ToolCallIndicator({ toolName, args }: { toolName: string; args: 
   const label = describeToolCall(toolName, args);
 
   return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-avatar">✦</div>
-      <div className="chat-bubble">
-        <div className="tool-call-indicator">
-          <span className="tool-call-spinner" />
-          <span className="tool-call-label">{label}</span>
+    <div className="pit-chat-message pit-chat-message-assistant">
+      <div className="pit-chat-avatar">✦</div>
+      <div className="pit-chat-bubble">
+        <div className="pit-tool-call-indicator">
+          <span className="pit-tool-call-spinner" />
+          <span className="pit-tool-call-label">{label}</span>
         </div>
       </div>
     </div>

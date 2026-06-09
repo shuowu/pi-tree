@@ -1,0 +1,79 @@
+/**
+ * pit-theme.css — Default theme for @pi-tree/ui components.
+ *
+ * This file maps generic design tokens (--space-*, --text-*, --accent-*, etc.)
+ * to pit-* namespaced custom properties used by the UI components.
+ *
+ * Consumers can either:
+ *   1. Import this theme as-is (uses the host app's tokens via var() fallbacks)
+ *   2. Override individual --pit-* properties for custom theming
+ *   3. Skip this file entirely and define all --pit-* properties themselves
+ */
+
+:root {
+  /* ── Colors ── */
+  --pit-bg-primary: var(--bg-primary, #f3e8d2);
+  --pit-bg-surface: var(--bg-surface, #f0e4cc);
+  --pit-bg-hover: var(--bg-hover, #e0d3b8);
+  --pit-bg-chat-user: var(--bg-chat-user, #e8dcc4);
+  --pit-bg-chat-ai: var(--bg-chat-ai, transparent);
+
+  --pit-text-primary: var(--text-primary, #3b2e1e);
+  --pit-text-secondary: var(--text-secondary, #5c4d3c);
+  --pit-text-tertiary: var(--text-tertiary, #7d6e5c);
+  --pit-text-muted: var(--text-muted, #a09180);
+
+  --pit-accent: var(--accent, #7a5a38);
+  --pit-accent-hover: var(--accent-hover, #644828);
+  --pit-accent-dim: var(--accent-dim, rgba(122, 90, 56, 0.1));
+
+  --pit-green: var(--green, #5a7d4a);
+  --pit-green-dim: var(--green-dim, rgba(90, 125, 74, 0.1));
+  --pit-amber: var(--amber, #a07830);
+  --pit-amber-dim: var(--amber-dim, rgba(160, 120, 48, 0.1));
+  --pit-red: var(--red, #9c4a4a);
+
+  --pit-border: var(--border, #d8ccb4);
+  --pit-border-subtle: var(--border-subtle, rgba(60, 40, 20, 0.06));
+
+  /* ── Typography ── */
+  --pit-font-sans: var(--font-sans, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+  --pit-font-serif: var(--font-serif, 'Merriweather', Georgia, 'Times New Roman', serif);
+  --pit-font-mono: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+
+  --pit-text-xs: var(--text-xs, 0.75rem);
+  --pit-text-sm: var(--text-sm, 0.8125rem);
+  --pit-text-base: var(--text-base, 0.9rem);
+
+  /* ── Spacing ── */
+  --pit-space-1: var(--space-1, 4px);
+  --pit-space-2: var(--space-2, 8px);
+  --pit-space-3: var(--space-3, 12px);
+  --pit-space-4: var(--space-4, 16px);
+  --pit-space-5: var(--space-5, 20px);
+  --pit-space-6: var(--space-6, 24px);
+  --pit-space-8: var(--space-8, 32px);
+
+  /* ── Radii ── */
+  --pit-radius-sm: var(--radius-sm, 6px);
+  --pit-radius-md: var(--radius-md, 8px);
+  --pit-radius-lg: var(--radius-lg, 12px);
+  --pit-radius-xl: var(--radius-xl, 16px);
+  --pit-radius-full: var(--radius-full, 9999px);
+
+  /* ── Shadows ── */
+  --pit-shadow-sm: var(--shadow-sm, 0 1px 2px rgba(60, 40, 20, 0.06));
+  --pit-shadow-md: var(--shadow-md, 0 4px 12px rgba(60, 40, 20, 0.08));
+  --pit-shadow-lg: var(--shadow-lg, 0 8px 24px rgba(60, 40, 20, 0.1));
+
+  /* ── Transitions ── */
+  --pit-transition-fast: var(--transition-fast, 0.15s ease);
+
+  /* ── Layout ── */
+  --pit-header-height: var(--header-height, 44px);
+
+  /* ── Component-specific ── */
+  --pit-chat-max-width: var(--chat-max-width, 720px);
+  --pit-bg-tertiary: var(--bg-tertiary, #e8dcc4);
+  --pit-text-lg: var(--text-lg, 1rem);
+}

@@ -1,16 +1,17 @@
-.breadcrumb-bar {
+@import "./pit-theme.css";
+.pit-breadcrumb-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-primary);
-  min-height: var(--header-height);
+  gap: var(--pit-space-2);
+  padding: var(--pit-space-2) var(--pit-space-4);
+  border-bottom: 1px solid var(--pit-border);
+  background: var(--pit-bg-primary);
+  min-height: var(--pit-header-height);
   flex-shrink: 0;
 }
 
 
-.breadcrumb-items {
+.pit-breadcrumb-items {
   display: flex;
   align-items: center;
   gap: 0;
@@ -19,21 +20,21 @@
   min-width: 0;
 }
 
-.breadcrumb-book {
+.pit-breadcrumb-book {
   font-weight: 600;
-  color: var(--text-primary);
-  font-size: var(--text-sm);
+  color: var(--pit-text-primary);
+  font-size: var(--pit-text-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.breadcrumb-session-label {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  background: var(--accent-dim);
+.pit-breadcrumb-session-label {
+  font-size: var(--pit-text-xs);
+  color: var(--pit-text-muted);
+  background: var(--pit-accent-dim);
   padding: 1px 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--pit-radius-full);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -41,48 +42,48 @@
   flex-shrink: 0;
 }
 
-.breadcrumb-segment {
+.pit-breadcrumb-segment {
   display: flex;
   align-items: center;
   white-space: nowrap;
   min-width: 0;
 }
 
-.breadcrumb-sep {
-  color: var(--text-muted);
-  margin: 0 var(--space-1);
-  font-size: var(--text-sm);
+.pit-breadcrumb-sep {
+  color: var(--pit-text-muted);
+  margin: 0 var(--pit-space-1);
+  font-size: var(--pit-text-sm);
   flex-shrink: 0;
 }
 
-.breadcrumb-link {
+.pit-breadcrumb-link {
   background: none;
   border: none;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-family: var(--font-sans);
+  color: var(--pit-text-secondary);
+  font-size: var(--pit-text-sm);
+  font-family: var(--pit-font-sans);
   cursor: pointer;
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  border-radius: var(--pit-radius-sm);
+  transition: all var(--pit-transition-fast);
   white-space: nowrap;
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.breadcrumb-link:hover {
-  color: var(--accent-hover);
-  background: var(--accent-dim);
+.pit-breadcrumb-link:hover {
+  color: var(--pit-accent-hover);
+  background: var(--pit-accent-dim);
 }
 
-.breadcrumb-root {
+.pit-breadcrumb-root {
   font-weight: 600;
 }
 
-.breadcrumb-current {
-  font-size: var(--text-sm);
-  color: var(--accent-hover);
+.pit-breadcrumb-current {
+  font-size: var(--pit-text-sm);
+  color: var(--pit-accent-hover);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -90,16 +91,16 @@
   max-width: 240px;
 }
 
-.breadcrumb-ellipsis {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
+.pit-breadcrumb-ellipsis {
+  color: var(--pit-text-muted);
+  font-size: var(--pit-text-sm);
   padding: 2px 4px;
   cursor: default;
 }
 
 /* ── Panel Toggle Icons (VS Code-style) ── */
 
-.panel-toggles {
+.pit-panel-toggles {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -107,50 +108,50 @@
   flex-shrink: 0;
 }
 
-.panel-toggle {
+.pit-panel-toggle {
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-md);
+  border-radius: var(--pit-radius-md);
   background: none;
   border: none;
-  color: var(--text-tertiary);
+  color: var(--pit-text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  transition: all var(--transition-fast);
+  transition: all var(--pit-transition-fast);
   position: relative;
 }
 
-.panel-toggle:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
+.pit-panel-toggle:hover {
+  background: var(--pit-bg-hover);
+  color: var(--pit-text-secondary);
 }
 
-.panel-toggle.active {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
+.pit-panel-toggle.pit-active {
+  color: var(--pit-text-primary);
+  background: var(--pit-bg-tertiary);
 }
 
 /* Active indicator bar — subtle bottom accent like VS Code */
-.panel-toggle.active::after {
+.pit-panel-toggle.pit-active::after {
   content: '';
   position: absolute;
   bottom: 2px;
   left: 6px;
   right: 6px;
   height: 2px;
-  background: var(--accent);
+  background: var(--pit-accent);
   border-radius: 1px;
 }
 
 /* ── Mobile ── */
 
 @media (max-width: 768px) {
-  .breadcrumb-bar {
-    padding: var(--space-2) var(--space-3);
-    gap: var(--space-1);
+  .pit-breadcrumb-bar {
+    padding: var(--pit-space-2) var(--pit-space-3);
+    gap: var(--pit-space-1);
     /* Overlay the content instead of occupying flex space */
     position: absolute;
     top: 0;
@@ -163,22 +164,22 @@
   }
 
   /* When scrolling down, slide header out */
-  .scrolled-down .breadcrumb-bar {
+  .pit-scrolled-down .pit-breadcrumb-bar {
     transform: translateY(-100%);
     opacity: 0;
     pointer-events: none;
   }
 
-  .panel-toggle {
+  .pit-panel-toggle {
     width: 36px;
     height: 36px;
   }
 
-  .breadcrumb-current {
+  .pit-breadcrumb-current {
     max-width: 120px;
   }
 
-  .breadcrumb-link {
+  .pit-breadcrumb-link {
     max-width: 120px;
   }
 }

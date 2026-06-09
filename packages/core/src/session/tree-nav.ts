@@ -10,7 +10,7 @@ import type {
   ChatMessage,
   BranchOption,
   BreadcrumbItem,
-} from "@pi-tree/shared";
+} from "../types/index.js";
 
 // ─── Predicates ────────────────────────────────────────────────────────────────
 

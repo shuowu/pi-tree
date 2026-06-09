@@ -20,30 +20,37 @@
  * sessions CRUD (metadata), glossary CRUD, tags.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdirSync, rmSync } from "node:fs";
-import { app } from "../app.js";
-import { resetDb } from "../db/index.js";
-import { resetServerConfig } from "../config.js";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { mkdirSync, rmSync, mkdtempSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+// Stub env vars BEFORE importing app/config so they pick up test paths.
+const TEST_ROOT = mkdtempSync(join(tmpdir(), "pi-tree-test-"));
+const TEST_DATA_PATH = join(TEST_ROOT, "data");
+const TEST_LIBRARY_PATH = join(TEST_ROOT, "library");
+
+vi.stubEnv("DATA_PATH", TEST_DATA_PATH);
+vi.stubEnv("LIBRARY_PATH", TEST_LIBRARY_PATH);
+
+// Now safe to import — modules will read our stubbed env vars.
+const { app } = await import("../app.js");
+const { resetDb } = await import("../db/index.js");
+const { resetServerConfig } = await import("../config.js");
 
 // ── Test isolation ──────────────────────────────────────────────────────────
 
-const TEST_DATA_PATH = process.env.DATA_PATH!;
-const TEST_LIBRARY_PATH = process.env.LIBRARY_PATH!;
-
 beforeAll(() => {
-  // Ensure test directories exist
   mkdirSync(TEST_DATA_PATH, { recursive: true });
   mkdirSync(TEST_LIBRARY_PATH, { recursive: true });
 });
 
 afterAll(() => {
-  // Close DB and clean up test directories
   resetDb();
   resetServerConfig();
+  vi.unstubAllEnvs();
   try {
-    rmSync(TEST_DATA_PATH, { recursive: true, force: true });
-    rmSync(TEST_LIBRARY_PATH, { recursive: true, force: true });
+    rmSync(TEST_ROOT, { recursive: true, force: true });
   } catch {
     // Best effort cleanup
   }
@@ -69,8 +76,19 @@ describe("Health", () => {
     expect(body).toEqual({ status: "ok", version: "0.1.0" });
   });
 });
+// ── Environment isolation ──────────────────────────────────────────────────
 
-// ── Config ──────────────────────────────────────────────────────────────────
+describe("Environment isolation", () => {
+  it("uses mocked DATA_PATH and LIBRARY_PATH, not system defaults", () => {
+    expect(process.env.DATA_PATH).toBe(TEST_DATA_PATH);
+    expect(process.env.LIBRARY_PATH).toBe(TEST_LIBRARY_PATH);
+    // Verify these are temp dirs, not real user data
+    expect(TEST_DATA_PATH).toMatch(/pi-tree-test-/);
+    expect(TEST_LIBRARY_PATH).toMatch(/pi-tree-test-/);
+  });
+});
+
+
 
 describe("Config", () => {
   it("GET /api/config → 200 + model fields", async () => {

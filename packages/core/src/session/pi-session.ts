@@ -10,21 +10,26 @@
  */
 
 import { join } from "node:path";
-import type { BookAnchor } from "@pi-tree/shared";
+import type {
+  BookAnchor,
+  TopicMeta,
+  SectionStatusMeta,
+  SectionLabelMeta,
+  PiTreeData,
+  AnnotatedTreeNode,
+} from "../types/index.js";
 import {
   createAgentSession,
   getAgentDir,
   DefaultResourceLoader,
   SessionManager,
   SettingsManager,
-  AuthStorage,
-  ModelRegistry,
   type AgentSession,
   type AgentSessionEvent,
   type SessionEntry,
   type CustomEntry,
 } from "@earendil-works/pi-coding-agent";
-import { getServerConfig } from "../config.js";
+import { configureModelRegistry } from "./model-setup.js";
 import { isAbandoned as checkAbandoned } from "./tree-filter.js";
 import { shouldShowAssistantNode } from "./conversation-tree.js";
 
@@ -40,27 +45,37 @@ interface SessionTreeNode {
 
 const CUSTOM_TYPE = "pi-tree";
 
-export interface TopicMeta {
-  kind: "topic_node";
-  label: string;
-  source: "outline" | "user" | "auto";
-  bookAnchor?: BookAnchor;
-  status: "active" | "completed" | "abandoned";
+/**
+ * Configuration required to create a PiSession.
+ * Injected by the caller (app layer) rather than imported from config.
+ */
+export interface PiSessionConfig {
+  /** LLM provider name (e.g., "zhipu", "anthropic", "openai") */
+  provider?: string;
+  /** API key for the provider */
+  apiKey?: string;
+  /** Optional custom base URL for the provider */
+  baseUrl?: string;
+  /** Optional API type override (e.g., "openai-completions", "anthropic-messages") */
+  api?: string;
+  /** Model used for main reading conversations */
+  readingModel: string;
+  /**
+   * Root directory where .pi/skills/ lives.
+   * The app layer resolves this (e.g., the monorepo root).
+   */
+  repoRoot?: string;
+  /**
+   * Additional directories to search for skills.
+   * The app layer resolves env vars (SKILLS_PATH) and package paths.
+   */
+  skillPaths?: string[];
+  /**
+   * Additional directories to search for extensions.
+   * The app layer resolves env vars (EXTENSIONS_PATH) and package paths.
+   */
+  extensionPaths?: string[];
 }
-
-export interface SectionStatusMeta {
-  kind: "section_status";
-  targetEntryId: string;
-  newStatus: "active" | "completed" | "abandoned";
-}
-
-export interface SectionLabelMeta {
-  kind: "section_label";
-  targetEntryId: string;
-  newLabel: string;
-}
-
-export type PiTreeData = TopicMeta | SectionStatusMeta | SectionLabelMeta;
 
 // ---------------------------------------------------------------------------
 // PiSession
@@ -92,10 +107,10 @@ export class PiSession {
     bookId: string,
     libraryPath: string,
     dataPath: string,
-    options?: { resumeSession?: string },
+    options?: { resumeSession?: string; config?: PiSessionConfig },
   ): Promise<PiSession> {
-    // Repo root — where .pi/skills/ lives (pi-tree's own copy)
-    const repoRoot = join(import.meta.dirname, "../../../..");
+    // Repo root — where .pi/skills/ lives. Injected by the app layer.
+    const repoRoot = options?.config?.repoRoot ?? dataPath;
 
     // Session storage: each user+book gets its own session directory
     const sessionDir = join(dataPath, "sessions", bookId, userId);
@@ -112,79 +127,36 @@ export class PiSession {
     // if auth is not configured (no API keys).
     let agent: AgentSession | null = null;
     try {
-      const serverConfig = getServerConfig();
+      const serverConfig = options?.config ?? { readingModel: "" };
 
-      // Auth: use in-memory auth (no file I/O) so the server never implicitly
-      // reads ~/.pi/agent/auth.json. API keys are set programmatically from env vars.
-      const authStorage = AuthStorage.inMemory();
-      if (serverConfig.apiKey && serverConfig.provider) {
-        authStorage.setRuntimeApiKey(serverConfig.provider, serverConfig.apiKey);
-        console.log(`[pi-session] Auth: env var API key layered for provider "${serverConfig.provider}"`);
+      // Configure auth, model registry, and provider overrides.
+      // All the complexity (API key propagation, provider mismatch handling,
+      // API type override on models) lives in model-setup.ts.
+      const { authStorage, modelRegistry, selectedModel } =
+        configureModelRegistry(serverConfig);
+
+      if (serverConfig.provider && serverConfig.apiKey) {
+        console.log(`[pi-session] Auth: API key layered for provider "${serverConfig.provider}"`);
       }
-
-      // In-memory model registry — loads SDK built-in models but skips ~/.pi/agent/models.json
-      const modelRegistry = ModelRegistry.inMemory(authStorage);
-
-      // If env var specifies a custom base URL, register/override that provider.
-      // The API type (e.g. "anthropic-messages") must be explicitly configured
-      // via PI_API_TYPE env var or the Settings UI — no auto-detection, so
-      // behavior is identical between local dev and Docker.
       if (serverConfig.provider && serverConfig.baseUrl) {
-        const apiType = serverConfig.api || undefined;
-
-        if (apiType) {
-          // When overriding the API type, we must re-register models explicitly.
-          // registerProvider without a models array only updates the URL but
-          // leaves built-in models' api field unchanged (e.g. "openai-completions").
-          const existingModels = modelRegistry
-            .getAll()
-            .filter((m) => m.provider === serverConfig.provider);
-
-          const modelsConfig = existingModels.map((m) => ({
-            id: m.id,
-            name: m.name ?? m.id,
-            api: apiType as any,
-            reasoning: m.reasoning ?? false,
-            input: (m.input ?? ["text"]) as ("text" | "image")[],
-            cost: m.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-            contextWindow: m.contextWindow ?? 200000,
-            maxTokens: m.maxTokens ?? 16384,
-          }));
-
-          modelRegistry.registerProvider(serverConfig.provider, {
-            baseUrl: serverConfig.baseUrl,
-            api: apiType as any,
-            apiKey: serverConfig.apiKey,
-            models: modelsConfig.length > 0 ? modelsConfig : undefined,
-          });
-        } else {
-          modelRegistry.registerProvider(serverConfig.provider, {
-            baseUrl: serverConfig.baseUrl,
-          });
-        }
         console.log(
-          `[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}${apiType ? ` (API: ${apiType})` : ""}`,
+          `[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}${serverConfig.api ? ` (API: ${serverConfig.api})` : ""}`,
         );
+      }
+      if (selectedModel) {
+        console.log(`[pi-session] Using reading model: ${selectedModel.provider}/${selectedModel.id}`);
+        if (serverConfig.provider && selectedModel.provider !== serverConfig.provider) {
+          console.log(`[pi-session] Also layered API key for model's built-in provider "${selectedModel.provider}"`);
+        }
+      } else {
+        const allModels = modelRegistry.getAll();
+        console.log(`[pi-session] Model "${serverConfig.readingModel}" not found, using SDK default. Available: ${allModels.map((m) => `${m.provider}/${m.id}`).join(", ")}`);
       }
 
       // ResourceLoader: discover .pi/skills/ from pi-tree repo root
-      // plus any user-mounted skills/extensions (Docker: DATA_PATH/skills/, DATA_PATH/extensions/)
       const agentDir = getAgentDir();
-
-      // Additional paths for Docker extensibility — users can mount custom
-      // skills/extensions at these locations without modifying the image.
-      const additionalSkillPaths: string[] = [];
-      const additionalExtensionPaths: string[] = [];
-
-      // Extension package's skills directory (always included)
-      const extensionPkgSkills = join(import.meta.dirname, "../../../extension/skills");
-      additionalSkillPaths.push(extensionPkgSkills);
-
-      // User-configurable paths via env vars or DATA_PATH convention
-      const userSkillsPath = process.env.SKILLS_PATH || join(dataPath, "skills");
-      const userExtensionsPath = process.env.EXTENSIONS_PATH || join(dataPath, "extensions");
-      additionalSkillPaths.push(userSkillsPath);
-      additionalExtensionPaths.push(userExtensionsPath);
+      const additionalSkillPaths = serverConfig.skillPaths ?? [join(dataPath, "skills")];
+      const additionalExtensionPaths = serverConfig.extensionPaths ?? [join(dataPath, "extensions")];
 
       const resourceLoader = new DefaultResourceLoader({
         cwd: repoRoot,
@@ -193,16 +165,6 @@ export class PiSession {
         additionalExtensionPaths,
       });
       await resourceLoader.reload();
-
-      // Model selection
-      const modelId = serverConfig.readingModel;
-      const allModels = modelRegistry.getAll();
-      const selectedModel = allModels.find((m) => m.id === modelId);
-      if (selectedModel) {
-        console.log(`[pi-session] Using reading model: ${selectedModel.provider}/${selectedModel.id}`);
-      } else {
-        console.log(`[pi-session] Model "${modelId}" not found, using SDK default. Available: ${allModels.map((m) => `${m.provider}/${m.id}`).join(", ")}`);
-      }
 
       const { session } = await createAgentSession({
         // cwd for tools (read, grep, etc.) — point at library so AI can read books
@@ -1003,19 +965,3 @@ export class PiSession {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Annotated tree node (Pi tree + our metadata)
-// ---------------------------------------------------------------------------
-
-export interface AnnotatedTreeNode {
-  entryId: string;
-  parentId: string;
-  label: string;
-  source: "outline" | "user" | "auto";
-  status: "active" | "completed" | "abandoned";
-  bookAnchor?: BookAnchor;
-  messageCount: number;
-  isCurrent: boolean;
-  summary?: string;
-  children: AnnotatedTreeNode[];
-}

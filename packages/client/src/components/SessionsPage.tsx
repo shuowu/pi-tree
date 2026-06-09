@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import type { BookSession } from "@pi-tree/shared";
 import type { SessionMode } from "./WelcomeState";
@@ -6,8 +6,8 @@ import { fetchSessions, createSession, updateSession, deleteSession } from "../a
 import { useUser } from "../UserContext";
 import { SessionPicker } from "./SessionPicker";
 import { useBook } from "./BookLayout";
+import { Breadcrumb } from "@pi-tree/ui";
 import { Home } from "lucide-react";
-import "./Breadcrumb.css";
 import "./SessionsPage.css";
 
 const MODE_TITLES: Record<SessionMode, string> = {
@@ -77,23 +77,19 @@ export function SessionsPage() {
     }
   };
 
+  const panelToggles = useMemo(() => [
+    { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: () => navigate("/") },
+  ], [navigate]);
+
   return (
     <div className="sessions-page">
-      <nav className="breadcrumb-bar" aria-label="Sessions">
-        <div className="breadcrumb-items">
-          <span className="breadcrumb-book">{book.title}</span>
-        </div>
-        <div className="panel-toggles">
-          <button
-            className="panel-toggle"
-            onClick={() => navigate("/")}
-            title="Library"
-            aria-label="Library"
-          >
-            <Home size={16} />
-          </button>
-        </div>
-      </nav>
+      <Breadcrumb
+        items={[]}
+        onNavigate={() => {}}
+        bookTitle={book.title}
+        isScoped={false}
+        panelToggles={panelToggles}
+      />
 
       <SessionPicker
         book={book}

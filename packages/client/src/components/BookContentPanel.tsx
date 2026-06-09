@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMermaid } from "../hooks/useMermaid";
+import { useMermaid } from "@pi-tree/ui";
 import { marked } from "marked";
 import { fetchHeadings, fetchContent, type BookHeading } from "../api";
 import { SelectionToolbar } from "./SelectionToolbar";

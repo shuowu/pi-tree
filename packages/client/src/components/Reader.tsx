@@ -5,13 +5,16 @@ import { useBookProcessing } from "../hooks/useBookProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView } from "./ChatView";
+import { ChatView, Breadcrumb } from "@pi-tree/ui";
+import { SelectionToolbar } from "./SelectionToolbar";
 import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
-import { Breadcrumb } from "./Breadcrumb";
 import { RightPanel } from "./RightPanel";
 import { BookSettingsModal } from "./BookSettingsModal";
+import { fetchServerConfig, viewScope } from "../api";
+import { getBranchesCollapsed } from "../utils/preferences";
 import { PanelLeft, PanelRight, Home, Settings, Layers } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import "./Reader.css";
 
 export function Reader() {
@@ -47,6 +50,37 @@ export function Reader() {
   // ---------------------------------------------------------------------------
   // Derived values
   // ---------------------------------------------------------------------------
+
+  // Model name for display badge
+  const [modelName, setModelName] = useState<string | null>(null);
+  useEffect(() => {
+    fetchServerConfig().then((cfg) => setModelName(cfg.readingModel));
+  }, []);
+
+  const defaultBranchesCollapsed = useMemo(() => getBranchesCollapsed(), []);
+
+  // Wrap SelectionToolbar as a render prop for the UI package's ChatView
+  const renderSelectionToolbar = useCallback(
+    (ctx: {
+      containerRef: React.RefObject<HTMLDivElement | null>;
+      onDefine: (term: string, context?: string) => void;
+      onAsk: (text: string) => void;
+    }) => (
+      <SelectionToolbar
+        containerRef={ctx.containerRef}
+        onDefine={ctx.onDefine}
+        onAsk={ctx.onAsk}
+      />
+    ),
+    [],
+  );
+
+  // Wrap viewScope for InlineBranches' fetchBranchPreview prop
+  const fetchBranchPreview = useCallback(
+    (uid: string, bid: string, sid: number, nodeId: string) =>
+      viewScope(uid, bid, sid, nodeId),
+    [],
+  );
 
   const goBack = () => navigate("/");
 
@@ -122,9 +156,14 @@ export function Reader() {
             isScoped={session.viewNodeId !== null}
             bookId={book.id}
             sessionId={session.sessionId}
+            userId={userId!}
             onDefine={dict.handleDefine}
             onScrollDirectionChange={panel.setScrollDirection}
             scrollTopTrigger={session.scrollTopTrigger}
+            modelName={modelName}
+            renderSelectionToolbar={renderSelectionToolbar}
+            defaultBranchesCollapsed={defaultBranchesCollapsed}
+            fetchBranchPreview={fetchBranchPreview}
           />
         ) : null}
       </main>

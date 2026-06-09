@@ -13,21 +13,24 @@
 import type {
   SessionState,
   TreeNodeView,
-  ReaderConfig,
-} from "@pi-tree/shared";
+  BreadcrumbItem,
+} from "@pi-tree/core";
+import type { ReaderConfig } from "@pi-tree/shared";
 import { DEFAULT_CONFIG } from "@pi-tree/shared";
-import { eq, and } from "drizzle-orm";
-import { getDb, users, userBookSessions, books } from "../db/index.js";
-import { PiSession, type AnnotatedTreeNode } from "./pi-session.js";
-import { LibraryService } from "./library.js";
-import { join } from "node:path";
-import os from "node:os";
+import { getServerConfig } from "../config.js";
 import {
+  PiSession,
+  type AnnotatedTreeNode,
   findBranchPoint,
   collectScopeMessages,
   buildBreadcrumb,
-} from "./tree-nav.js";
-import { wrapTokenWithEarlyTreeUpdate } from "./streaming-utils.js";
+  wrapTokenWithEarlyTreeUpdate,
+} from "@pi-tree/core";
+import { eq, and } from "drizzle-orm";
+import { getDb, users, userBookSessions, books } from "../db/index.js";
+import { LibraryService } from "./library.js";
+import { join } from "node:path";
+import os from "node:os";
 
 export class TreeManager {
   private config: ReaderConfig;
@@ -83,13 +86,31 @@ export class TreeManager {
     const resolvedLibraryPath = isUpload
       ? join(dataPath, "books")
       : library.getLibraryPath();
+    // Build PiSessionConfig — all env var resolution happens here in the app layer.
+    // Core (PiSession) never reads process.env directly.
+    const serverCfg = getServerConfig();
+    const repoRoot = join(import.meta.dirname, "../../../..");
+    const extensionPkgSkills = join(import.meta.dirname, "../../extension/skills");
 
     const piSession = await PiSession.create(
       userId,
       bookId,
       resolvedLibraryPath,
       dataPath,
-      resumeSession ? { resumeSession } : undefined,
+      {
+        ...(resumeSession ? { resumeSession } : {}),
+        config: {
+          ...serverCfg,
+          repoRoot,
+          skillPaths: [
+            extensionPkgSkills,
+            process.env.SKILLS_PATH || join(dataPath, "skills"),
+          ],
+          extensionPaths: [
+            process.env.EXTENSIONS_PATH || join(dataPath, "extensions"),
+          ],
+        },
+      },
     );
 
     // Persist the active session file path in DB so server restarts resume correctly
@@ -513,7 +534,7 @@ export class TreeManager {
     return this.buildTreeView();
   }
 
-  getBreadcrumb(): import("@pi-tree/shared").BreadcrumbItem[] {
+  getBreadcrumb(): BreadcrumbItem[] {
     return this.piSession.getBreadcrumb().map((b) => ({
       nodeId: b.entryId,
       label: b.label,

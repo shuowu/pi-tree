@@ -19,13 +19,13 @@ User ──┬── Book A ──┬── Session 1 (Interactive Reading)
 
 ```mermaid
 graph TD
-    Client["React Client"] -->|"?session=3&node=abc"| Routes["Hono Session Routes"]
+    Client["React Client"] -->|"?session=3&node=abc"| Routes["Hono Session Routes<br/><i>@pi-tree/server</i>"]
     
     Routes -->|"getSession(user, book, 3)"| Store["SessionStore<br/><i>In-memory cache</i>"]
-    Store -->|"loadOrCreate(user, book, 3)"| TM["TreeManager<br/><i>Session orchestration</i>"]
+    Store -->|"loadOrCreate(user, book, 3)"| TM["TreeManager<br/><i>@pi-tree/core</i>"]
     
     TM --> DB["SQLite<br/><i>user_book_sessions</i>"]
-    TM --> PS["PiSession<br/><i>Pi SDK wrapper</i>"]
+    TM --> PS["PiSession<br/><i>@pi-tree/core</i>"]
     PS --> JSONL["Session JSONL<br/><i>Conversation tree</i>"]
     
     DB -.->|"session row: id, title,<br/>context, sessionFile"| TM
@@ -33,7 +33,7 @@ graph TD
     style Client fill:#0891b2,color:#fff,stroke:none
     style Routes fill:#4f46e5,color:#fff,stroke:none
     style Store fill:#7c3aed,color:#fff,stroke:none
-    style TM fill:#4f46e5,color:#fff,stroke:none
+    style TM fill:#7c3aed,color:#fff,stroke:none
     style DB fill:#059669,color:#fff,stroke:none
     style PS fill:#d97706,color:#fff,stroke:none
     style JSONL fill:#d97706,color:#fff,stroke:none
@@ -125,14 +125,16 @@ A session's AI behavior is shaped by three layers:
 ### Current Flow (identical for all sessions)
 
 ```
-PiSession.create()
+PiSession.create(config)          // @pi-tree/core — config injected by server
+  ├── configureModelRegistry()    // Registers providers/models from config
+  │
   ├── ResourceLoader discovers ALL skills from:
   │   ├── packages/extension/skills/     (built-in)
   │   ├── DATA_PATH/skills/              (user-mounted)
   │   └── DATA_PATH/extensions/          (user-mounted)
   │
   ├── createAgentSession() with:
-  │   ├── model: serverConfig.readingModel
+  │   ├── model: config.readingModel
   │   ├── tools: [read, grep, find, ls]
   │   └── resourceLoader: all skills
   │
@@ -142,12 +144,14 @@ PiSession.create()
 ### Future Flow (per-session configuration)
 
 ```
-PiSession.create(sessionContext)
+PiSession.create(config, sessionContext)   // @pi-tree/core
+  ├── configureModelRegistry() with context overrides
+  │
   ├── ResourceLoader discovers skills, then FILTERS by context.skills
   │   (e.g., Q&A mode might only enable 'book-context', not 'interactive-reading')
   │
   ├── createAgentSession() with:
-  │   ├── model: context.model ?? serverConfig.readingModel
+  │   ├── model: context.model ?? config.readingModel
   │   ├── tools: [read, grep, find, ls]  (or extended per mode)
   │   └── resourceLoader: filtered skills
   │

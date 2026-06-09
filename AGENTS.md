@@ -4,15 +4,31 @@ AI-assisted book reading app with tree-structured conversations.
 
 ## Architecture
 
-Monorepo with four packages:
+Monorepo with five packages:
 
 ```
 packages/
-  shared/      — TypeScript types (TopicNode, Book, SessionState, UserInfo, etc.)
+  core/        — Pure library: PiSession, TreeManager, model-setup, types (no env vars, no fs)
+  ui/          — React component library: ChatView, Breadcrumb, InlineBranches (pit-* namespaced)
   extension/   — Pi Package: skills, ebook parsers, Pi extensions (publishable)
-  server/      — Hono API server (tree manager, library service, Pi SDK wrapper, SQLite DB)
-  client/      — React + Vite frontend (chat UI, TOC, tree panel, user picker)
+  server/      — Hono API server (routes, config, DB, env resolution — app layer)
+  client/      — React + Vite frontend (pages, app-specific panels, wiring to @pi-tree/ui)
 ```
+
+### Package boundaries
+
+| Package | May import | Must NOT do |
+|---------|-----------|-------------|
+| `@pi-tree/core` | `@earendil-works/pi-coding-agent` | `process.env`, `import.meta.dirname`, file I/O |
+| `@pi-tree/ui` | `@pi-tree/core/types`, React, lucide, marked, mermaid | App-specific API calls, env vars |
+| `@pi-tree/server` | `@pi-tree/core`, `@pi-tree/extension`, node:fs | Client components |
+| `@pi-tree/client` | `@pi-tree/ui`, `@pi-tree/core/types` | Direct Pi SDK imports |
+
+**Key rule**: `@pi-tree/core` is a pure library. All environment resolution (API keys, model names, paths) happens in the server's app layer and is injected via `PiSessionConfig`.
+
+### Types sub-path
+
+`@pi-tree/core/types` exports only TypeScript types (TopicNode, Book, SessionState, ChatMessage, BranchOption, etc.) — safe for browser bundles. The main `@pi-tree/core` entry exports the Pi SDK wrapper and must only be imported server-side.
 
 ## Docs
 
@@ -31,14 +47,69 @@ packages/
 - **Configurable summaries**: Brief/medium/detailed, per-book overrides via BOOK.md
 - **Multi-user**: Each user has isolated sessions, config, glossary per book (no auth, slug-based identity)
 
-## Server
+## Core (`@pi-tree/core`)
+
+Pure library — no `process.env`, no `import.meta.dirname`, no file system access.
+
+- `PiSession`: wraps Pi SDK, manages conversation lifecycle
+- `configureModelRegistry()`: extracted, testable model/provider setup (in `session/model-setup.ts`)
+- `TreeManager`: intent classification → tree operations → PiSession
+- Types: TopicNode, Book, SessionState, ChatMessage, BranchOption, etc.
+
+All config is injected via `PiSessionConfig` — the server resolves env vars and passes them in.
+
+## UI (`@pi-tree/ui`)
+
+Reusable React components with `pit-` CSS class prefix. Components import their own CSS — no separate CSS imports needed by consumers.
+
+### Components
+- `ChatView` — Full chat interface (messages, input, branches, streaming)
+- `Breadcrumb` — Navigation breadcrumb bar with panel toggles
+- `MessageBubble` — Single message render (user/assistant/toolResult)
+- `StreamingBubble` — Streaming AI response with cursor animation
+- `InlineBranches` — Branch preview cards with expand/collapse
+- `ToolCallIndicator` — Tool execution spinner
+
+### Hooks
+- `useMermaid` — Renders mermaid diagrams in markdown content
+- `useScrollDirection` — Tracks scroll direction for shy-header UX
+
+### CSS conventions
+
+All classes use `pit-` prefix (e.g., `.pit-chat-view`, `.pit-breadcrumb-bar`). All design tokens use `--pit-*` custom properties (e.g., `--pit-accent`, `--pit-space-4`).
+
+Theme file: `packages/ui/src/styles/pit-theme.css` bridges host app tokens to `pit-*` namespaced properties with sensible defaults. Consumers can:
+1. Use defaults (works out of the box)
+2. Override `--pit-*` properties for custom theming
+3. (Future) Import only hooks for fully headless usage
+
+### Prop-driven design
+
+UI components are generic and prop-driven. App-specific concerns (API calls, user context, env vars) are injected via props:
+- `ChatView` takes `renderSelectionToolbar` render prop, `fetchBranchPreview` callback, `modelName`, `userId`
+- `Breadcrumb` takes `panelToggles` array, `sessionLabel`
+
+## Server (`@pi-tree/server`)
+
+App layer — owns environment resolution, config, database, and HTTP routes.
 
 - Hono framework (lightweight, Electron-compatible)
-- TreeManager: intent classification → tree operations → Pi SDK
-- DictionaryService: standalone dictionary lookup + glossary CRUD (independent from reading sessions, uses in-memory Pi SDK sessions)
+- Resolves all env vars (`PI_MODEL`, `PI_API_KEY`, `DATA_PATH`, etc.) and injects into core via config
+- DictionaryService: standalone dictionary lookup + glossary CRUD
 - LibraryService: reads from user-configured book library on disk
 - SSE streaming for real-time AI responses
 - SQLite + Drizzle ORM for user/session/config/glossary metadata
+
+## Client (`@pi-tree/client`)
+
+Thin app shell — wires `@pi-tree/ui` components with app-specific context.
+
+- React + Vite (future: Electron desktop app)
+- **Pages**: Library, Reader, SessionsPage, UserPicker
+- **App panels**: Sidebar, RightPanel, DictionaryPanel, BookContentPanel
+- **Modals**: AddBookModal, BookSettingsModal, SettingsModal
+- **Wiring**: Reader.tsx injects app dependencies into `@pi-tree/ui` via props
+- **Context**: UserContext + UserPicker (localStorage-based identity)
 
 ## Database
 
@@ -52,15 +123,6 @@ Tables:
 - `glossary_entries` — per-user per-book term definitions
 
 Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/server/src/db/schema.ts`.
-
-## Client
-
-- React + Vite (future: Electron desktop app)
-- UserContext + UserPicker for user selection (stored in localStorage)
-- SessionPicker for multi-session management (list, create, rename, delete sessions per book)
-- Chat view with breadcrumb bar (shows active session label)
-- Side panel: TOC tab + Tree tab
-- Zoom in/out controls
 
 ## Data Source
 
@@ -95,6 +157,7 @@ Multiple sessions per user+book. Each session has a `SessionContext` (mode, opti
 **URLs**:
 - Sessions management: `/book/:bookId/sessions`
 - Reading session: `/book/:bookId?session=<id>&node=<nodeId>`
+
 ## Multi-User Flow
 
 No auth — users are slug-based identity records in SQLite.
@@ -117,6 +180,20 @@ No auth — users are slug-based identity records in SQLite.
 - `GET /api/users/:userId` — get one
 - `PUT /api/users/:userId` — update `{ displayName?, avatarUrl? }`
 - `DELETE /api/users/:userId` — delete + cascade all related data
+
+## Testing
+
+Tests run with `vitest`. No env vars required — test files use `vi.stubEnv` to mock paths with temp dirs.
+
+```bash
+npm test                    # all unit tests (core + server)
+npx vitest run              # same, explicit
+npx vitest run --exclude="e2e/**" --exclude="**/dist/**"  # skip Playwright + dist
+```
+
+- `packages/core/src/session/__tests__/model-setup.test.ts` — model registry setup (15 tests)
+- `packages/server/src/__tests__/api-smoke.test.ts` — in-process API routes (27 tests, no HTTP server)
+- `e2e/smoke.spec.ts` — Playwright end-to-end (needs running server + browser)
 
 ## Development
 
@@ -176,4 +253,3 @@ Volumes:
 - `pi-tree-data` named volume → `/data` (mutable state: sessions + SQLite DB)
 
 Env vars: `LIBRARY_PATH`, `DATA_PATH`, `PORT`, `PI_MODEL`.
-

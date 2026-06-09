@@ -3,13 +3,12 @@
  * All calls go through the Vite dev proxy → localhost:3847.
  */
 
+import type { SessionState, TreeNodeView } from "@pi-tree/core/types";
 import type {
   Book,
   BookOutline,
   BookSession,
   SessionContext,
-  SessionState,
-  TreeNodeView,
   UserInfo,
 } from "@pi-tree/shared";
 
@@ -342,7 +341,7 @@ export async function sendMessageStreaming(
     onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => void;
     onQueued?: () => void;
     onCompaction?: (isCompacting: boolean) => void;
-    onTreeUpdate?: (tree: import("@pi-tree/shared").TreeNodeView) => void;
+    onTreeUpdate?: (tree: import("@pi-tree/core/types").TreeNodeView) => void;
     onDone: (result: SessionState & { response: string }) => void;
     onError: (error: Error) => void;
   },

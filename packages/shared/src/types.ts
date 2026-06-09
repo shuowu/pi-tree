@@ -1,9 +1,9 @@
 /**
- * Core types for the pi-tree reading tree.
+ * App-level types for pi-tree.
  *
- * Every node in the reading tree is a TopicNode — no rigid hierarchy.
- * Chapters, sub-topics, tangents, and cross-book references are all just
- * nodes with different labels and optional book anchors.
+ * Session/tree types (TreeNodeView, ChatMessage, BranchOption, etc.) now
+ * live in @pi-tree/core. This package keeps app-specific types:
+ * users, books, library, config, intents, outlines.
  */
 
 // ---------------------------------------------------------------------------
@@ -318,57 +318,3 @@ export type UserIntent =
   | { type: "lateral_move"; target: string }
   | { type: "cross_book"; otherBook: string; topic: string }
   | { type: "toc_navigate"; outlineEntry: OutlineEntry };
-
-// ---------------------------------------------------------------------------
-// API types — shared between client and server
-// ---------------------------------------------------------------------------
-
-export interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  /** Timestamp ISO string */
-  timestamp: string;
-  /** If this message triggered a branch, the new node id */
-  branchedToNodeId?: string;
-}
-
-export interface TreeNodeView {
-  id: string;
-  parentId: string | null;
-  label: string;
-  status: "active" | "completed" | "abandoned";
-  messageCount: number;
-  summary?: string;
-  children: TreeNodeView[];
-  /** Whether this is the currently active node */
-  isCurrent: boolean;
-}
-
-export interface SessionState {
-  /** Database session ID — identifies which session within user+book */
-  sessionId: number;
-  userId: string;
-  bookId: string;
-  activeNodeId: string;
-  /** Which tree node the chat view is scoped to (null = root) */
-  viewNodeId: string | null;
-  breadcrumb: BreadcrumbItem[];
-  /** Messages in the current scope (linear chain from viewNode to next fork) */
-  messages: ChatMessage[];
-  tree: TreeNodeView;
-  /** Branches available at the end of the current chain (fork indicator) */
-  branches: BranchOption[];
-}
-
-export interface BranchOption {
-  nodeId: string;
-  label: string;
-  messageCount: number;
-  status: "active" | "completed" | "abandoned";
-}
-
-export interface BreadcrumbItem {
-  nodeId: string;
-  label: string;
-}

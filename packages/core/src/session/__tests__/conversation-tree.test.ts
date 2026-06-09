@@ -18,7 +18,7 @@ import { describe, it, expect } from "vitest";
 import {
   shouldShowAssistantNode,
   type AssistantNodeContext,
-} from "@pi-tree/core";
+} from "../conversation-tree";
 
 // ─── shouldShowAssistantNode — extracted from buildConversationNode ──────────
 

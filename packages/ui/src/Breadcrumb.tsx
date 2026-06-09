@@ -1,6 +1,6 @@
-import type { BreadcrumbItem } from "@pi-tree/shared";
+import type { BreadcrumbItem } from "@pi-tree/core/types";
 import type { ReactNode } from "react";
-import "./Breadcrumb.css";
+import "./styles/Breadcrumb.css";
 
 interface PanelToggle {
   id: string;
@@ -33,41 +33,41 @@ export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggle
   const visibleItems = collapsed ? items.slice(-2) : items;
 
   return (
-    <nav className="breadcrumb-bar" aria-label="Reading path">
-      <div className="breadcrumb-items">
+    <nav className="pit-breadcrumb-bar" aria-label="Reading path">
+      <div className="pit-breadcrumb-items">
         {isScoped ? (
-          <button className="breadcrumb-link breadcrumb-root" onClick={() => onNavigate("")}>
+          <button className="pit-breadcrumb-link pit-breadcrumb-root" onClick={() => onNavigate("")}>
             {truncate(bookTitle, 24)}
           </button>
         ) : (
-          <span className="breadcrumb-book">{truncate(bookTitle, 30)}</span>
+          <span className="pit-breadcrumb-book">{truncate(bookTitle, 30)}</span>
         )}
 
         {sessionLabel && (
-          <span className="breadcrumb-session-label" title={sessionLabel}>
+          <span className="pit-breadcrumb-session-label" title={sessionLabel}>
             {truncate(sessionLabel, 20)}
           </span>
         )}
 
         {collapsed && (
-          <span className="breadcrumb-segment">
-            <span className="breadcrumb-sep">/</span>
-            <span className="breadcrumb-ellipsis" title={items.slice(0, -2).map(i => i.label).join(" / ")}>
+          <span className="pit-breadcrumb-segment">
+            <span className="pit-breadcrumb-sep">/</span>
+            <span className="pit-breadcrumb-ellipsis" title={items.slice(0, -2).map(i => i.label).join(" / ")}>
               …
             </span>
           </span>
         )}
 
         {visibleItems.map((item, i) => (
-          <span key={item.nodeId} className="breadcrumb-segment">
-            <span className="breadcrumb-sep">/</span>
+          <span key={item.nodeId} className="pit-breadcrumb-segment">
+            <span className="pit-breadcrumb-sep">/</span>
             {i === visibleItems.length - 1 ? (
-              <span className="breadcrumb-current" title={item.label}>
+              <span className="pit-breadcrumb-current" title={item.label}>
                 {truncate(item.label, 30)}
               </span>
             ) : (
               <button
-                className="breadcrumb-link"
+                className="pit-breadcrumb-link"
                 onClick={() => onNavigate(item.nodeId)}
                 title={item.label}
               >
@@ -80,11 +80,11 @@ export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggle
 
       {/* All action icons grouped on the right */}
       {panelToggles && panelToggles.length > 0 && (
-        <div className="panel-toggles">
+        <div className="pit-panel-toggles">
           {panelToggles.map((toggle) => (
             <button
               key={toggle.id}
-              className={`panel-toggle ${toggle.active ? "active" : ""}`}
+              className={`pit-panel-toggle ${toggle.active ? "pit-active" : ""}`}
               onClick={toggle.onClick}
               title={toggle.label}
               aria-label={toggle.label}

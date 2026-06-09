@@ -38,6 +38,7 @@
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.78.0",
     "@hono/node-server": "^1.14.0",
+    "@pi-tree/core": "*",
     "@pi-tree/extension": "*",
     "@pi-tree/shared": "*",
     "better-sqlite3": "^12.10.0",

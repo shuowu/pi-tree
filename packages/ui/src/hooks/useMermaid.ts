@@ -85,4 +85,3 @@ export function useMermaid(
     }
   }, [html, enabled, containerRef]);
 }
-

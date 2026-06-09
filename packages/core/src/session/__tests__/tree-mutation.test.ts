@@ -11,12 +11,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { TreeNodeView } from "@pi-tree/core";
+import type { TreeNodeView } from "../../types/index.js";
 import {
   collectScopeMessages,
   buildBreadcrumb,
   type ContentMap,
-} from "@pi-tree/core";
+} from "../tree-nav";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

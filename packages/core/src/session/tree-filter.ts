@@ -3,7 +3,7 @@
  * Extracted from PiSession for testability.
  */
 
-import type { TopicMeta } from "./pi-session.js";
+import type { TopicMeta } from "../types/index.js";
 
 /**
  * Check if an entry has been abandoned (soft-deleted).

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { TreeNodeView } from "@pi-tree/shared";
+import type { TreeNodeView } from "@pi-tree/core/types";
 import { buildTooltip } from "../tree-utils";
 
 /** Shorthand to build a TreeNodeView */

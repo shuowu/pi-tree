@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, BranchOption } from "@pi-tree/shared";
-import { SelectionToolbar } from "./SelectionToolbar";
-import { MessageBubble } from "./MessageBubble";
-import { StreamingBubble } from "./StreamingBubble";
-import { InlineBranches } from "./InlineBranches";
-import { ToolCallIndicator } from "./ToolCallIndicator";
+import type { ChatMessage, BranchOption } from "@pi-tree/core/types";
+import { MessageBubble } from "./MessageBubble.js";
+import { StreamingBubble } from "./StreamingBubble.js";
+import { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
+import { ToolCallIndicator } from "./ToolCallIndicator.js";
 import { BookOpen, Cpu, ChevronDown, Loader } from "lucide-react";
-import { fetchServerConfig } from "../api";
-import { useScrollDirection, type ScrollDirection } from "../utils/useScrollDirection";
-import "./ChatView.css";
+import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
+import "./styles/ChatView.css";
 
 interface ChatViewProps {
   messages: ChatMessage[];
@@ -29,12 +27,32 @@ interface ChatViewProps {
   bookId: string;
   /** Session ID for branch preview fetches */
   sessionId: number | null;
+  /** User ID for branch preview fetches */
+  userId: string;
   /** Define handler — sends term + surrounding context to right sidebar */
   onDefine: (term: string, context?: string) => void;
   /** Reports scroll direction changes for shy-header behavior */
   onScrollDirectionChange?: (direction: ScrollDirection) => void;
   /** Counter incremented on explicit navigation — triggers scroll-to-top */
   scrollTopTrigger: number;
+  /** Model name to display in the input area, if any */
+  modelName?: string | null;
+  /** Optional render prop for a selection toolbar (e.g., dictionary lookup) */
+  renderSelectionToolbar?: (context: {
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    onDefine: (term: string, context?: string) => void;
+    onAsk: (text: string) => void;
+  }) => React.ReactNode;
+  /** Whether inline branch previews default to collapsed (default: true) */
+  defaultBranchesCollapsed?: boolean;
+  /** Fetch branch preview data for inline display.
+   *  Called with (userId, bookId, sessionId, nodeId). */
+  fetchBranchPreview?: (
+    userId: string,
+    bookId: string,
+    sessionId: number,
+    nodeId: string,
+  ) => Promise<BranchPreviewData>;
 }
 
 export function ChatView({
@@ -50,13 +68,17 @@ export function ChatView({
   isScoped,
   bookId,
   sessionId,
+  userId,
   onDefine,
   onScrollDirectionChange,
   scrollTopTrigger,
+  modelName,
+  renderSelectionToolbar,
+  defaultBranchesCollapsed,
+  fetchBranchPreview,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
-  const [modelName, setModelName] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const streamingBubbleRef = useRef<HTMLDivElement>(null);
@@ -90,11 +112,6 @@ export function ChatView({
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  // Fetch model info once
-  useEffect(() => {
-    fetchServerConfig().then((cfg) => setModelName(cfg.readingModel));
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -224,11 +241,11 @@ export function ChatView({
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="chat-view">
-      <div className="chat-messages" ref={messagesContainerRef} style={{ position: "relative" }}>
+    <div className="pit-chat-view">
+      <div className="pit-chat-messages" ref={messagesContainerRef} style={{ position: "relative" }}>
         {messages.length === 0 && !isLoading && (
-          <div className="chat-empty">
-            <BookOpen size={32} className="chat-empty-icon" strokeWidth={1.5} />
+          <div className="pit-chat-empty">
+            <BookOpen size={32} className="pit-chat-empty-icon" strokeWidth={1.5} />
             <p>Starting your reading session…</p>
           </div>
         )}
@@ -246,19 +263,19 @@ export function ChatView({
         )}
 
         {isLoading && !activeToolCall && (streamingContent === null || streamingContent.length === 0) && (
-          <div className="chat-message chat-message-assistant">
-            <div className="chat-avatar">✦</div>
-            <div className="chat-bubble">
+          <div className="pit-chat-message pit-chat-message-assistant">
+            <div className="pit-chat-avatar">✦</div>
+            <div className="pit-chat-bubble">
               {isQueued ? (
-                <div className="chat-queued">
-                  <span className="queued-spinner" />
+                <div className="pit-chat-queued">
+                  <span className="pit-queued-spinner" />
                   Finishing a response on another branch — yours is next
                 </div>
               ) : (
-                <div className="chat-loading">
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
+                <div className="pit-chat-loading">
+                  <span className="pit-dot" />
+                  <span className="pit-dot" />
+                  <span className="pit-dot" />
                 </div>
               )}
             </div>
@@ -271,15 +288,18 @@ export function ChatView({
             onDrillDown={onDrillDown}
             bookId={bookId}
             sessionId={sessionId}
+            userId={userId}
             newBranchIds={newBranchIds}
+            defaultCollapsed={defaultBranchesCollapsed}
+            fetchBranchPreview={fetchBranchPreview}
           />
         )}
 
-        <SelectionToolbar
-          containerRef={messagesContainerRef}
-          onDefine={onDefine}
-          onAsk={handleAsk}
-        />
+        {renderSelectionToolbar?.({
+          containerRef: messagesContainerRef,
+          onDefine,
+          onAsk: handleAsk,
+        })}
 
         <div ref={messagesEndRef} />
 
@@ -287,7 +307,7 @@ export function ChatView({
          * Hidden while the streaming banner is visible to avoid redundancy. */}
         {!isNearBottom && !(isLoading && streamingContent !== null && streamingContent.length > 0) && (
           <button
-            className="scroll-to-bottom"
+            className="pit-scroll-to-bottom"
             onClick={scrollToBottom}
             aria-label="Scroll to bottom"
           >
@@ -296,34 +316,34 @@ export function ChatView({
         )}
       </div>
 
-      <div className="chat-input-container">
+      <div className="pit-chat-input-container">
         {/* Streaming progress banner — positioned above the input area.
          * Lives outside the scroll container so it's always visible as a
          * floating overlay, regardless of scroll position. */}
         {isLoading && streamingContent !== null && streamingContent.length > 0 && !isNearBottom && (
           <button
-            className="streaming-progress-banner"
+            className="pit-streaming-progress-banner"
             onClick={scrollToBottom}
           >
-            <Loader size={14} className="streaming-progress-spinner" />
+            <Loader size={14} className="pit-streaming-progress-spinner" />
             <span>Generating response…</span>
             <ChevronDown size={14} />
           </button>
         )}
         {modelName && (
-          <div className="chat-input-meta">
-            <span className="chat-model-badge"><Cpu size={11} /> {modelName}</span>
+          <div className="pit-chat-input-meta">
+            <span className="pit-chat-model-badge"><Cpu size={11} /> {modelName}</span>
           </div>
         )}
-        <div className="chat-input-area-wrapper">
+        <div className="pit-chat-input-area-wrapper">
           {quotedText && (
-            <div className="chat-quote-preview">
-              <div className="chat-quote-content">
-                <span className="chat-quote-label">Quote</span>
-                <span className="chat-quote-text">"{quotedText}"</span>
+            <div className="pit-chat-quote-preview">
+              <div className="pit-chat-quote-content">
+                <span className="pit-chat-quote-label">Quote</span>
+                <span className="pit-chat-quote-text">"{quotedText}"</span>
               </div>
               <button
-                className="chat-quote-remove"
+                className="pit-chat-quote-remove"
                 onClick={() => setQuotedText(null)}
                 title="Remove quote"
               >
@@ -331,10 +351,10 @@ export function ChatView({
               </button>
             </div>
           )}
-          <div className="chat-input-wrapper">
+          <div className="pit-chat-input-wrapper">
             <textarea
               ref={textareaRef}
-              className="chat-input"
+              className="pit-chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -343,7 +363,7 @@ export function ChatView({
               disabled={isLoading}
             />
             <button
-              className="chat-send"
+              className="pit-chat-send"
               onClick={handleSubmit}
               disabled={!input.trim() || isLoading}
               aria-label="Send message"

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { wrapTokenWithEarlyTreeUpdate } from "@pi-tree/core";
+import { wrapTokenWithEarlyTreeUpdate } from "../streaming-utils.js";
 
 describe("wrapTokenWithEarlyTreeUpdate", () => {
   it("calls onFirstToken on the first token only", async () => {

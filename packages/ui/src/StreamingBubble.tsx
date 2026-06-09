@@ -1,5 +1,5 @@
 import { forwardRef, useRef, useMemo } from "react";
-import { useMermaid } from "../hooks/useMermaid";
+import { useMermaid } from "./hooks/useMermaid.js";
 import { marked } from "marked";
 
 /**
@@ -20,17 +20,17 @@ export const StreamingBubble = forwardRef<HTMLDivElement, { content: string; isC
     useMermaid(contentRef, html, /* enabled */ false);
 
     return (
-      <div ref={ref} className="chat-message chat-message-assistant streaming">
-        <div className="chat-avatar">✦</div>
-        <div className="chat-bubble">
+      <div ref={ref} className="pit-chat-message pit-chat-message-assistant pit-streaming">
+        <div className="pit-chat-avatar">✦</div>
+        <div className="pit-chat-bubble">
           <div
             ref={contentRef}
-            className="chat-content markdown"
+            className="pit-chat-content pit-markdown"
             dangerouslySetInnerHTML={{ __html: html }}
           />
           {isCompacting && (
-            <div className="compaction-indicator">
-              <span className="compaction-dot" />
+            <div className="pit-compaction-indicator">
+              <span className="pit-compaction-dot" />
               Organizing reading notes…
             </div>
           )}

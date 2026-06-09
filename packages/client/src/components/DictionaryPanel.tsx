@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useMermaid } from "../hooks/useMermaid";
+import { useMermaid } from "@pi-tree/ui";
 import { marked } from "marked";
 import { BookA, X } from "lucide-react";
 import "./DictionaryPanel.css";

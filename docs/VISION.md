@@ -45,3 +45,22 @@ The trajectory here is clear: local models will keep getting better, consumer ha
 - **Every user gets their own path.** Multi-user support isn't just "separate accounts." Each person builds their own conversation tree, glossary, and reading history for the same book. Two people can read the same book and have completely different trees.
 - **The AI works for you, not the other way around.** No "choose your reading mode." No "select a quiz type." You just talk to the AI about the book, and the system figures out whether to continue, branch, summarize, or look something up.
 - **Your data stays local.** Books, sessions, conversations, glossaries — everything lives on your machine. Swap providers, run offline with local models, or migrate your data freely. No lock-in, no leaks.
+
+## The Tree as a Primitive
+
+The most interesting thing about pi-tree isn't the reading app — it's the conversation model underneath.
+
+Tree-structured conversations solve a fundamental problem with AI chat: linear conversations force you to choose between depth and breadth. Go deep on a tangent, and you lose your place. Stay on track, and you can't explore. The tree gives you both — branch off freely, and the trunk is always there to return to.
+
+This isn't specific to reading books. The same model works for research, learning, code review, problem-solving — any domain where human thinking naturally branches. "Wait, what about X?" shouldn't destroy your context on Y. It should create a branch you can explore and return from.
+
+We've structured pi-tree's codebase around this insight:
+
+- **`@pi-tree/core`** is a pure library — PiSession, TreeManager, model setup — with no environment assumptions. It doesn't know about books, servers, or browsers. Anyone can import it and build a tree-structured AI conversation for any purpose.
+- **`@pi-tree/ui`** is a headless-capable component library — ChatView, Breadcrumb, InlineBranches — with prop-driven design and themeable CSS. You can use the default styled components, override the theme tokens, or import only the hooks and build your own UI entirely.
+- **`@pi-tree/extension`** is a publishable skill/tool package — reading skills, book parsers — that plugs into the Pi SDK. New domains bring new skills; the infrastructure stays the same.
+
+The reading app is the first instance of this architecture, not the only one. Someone could take `@pi-tree/core` and build a tree-structured study tool, a research notebook, a therapy journal, or a collaborative analysis workspace. The tree doesn't care what you're thinking about — it just preserves the shape of your thinking.
+
+This modularity isn't premature abstraction. It's a consequence of getting the boundaries right: the AI orchestration layer shouldn't know how it's being rendered, and the UI components shouldn't know what AI is behind them. When you separate those concerns cleanly, reusability falls out naturally.
+

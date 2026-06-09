@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { ScrollDirection } from "../utils/useScrollDirection";
+import type { ScrollDirection } from "@pi-tree/ui";
 
 export function usePanelLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
