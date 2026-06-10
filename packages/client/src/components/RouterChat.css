@@ -105,26 +105,7 @@
   padding: var(--space-1) 0;
 }
 
-.router-nav-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  margin: var(--space-2) 0;
-  transition: filter 0.15s ease;
-  font-family: var(--font-sans);
-}
 
-.router-nav-btn:hover {
-  filter: brightness(1.1);
-}
 
 @keyframes router-spin {
   to { transform: rotate(360deg); }

@@ -15,9 +15,10 @@ export function RouterChat({ userId }: RouterChatProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<{ sessionId: number; sourceId: string } | null>(null);
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
-  const [navigationUrl, setNavigationUrl] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sawCreateSession = useRef(false);
 
   // Fetch/create the router session on mount
   useEffect(() => {
@@ -48,7 +49,7 @@ export function RouterChat({ userId }: RouterChatProps) {
       setInput("");
       setIsStreaming(true);
       setIsExpanded(true);
-      setNavigationUrl(null);
+      sawCreateSession.current = false;
 
       sendMessageStreaming(
         userId,
@@ -61,17 +62,18 @@ export function RouterChat({ userId }: RouterChatProps) {
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (last && last.role === "assistant") {
-                // Append to existing assistant message
                 const updated = [...prev];
                 updated[updated.length - 1] = { ...last, content: last.content + token };
                 return updated;
               }
-              // Create new assistant message
               return [...prev, { role: "assistant", content: token }];
             });
           },
           onToolCall({ toolName }) {
             setActiveToolCall(toolName);
+            if (toolName === "create_session") {
+              sawCreateSession.current = true;
+            }
           },
           onTurnEnd() {
             setActiveToolCall(null);
@@ -79,11 +81,16 @@ export function RouterChat({ userId }: RouterChatProps) {
           onDone(result) {
             setIsStreaming(false);
             setActiveToolCall(null);
-            // Scan response text for session navigation URLs
-            if (result.response) {
-              const urlMatch = result.response.match(/\/source\/([\w-]+)\?session=(\d+)/);
+
+            // If create_session was called, extract the URL and auto-redirect
+            if (sawCreateSession.current && result.response) {
+              const urlMatch = result.response.match(/\/source\/([\w-]+)\?session=(\d+)(&new=\w+)?/);
               if (urlMatch) {
-                setNavigationUrl(urlMatch[0]);
+                setIsRedirecting(true);
+                // Brief delay so the user sees the confirmation
+                setTimeout(() => {
+                  navigate(urlMatch[0]);
+                }, 800);
               }
             }
           },
@@ -99,7 +106,7 @@ export function RouterChat({ userId }: RouterChatProps) {
         },
       );
     },
-    [input, isStreaming, sessionInfo, userId],
+    [input, isStreaming, sessionInfo, userId, navigate],
   );
 
   return (
@@ -117,15 +124,13 @@ export function RouterChat({ userId }: RouterChatProps) {
               <Loader2 className="spin" size={14} /> {activeToolCall}…
             </div>
           )}
+          {isRedirecting && (
+            <div className="router-tool-indicator">
+              <Loader2 className="spin" size={14} /> Opening session…
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
-      )}
-
-      {/* Navigation button if session was created */}
-      {navigationUrl && (
-        <button className="router-nav-btn" onClick={() => navigate(navigationUrl)}>
-          Open Session →
-        </button>
       )}
 
       {/* Input */}
@@ -135,10 +140,10 @@ export function RouterChat({ userId }: RouterChatProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="What would you like to read or explore?"
-          disabled={isStreaming}
+          disabled={isStreaming || isRedirecting}
           className="router-chat-input"
         />
-        <button type="submit" disabled={isStreaming || !input.trim()} className="router-chat-send">
+        <button type="submit" disabled={isStreaming || isRedirecting || !input.trim()} className="router-chat-send">
           {isStreaming ? <Loader2 className="spin" size={16} /> : <ArrowUp size={16} />}
         </button>
       </form>

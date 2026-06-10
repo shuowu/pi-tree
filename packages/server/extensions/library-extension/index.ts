@@ -180,11 +180,14 @@ export default function (pi: ExtensionAPI) {
           .run();
 
         const sessionId = Number(result.lastInsertRowid);
+        const mode = params.mode ?? "reading";
 
         return {
           content: [{ type: "text", text: JSON.stringify({
             sessionId,
-            url: `/source/${params.source_id}?session=${sessionId}`,
+            sourceId: params.source_id,
+            mode,
+            url: `/source/${params.source_id}?session=${sessionId}&new=${mode}`,
           }, null, 2) }]
         };
       } catch (err: any) {
