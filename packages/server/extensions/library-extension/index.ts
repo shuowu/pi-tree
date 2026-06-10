@@ -1,7 +1,34 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { eq, not, like, and, or, desc } from "drizzle-orm";
 import { getDb, sources, userSessions, users } from "../../src/db/index.js";
+
+/**
+ * Resolve the correct userId for tool operations.
+ *
+ * The AI sometimes passes the wrong user_id. This helper reads the actual
+ * session owner from the DB by matching the current JSONL session file path
+ * from the Pi SDK's session manager.
+ */
+function resolveUserId(aiProvidedUserId: string | undefined, ctx: ExtensionContext | undefined): string | undefined {
+  // Try to get the real userId from the current session's DB record
+  if (ctx?.sessionManager) {
+    try {
+      const sessionFile = ctx.sessionManager.getSessionFile();
+      if (sessionFile) {
+        const db = getDb();
+        const row = db.select({ userId: userSessions.userId })
+          .from(userSessions)
+          .where(eq(userSessions.sessionFile, sessionFile))
+          .get();
+        if (row) return row.userId;
+      }
+    } catch {
+      // Fall through to AI-provided value
+    }
+  }
+  return aiProvidedUserId;
+}
 
 export default function (pi: ExtensionAPI) {
 
@@ -67,7 +94,7 @@ export default function (pi: ExtensionAPI) {
       source_id: Type.String({ description: "The source ID to look up." }),
       user_id: Type.Optional(Type.String({ description: "If provided, also return existing sessions for this user." }))
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
         const db = getDb();
 
@@ -90,7 +117,8 @@ export default function (pi: ExtensionAPI) {
           status: source.status,
         };
 
-        if (params.user_id) {
+        const userId = resolveUserId(params.user_id, ctx);
+        if (userId) {
           const sessionRows = db
             .select({
               id: userSessions.id,
@@ -101,7 +129,7 @@ export default function (pi: ExtensionAPI) {
             .from(userSessions)
             .where(
               and(
-                eq(userSessions.userId, params.user_id),
+                eq(userSessions.userId, userId),
                 eq(userSessions.sourceId, params.source_id),
                 eq(userSessions.isActive, 1),
               ),
@@ -139,24 +167,28 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "create_session",
     label: "Create Session",
-    description: "Create a new session on a source. Returns the session ID and URL.",
+    description: "Create a new session on a source. Returns the session ID and URL. The user_id is auto-detected from the current session — you don't need to pass it.",
     parameters: Type.Object({
       source_id: Type.String({ description: "The source to create a session on." }),
-      user_id: Type.String({ description: "The user who owns the session." }),
+      user_id: Type.Optional(Type.String({ description: "The user who owns the session. Auto-detected if omitted." })),
       title: Type.String({ description: "Display title for the session." }),
       mode: Type.Optional(Type.String({ description: "Session mode: 'reading', 'qa', 'custom', 'news'. Default: 'reading'." })),
       prompt: Type.Optional(Type.String({ description: "Optional system prompt override for this session." }))
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
         const db = getDb();
         const now = new Date().toISOString();
 
+        // Resolve userId: prefer the session owner from the DB over the AI-provided value
+        const userId = resolveUserId(params.user_id, ctx);
+        if (!userId) throw new Error("Could not determine user_id — please provide it explicitly.");
+
         // Auto-create user if not present (mirrors TreeManager.ensureUser)
-        const existingUser = db.select().from(users).where(eq(users.id, params.user_id)).get();
+        const existingUser = db.select().from(users).where(eq(users.id, userId)).get();
         if (!existingUser) {
           db.insert(users)
-            .values({ id: params.user_id, displayName: params.user_id, createdAt: now, updatedAt: now })
+            .values({ id: userId, displayName: userId, createdAt: now, updatedAt: now })
             .run();
         }
 
@@ -168,7 +200,7 @@ export default function (pi: ExtensionAPI) {
         const result = db
           .insert(userSessions)
           .values({
-            userId: params.user_id,
+            userId,
             sourceId: params.source_id,
             title: params.title,
             context: JSON.stringify(context),
