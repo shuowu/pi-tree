@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import type { RecentSession } from "@pi-tree/shared";
 import { fetchRecentSessions } from "../api";
@@ -7,8 +7,18 @@ import { TreePine, LogOut, BookOpen, Settings, Search, Rss } from "lucide-react"
 import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
 import { FeedManagerModal } from "./FeedManagerModal";
+import { AddBookModal } from "./AddBookModal";
 import { getSourceTypeConfig } from "../source-types";
 import "./HomePage.css";
+
+/** Return a time-of-day greeting string. */
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 21) return "Good evening";
+  return "Good night";
+}
 
 /** Compute a human-readable relative time string from an ISO date */
 function timeAgo(dateStr: string): string {
@@ -36,6 +46,8 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
   const { userId, displayName, clearUser } = useUser();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFeedManager, setShowFeedManager] = useState(false);
+  const [showAddBook, setShowAddBook] = useState(false);
+  const greeting = useMemo(() => getGreeting(), []);
 
   // Continue rail state
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
@@ -109,8 +121,13 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
 
       {/* Hero — centered chat */}
       <div className="home-hero">
-        <p className="home-greeting">What would you like to read or explore?</p>
+        <p className="home-greeting">{greeting}{displayName ? `, ${displayName}` : ""}</p>
         <RouterChat userId={userId} />
+        <div className="home-quick-actions">
+          <button className="home-quick-chip" onClick={() => navigate("/source/news-tech")}>📰 Tech News</button>
+          <button className="home-quick-chip" onClick={() => navigate("/library")}>📚 Library</button>
+          <button className="home-quick-chip" onClick={() => setShowAddBook(true)}>➕ Add Source</button>
+        </div>
       </div>
 
       {/* Continue rail — recent sessions */}
@@ -157,6 +174,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
         <SettingsModal onClose={() => setShowSettingsModal(false)} />
       )}
       {showFeedManager && <FeedManagerModal onClose={() => setShowFeedManager(false)} />}
+      {showAddBook && <AddBookModal onClose={() => setShowAddBook(false)} onSuccess={() => setShowAddBook(false)} />}
     </div>
   );
 }
