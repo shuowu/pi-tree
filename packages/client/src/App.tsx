@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router";
 import { UserProvider, useUser } from "./UserContext";
 import { StreamProvider } from "./StreamContext";
 import { UserPicker } from "./components/UserPicker";
+import { HomePage } from "./components/HomePage";
 import { Library } from "./components/Library";
 import { BookLayout } from "./components/BookLayout";
 import { Reader } from "./components/Reader";
@@ -17,12 +18,13 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Library />} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/library" element={<Library />} />
       <Route path="/source/:sourceId" element={<BookLayout />}>
         <Route index element={<Reader />} />
         <Route path="sessions" element={<SessionsPage />} />
       </Route>
-      {/* Catch-all: redirect to library */}
+      {/* Catch-all: redirect to home */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -18,6 +18,31 @@
   border-bottom: 1px solid var(--border);
 }
 
+.library-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.library-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.library-back-btn:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
 .library-header-left h1 {
   font-size: var(--text-xl);
   font-weight: 700;

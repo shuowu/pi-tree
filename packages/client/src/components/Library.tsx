@@ -1,33 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
-import type { Source, RecentSession, SourceType } from "@pi-tree/shared";
-import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, fetchRecentSessions, type JobWithSource } from "../api";
+import type { Source, SourceType } from "@pi-tree/shared";
+import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, type JobWithSource } from "../api";
 import { useUser } from "../UserContext";
-import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, Rss } from "lucide-react";
+import { LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, Rss, ArrowLeft } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
 import { SettingsModal } from "./SettingsModal";
 import { FeedManagerModal } from "./FeedManagerModal";
-import { RouterChat } from "./RouterChat";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
 import "./Library.css";
 
-/** Compute a human-readable relative time string from an ISO date */
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
-}
 
 /** Source type filter options for the chips */
 const TYPE_FILTERS: { label: string; value: SourceType | null }[] = [
@@ -37,7 +20,7 @@ const TYPE_FILTERS: { label: string; value: SourceType | null }[] = [
 
 export function Library() {
   const navigate = useNavigate();
-  const { userId, displayName, clearUser } = useUser();
+  const { displayName, clearUser } = useUser();
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,9 +35,7 @@ export function Library() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState<SourceType | null>(null);
 
-  // Continue rail state
-  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
-  const [recentLoading, setRecentLoading] = useState(true);
+
 
   // Tag modal state
   const [tagModalSource, setTagModalSource] = useState<Source | null>(null);
@@ -84,22 +65,7 @@ export function Library() {
     }
   }, []);
 
-  const loadRecentSessions = useCallback(async (search?: string) => {
-    if (!userId) return;
-    setRecentLoading(true);
-    try {
-      const sessions = await fetchRecentSessions(userId, {
-        limit: 8,
-        search: search || undefined,
-      });
-      setRecentSessions(sessions);
-    } catch {
-      // Non-critical — fail silently (endpoint may not exist yet)
-      setRecentSessions([]);
-    } finally {
-      setRecentLoading(false);
-    }
-  }, [userId]);
+
 
   const loadTags = useCallback(async () => {
     try {
@@ -116,11 +82,7 @@ export function Library() {
     load(searchQuery, selectedTags, selectedType);
   }, [searchQuery, selectedTags, selectedType, load]);
 
-  // Load recent sessions when search changes or on mount
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadRecentSessions(searchQuery || undefined);
-  }, [searchQuery, loadRecentSessions]);
+
 
   // Load tags on mount
   useEffect(() => {
@@ -273,7 +235,10 @@ export function Library() {
     <div className="library">
       <header className="library-header">
         <div className="library-header-left">
-          <h1><TreePine size={24} strokeWidth={1.5} /> <span>Pi Tree</span></h1>
+          <button className="library-back-btn" onClick={() => navigate("/")}>
+            <ArrowLeft size={16} />
+          </button>
+          <h1><TreePine size={24} strokeWidth={1.5} /> <span>Library</span></h1>
         </div>
         <div className="library-header-right">
           <button
@@ -315,47 +280,7 @@ export function Library() {
         </div>
       </header>
 
-      {/* Router chatbox — conversational session creation */}
-      <RouterChat userId={userId} />
 
-      {/* Continue rail — recent sessions across all source types */}
-      {!isEmptyLibrary && (
-        <div className="continue-section">
-          <div className="continue-section-header">
-            <span className="continue-section-title">Continue</span>
-          </div>
-          {recentLoading ? (
-            <div className="continue-skeleton">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="continue-skeleton-card" />
-              ))}
-            </div>
-          ) : recentSessions.length > 0 ? (
-            <div className="continue-rail">
-              {recentSessions.map((rs) => {
-                const config = getSourceTypeConfig(rs.sourceType);
-                const Icon = config.icon;
-                return (
-                  <button
-                    key={`${rs.sourceId}-${rs.sessionId}`}
-                    className="continue-card"
-                    onClick={() => navigate(`/source/${rs.sourceId}?session=${rs.sessionId}`)}
-                  >
-                    <div className="continue-card-top">
-                      <div className="continue-card-icon">
-                        <Icon size={16} />
-                      </div>
-                      <span className="continue-card-source">{rs.sourceTitle}</span>
-                    </div>
-                    <div className="continue-card-session">{rs.sessionTitle}</div>
-                    <div className="continue-card-time">{timeAgo(rs.lastActiveAt)}</div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      )}
 
       <div className="library-filters">
         <div className="library-search">
