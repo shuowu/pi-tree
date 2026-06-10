@@ -139,9 +139,11 @@ export default function (pi: ExtensionAPI) {
 
           result.sessions = sessionRows.map((row) => {
             let mode = "reading";
+            let prompt: string | undefined = undefined;
             try {
               const ctx = JSON.parse(row.context);
               mode = ctx.mode ?? "reading";
+              prompt = ctx.systemPrompt;
             } catch {
               // default
             }
@@ -149,6 +151,7 @@ export default function (pi: ExtensionAPI) {
               id: row.id,
               title: row.title,
               mode,
+              prompt,
               lastActiveAt: row.lastActiveAt,
             };
           });
