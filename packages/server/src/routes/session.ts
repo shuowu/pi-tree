@@ -112,6 +112,11 @@ sessionRoutes.post("/message/stream", async (c) => {
               data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
             });
           },
+          onToolResult: async (info: { toolName: string; result: unknown; isError: boolean }) => {
+            await stream.writeSSE({
+              data: JSON.stringify({ type: "tool_result", toolName: info.toolName, result: info.result, isError: info.isError }),
+            });
+          },
           onTreeUpdate: async (update: Record<string, unknown>) => {
             await stream.writeSSE({
               data: JSON.stringify({ type: "tree_update", ...update }),

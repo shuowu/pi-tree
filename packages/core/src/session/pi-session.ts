@@ -336,6 +336,7 @@ export class PiSession {
     onTurnEnd?: () => Promise<void>,
     onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => Promise<void>,
     onCompaction?: (event: { type: "compaction_start" | "compaction_end"; reason: string }) => Promise<void>,
+    onToolResult?: (info: { toolName: string; result: unknown; isError: boolean }) => Promise<void>,
   ): Promise<{ response: string; entryId: string }> {
     if (!this.agent) {
       return this.sendMessageNoAgent(message);
@@ -369,6 +370,10 @@ export class PiSession {
         // Forward tool execution start so the client can show progress
         if (event.type === "tool_execution_start" && onToolCall) {
           await onToolCall({ toolName: event.toolName, args: event.args ?? {} });
+        }
+        // Forward tool execution results so the client can act on structured data
+        if (event.type === "tool_execution_end" && onToolResult) {
+          await onToolResult({ toolName: event.toolName, result: event.result, isError: event.isError });
         }
         // Forward compaction events so the client can show a status indicator
         if (event.type === "compaction_start" && onCompaction) {

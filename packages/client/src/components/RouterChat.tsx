@@ -7,11 +7,9 @@ import "./RouterChat.css";
 
 const marked = new Marked({
   renderer: {
-    // Open links in same tab (internal navigation will be handled by click handler)
     link({ href, text }) {
       return `<a href="${href}" data-router-link>${text}</a>`;
     },
-    // Remove wrapping <p> for compact display
     paragraph({ text }) {
       return `${text}\n`;
     },
@@ -32,8 +30,9 @@ export function RouterChat({ userId }: RouterChatProps) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const sawCreateSession = useRef(false);
   const messagesRef = useRef<HTMLDivElement>(null);
+  // Structured result from create_session tool — no regex needed
+  const pendingNavigation = useRef<string | null>(null);
 
   // Fetch/create the router session on mount
   useEffect(() => {
@@ -53,7 +52,7 @@ export function RouterChat({ userId }: RouterChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeToolCall]);
 
-  // Intercept clicks on internal links — use navigate() instead of full page load
+  // Intercept clicks on internal links
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
@@ -70,7 +69,6 @@ export function RouterChat({ userId }: RouterChatProps) {
     return () => el.removeEventListener("click", handler);
   }, [navigate]);
 
-  // Render markdown for assistant messages
   const renderedMessages = useMemo(() => {
     return messages.map((msg) => {
       if (msg.role === "assistant") {
@@ -91,7 +89,7 @@ export function RouterChat({ userId }: RouterChatProps) {
       setInput("");
       setIsStreaming(true);
       setIsExpanded(true);
-      sawCreateSession.current = false;
+      pendingNavigation.current = null;
 
       sendMessageStreaming(
         userId,
@@ -113,26 +111,40 @@ export function RouterChat({ userId }: RouterChatProps) {
           },
           onToolCall({ toolName }) {
             setActiveToolCall(toolName);
-            if (toolName === "create_session") {
-              sawCreateSession.current = true;
+          },
+          onToolResult({ toolName, result, isError }) {
+            // When create_session completes, capture the structured URL
+            if (toolName === "create_session" && !isError && result) {
+              try {
+                const parsed = typeof result === "string" ? JSON.parse(result) : result;
+                // The tool returns { content: [{ type: "text", text: "{...}" }] }
+                // or the result may be the parsed text directly
+                let data = parsed;
+                if (parsed?.content?.[0]?.text) {
+                  data = JSON.parse(parsed.content[0].text);
+                }
+                if (data?.url) {
+                  pendingNavigation.current = data.url;
+                }
+              } catch {
+                // Fall through — the URL might be in the AI's text response
+              }
             }
           },
           onTurnEnd() {
             setActiveToolCall(null);
           },
-          onDone(result) {
+          onDone() {
             setIsStreaming(false);
             setActiveToolCall(null);
 
-            // If create_session was called, extract the URL and auto-redirect
-            if (sawCreateSession.current && result.response) {
-              const urlMatch = result.response.match(/\/source\/([\w-]+)\?session=(\d+)([&\w=]*)/);
-              if (urlMatch) {
-                setIsRedirecting(true);
-                setTimeout(() => {
-                  navigate(urlMatch[0]);
-                }, 1200);
-              }
+            // Auto-redirect if create_session returned a URL
+            if (pendingNavigation.current) {
+              const url = pendingNavigation.current;
+              setIsRedirecting(true);
+              setTimeout(() => {
+                navigate(url);
+              }, 1200);
             }
           },
           onError(err) {
@@ -152,7 +164,6 @@ export function RouterChat({ userId }: RouterChatProps) {
 
   return (
     <div className={`router-chat ${isExpanded ? "expanded" : ""}`}>
-      {/* Messages area — only shown when expanded */}
       {isExpanded && renderedMessages.length > 0 && (
         <div className="router-chat-messages" ref={messagesRef}>
           {renderedMessages.map((msg, i) => (
@@ -178,7 +189,6 @@ export function RouterChat({ userId }: RouterChatProps) {
         </div>
       )}
 
-      {/* Input */}
       <form onSubmit={handleSubmit} className="router-chat-input-form">
         <input
           type="text"

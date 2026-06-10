@@ -409,6 +409,7 @@ export class TreeManager {
       onToken: (token: string) => Promise<void>;
       onTurnEnd?: () => Promise<void>;
       onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => Promise<void>;
+      onToolResult?: (info: { toolName: string; result: unknown; isError: boolean }) => Promise<void>;
       onTreeUpdate: (update: Record<string, unknown>) => Promise<void>;
       onCompaction?: (event: { type: string; reason: string }) => Promise<void>;
       onDone: (result: Record<string, unknown>) => Promise<void>;
@@ -440,6 +441,7 @@ export class TreeManager {
       callbacks.onTurnEnd,
       callbacks.onToolCall,
       callbacks.onCompaction,
+      callbacks.onToolResult,
     );
 
     await callbacks.onDone({
