@@ -85,7 +85,7 @@ routerRoutes.get("/session/:userId", (c) => {
         userId,
         sourceId: ROUTER_SOURCE_ID,
         title: "Home Router",
-        sessionFile: "",
+        sessionFile: `router-${Date.now()}`,
         isActive: 1,
         context: JSON.stringify({ mode: "router" }),
         lastActiveAt: now,
