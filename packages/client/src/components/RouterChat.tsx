@@ -113,8 +113,8 @@ export function RouterChat({ userId }: RouterChatProps) {
             setActiveToolCall(toolName);
           },
           onToolResult({ toolName, result, isError }) {
-            // When create_session completes, capture the structured URL
-            if (toolName === "create_session" && !isError && result) {
+            // When create_session or open_session completes, capture the URL
+            if ((toolName === "create_session" || toolName === "open_session") && !isError && result) {
               try {
                 const parsed = typeof result === "string" ? JSON.parse(result) : result;
                 // The tool returns { content: [{ type: "text", text: "{...}" }] }
@@ -127,7 +127,7 @@ export function RouterChat({ userId }: RouterChatProps) {
                   pendingNavigation.current = data.url;
                 }
               } catch {
-                // Fall through — the URL might be in the AI's text response
+                // Fall through
               }
             }
           },

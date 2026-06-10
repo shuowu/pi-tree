@@ -195,4 +195,55 @@ export default function (pi: ExtensionAPI) {
       }
     }
   });
+
+  // 4. Open Existing Session
+  pi.registerTool({
+    name: "open_session",
+    label: "Open Session",
+    description: "Get a navigation URL for an existing session. Use this to resume a session without creating a new one.",
+    parameters: Type.Object({
+      source_id: Type.String({ description: "The source ID." }),
+      session_id: Type.Number({ description: "The session ID to open." }),
+    }),
+    async execute(_toolCallId, params) {
+      try {
+        const db = getDb();
+
+        const session = db
+          .select({
+            id: userSessions.id,
+            title: userSessions.title,
+            context: userSessions.context,
+            sourceId: userSessions.sourceId,
+          })
+          .from(userSessions)
+          .where(eq(userSessions.id, params.session_id))
+          .get();
+
+        if (!session) {
+          throw new Error(`Session not found: ${params.session_id}`);
+        }
+
+        let mode = "reading";
+        try {
+          const ctx = JSON.parse(session.context);
+          mode = ctx.mode ?? "reading";
+        } catch {
+          // default
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify({
+            sessionId: session.id,
+            sourceId: session.sourceId,
+            mode,
+            title: session.title,
+            url: `/source/${session.sourceId}?session=${session.id}`,
+          }, null, 2) }]
+        };
+      } catch (err: any) {
+        throw new Error(`Failed to open session: ${err.message}`);
+      }
+    }
+  });
 }
