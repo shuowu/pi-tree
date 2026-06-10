@@ -84,19 +84,43 @@
 .router-msg {
   font-size: var(--text-sm);
   line-height: 1.5;
-  white-space: pre-wrap;
 }
 
 .router-msg-user {
   color: var(--text-primary);
   font-weight: 500;
+  white-space: pre-wrap;
 }
 
 .router-msg-assistant {
   color: var(--text-secondary);
 }
 
-.router-tool-indicator {
+/* Markdown rendered content */
+.router-msg-assistant a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.router-msg-assistant a:hover {
+  text-decoration: underline;
+}
+
+.router-msg-assistant strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.router-msg-assistant code {
+  background: var(--bg-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.router-tool-indicator,
+.router-redirect-indicator {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -105,7 +129,9 @@
   padding: var(--space-1) 0;
 }
 
-
+.router-redirect-indicator {
+  color: var(--accent);
+}
 
 @keyframes router-spin {
   to { transform: rotate(360deg); }
