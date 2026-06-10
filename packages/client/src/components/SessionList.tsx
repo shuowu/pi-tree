@@ -47,24 +47,28 @@ function formatDate(dateStr: string): string {
 interface SessionCardProps {
   session: SourceSession;
   icon: ReactNode;
+  subtitle?: ReactNode;
   isDeleting: boolean;
   isEditing: boolean;
   editValue: string;
   editInputRef: React.RefObject<HTMLInputElement | null>;
   onSelect: () => void;
-  onStartRename: () => void;
+  onStartRename?: () => void;
   onCommitRename: () => void;
   onCancelRename: () => void;
   onEditValueChange: (val: string) => void;
-  onStartDelete: () => void;
+  onStartDelete?: () => void;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
   isLoading: boolean;
+  /** If true, the card is readonly — no rename/delete actions, click anywhere to select */
+  readonly: boolean;
 }
 
 function SessionCard({
   session,
   icon,
+  subtitle,
   isDeleting,
   isEditing,
   editValue,
@@ -78,7 +82,25 @@ function SessionCard({
   onConfirmDelete,
   onCancelDelete,
   isLoading,
+  readonly,
 }: SessionCardProps) {
+  if (readonly) {
+    return (
+      <button
+        className="session-card session-card-readonly"
+        onClick={onSelect}
+        disabled={isLoading}
+      >
+        <div className="session-card-icon">{icon}</div>
+        <div className="session-card-body">
+          <span className="session-card-title">{session.title}</span>
+          {subtitle && <span className="session-card-subtitle">{subtitle}</span>}
+          <span className="session-card-meta">{relativeTime(session.lastActiveAt)}</span>
+        </div>
+      </button>
+    );
+  }
+
   return (
     <div className={`session-card ${isDeleting ? "session-card-deleting" : ""}`}>
       {isDeleting ? (
@@ -125,6 +147,7 @@ function SessionCard({
             ) : (
               <span className="session-card-title">{session.title}</span>
             )}
+            {subtitle && <span className="session-card-subtitle">{subtitle}</span>}
             <span className="session-card-meta">
               Started {formatDate(session.createdAt)} · Last active{" "}
               {relativeTime(session.lastActiveAt)}
@@ -133,14 +156,14 @@ function SessionCard({
           <div className="session-card-actions">
             <button
               className="session-card-action-btn"
-              onClick={(e) => { e.stopPropagation(); onStartRename(); }}
+              onClick={(e) => { e.stopPropagation(); onStartRename?.(); }}
               title="Rename session"
             >
               <Pencil size={13} />
             </button>
             <button
               className="session-card-action-btn session-card-action-delete"
-              onClick={(e) => { e.stopPropagation(); onStartDelete(); }}
+              onClick={(e) => { e.stopPropagation(); onStartDelete?.(); }}
               title="Delete session"
             >
               <Trash2 size={13} />
@@ -167,22 +190,28 @@ interface SessionListProps {
   sessions: SourceSession[];
   /** Render the icon for each session (e.g. mode emoji or Lucide icon) */
   renderIcon: (session: SourceSession) => ReactNode;
+  /** Optional subtitle below the title (e.g. source name for cross-source lists) */
+  renderSubtitle?: (session: SourceSession) => ReactNode;
   onSelectSession: (session: SourceSession) => void;
-  onDeleteSession: (sessionId: number) => void;
-  onRenameSession: (sessionId: number, newTitle: string) => void;
-  isLoading: boolean;
+  /** If omitted, the list is readonly — no delete actions */
+  onDeleteSession?: (sessionId: number) => void;
+  /** If omitted, the list is readonly — no rename actions */
+  onRenameSession?: (sessionId: number, newTitle: string) => void;
+  isLoading?: boolean;
   className?: string;
 }
 
 export function SessionList({
   sessions,
   renderIcon,
+  renderSubtitle,
   onSelectSession,
   onDeleteSession,
   onRenameSession,
-  isLoading,
+  isLoading = false,
   className,
 }: SessionListProps) {
+  const readonly = !onDeleteSession && !onRenameSession;
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -207,7 +236,7 @@ export function SessionList({
 
   const commitRename = () => {
     if (editingId !== null && editValue.trim()) {
-      onRenameSession(editingId, editValue.trim());
+      onRenameSession?.(editingId, editValue.trim());
     }
     setEditingId(null);
     setEditValue("");
@@ -219,7 +248,7 @@ export function SessionList({
   };
 
   const confirmDelete = (sessionId: number) => {
-    onDeleteSession(sessionId);
+    onDeleteSession?.(sessionId);
     setDeletingId(null);
   };
 
@@ -232,6 +261,7 @@ export function SessionList({
           key={session.id}
           session={session}
           icon={renderIcon(session)}
+          subtitle={renderSubtitle?.(session)}
           isDeleting={deletingId === session.id}
           isEditing={editingId === session.id}
           editValue={editValue}
@@ -245,6 +275,7 @@ export function SessionList({
           onConfirmDelete={() => confirmDelete(session.id)}
           onCancelDelete={() => setDeletingId(null)}
           isLoading={isLoading}
+          readonly={readonly}
         />
       ))}
     </div>

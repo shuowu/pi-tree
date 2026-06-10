@@ -189,68 +189,32 @@
   gap: 2px;
 }
 
-.home-continue-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+/* Card styles come from SessionList.css — overrides for compact home layout */
+.home-continue-list .session-card {
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background 0.12s ease;
-  background: none;
   border: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: 100%;
+  border-radius: var(--radius-md);
+  background: none;
 }
 
-.home-continue-item:hover {
+.home-continue-list .session-card:hover {
   background: var(--accent-dim);
+  box-shadow: none;
 }
 
-.home-continue-item-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.home-continue-list .session-card-icon {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  background: var(--accent-dim);
-  color: var(--accent);
-  flex-shrink: 0;
+  font-size: 1rem;
 }
 
-.home-continue-item-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.home-continue-item-session {
+.home-continue-list .session-card-title {
   font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.home-continue-item-source {
+.home-continue-list .session-card-meta {
   font-size: var(--text-xs);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-continue-item-time {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .home-continue-actions {

@@ -8,6 +8,7 @@ import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
 import { FeedManagerModal } from "./FeedManagerModal";
 import { AddBookModal } from "./AddBookModal";
+import { SessionList } from "./SessionList";
 import { getSourceTypeConfig } from "../source-types";
 import "./HomePage.css";
 
@@ -18,23 +19,6 @@ function getGreeting(): string {
   if (hour >= 12 && hour < 17) return "Good afternoon";
   if (hour >= 17 && hour < 21) return "Good evening";
   return "Good night";
-}
-
-/** Compute a human-readable relative time string from an ISO date */
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
 }
 
 interface HomePageProps {
@@ -130,28 +114,17 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
       {!recentLoading && recentSessions.length > 0 && (
         <div className="home-continue">
           <span className="home-continue-title">Continue</span>
-          <div className="home-continue-list">
-            {recentSessions.map((rs) => {
+          <SessionList
+            sessions={recentSessions}
+            renderIcon={(rs) => {
               const config = getSourceTypeConfig(rs.sourceType ?? 'book');
               const Icon = config.icon;
-              return (
-                <button
-                  key={`${rs.sourceId}-${rs.id}`}
-                  className="home-continue-item"
-                  onClick={() => navigate(`/source/${rs.sourceId}?session=${rs.id}`)}
-                >
-                  <div className="home-continue-item-icon">
-                    <Icon size={16} />
-                  </div>
-                  <div className="home-continue-item-text">
-                    <span className="home-continue-item-session">{rs.title}</span>
-                    <span className="home-continue-item-source">{rs.sourceTitle}</span>
-                  </div>
-                  <span className="home-continue-item-time">{timeAgo(rs.lastActiveAt)}</span>
-                </button>
-              );
-            })}
-          </div>
+              return <Icon size={16} />;
+            }}
+            renderSubtitle={(rs) => rs.sourceTitle}
+            onSelectSession={(rs) => navigate(`/source/${rs.sourceId}?session=${rs.id}`)}
+            className="home-continue-list"
+          />
           {(hasMore || recentSessions.length > PAGE_SIZE) && (
             <div className="home-continue-actions">
               {hasMore && (

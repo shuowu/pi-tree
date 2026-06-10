@@ -29,6 +29,28 @@
   border-color: var(--red);
 }
 
+/* ── Readonly card (button variant, used on HomePage) ── */
+
+button.session-card-readonly {
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+}
+
+button.session-card-readonly:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-card-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .session-card-icon {
   font-size: 1.3rem;
   flex-shrink: 0;
