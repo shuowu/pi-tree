@@ -3,10 +3,11 @@ import { useNavigate } from "react-router";
 import type { Source, RecentSession, SourceType } from "@pi-tree/shared";
 import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, fetchRecentSessions, type JobWithSource } from "../api";
 import { useUser } from "../UserContext";
-import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, MessageSquarePlus } from "lucide-react";
+import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, MessageSquarePlus, Rss } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
 import { SettingsModal } from "./SettingsModal";
+import { FeedManagerModal } from "./FeedManagerModal";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
 import "./Library.css";
 
@@ -42,6 +43,7 @@ export function Library() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNewSessionModal, setShowNewSessionModal] = useState(false);
+  const [showFeedManager, setShowFeedManager] = useState(false);
   const [newSessionSearch, setNewSessionSearch] = useState("");
 
   // Search & filter state
@@ -282,6 +284,14 @@ export function Library() {
           >
             <Settings size={16} strokeWidth={2} />
             Settings
+          </button>
+          <button
+            className="library-config-btn"
+            onClick={() => setShowFeedManager(true)}
+            title="Manage RSS feeds"
+          >
+            <Rss size={16} strokeWidth={2} />
+            Feeds
           </button>
           <button
             className="library-add-source-btn"
@@ -657,6 +667,7 @@ export function Library() {
           onClose={() => setShowSettingsModal(false)}
         />
       )}
+      {showFeedManager && <FeedManagerModal onClose={() => setShowFeedManager(false)} />}
       {/* New Session — source picker modal */}
       {showNewSessionModal && (
         <div

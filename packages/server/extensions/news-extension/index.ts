@@ -12,6 +12,7 @@ export default function (pi: ExtensionAPI) {
     description: "Get the latest RSS feed items. Use for general news updates, chronological feeds, or checking what was recently published.",
     parameters: Type.Object({
       feeds: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed IDs to filter by." })),
+      tags: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed tags to filter by (e.g., ['ai', 'tech']). Returns items from feeds matching any of these tags." })),
       days: Type.Optional(Type.Number({ description: "Number of recent days to query, default 3." })),
       limit: Type.Optional(Type.Number({ description: "Max items to return, default 50." }))
     }),
@@ -19,6 +20,7 @@ export default function (pi: ExtensionAPI) {
       try {
         const items = await rssService.getLatestRss({
           feeds: params.feeds,
+          tags: params.tags,
           days: params.days,
           limit: params.limit
         });
@@ -39,6 +41,7 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       keyword: Type.String({ description: "Keyword search term." }),
       feeds: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed IDs to filter by." })),
+      tags: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed tags to filter by (e.g., ['ai', 'tech']). Returns items from feeds matching any of these tags." })),
       days: Type.Optional(Type.Number({ description: "Number of recent days to search, default 7." })),
       limit: Type.Optional(Type.Number({ description: "Max items to return, default 50." }))
     }),
@@ -47,6 +50,7 @@ export default function (pi: ExtensionAPI) {
         const items = await rssService.getLatestRss({
           keyword: params.keyword,
           feeds: params.feeds,
+          tags: params.tags,
           days: params.days ?? 7,
           limit: params.limit
         });
@@ -66,6 +70,7 @@ export default function (pi: ExtensionAPI) {
     description: "Cross-feed RSS aggregation — deduplicate similar stories across sources. Group stories covered by multiple outlets into single groups with full source attribution.",
     parameters: Type.Object({
       feeds: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed IDs to aggregate." })),
+      tags: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed tags to filter by (e.g., ['ai', 'tech']). Returns items from feeds matching any of these tags." })),
       days: Type.Optional(Type.Number({ description: "Number of recent days to aggregate, default 3." })),
       similarity_threshold: Type.Optional(Type.Number({ description: "Similarity threshold between 0.3 and 1.0. Higher = fewer merges (default 0.85)." })),
       limit: Type.Optional(Type.Number({ description: "Max groups to return, default 50." })),
@@ -75,6 +80,7 @@ export default function (pi: ExtensionAPI) {
       try {
         const groups = await rssService.aggregateRss({
           feeds: params.feeds,
+          tags: params.tags,
           days: params.days,
           similarityThreshold: params.similarity_threshold,
           limit: params.limit,
@@ -125,7 +131,29 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  // 6. Read Article (using free public Jina Reader API)
+  // 6. Get Feed Tags
+  pi.registerTool({
+    name: "get_feed_tags",
+    label: "Get Feed Tags",
+    description: "List all unique tags across RSS feeds with their associated feeds. Use to understand what topic categories are available for tag-based filtering.",
+    parameters: Type.Object({}),
+    async execute() {
+      try {
+        const tags = rssService.getAllFeedTags();
+        const feeds = rssService.getFeedsConfig();
+        const tagMap = tags.map(tag => ({
+          tag,
+          feedCount: feeds.filter(f => f.tags.includes(tag)).length,
+          feeds: feeds.filter(f => f.tags.includes(tag)).map(f => f.name),
+        }));
+        return { content: [{ type: "text", text: JSON.stringify(tagMap, null, 2) }] };
+      } catch (err: any) {
+        throw new Error(`Failed to get feed tags: ${err.message}`);
+      }
+    }
+  });
+
+  // 7. Read Article (using free public Jina Reader API)
   pi.registerTool({
     name: "read_article",
     label: "Read Article Content",

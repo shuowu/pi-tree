@@ -192,6 +192,20 @@ export class RssService {
     }
   }
 
+  /** Get feeds matching any of the given tags */
+  getFeedsByTags(tags: string[]): FeedConfig[] {
+    const feeds = this.getFeedsConfig();
+    return feeds.filter(f => f.tags.some(t => tags.includes(t)));
+  }
+
+  /** Get all unique tags across all feeds, sorted */
+  getAllFeedTags(): string[] {
+    const feeds = this.getFeedsConfig();
+    const tags = new Set<string>();
+    feeds.forEach(f => f.tags.forEach(t => tags.add(t)));
+    return [...tags].sort();
+  }
+
   /**
    * Syncs JSON configuration into the SQLite database.
    */
@@ -361,6 +375,7 @@ export class RssService {
 
   public async getLatestRss(options?: {
     feeds?: string[];
+    tags?: string[];
     days?: number;
     limit?: number;
     keyword?: string;
@@ -394,10 +409,23 @@ export class RssService {
 
     const results = query.all();
 
+    // Resolve tags to feed IDs and merge with explicit feeds filter
+    let feedFilter = options?.feeds ? [...options.feeds] : undefined;
+    if (options?.tags && options.tags.length > 0) {
+      const tagFeedIds = this.getFeedsByTags(options.tags).map(f => f.id);
+      if (feedFilter) {
+        // Merge: include feeds matching either explicit IDs or tags
+        const merged = new Set([...feedFilter, ...tagFeedIds]);
+        feedFilter = [...merged];
+      } else {
+        feedFilter = tagFeedIds;
+      }
+    }
+
     // Filter in-memory for dates, optional feed IDs, and keywords
     let filtered = results.filter((item) => {
       if (item.publishedAt && item.publishedAt < cutoffStr) return false;
-      if (options?.feeds && options.feeds.length > 0 && !options.feeds.includes(item.feedId)) return false;
+      if (feedFilter && feedFilter.length > 0 && !feedFilter.includes(item.feedId)) return false;
       if (options?.keyword) {
         const kw = options.keyword.toLowerCase();
         const matchesTitle = item.title.toLowerCase().includes(kw);
@@ -418,6 +446,7 @@ export class RssService {
    */
   public async aggregateRss(options?: {
     feeds?: string[];
+    tags?: string[];
     days?: number;
     similarityThreshold?: number;
     limit?: number;
@@ -429,6 +458,7 @@ export class RssService {
     // 1. Get raw items (pull a larger batch to find duplicates across feeds)
     const rawItems = await this.getLatestRss({
       feeds: options?.feeds,
+      tags: options?.tags,
       days: options?.days ?? 3,
       limit: 1000
     });
