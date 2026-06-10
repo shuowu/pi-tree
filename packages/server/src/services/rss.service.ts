@@ -3,7 +3,7 @@ import { join } from "node:path";
 import os from "node:os";
 import Parser from "rss-parser";
 import { eq, desc } from "drizzle-orm";
-import { getDb, rssFeeds, rssItems, sources } from "../db/index.js";
+import { getDb, rssFeeds, rssItems, sources, userSessions, userSourceConfig, userSourceProgress } from "../db/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -154,6 +154,19 @@ export class RssService {
       })
       .onConflictDoNothing()
       .run();
+
+    // Migrate from old "news-tech" source ID if it exists
+    const OLD_ID = "news-tech";
+    const oldSource = db.select({ id: sources.id }).from(sources)
+      .where(eq(sources.id, OLD_ID)).all();
+    if (oldSource.length > 0) {
+      // Re-point all dependent rows to the new source ID
+      db.update(rssFeeds).set({ sourceId: NEWS_SOURCE_ID }).where(eq(rssFeeds.sourceId, OLD_ID)).run();
+      db.update(userSessions).set({ sourceId: NEWS_SOURCE_ID }).where(eq(userSessions.sourceId, OLD_ID)).run();
+      db.update(userSourceConfig).set({ sourceId: NEWS_SOURCE_ID }).where(eq(userSourceConfig.sourceId, OLD_ID)).run();
+      db.update(userSourceProgress).set({ sourceId: NEWS_SOURCE_ID }).where(eq(userSourceProgress.sourceId, OLD_ID)).run();
+      db.delete(sources).where(eq(sources.id, OLD_ID)).run();
+    }
   }
 
   /**
@@ -163,11 +176,12 @@ export class RssService {
   public seedDefaultFeeds(): void {
     const db = getDb();
 
-    // Only seed if no feeds exist
+    // Always ensure the canonical news source exists (idempotent)
+    this.ensureNewsSource();
+
+    // Only seed feeds if no feeds exist
     const existing = db.select({ id: rssFeeds.id }).from(rssFeeds).limit(1).all();
     if (existing.length > 0) return;
-
-    this.ensureNewsSource();
 
     // Load defaults from the shipped config file
     let defaultFeeds: FeedConfig[];
