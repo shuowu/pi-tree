@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { eq, not, like, and, or, desc } from "drizzle-orm";
-import { getDb, sources, userSessions, users } from "../../src/db/index.js";
+import { getExtensionServices } from "../../context.js";
 
 /**
  * Resolve the correct userId for tool operations.
@@ -11,6 +11,7 @@ import { getDb, sources, userSessions, users } from "../../src/db/index.js";
  * from the Pi SDK's session manager.
  */
 function resolveUserId(aiProvidedUserId: string | undefined, ctx: ExtensionContext | undefined): string | undefined {
+  const { db: getDb, schema: { userSessions } } = getExtensionServices();
   // Try to get the real userId from the current session's DB record
   if (ctx?.sessionManager) {
     try {
@@ -31,6 +32,7 @@ function resolveUserId(aiProvidedUserId: string | undefined, ctx: ExtensionConte
 }
 
 export default function (pi: ExtensionAPI) {
+  const { db: getDb, schema: { sources, userSessions, users } } = getExtensionServices();
 
   // 1. List Sources
   pi.registerTool({
@@ -77,7 +79,8 @@ export default function (pi: ExtensionAPI) {
           .all();
 
         return {
-          content: [{ type: "text", text: JSON.stringify(rows, null, 2) }]
+          content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
+          details: undefined,
         };
       } catch (err: any) {
         throw new Error(`Failed to list sources: ${err.message}`);
@@ -137,7 +140,7 @@ export default function (pi: ExtensionAPI) {
             .orderBy(desc(userSessions.lastActiveAt))
             .all();
 
-          result.sessions = sessionRows.map((row) => {
+          result.sessions = sessionRows.map((row: any) => {
             let mode = "reading";
             let prompt: string | undefined = undefined;
             try {
@@ -158,7 +161,8 @@ export default function (pi: ExtensionAPI) {
         }
 
         return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          details: undefined,
         };
       } catch (err: any) {
         throw new Error(`Failed to get source info: ${err.message}`);
@@ -241,7 +245,8 @@ export default function (pi: ExtensionAPI) {
             sourceId: params.source_id,
             mode,
             url: `/source/${params.source_id}?session=${sessionId}&new=${mode}`,
-          }, null, 2) }]
+          }, null, 2) }],
+          details: undefined,
         };
       } catch (err: any) {
         throw new Error(`Failed to create session: ${err.message}`);
@@ -292,7 +297,8 @@ export default function (pi: ExtensionAPI) {
             mode,
             title: session.title,
             url: `/source/${session.sourceId}?session=${session.id}`,
-          }, null, 2) }]
+          }, null, 2) }],
+          details: undefined,
         };
       } catch (err: any) {
         throw new Error(`Failed to open session: ${err.message}`);

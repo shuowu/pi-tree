@@ -1,12 +1,16 @@
 import "./load-env.js";
 import { serve } from "@hono/node-server";
+import { join } from "node:path";
+import os from "node:os";
 import { app } from "./app.js";
 import { RssService } from "./services/rss.service.js";
+import { initAgentRegistry } from "./services/agent-registry.js";
+import { setExtensionServices } from "./agents/context.js";
+import { getDb, sources, userSessions, users } from "./db/index.js";
 
 const port = Number(process.env.PORT ?? 3847);
 const hostname = process.env.HOST ?? "0.0.0.0";
-
-console.log(`🚀 pi-tree server starting on http://${hostname}:${port}`);
+const dataPath = process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-tree");
 
 // Initialize RSS Service and seed default feeds on first run
 const rssService = new RssService();
@@ -16,6 +20,24 @@ try {
 } catch (err) {
   console.error("❌ Failed to initialize RSS feeds:", err);
 }
+
+// Populate extension services — extensions access server capabilities through
+// this locator instead of importing server internals directly.
+setExtensionServices({
+  db: getDb,
+  schema: { sources, userSessions, users },
+  rssService,
+});
+
+// Initialize the agent registry — discovers skills, extensions, and validates profiles.
+// Must happen after extension services are set.
+initAgentRegistry({
+  coreAgentsDir: join(import.meta.dirname, "agents"),
+  userSkillsDir: process.env.SKILLS_PATH || join(dataPath, "skills"),
+  userExtensionsDir: process.env.EXTENSIONS_PATH || join(dataPath, "extensions"),
+});
+
+console.log(`🚀 pi-tree server starting on http://${hostname}:${port}`);
 
 // Crawl interval in minutes (default: 30 — fast enough for HN's rolling window)
 const crawlIntervalMin = Number(process.env.RSS_CRAWL_INTERVAL_MIN ?? 30);

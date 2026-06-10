@@ -1,9 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { RssService } from "../../src/services/rss.service.js";
+import { getExtensionServices } from "../../context.js";
 
 export default function (pi: ExtensionAPI) {
-  const rssService = new RssService();
+  const { rssService } = getExtensionServices();
 
   // 1. Get Latest RSS
   pi.registerTool({
@@ -25,7 +25,8 @@ export default function (pi: ExtensionAPI) {
           limit: params.limit
         });
         return {
-          content: [{ type: "text", text: JSON.stringify(items, null, 2) }]
+          content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
+          details: undefined
         };
       } catch (err: any) {
         throw new Error(`Failed to get latest RSS: ${err.message}`);
@@ -55,7 +56,8 @@ export default function (pi: ExtensionAPI) {
           limit: params.limit
         });
         return {
-          content: [{ type: "text", text: JSON.stringify(items, null, 2) }]
+          content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
+          details: undefined
         };
       } catch (err: any) {
         throw new Error(`Failed to search RSS: ${err.message}`);
@@ -87,7 +89,8 @@ export default function (pi: ExtensionAPI) {
           includeUrl: params.include_url
         });
         return {
-          content: [{ type: "text", text: JSON.stringify(groups, null, 2) }]
+          content: [{ type: "text", text: JSON.stringify(groups, null, 2) }],
+          details: undefined
         };
       } catch (err: any) {
         throw new Error(`Failed to aggregate RSS: ${err.message}`);
@@ -105,7 +108,8 @@ export default function (pi: ExtensionAPI) {
       try {
         const feeds = rssService.listFeeds();
         return {
-          content: [{ type: "text", text: JSON.stringify(feeds, null, 2) }]
+          content: [{ type: "text", text: JSON.stringify(feeds, null, 2) }],
+          details: undefined
         };
       } catch (err: any) {
         throw new Error(`Failed to get feeds status: ${err.message}`);
@@ -123,7 +127,8 @@ export default function (pi: ExtensionAPI) {
       try {
         const stats = await rssService.crawlAllFeeds();
         return {
-          content: [{ type: "text", text: JSON.stringify(stats, null, 2) }]
+          content: [{ type: "text", text: JSON.stringify(stats, null, 2) }],
+          details: undefined
         };
       } catch (err: any) {
         throw new Error(`Failed to refresh RSS feeds: ${err.message}`);
@@ -141,12 +146,12 @@ export default function (pi: ExtensionAPI) {
       try {
         const tags = rssService.getAllFeedTags();
         const feeds = rssService.listFeeds();
-        const tagMap = tags.map(tag => ({
+        const tagMap = tags.map((tag: any) => ({
           tag,
-          feedCount: feeds.filter(f => f.tags.includes(tag)).length,
-          feeds: feeds.filter(f => f.tags.includes(tag)).map(f => f.name),
+          feedCount: feeds.filter((f: any) => f.tags.includes(tag)).length,
+          feeds: feeds.filter((f: any) => f.tags.includes(tag)).map((f: any) => f.name),
         }));
-        return { content: [{ type: "text", text: JSON.stringify(tagMap, null, 2) }] };
+        return { content: [{ type: "text", text: JSON.stringify(tagMap, null, 2) }], details: undefined };
       } catch (err: any) {
         throw new Error(`Failed to get feed tags: ${err.message}`);
       }
@@ -173,7 +178,8 @@ export default function (pi: ExtensionAPI) {
         }
         const markdown = await response.text();
         return {
-          content: [{ type: "text", text: markdown }]
+          content: [{ type: "text", text: markdown }],
+          details: undefined
         };
       } catch (err: any) {
         throw new Error(`Failed to read article: ${err.message}`);
@@ -195,7 +201,8 @@ export default function (pi: ExtensionAPI) {
       try {
         const relativePath = rssService.saveAnalysis(params.title, params.content, params.type);
         return {
-          content: [{ type: "text", text: `Successfully saved report to: ${relativePath}` }]
+          content: [{ type: "text", text: `Successfully saved report to: ${relativePath}` }],
+          details: undefined
         };
       } catch (err: any) {
         throw new Error(`Failed to save news analysis: ${err.message}`);

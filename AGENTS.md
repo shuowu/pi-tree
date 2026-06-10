@@ -58,26 +58,57 @@ Pure library — no `process.env`, no `import.meta.dirname`, no file system acce
 
 All config is injected via `PiSessionConfig` — the server resolves env vars and passes them in.
 
-## Server Core Skills & Parsers
+## Server Core Skills, Extensions & Agent Registry
 
-The core skills and ebook parsers live inside the `@pi-tree/server` package.
+The core skills, extensions, and ebook parsers live inside the `@pi-tree/server` package.
 
-### Core Skills (3)
+### Agent Directory (`packages/server/src/agents/`)
 
-Located in `packages/server/skills/`:
+All agent capabilities live under `src/agents/` — a browsable directory of what the AI can do:
 
-- `interactive-reading` — Core reading flow: chapter briefings, navigation, Q&A, bookmarks
-- `book-outline` — Structural overview: navigation map with line numbers, toc.json
-- `book-analysis` — Generate structured analysis (summary, key-ideas, quotes, comparison)
-- `news-reading` — News feed overview, trend analysis, article deep-dives
+```
+packages/server/src/agents/
+  context.ts                 ← service locator for extension DI
+  skills/                    ← markdown instruction bundles
+    interactive-reading/     ← book reading flow
+    book-outline/            ← structural overview
+    book-analysis/           ← structured analysis
+    news-reading/            ← news feed flow
+    session-router/          ← routes users to sessions
+  extensions/                ← tool bundles (TypeScript, runtime-loaded by Pi SDK)
+    library/                 ← list_sources, get_source_info, create_session, open_session
+    news/                    ← get_latest_rss, search_rss, aggregate_rss, etc.
+```
+
+Extensions are decoupled from server internals via `context.ts` — a service locator
+that the server populates at startup. Extensions import `getExtensionServices()` from
+`../../context.js` instead of reaching into `../../db/` or `../../services/`.
+
+### Agent Registry (`src/services/agent-registry.ts`)
+
+The agent registry discovers, validates, and resolves capabilities at startup:
+
+1. **Discovery**: Scans `agents/skills/` + `agents/extensions/` for core capabilities, then `$DATA_PATH/skills/` + `$DATA_PATH/extensions/` for user overrides
+2. **Validation**: Checks that all session profiles reference existing skills/extensions
+3. **Resolution**: `resolveProfile(sourceType, mode, sessionContext)` → concrete paths for PiSession
+
+### Session Profiles (`src/config/session-profiles.ts`)
+
+Declarative mapping of `(sourceType, mode)` → skills, extensions, excludeTools, model:
+
+- `book.reading` → `[interactive-reading]` skills, no extensions
+- `book.analysis` → `[book-analysis, book-outline]` skills
+- `news.news` → `[news-reading]` skill, `[news]` extension
+- `router` → `[session-router]` skill, `[library]` extension
+
+Resolution order: `${sourceType}.${mode}` → `${sourceType}` → `_default`. `SessionContext.skills` and `SessionContext.model` from the DB override the profile.
 
 ### Skill Override Mechanism
 
 User skills live at `$DATA_PATH/skills/` (or `$SKILLS_PATH` if set). The loading order:
 
-1. **User skills load FIRST** from `$DATA_PATH/skills/`
-2. **Core skills load SECOND** from `packages/server/skills/`
-3. Pi SDK uses **first-wins dedup by skill name** — if a user skill has the same name as a core skill, the user version wins
+1. **Core skills discovered** from `packages/server/agents/skills/`
+2. **User skills discovered** from `$DATA_PATH/skills/` — **user wins on name collision**
 
 This means users can:
 - **Override core skills** by creating a skill directory with the same name (e.g., `$DATA_PATH/skills/interactive-reading/`)

@@ -12,7 +12,7 @@ Create a new reading skill for the user's pi-tree setup.
 
 ## Where Skills Live
 
-- **Core skills** (repo): `packages/server/skills/` — only `interactive-reading`, `book-outline`, `book-analysis`. These are code-dependent and ship with the product. Don't add skills here unless they're used by server code.
+- **Core skills** (repo): `packages/server/src/agents/skills/` — only `interactive-reading`, `book-outline`, `book-analysis`, `news-reading`, `session-router`. These are code-dependent and ship with the product. Don't add skills here unless they're used by server code.
 - **User skills** (filesystem): `$DATA_PATH/skills/` (default: `~/.local/share/pi-tree/skills/`). This is where new skills go. They load first and can override core skills by name.
 
 ## Gather Information

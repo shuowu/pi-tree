@@ -15,7 +15,7 @@ import type {
   TreeNodeView,
   BreadcrumbItem,
 } from "@pi-tree/core";
-import type { ReaderConfig } from "@pi-tree/shared";
+import type { ReaderConfig, SessionContext } from "@pi-tree/shared";
 import { DEFAULT_CONFIG } from "@pi-tree/shared";
 import { getServerConfig } from "../config.js";
 import {
@@ -29,6 +29,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { getDb, users, userSessions, sources } from "../db/index.js";
 import { LibraryService } from "./library.js";
+import { getAgentRegistry } from "./agent-registry.js";
 import { join } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import os from "node:os";
@@ -91,17 +92,17 @@ export class TreeManager {
     // Core (PiSession) never reads process.env directly.
     const serverCfg = getServerConfig();
     const repoRoot = join(import.meta.dirname, "../../../..");
-    const coreSkills = join(import.meta.dirname, "../../skills");
-    const userSkills = process.env.SKILLS_PATH || join(dataPath, "skills");
 
     const sourceType = sourceRow?.type ?? "book";
 
-    // Router sessions only need the session-router skill — loading
-    // news-reading/interactive-reading causes the AI to do the work
-    // directly instead of routing to a dedicated session.
-    const skillPaths = sourceType === "router"
-      ? [join(coreSkills, "session-router")]
-      : [userSkills, coreSkills];
+    // Read session context from DB (carries mode, optional skill/model overrides)
+    const sessionContext = TreeManager.readSessionContext(userId, sourceId, options?.sessionId);
+
+    // Resolve the session profile via the agent registry.
+    // This replaces the old hardcoded sourceType === "router" branching.
+    const registry = getAgentRegistry();
+    const profile = registry.resolveProfile(sourceType, sessionContext?.mode, sessionContext);
+    console.log(`[tree-manager] Resolved profile "${profile.resolvedFrom}" for ${sourceType}/${sessionContext?.mode ?? 'default'}`);
 
     const piSession = await PiSession.create(
       userId,
@@ -113,16 +114,11 @@ export class TreeManager {
         config: {
           ...serverCfg,
           repoRoot,
-          skillPaths,
-          extensionPaths: sourceType === "router"
-            ? [join(import.meta.dirname, "../../extensions/library-extension")]
-            : [
-                // User extensions: each subdir of the extensions folder
-                ...TreeManager.scanExtensionDirs(process.env.EXTENSIONS_PATH || join(dataPath, "extensions")),
-                // Built-in extensions from the repo
-                ...TreeManager.scanExtensionDirs(join(import.meta.dirname, "../../extensions")),
-              ],
+          skillPaths: profile.skillPaths,
+          extensionPaths: profile.extensionPaths,
+          excludeTools: profile.excludeTools,
           sourceType,
+          ...(profile.model ? { readingModel: profile.model } : {}),
         },
       },
     );
@@ -192,6 +188,44 @@ export class TreeManager {
       return row.sessionFile;
     } catch {
       return undefined; // DB not ready or no rows — first session
+    }
+  }
+
+  /**
+   * Read the SessionContext for a user+source session from the DB.
+   * Returns the parsed context, or a default if not found.
+   */
+  private static readSessionContext(
+    userId: string,
+    sourceId: string,
+    sessionId?: number,
+  ): SessionContext | undefined {
+    try {
+      const db = getDb();
+
+      const whereClause = sessionId !== undefined
+        ? and(
+            eq(userSessions.id, sessionId),
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, sourceId),
+            eq(userSessions.isActive, 1),
+          )
+        : and(
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, sourceId),
+            eq(userSessions.isActive, 1),
+          );
+
+      const row = db
+        .select({ context: userSessions.context })
+        .from(userSessions)
+        .where(whereClause)
+        .get();
+
+      if (!row) return undefined;
+      return JSON.parse(row.context) as SessionContext;
+    } catch {
+      return undefined;
     }
   }
 

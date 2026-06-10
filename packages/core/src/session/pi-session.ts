@@ -75,6 +75,11 @@ export interface PiSessionConfig {
    * The app layer resolves env vars (EXTENSIONS_PATH) and package paths.
    */
   extensionPaths?: string[];
+  /**
+   * Pi SDK tools to exclude from the agent session.
+   * Defaults to ["bash", "edit"] if not provided.
+   */
+  excludeTools?: string[];
   /** Source type (book, news, paper, podcast) — drives context injection */
   sourceType?: string;
 }
@@ -179,9 +184,8 @@ export class PiSession {
 
       const { session } = await createAgentSession({
         cwd: libraryPath,
-        // Block shell and in-place edits; keep read/write/grep/find/ls for
-        // book content reading AND news analysis writing.
-        excludeTools: ["bash", "edit"],
+        // Configurable tool exclusions — defaults to blocking shell + in-place edits
+        excludeTools: serverConfig.excludeTools ?? ["bash", "edit"],
         resourceLoader,
         sessionManager: sm,
         settingsManager: SettingsManager.create(repoRoot),

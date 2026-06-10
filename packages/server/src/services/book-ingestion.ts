@@ -442,7 +442,7 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
       });
     }
 
-    const coreSkills = join(import.meta.dirname, "../../skills");
+    const coreSkills = join(import.meta.dirname, "../agents/skills");
     const userSkills = process.env.SKILLS_PATH || join(dataPath, "skills");
 
     const resourceLoader = new DefaultResourceLoader({

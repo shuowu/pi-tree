@@ -1,0 +1,56 @@
+/**
+ * Extension Services — dependency injection for agent extensions.
+ *
+ * Extensions should NOT import server internals directly. Instead, they
+ * access server capabilities through this service locator, which the
+ * server populates at startup before any extension is loaded.
+ *
+ * Usage in extensions:
+ *   import { getExtensionServices } from "../../context.js";
+ *   const { db, schema } = getExtensionServices();
+ */
+
+// ---------------------------------------------------------------------------
+// Service interface — what extensions can access
+// ---------------------------------------------------------------------------
+
+export interface ExtensionServices {
+  /** Get the Drizzle ORM database instance */
+  db: () => any;
+  /** Drizzle schema tables available to extensions */
+  schema: {
+    sources: any;
+    userSessions: any;
+    users: any;
+  };
+  /** RSS feed service instance for news extensions */
+  rssService: any;
+}
+
+// ---------------------------------------------------------------------------
+// Service locator
+// ---------------------------------------------------------------------------
+
+let _services: ExtensionServices | null = null;
+
+/**
+ * Get the extension services. Must be called after server startup has
+ * populated services via `setExtensionServices()`.
+ */
+export function getExtensionServices(): ExtensionServices {
+  if (!_services) {
+    throw new Error(
+      "Extension services not initialized — server must call setExtensionServices() at startup",
+    );
+  }
+  return _services;
+}
+
+/**
+ * Populate the extension services. Called once by the server at startup,
+ * before any extension is loaded.
+ */
+export function setExtensionServices(services: ExtensionServices): void {
+  _services = services;
+  console.log("[agents/context] Extension services initialized");
+}
