@@ -160,7 +160,11 @@ export class PiSession {
         console.log(`[pi-session] Model "${serverConfig.readingModel}" not found, using SDK default. Available: ${allModels.map((m) => `${m.provider}/${m.id}`).join(", ")}`);
       }
 
-      // ResourceLoader: discover .pi/skills/ from pi-tree repo root
+      // ResourceLoader: only load skills/extensions specified by the session profile.
+      // noSkills: true prevents loading ALL discovered skills from agentDir/.pi/skills/
+      //   — we only want the profile-resolved additionalSkillPaths (e.g., session-router, not interactive-reading).
+      // noContextFiles: true prevents loading AGENTS.md from the repo root
+      //   — that file describes the codebase for developers, not reading sessions.
       const agentDir = getAgentDir();
       const additionalSkillPaths = serverConfig.skillPaths ?? [join(dataPath, "skills")];
       const additionalExtensionPaths = serverConfig.extensionPaths ?? [join(dataPath, "extensions")];
@@ -170,6 +174,9 @@ export class PiSession {
         agentDir,
         additionalSkillPaths,
         additionalExtensionPaths,
+        noSkills: true,
+        noContextFiles: true,
+        noPromptTemplates: true,
       });
       await resourceLoader.reload();
 
