@@ -197,12 +197,31 @@ export default function (pi: ExtensionAPI) {
           context.systemPrompt = params.prompt;
         }
 
+        // Smart title: enhance generic titles with source name + date
+        let title = params.title;
+        const mode = params.mode ?? "reading";
+        if (mode === "news") {
+          const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          if (!title || /news.*scanner|news.*trends|briefing/i.test(title)) {
+            // Generic title — build from source name
+            const src = db.select({ title: sources.title }).from(sources).where(eq(sources.id, params.source_id)).get();
+            const srcLabel = src?.title?.replace(/feed$/i, "").trim() ?? "News";
+            title = `${srcLabel} - ${dateStr}`;
+          } else if (!/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(title)) {
+            // Has a custom title but no date — append date
+            title = `${title} - ${dateStr}`;
+          }
+        } else if (!title) {
+          const src = db.select({ title: sources.title }).from(sources).where(eq(sources.id, params.source_id)).get();
+          title = src?.title ? `Reading ${src.title}` : "New Session";
+        }
+
         const result = db
           .insert(userSessions)
           .values({
             userId,
             sourceId: params.source_id,
-            title: params.title,
+            title,
             context: JSON.stringify(context),
             sessionFile: `pending-${Date.now()}`, // Placeholder — overwritten on first loadOrCreate
             isActive: 1,
@@ -212,7 +231,6 @@ export default function (pi: ExtensionAPI) {
           .run();
 
         const sessionId = Number(result.lastInsertRowid);
-        const mode = params.mode ?? "reading";
 
         return {
           content: [{ type: "text", text: JSON.stringify({
