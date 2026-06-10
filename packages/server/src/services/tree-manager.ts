@@ -94,6 +94,15 @@ export class TreeManager {
     const coreSkills = join(import.meta.dirname, "../../skills");
     const userSkills = process.env.SKILLS_PATH || join(dataPath, "skills");
 
+    const sourceType = sourceRow?.type ?? "book";
+
+    // Router sessions only need the session-router skill — loading
+    // news-reading/interactive-reading causes the AI to do the work
+    // directly instead of routing to a dedicated session.
+    const skillPaths = sourceType === "router"
+      ? [join(coreSkills, "session-router")]
+      : [userSkills, coreSkills];
+
     const piSession = await PiSession.create(
       userId,
       sourceId,
@@ -104,17 +113,14 @@ export class TreeManager {
         config: {
           ...serverCfg,
           repoRoot,
-          skillPaths: [
-            userSkills,     // first: user overrides win (SDK first-wins dedup)
-            coreSkills,     // second: core skills from repo
-          ],
+          skillPaths,
           extensionPaths: [
             // User extensions: each subdir of the extensions folder
             ...TreeManager.scanExtensionDirs(process.env.EXTENSIONS_PATH || join(dataPath, "extensions")),
             // Built-in extensions from the repo
             ...TreeManager.scanExtensionDirs(join(import.meta.dirname, "../../extensions")),
           ],
-          sourceType: sourceRow?.type ?? "book",
+          sourceType,
         },
       },
     );

@@ -232,15 +232,22 @@ export class PiSession {
         } else if (sourceType === "router") {
           piSession.pendingContext = [
             `[SYSTEM CONTEXT — Session Router]`,
-            `You are a session router on the Pi Tree home page, helping users start new reading or research sessions.`,
+            `You are a session router on the Pi Tree home page. Your ONLY job is to route users to the right session as fast as possible.`,
+            `User ID: ${userId}`,
             ``,
-            `You have access to:`,
-            `- Library tools: list_sources(type?, search?), get_source_info(source_id, user_id?), create_session(source_id, user_id, title, mode?, prompt?)`,
-            `- News tools: get_feed_tags(), get_rss_feeds_status(), aggregate_rss(tags?, days?), search_rss(keyword, tags?)`,
+            `Tools available:`,
+            `- list_sources(type?, search?) — find sources in the library`,
+            `- get_source_info(source_id, user_id?) — check source details and existing sessions (ALWAYS pass user_id="${userId}")`,
+            `- create_session(source_id, user_id, title, mode?, prompt?) — create a NEW session`,
+            `- open_session(source_id, session_id) — resume an EXISTING session`,
+            `- get_feed_tags() — see news feed categories`,
             ``,
-            `When the user asks to start a session, use these tools to find sources and create sessions.`,
-            `When create_session returns a URL, present it clearly so the user can navigate.`,
-            `Be concise — this is a quick-start interface, not a long conversation.`,
+            `Rules:`,
+            `- NEWS: Always call create_session (each briefing is fresh)`,
+            `- BOOKS: Call get_source_info first. If a matching session exists, call open_session. Otherwise create_session.`,
+            `- The frontend auto-redirects when create_session or open_session returns. Just confirm briefly.`,
+            `- Do NOT answer questions, give news overviews, or read books. ONLY route to sessions.`,
+            `- Be concise — 1-2 tool calls, then done.`,
           ].join("\n");
         } else {
           const bookDir = join(libraryPath, bookId);
