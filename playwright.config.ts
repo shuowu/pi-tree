@@ -1,22 +1,69 @@
 import { defineConfig, devices } from "@playwright/test";
 
+/**
+ * E2E test configuration.
+ *
+ * Uses PI_MOCK=true so tests don't need a real LLM. Starts both server
+ * and client on dedicated ports (3747/5747) to avoid conflicts with dev
+ * (3947/5947) and Docker (3847).
+ *
+ * Override with BASE_URL env var to point at an already-running server:
+ *   BASE_URL=http://localhost:5947 npx playwright test
+ */
+
+const SERVER_PORT = 3747;
+const CLIENT_PORT = 5747;
+const baseURL = process.env.BASE_URL ?? `http://localhost:${CLIENT_PORT}`;
+
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 15_000,
+  timeout: 30_000,
   retries: 0,
   use: {
-    // Default: Docker container port. Override with BASE_URL env var for dev.
-    baseURL: process.env.BASE_URL ?? "http://localhost:3847",
-    // Headless by default, no screenshots/videos to keep it lean
+    baseURL,
     screenshot: "off",
     video: "off",
   },
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        // Use system Chrome — Playwright's bundled chromium doesn't support this OS
+        channel: "chrome",
+      },
     },
   ],
-  // No webServer config — expects the server to already be running
-  // (Docker container in CI, or `npm run dev` locally)
+
+  // Auto-start both server (mock) and client (Vite dev) for e2e tests.
+  // Skipped when BASE_URL is provided (e.g., pointing at running dev server).
+  ...(!process.env.BASE_URL
+    ? {
+        webServer: [
+          {
+            // Start the API server with PI_MOCK
+            command: `PI_MOCK=true PORT=${SERVER_PORT} DATA_PATH=/tmp/pi-tree-e2e npx tsx packages/server/src/index.ts`,
+            port: SERVER_PORT,
+            reuseExistingServer: true,
+            timeout: 30_000,
+            env: {
+              PI_MOCK: "true",
+              PORT: String(SERVER_PORT),
+              DATA_PATH: "/tmp/pi-tree-e2e",
+            },
+          },
+          {
+            // Start the Vite client (proxies /api → server port)
+            command: `VITE_API_PORT=${SERVER_PORT} npx vite --port ${CLIENT_PORT} --strictPort`,
+            cwd: "packages/client",
+            port: CLIENT_PORT,
+            reuseExistingServer: true,
+            timeout: 30_000,
+            env: {
+              VITE_API_PORT: String(SERVER_PORT),
+            },
+          },
+        ],
+      }
+    : {}),
 });

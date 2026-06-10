@@ -63,6 +63,13 @@ app.route("/api/dict", dictionaryRoutes);
 app.route("/api/news", newsRoutes);
 app.route("/api/router", routerRoutes);
 
+// Test-only routes — seed data for e2e tests (only when PI_MOCK=true)
+if (process.env.PI_MOCK === "true") {
+  const { testRoutes } = await import("./routes/test.js");
+  app.route("/api/test", testRoutes);
+}
+
+
 // Server config endpoints
 app.get("/api/config", (c) => {
   const cfg = getServerConfig();

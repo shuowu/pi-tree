@@ -250,6 +250,11 @@ export function createMockAgentSession(
       if (prop in target) {
         return Reflect.get(target, prop, receiver);
       }
+      // 'then' must return undefined — otherwise the object looks like a
+      // Promise/thenable and confuses async/await callers.
+      if (prop === "then" || typeof prop === "symbol") {
+        return undefined;
+      }
       // Return a no-op function for any method PiSession might call that we
       // haven't explicitly stubbed. Log for discoverability during dev.
       return (..._args: unknown[]) => {
@@ -259,4 +264,5 @@ export function createMockAgentSession(
       };
     },
   }) as unknown as AgentSession;
+
 }

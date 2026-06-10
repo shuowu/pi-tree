@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Allow overriding the API server port via env var (e.g., for e2e tests)
+const apiPort = process.env.VITE_API_PORT ?? '3947';
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -11,8 +14,11 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        // Dev proxy → dev server on :3947 (Docker keeps :3847)
-        target: 'http://localhost:3947',
+        target: `http://localhost:${apiPort}`,
+        changeOrigin: true,
+      },
+      '/health': {
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true,
       },
     },
