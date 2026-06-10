@@ -3,11 +3,12 @@ import { useNavigate } from "react-router";
 import type { Source, RecentSession, SourceType } from "@pi-tree/shared";
 import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, fetchRecentSessions, type JobWithSource } from "../api";
 import { useUser } from "../UserContext";
-import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, MessageSquarePlus, Rss } from "lucide-react";
+import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, Rss } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
 import { SettingsModal } from "./SettingsModal";
 import { FeedManagerModal } from "./FeedManagerModal";
+import { RouterChat } from "./RouterChat";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
 import "./Library.css";
 
@@ -42,9 +43,7 @@ export function Library() {
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showNewSessionModal, setShowNewSessionModal] = useState(false);
   const [showFeedManager, setShowFeedManager] = useState(false);
-  const [newSessionSearch, setNewSessionSearch] = useState("");
 
   // Search & filter state
   const [searchInput, setSearchInput] = useState("");
@@ -301,14 +300,7 @@ export function Library() {
             <Plus size={16} strokeWidth={2} />
             Add Source
           </button>
-          <button
-            className="library-new-session-btn"
-            onClick={() => { setShowNewSessionModal(true); setNewSessionSearch(""); }}
-            title="Start a new conversation on any source"
-          >
-            <MessageSquarePlus size={16} strokeWidth={2} />
-            New Session
-          </button>
+
           {displayName && (
             <div className="library-user-menu">
               <button className="library-user-pill" onClick={clearUser} title="Switch user">
@@ -322,6 +314,9 @@ export function Library() {
           )}
         </div>
       </header>
+
+      {/* Router chatbox — conversational session creation */}
+      <RouterChat userId={userId} />
 
       {/* Continue rail — recent sessions across all source types */}
       {!isEmptyLibrary && (
@@ -668,80 +663,7 @@ export function Library() {
         />
       )}
       {showFeedManager && <FeedManagerModal onClose={() => setShowFeedManager(false)} />}
-      {/* New Session — source picker modal */}
-      {showNewSessionModal && (
-        <div
-          className="tag-modal-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowNewSessionModal(false);
-            }
-          }}
-        >
-          <div className="new-session-modal">
-            <button
-              className="tag-modal-close"
-              onClick={() => setShowNewSessionModal(false)}
-            >
-              <X size={16} />
-            </button>
-            <h3 className="tag-modal-title">
-              <MessageSquarePlus size={16} />
-              New Session
-            </h3>
-            <p className="new-session-hint">Pick a source to start a conversation</p>
-            <div className="new-session-search">
-              <Search size={14} />
-              <input
-                type="text"
-                placeholder="Search sources..."
-                value={newSessionSearch}
-                onChange={(e) => setNewSessionSearch(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="new-session-list">
-              {sources
-                .filter((s) => {
-                  if (!newSessionSearch) return true;
-                  const q = newSessionSearch.toLowerCase();
-                  return s.title.toLowerCase().includes(q) || s.author.toLowerCase().includes(q);
-                })
-                .map((source) => {
-                  const config = getSourceTypeConfig(source.type);
-                  const Icon = config.icon;
-                  return (
-                    <button
-                      key={source.id}
-                      className="new-session-item"
-                      onClick={() => {
-                        setShowNewSessionModal(false);
-                        navigate(`/source/${source.id}`);
-                      }}
-                    >
-                      <div className="new-session-item-icon">
-                        <Icon size={16} />
-                      </div>
-                      <div className="new-session-item-info">
-                        <div className="new-session-item-title">{source.title}</div>
-                        <div className="new-session-item-meta">
-                          {source.author}{source.year ? ` · ${source.year}` : ''} · {config.label}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              {sources.filter((s) => {
-                if (!newSessionSearch) return true;
-                const q = newSessionSearch.toLowerCase();
-                return s.title.toLowerCase().includes(q) || s.author.toLowerCase().includes(q);
-              }).length === 0 && (
-                <div className="new-session-empty">No sources match your search</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

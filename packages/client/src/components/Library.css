@@ -85,26 +85,6 @@
   color: var(--text-primary);
 }
 
-.library-new-session-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 6px var(--space-3);
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: filter 0.15s ease;
-  white-space: nowrap;
-}
-
-.library-new-session-btn:hover {
-  filter: brightness(1.1);
-}
-
 .library-user-menu {
   position: relative;
 }

@@ -229,6 +229,19 @@ export class PiSession {
             `Do NOT browse the filesystem for news articles or RSS configuration.`,
             `If feeds haven't been crawled recently, call trigger_rss_refresh() first.`,
           ].join("\n");
+        } else if (sourceType === "router") {
+          piSession.pendingContext = [
+            `[SYSTEM CONTEXT — Session Router]`,
+            `You are a session router on the Pi Tree home page, helping users start new reading or research sessions.`,
+            ``,
+            `You have access to:`,
+            `- Library tools: list_sources(type?, search?), get_source_info(source_id, user_id?), create_session(source_id, user_id, title, mode?, prompt?)`,
+            `- News tools: get_feed_tags(), get_rss_feeds_status(), aggregate_rss(tags?, days?), search_rss(keyword, tags?)`,
+            ``,
+            `When the user asks to start a session, use these tools to find sources and create sessions.`,
+            `When create_session returns a URL, present it clearly so the user can navigate.`,
+            `Be concise — this is a quick-start interface, not a long conversation.`,
+          ].join("\n");
         } else {
           const bookDir = join(libraryPath, bookId);
           piSession.pendingContext = [
