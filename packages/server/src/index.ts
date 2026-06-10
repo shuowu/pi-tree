@@ -8,13 +8,13 @@ const hostname = process.env.HOST ?? "0.0.0.0";
 
 console.log(`🚀 pi-tree server starting on http://${hostname}:${port}`);
 
-// Initialize RSS Service and seed configurations
+// Initialize RSS Service and seed default feeds on first run
 const rssService = new RssService();
 try {
-  rssService.syncConfigToDb();
-  console.log("✅ Seeded news source and RSS feeds config to database.");
+  rssService.seedDefaultFeeds();
+  console.log("✅ RSS feeds initialized.");
 } catch (err) {
-  console.error("❌ Failed to seed RSS configs:", err);
+  console.error("❌ Failed to initialize RSS feeds:", err);
 }
 
 // Crawl interval in minutes (default: 30 — fast enough for HN's rolling window)

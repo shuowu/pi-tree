@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { join } from "node:path";
-import { existsSync, unlinkSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import {
   RssService,
   calculateSequenceSimilarity,
   calculateJaccardSimilarity
 } from "../rss.service.js";
+import { resetDb } from "../../db/index.js";
 
 describe("Similarity Helper Functions", () => {
   it("should calculate Jaccard similarity correctly", () => {
@@ -39,6 +40,7 @@ describe("RssService", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    resetDb();
     try {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {
@@ -46,33 +48,100 @@ describe("RssService", () => {
     }
   });
 
-  it("should initialize default configuration file", () => {
+  it("should seed default feeds on first run", () => {
     const rssService = new RssService();
-    const config = rssService.getFeedsConfig();
+    rssService.seedDefaultFeeds();
+    const feeds = rssService.listFeeds();
 
-    expect(config).toBeInstanceOf(Array);
-    expect(config.length).toBeGreaterThan(0);
-    expect(config[0].id).toBe("hacker-news");
-    expect(existsSync(join(tempDir, "news", "feeds.json"))).toBe(true);
+    expect(feeds).toBeInstanceOf(Array);
+    expect(feeds.length).toBeGreaterThan(0);
+    expect(feeds[0].id).toBe("hacker-news");
+    expect(feeds[0].tags).toContain("tech");
   });
 
-  it("should support updating and retrieving feed configs", () => {
+  it("should not re-seed when feeds already exist", () => {
     const rssService = new RssService();
-    const initialConfig = rssService.getFeedsConfig();
+    rssService.seedDefaultFeeds();
 
-    const customFeeds = [
-      {
-        id: "my-custom-feed",
-        name: "My Custom Feed",
-        url: "https://example.com/feed.xml",
-        tags: ["custom"]
-      }
-    ];
+    // Add a custom feed
+    rssService.addFeed({
+      id: "my-custom-feed",
+      name: "My Custom Feed",
+      url: "https://example.com/feed.xml",
+      tags: ["custom"]
+    });
 
-    rssService.saveFeedsConfig(customFeeds);
-    const updatedConfig = rssService.getFeedsConfig();
+    // Seed again — should not overwrite
+    rssService.seedDefaultFeeds();
+    const feeds = rssService.listFeeds();
+    expect(feeds.some(f => f.id === "my-custom-feed")).toBe(true);
+  });
 
-    expect(updatedConfig.length).toBe(1);
-    expect(updatedConfig[0].id).toBe("my-custom-feed");
+  it("should add and remove feeds via DB", () => {
+    const rssService = new RssService();
+    rssService.seedDefaultFeeds();
+
+    rssService.addFeed({
+      id: "test-feed",
+      name: "Test Feed",
+      url: "https://example.com/test.xml",
+      tags: ["test"]
+    });
+
+    let feeds = rssService.listFeeds();
+    expect(feeds.some(f => f.id === "test-feed")).toBe(true);
+
+    const deleted = rssService.removeFeed("test-feed");
+    expect(deleted).toBe(true);
+
+    feeds = rssService.listFeeds();
+    expect(feeds.some(f => f.id === "test-feed")).toBe(false);
+  });
+
+  it("should return false when removing non-existent feed", () => {
+    const rssService = new RssService();
+    rssService.seedDefaultFeeds();
+    const deleted = rssService.removeFeed("non-existent");
+    expect(deleted).toBe(false);
+  });
+
+  it("should return tags from DB feeds", () => {
+    const rssService = new RssService();
+    rssService.seedDefaultFeeds();
+
+    const allTags = rssService.getAllFeedTags();
+    expect(allTags).toContain("tech");
+
+    // Add a sports feed
+    rssService.addFeed({
+      id: "espn",
+      name: "ESPN",
+      url: "https://www.espn.com/espn/rss/news",
+      tags: ["sports"]
+    });
+
+    const updatedTags = rssService.getAllFeedTags();
+    expect(updatedTags).toContain("sports");
+    expect(updatedTags).toContain("tech");
+  });
+
+  it("should filter feeds by tags", () => {
+    const rssService = new RssService();
+    rssService.seedDefaultFeeds();
+
+    rssService.addFeed({
+      id: "espn",
+      name: "ESPN",
+      url: "https://www.espn.com/espn/rss/news",
+      tags: ["sports"]
+    });
+
+    const sportFeeds = rssService.getFeedsByTags(["sports"]);
+    expect(sportFeeds.length).toBe(1);
+    expect(sportFeeds[0].id).toBe("espn");
+
+    const techFeeds = rssService.getFeedsByTags(["tech"]);
+    expect(techFeeds.length).toBeGreaterThan(0);
+    expect(techFeeds.every(f => f.tags.includes("tech"))).toBe(true);
   });
 });

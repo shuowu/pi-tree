@@ -150,6 +150,7 @@ export const rssFeeds = sqliteTable("rss_feeds", {
     .references(() => sources.id, { onDelete: "cascade" }),
   name: text("name").notNull(),                        // display name e.g. "Hacker News"
   url: text("url").notNull(),                          // RSS feed URL
+  tags: text("tags").notNull().default("[]"),           // JSON array of tag strings e.g. '["tech","ai"]'
   isActive: integer("is_active").notNull().default(1), // 1 = active, 0 = disabled
   lastFetchTime: text("last_fetch_time"),              // ISO timestamp
   lastFetchStatus: text("last_fetch_status"),          // "success" | "failed"

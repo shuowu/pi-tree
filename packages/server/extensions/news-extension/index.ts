@@ -103,7 +103,7 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({}),
     async execute() {
       try {
-        const feeds = rssService.getFeedsConfig();
+        const feeds = rssService.listFeeds();
         return {
           content: [{ type: "text", text: JSON.stringify(feeds, null, 2) }]
         };
@@ -140,7 +140,7 @@ export default function (pi: ExtensionAPI) {
     async execute() {
       try {
         const tags = rssService.getAllFeedTags();
-        const feeds = rssService.getFeedsConfig();
+        const feeds = rssService.listFeeds();
         const tagMap = tags.map(tag => ({
           tag,
           feedCount: feeds.filter(f => f.tags.includes(tag)).length,

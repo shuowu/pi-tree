@@ -178,6 +178,7 @@ function ensureTables(sqlite: Database.Database): void {
       source_id          TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
       name               TEXT NOT NULL,
       url                TEXT NOT NULL,
+      tags               TEXT NOT NULL DEFAULT '[]',
       is_active          INTEGER NOT NULL DEFAULT 1,
       last_fetch_time    TEXT,
       last_fetch_status  TEXT,
@@ -198,4 +199,19 @@ function ensureTables(sqlite: Database.Database): void {
       updated_at   TEXT NOT NULL
     );
   `);
+
+  // Migrations for existing databases
+  applyMigrations(sqlite);
+}
+
+/**
+ * Run incremental migrations for schema changes on existing databases.
+ * Each migration checks if the change has already been applied before executing.
+ */
+function applyMigrations(sqlite: Database.Database): void {
+  // Migration: add tags column to rss_feeds
+  const rssFeedsCols = sqlite.pragma("table_info(rss_feeds)") as { name: string }[];
+  if (rssFeedsCols.length > 0 && !rssFeedsCols.some(c => c.name === "tags")) {
+    sqlite.exec(`ALTER TABLE rss_feeds ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`);
+  }
 }

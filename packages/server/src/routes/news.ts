@@ -4,8 +4,6 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { RssService, type FeedConfig } from "../services/rss.service.js";
-import { getDb, rssFeeds, sourceTags, tags } from "../db/index.js";
-import { eq } from "drizzle-orm";
 
 export const newsRoutes = new Hono();
 const rssService = new RssService();
@@ -30,17 +28,17 @@ async function ensureReportDirs() {
 // Feed Management Routes
 // ---------------------------------------------------------------------------
 
-/** List all feeds from config */
+/** List all feeds from DB */
 newsRoutes.get("/feeds", async (c) => {
   try {
-    const feeds = rssService.getFeedsConfig();
+    const feeds = rssService.listFeeds();
     return c.json(feeds);
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 500);
   }
 });
 
-/** Add a new feed to config */
+/** Add a new feed */
 newsRoutes.post("/feeds", async (c) => {
   try {
     const body = await c.req.json<{
@@ -54,7 +52,7 @@ newsRoutes.post("/feeds", async (c) => {
       return c.json({ success: false, error: "Missing required fields: id, name, url" }, 400);
     }
 
-    const feeds = rssService.getFeedsConfig();
+    const feeds = rssService.listFeeds();
     if (feeds.some((f) => f.id === body.id)) {
       return c.json({ success: false, error: `Feed with ID '${body.id}' already exists` }, 400);
     }
@@ -66,34 +64,24 @@ newsRoutes.post("/feeds", async (c) => {
       tags: body.tags || []
     };
 
-    feeds.push(newFeed);
-    rssService.saveFeedsConfig(feeds);
-
+    rssService.addFeed(newFeed);
     return c.json({ success: true, feed: newFeed });
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 500);
   }
 });
 
-/** Delete a feed from config */
+/** Delete a feed */
 newsRoutes.delete("/feeds/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const feeds = rssService.getFeedsConfig();
-    const index = feeds.findIndex((f) => f.id === id);
+    const deleted = rssService.removeFeed(id);
 
-    if (index === -index) {
+    if (!deleted) {
       return c.json({ success: false, error: `Feed with ID '${id}' not found` }, 404);
     }
 
-    const deleted = feeds.splice(index, 1)[0];
-    rssService.saveFeedsConfig(feeds);
-
-    // Also delete from database
-    const db = getDb();
-    db.delete(rssFeeds).where(eq(rssFeeds.id, id)).run();
-
-    return c.json({ success: true, feed: deleted });
+    return c.json({ success: true, id });
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 500);
   }

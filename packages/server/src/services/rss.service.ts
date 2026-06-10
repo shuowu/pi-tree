@@ -1,9 +1,9 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import Parser from "rss-parser";
-import { eq, and, inArray, desc } from "drizzle-orm";
-import { getDb, rssFeeds, rssItems, sourceTags, tags, sources } from "../db/index.js";
+import { eq, desc } from "drizzle-orm";
+import { getDb, rssFeeds, rssItems, sources } from "../db/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -122,99 +122,24 @@ const NEWS_SOURCE_ID = "news-tech";
 export class RssService {
   private parser: Parser;
   private dataPath: string;
-  private feedsConfigPath: string;
 
   constructor() {
     this.parser = new Parser();
     this.dataPath =
       process.env.DATA_PATH ??
       join(os.homedir(), ".local", "share", "pi-tree");
-    this.feedsConfigPath = join(this.dataPath, "news", "feeds.json");
-
-    // Ensure directory exists
-    mkdirSync(join(this.dataPath, "news"), { recursive: true });
-    this.ensureFeedsJsonExists();
   }
 
   // -------------------------------------------------------------------------
-  // Feed Config Management
+  // Feed Management (DB-only)
   // -------------------------------------------------------------------------
-
-  private ensureFeedsJsonExists(): void {
-    if (!existsSync(this.feedsConfigPath)) {
-      // Load defaults from the shipped config file
-      let defaultFeeds: FeedConfig[];
-      try {
-        const raw = readFileSync(
-          join(import.meta.dirname, "../../config/default-feeds.json"),
-          "utf-8",
-        );
-        defaultFeeds = JSON.parse(raw) as FeedConfig[];
-      } catch {
-        // Fallback to inline defaults if config file is missing
-        defaultFeeds = [
-          {
-            id: "hacker-news",
-            name: "Hacker News",
-            url: "https://news.ycombinator.com/rss",
-            tags: ["tech"]
-          },
-          {
-            id: "techcrunch",
-            name: "TechCrunch",
-            url: "https://techcrunch.com/feed/",
-            tags: ["tech", "ai"]
-          }
-        ];
-      }
-      writeFileSync(this.feedsConfigPath, JSON.stringify(defaultFeeds, null, 2), "utf-8");
-      console.log(`[rss-service] Initialized default feeds config at ${this.feedsConfigPath}`);
-    }
-  }
-
-  public getFeedsConfig(): FeedConfig[] {
-    try {
-      this.ensureFeedsJsonExists();
-      const content = readFileSync(this.feedsConfigPath, "utf-8");
-      return JSON.parse(content) as FeedConfig[];
-    } catch (err) {
-      console.error("[rss-service] Failed to read feeds config:", err);
-      return [];
-    }
-  }
-
-  public saveFeedsConfig(feeds: FeedConfig[]): void {
-    try {
-      writeFileSync(this.feedsConfigPath, JSON.stringify(feeds, null, 2), "utf-8");
-      this.syncConfigToDb(feeds);
-    } catch (err) {
-      console.error("[rss-service] Failed to save feeds config:", err);
-    }
-  }
-
-  /** Get feeds matching any of the given tags */
-  getFeedsByTags(tags: string[]): FeedConfig[] {
-    const feeds = this.getFeedsConfig();
-    return feeds.filter(f => f.tags.some(t => tags.includes(t)));
-  }
-
-  /** Get all unique tags across all feeds, sorted */
-  getAllFeedTags(): string[] {
-    const feeds = this.getFeedsConfig();
-    const tags = new Set<string>();
-    feeds.forEach(f => f.tags.forEach(t => tags.add(t)));
-    return [...tags].sort();
-  }
 
   /**
-   * Syncs JSON configuration into the SQLite database.
+   * Ensure the canonical news source row exists in the sources table.
    */
-  public syncConfigToDb(feeds?: FeedConfig[]): void {
+  private ensureNewsSource(): void {
     const db = getDb();
-    const configFeeds = feeds ?? this.getFeedsConfig();
     const now = new Date().toISOString();
-
-    // 1. Ensure the news source row exists in the sources table
     db.insert(sources)
       .values({
         id: NEWS_SOURCE_ID,
@@ -229,53 +154,108 @@ export class RssService {
       })
       .onConflictDoNothing()
       .run();
+  }
 
-    // 2. Sync Feeds — each feed now references the news source
-    for (const feed of configFeeds) {
-      // Upsert Feed
+  /**
+   * Seed default feeds into the database if no feeds exist yet.
+   * Called once on startup. Reads from the shipped default-feeds.json.
+   */
+  public seedDefaultFeeds(): void {
+    const db = getDb();
+
+    // Only seed if no feeds exist
+    const existing = db.select({ id: rssFeeds.id }).from(rssFeeds).limit(1).all();
+    if (existing.length > 0) return;
+
+    this.ensureNewsSource();
+
+    // Load defaults from the shipped config file
+    let defaultFeeds: FeedConfig[];
+    try {
+      const raw = readFileSync(
+        join(import.meta.dirname, "../../config/default-feeds.json"),
+        "utf-8",
+      );
+      defaultFeeds = JSON.parse(raw) as FeedConfig[];
+    } catch {
+      // Fallback to inline defaults if config file is missing
+      defaultFeeds = [
+        { id: "hacker-news", name: "Hacker News", url: "https://news.ycombinator.com/rss", tags: ["tech"] },
+        { id: "techcrunch", name: "TechCrunch", url: "https://techcrunch.com/feed/", tags: ["tech", "ai"] }
+      ];
+    }
+
+    const now = new Date().toISOString();
+    for (const feed of defaultFeeds) {
       db.insert(rssFeeds)
         .values({
           id: feed.id,
           sourceId: NEWS_SOURCE_ID,
           name: feed.name,
           url: feed.url,
+          tags: JSON.stringify(feed.tags),
           isActive: 1,
           createdAt: now,
           updatedAt: now
         })
-        .onConflictDoUpdate({
-          target: rssFeeds.id,
-          set: {
-            name: feed.name,
-            url: feed.url,
-            updatedAt: now
-          }
-        })
+        .onConflictDoNothing()
         .run();
-
-      // Sync Tags — feeds inherit tags from their parent source via sourceTags
-      for (const tag of feed.tags) {
-        // Ensure global tag exists
-        db.insert(tags)
-          .values({
-            name: tag,
-            createdAt: now
-          })
-          .onConflictDoNothing()
-          .run();
-
-        const tagRow = db.select().from(tags).where(eq(tags.name, tag)).get();
-        if (tagRow) {
-          db.insert(sourceTags)
-            .values({
-              sourceId: NEWS_SOURCE_ID,
-              tagId: tagRow.id
-            })
-            .onConflictDoNothing()
-            .run();
-        }
-      }
     }
+
+    console.log(`[rss-service] Seeded ${defaultFeeds.length} default feeds from default-feeds.json`);
+  }
+
+  /** List all active feeds from DB */
+  public listFeeds(): FeedConfig[] {
+    const db = getDb();
+    const rows = db.select().from(rssFeeds).where(eq(rssFeeds.isActive, 1)).all();
+    return rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      url: r.url,
+      tags: JSON.parse(r.tags ?? "[]") as string[],
+    }));
+  }
+
+  /** Add a feed to the DB */
+  public addFeed(feed: FeedConfig): void {
+    this.ensureNewsSource();
+
+    const db = getDb();
+    const now = new Date().toISOString();
+    db.insert(rssFeeds)
+      .values({
+        id: feed.id,
+        sourceId: NEWS_SOURCE_ID,
+        name: feed.name,
+        url: feed.url,
+        tags: JSON.stringify(feed.tags),
+        isActive: 1,
+        createdAt: now,
+        updatedAt: now
+      })
+      .run();
+  }
+
+  /** Remove a feed from the DB. Returns true if a feed was deleted. */
+  public removeFeed(feedId: string): boolean {
+    const db = getDb();
+    const result = db.delete(rssFeeds).where(eq(rssFeeds.id, feedId)).run();
+    return result.changes > 0;
+  }
+
+  /** Get feeds matching any of the given tags */
+  getFeedsByTags(filterTags: string[]): FeedConfig[] {
+    const feeds = this.listFeeds();
+    return feeds.filter(f => f.tags.some(t => filterTags.includes(t)));
+  }
+
+  /** Get all unique tags across all feeds, sorted */
+  getAllFeedTags(): string[] {
+    const feeds = this.listFeeds();
+    const tagSet = new Set<string>();
+    feeds.forEach(f => f.tags.forEach(t => tagSet.add(t)));
+    return [...tagSet].sort();
   }
 
   // -------------------------------------------------------------------------
@@ -283,11 +263,8 @@ export class RssService {
   // -------------------------------------------------------------------------
 
   public async crawlAllFeeds(): Promise<CrawlStats[]> {
-    const feeds = this.getFeedsConfig();
+    const feeds = this.listFeeds();
     const stats: CrawlStats[] = [];
-
-    // Ensure configuration is synchronized to DB
-    this.syncConfigToDb(feeds);
 
     for (const feed of feeds) {
       try {
