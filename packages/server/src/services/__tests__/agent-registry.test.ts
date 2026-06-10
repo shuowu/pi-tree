@@ -206,6 +206,7 @@ describe("AgentRegistry", () => {
       createSkill(cfg.coreSkillsDir, "session-router");
       createExtension(cfg.coreExtDir, "library");
       createExtension(cfg.coreExtDir, "news");
+      createExtension(cfg.coreExtDir, "mcp");
       registry.initialize(cfg);
       return cfg;
     }
@@ -217,7 +218,7 @@ describe("AgentRegistry", () => {
 
       expect(profile.resolvedFrom).toBe("book.reading");
       expect(profile.skills).toEqual(["interactive-reading"]);
-      expect(profile.extensions).toEqual([]);
+      expect(profile.extensions).toEqual(["mcp"]);
       expect(profile.skillPaths).toHaveLength(1);
       expect(profile.skillPaths[0]).toContain("interactive-reading");
     });
@@ -229,8 +230,8 @@ describe("AgentRegistry", () => {
 
       expect(profile.resolvedFrom).toBe("news.news");
       expect(profile.skills).toEqual(["news-reading"]);
-      expect(profile.extensions).toEqual(["news"]);
-      expect(profile.extensionPaths).toHaveLength(1);
+      expect(profile.extensions).toEqual(["news", "mcp"]);
+      expect(profile.extensionPaths).toHaveLength(2);
       expect(profile.extensionPaths[0]).toContain("news");
     });
 
@@ -241,7 +242,7 @@ describe("AgentRegistry", () => {
 
       expect(profile.resolvedFrom).toBe("router");
       expect(profile.skills).toEqual(["session-router"]);
-      expect(profile.extensions).toEqual(["library"]);
+      expect(profile.extensions).toEqual(["library", "mcp"]);
     });
 
     it("falls back to sourceType-level profile when mode not found", () => {
@@ -358,6 +359,7 @@ describe("AgentRegistry", () => {
       createSkill(cfg.coreSkillsDir, "session-router");
       createExtension(cfg.coreExtDir, "library");
       createExtension(cfg.coreExtDir, "news");
+      createExtension(cfg.coreExtDir, "mcp");
       registry.initialize(cfg);
 
       const result = registry.validate();
@@ -372,6 +374,7 @@ describe("AgentRegistry", () => {
       createSkill(cfg.coreSkillsDir, "interactive-reading");
       createExtension(cfg.coreExtDir, "library");
       createExtension(cfg.coreExtDir, "news");
+      createExtension(cfg.coreExtDir, "mcp");
       // Missing: book-analysis, book-outline, news-reading, session-router
       registry.initialize(cfg);
 
@@ -414,6 +417,7 @@ describe("AgentRegistry", () => {
       createSkill(cfg.userSkillsDir, "orphan-skill"); // not used by any profile
       createExtension(cfg.coreExtDir, "library");
       createExtension(cfg.coreExtDir, "news");
+      createExtension(cfg.coreExtDir, "mcp");
       registry.initialize(cfg);
 
       const result = registry.validate();

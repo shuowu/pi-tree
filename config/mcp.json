@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@brave/brave-search-mcp-server@latest"]
+    }
+  }
+}

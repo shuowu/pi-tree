@@ -16,25 +16,25 @@ export const SESSION_PROFILES: Record<string, SessionProfile> = {
   "book.reading": {
     label: "Book Reading",
     skills: ["interactive-reading"],
-    extensions: [],
+    extensions: ["mcp"],
     excludeTools: ["bash", "edit"],
   },
   "book.qa": {
     label: "Book Q&A",
     skills: ["interactive-reading"],
-    extensions: [],
+    extensions: ["mcp"],
     excludeTools: ["bash", "edit"],
   },
   "book.analysis": {
     label: "Book Analysis",
     skills: ["book-analysis", "book-outline"],
-    extensions: [],
+    extensions: ["mcp"],
     excludeTools: ["bash", "edit"],
   },
   "book": {
     label: "Book (Default)",
     skills: ["interactive-reading"],
-    extensions: [],
+    extensions: ["mcp"],
     excludeTools: ["bash", "edit"],
   },
 
@@ -42,13 +42,13 @@ export const SESSION_PROFILES: Record<string, SessionProfile> = {
   "news.news": {
     label: "News Reading",
     skills: ["news-reading"],
-    extensions: ["news"],
+    extensions: ["news", "mcp"],
     excludeTools: ["bash", "edit"],
   },
   "news": {
     label: "News (Default)",
     skills: ["news-reading"],
-    extensions: ["news"],
+    extensions: ["news", "mcp"],
     excludeTools: ["bash", "edit"],
   },
 
@@ -56,7 +56,7 @@ export const SESSION_PROFILES: Record<string, SessionProfile> = {
   "router": {
     label: "Session Router",
     skills: ["session-router"],
-    extensions: ["library"],
+    extensions: ["library", "mcp"],
     excludeTools: ["bash", "edit"],
   },
 
@@ -64,7 +64,7 @@ export const SESSION_PROFILES: Record<string, SessionProfile> = {
   "_default": {
     label: "Default",
     skills: ["interactive-reading"],
-    extensions: [],
+    extensions: ["mcp"],
     excludeTools: ["bash", "edit"],
   },
 };

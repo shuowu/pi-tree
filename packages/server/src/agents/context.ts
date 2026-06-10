@@ -10,6 +10,8 @@
  *   const { db, schema } = getExtensionServices();
  */
 
+import type { McpBridge } from "../services/mcp-bridge.js";
+
 // ---------------------------------------------------------------------------
 // Service interface — what extensions can access
 // ---------------------------------------------------------------------------
@@ -25,6 +27,8 @@ export interface ExtensionServices {
   };
   /** RSS feed service instance for news extensions */
   rssService: any;
+  /** MCP bridge for external tool access (optional — only set when mcp.json exists) */
+  mcpBridge?: McpBridge;
 }
 
 // ---------------------------------------------------------------------------

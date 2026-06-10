@@ -78,11 +78,31 @@ packages/server/src/agents/
   extensions/                ← tool bundles (TypeScript, runtime-loaded by Pi SDK)
     library/                 ← list_sources, get_source_info, create_session, open_session
     news/                    ← get_latest_rss, search_rss, aggregate_rss, etc.
+    mcp/                     ← MCP client bridge — dynamically registers tools from external MCP servers
 ```
 
 Extensions are decoupled from server internals via `context.ts` — a service locator
 that the server populates at startup. Extensions import `getExtensionServices()` from
 `../../context.js` instead of reaching into `../../db/` or `../../services/`.
+
+### MCP Client Bridge (`src/services/mcp-bridge.ts`)
+
+The server can connect to external MCP servers and expose their tools to the AI agent. This enables web search, academic databases, translation APIs, and any other MCP-compatible tool without adding code to the repo.
+
+**Config**: `$DATA_PATH/mcp.json` (same format as Claude Desktop / Cursor):
+```json
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-brave-search"],
+      "env": { "BRAVE_API_KEY": "..." }
+    }
+  }
+}
+```
+
+**How it works**: At server startup, `McpBridge` connects to configured MCP servers, discovers their tools via `tools/list`, and the `mcp` extension registers each discovered tool as a Pi SDK tool (prefixed `mcp_{server}_{tool}`). The `mcp` extension is included in all session profiles but no-ops silently when no MCP servers are configured.
 
 ### Agent Registry (`src/services/agent-registry.ts`)
 

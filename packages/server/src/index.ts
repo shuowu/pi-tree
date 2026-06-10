@@ -4,6 +4,7 @@ import { join } from "node:path";
 import os from "node:os";
 import { app } from "./app.js";
 import { RssService } from "./services/rss.service.js";
+import { getMcpBridge } from "./services/mcp-bridge.js";
 import { initAgentRegistry } from "./services/agent-registry.js";
 import { setExtensionServices } from "./agents/context.js";
 import { getDb, sources, userSessions, users } from "./db/index.js";
@@ -21,12 +22,20 @@ try {
   console.error("❌ Failed to initialize RSS feeds:", err);
 }
 
+// Initialize MCP bridge — connects to external MCP servers if mcp.json exists.
+// This must happen before extension services are set, so extensions can access
+// discovered MCP tools during registration.
+const mcpBridge = getMcpBridge();
+const mcpConfigPath = join(dataPath, "mcp.json");
+await mcpBridge.connectAll(mcpConfigPath);
+
 // Populate extension services — extensions access server capabilities through
 // this locator instead of importing server internals directly.
 setExtensionServices({
   db: getDb,
   schema: { sources, userSessions, users },
   rssService,
+  ...(mcpBridge.hasServers() ? { mcpBridge } : {}),
 });
 
 // Initialize the agent registry — discovers skills, extensions, and validates profiles.
