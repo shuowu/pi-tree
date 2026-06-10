@@ -29,7 +29,7 @@ export function RouterChat({ userId }: RouterChatProps) {
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const messagesRef = useRef<HTMLDivElement>(null);
   // Structured result from create_session tool — no regex needed
   const pendingNavigation = useRef<string | null>(null);
@@ -47,9 +47,12 @@ export function RouterChat({ userId }: RouterChatProps) {
     return () => { cancelled = true; };
   }, [userId]);
 
-  // Auto-scroll messages
+  // Auto-scroll within the messages container (not the page)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages, activeToolCall]);
 
   // Intercept clicks on internal links
@@ -185,7 +188,7 @@ export function RouterChat({ userId }: RouterChatProps) {
               <Loader2 className="spin" size={14} /> Opening session…
             </div>
           )}
-          <div ref={messagesEndRef} />
+
         </div>
       )}
 
