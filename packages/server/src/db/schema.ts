@@ -29,7 +29,7 @@ export const users = sqliteTable("users", {
 // ---------------------------------------------------------------------------
 
 export const sources = sqliteTable("sources", {
-  id: text("id").primaryKey(), // slug: "principles_dalio_2017", "news-tech"
+  id: text("id").primaryKey(), // slug: "principles_dalio_2017", "news"
   type: text("type").notNull().default("book"), // 'book' | 'news' | 'paper' | 'podcast' | ...
   title: text("title").notNull(),
   subtitle: text("subtitle"),

@@ -113,7 +113,7 @@ export function calculateJaccardSimilarity(a: string, b: string): number {
 // ---------------------------------------------------------------------------
 
 /** The canonical source ID for the news collection in the sources table */
-const NEWS_SOURCE_ID = "news-tech";
+const NEWS_SOURCE_ID = "news";
 
 // ---------------------------------------------------------------------------
 // RssService

@@ -118,7 +118,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
         <p className="home-greeting">{greeting}{displayName ? `, ${displayName}` : ""}</p>
         <RouterChat userId={userId} />
         <div className="home-quick-actions">
-          <button className="home-quick-chip" onClick={() => navigate("/source/news-tech")}>📰 Tech News</button>
+          <button className="home-quick-chip" onClick={() => navigate("/source/news")}>📰 News</button>
           <button className="home-quick-chip" onClick={() => navigate("/library")}>📚 Library</button>
           <button className="home-quick-chip" onClick={() => setShowAddBook(true)}>➕ Add Source</button>
           <button className="home-quick-chip" onClick={() => setShowFeedManager(true)}>📡 Feeds</button>
