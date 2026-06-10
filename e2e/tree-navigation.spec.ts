@@ -1,0 +1,264 @@
+/**
+ * E2E: Tree navigation — branching, drill-down, breadcrumb, sidebar.
+ *
+ * Tests the tree structure that emerges from conversational branching:
+ *   Send messages → navigate back → branch → drill into branches →
+ *   verify correct messages per branch → breadcrumb navigation
+ *
+ * Requires: PI_MOCK=true (Playwright config handles this via webServer).
+ */
+
+import { test, expect, type Page } from "@playwright/test";
+import { api, loginAs, sel } from "./helpers";
+
+const RUN_ID = Date.now();
+const TEST_USER = `e2e-tree-${RUN_ID}`;
+const TEST_SOURCE = "e2e-tree-book";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Send a message and wait for the AI response to finish. */
+async function sendAndWait(page: Page, message: string) {
+  await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+  await page.fill(sel.chatInput, message);
+  await page.click(sel.chatSend);
+  // Wait for loading to finish (input re-enabled)
+  await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+}
+
+/** Open the sidebar tree panel via the breadcrumb toggle. */
+async function openSidebar(page: Page) {
+  // The "Session Tree" toggle is a panel toggle with aria-label "Session Tree"
+  const toggle = page.locator('button[aria-label="Session Tree"]');
+  const sidebar = page.locator(".sidebar.open");
+
+  // Only open if not already open
+  if (!(await sidebar.isVisible().catch(() => false))) {
+    await toggle.click();
+    await expect(sidebar).toBeVisible({ timeout: 3_000 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+test.describe("Tree navigation (mocked AI)", () => {
+  let sessionId: number;
+
+  test.beforeAll(async ({ request }) => {
+    const a = api(request);
+    await a.createUser(TEST_USER, "E2E Tree");
+    await a.seedSource(TEST_SOURCE, "E2E Tree Book");
+    const session = await a.createSession(TEST_USER, TEST_SOURCE, "Tree Test", {
+      mode: "reading",
+    });
+    sessionId = session.id;
+  });
+
+  test.afterAll(async ({ request }) => {
+    await api(request).deleteUser(TEST_USER);
+  });
+
+  // All tests share a session and run in serial order — each builds on the last.
+  test.describe.configure({ mode: "serial" });
+
+  test("conversation grows linearly with multiple messages", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+
+    // Send first message
+    await sendAndWait(page, "Alpha question one");
+
+    // Should have 1 user + 1 assistant message
+    await expect(page.locator(sel.userMessage)).toHaveCount(1);
+    await expect(page.locator(sel.assistantMessage)).toHaveCount(1);
+    await expect(
+      page.locator(`${sel.userMessage} ${sel.messageContent}`).first(),
+    ).toContainText("Alpha question one");
+
+    // Send second message
+    await sendAndWait(page, "Alpha question two");
+
+    // Should have 2 user + 2 assistant messages
+    await expect(page.locator(sel.userMessage)).toHaveCount(2);
+    await expect(page.locator(sel.assistantMessage)).toHaveCount(2);
+  });
+
+  test("sidebar tree shows nodes after messages", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+
+    // Open sidebar
+    await openSidebar(page);
+
+    // Tree should have at least one entry with a label
+    const treeEntries = page.locator(".tree-entry");
+    await expect(treeEntries.first()).toBeVisible({ timeout: 5_000 });
+    const count = await treeEntries.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  test("navigate to root and send new message → branch created", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+
+    // Open sidebar to see the tree
+    await openSidebar(page);
+
+    // Click the root node (first tree entry) to navigate back to root
+    const rootEntry = page.locator(".tree-entry").first();
+    await rootEntry.click();
+
+    // Wait for navigation to complete — messages should change
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Now send a different message from root → creates a branch
+    await sendAndWait(page, "Beta question from root");
+
+    // After this, the root should have branches (both the original "Alpha" 
+    // branch and this new "Beta" branch)
+  });
+
+  test("inline branches appear at branch point", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+
+    // Navigate to root via sidebar to see branches
+    await openSidebar(page);
+    const rootEntry = page.locator(".tree-entry").first();
+    await rootEntry.click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Should see inline branches at the branch point
+    const branchCards = page.locator(".pit-inline-branch");
+    await expect(branchCards.first()).toBeVisible({ timeout: 10_000 });
+    const branchCount = await branchCards.count();
+    expect(branchCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test("drill into first branch → see Alpha messages", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+
+    // Navigate to root to see branches
+    await openSidebar(page);
+    await page.locator(".tree-entry").first().click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Click "Open →" on the first branch
+    const openButtons = page.locator(".pit-inline-branch-open");
+    await expect(openButtons.first()).toBeVisible({ timeout: 10_000 });
+    await openButtons.first().click();
+
+    // Wait for navigation
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Should see the Alpha messages in this branch
+    const userMessages = page.locator(`${sel.userMessage} ${sel.messageContent}`);
+    await expect(userMessages.first()).toBeVisible({ timeout: 5_000 });
+
+    // Collect all user message texts
+    const texts = await userMessages.allTextContents();
+    expect(texts.some((t) => t.includes("Alpha"))).toBe(true);
+    // Should NOT contain the Beta message (that's in the other branch)
+    expect(texts.some((t) => t.includes("Beta"))).toBe(false);
+  });
+
+  test("drill into second branch → see Beta message", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+
+    // Navigate to root to see branches
+    await openSidebar(page);
+    await page.locator(".tree-entry").first().click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Click "Open →" on the second branch
+    const openButtons = page.locator(".pit-inline-branch-open");
+    await expect(openButtons.nth(1)).toBeVisible({ timeout: 10_000 });
+    await openButtons.nth(1).click();
+
+    // Wait for navigation
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Should see the Beta message in this branch
+    const userMessages = page.locator(`${sel.userMessage} ${sel.messageContent}`);
+    await expect(userMessages.first()).toBeVisible({ timeout: 5_000 });
+
+    const texts = await userMessages.allTextContents();
+    expect(texts.some((t) => t.includes("Beta"))).toBe(true);
+    // Should NOT contain the Alpha messages
+    expect(texts.some((t) => t.includes("Alpha"))).toBe(false);
+  });
+
+  test("breadcrumb shows path when scoped into a branch", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+
+    // Navigate to root → open first branch (to get scoped view)
+    await openSidebar(page);
+    await page.locator(".tree-entry").first().click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    const openButtons = page.locator(".pit-inline-branch-open");
+    await expect(openButtons.first()).toBeVisible({ timeout: 10_000 });
+    await openButtons.first().click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // When scoped, breadcrumb should show the root as a clickable link
+    const breadcrumbRoot = page.locator(".pit-breadcrumb-root");
+    await expect(breadcrumbRoot).toBeVisible({ timeout: 5_000 });
+
+    // Breadcrumb should have at least one segment (the current node)
+    const breadcrumbSegments = page.locator(".pit-breadcrumb-segment");
+    const segCount = await breadcrumbSegments.count();
+    expect(segCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test("breadcrumb root click navigates back to root view", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Tree");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
+
+    // Navigate into a branch first
+    await openSidebar(page);
+    await page.locator(".tree-entry").first().click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    const openButtons = page.locator(".pit-inline-branch-open");
+    await expect(openButtons.first()).toBeVisible({ timeout: 10_000 });
+    await openButtons.first().click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Verify we're scoped (breadcrumb root link visible)
+    const breadcrumbRoot = page.locator(".pit-breadcrumb-root");
+    await expect(breadcrumbRoot).toBeVisible({ timeout: 5_000 });
+
+    // Click the root breadcrumb to go back
+    await breadcrumbRoot.click();
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // After navigating to root, inline branches should be visible again
+    await expect(page.locator(".pit-inline-branch").first()).toBeVisible({ timeout: 10_000 });
+
+    // The breadcrumb root link should no longer be visible (we're at root now)
+    await expect(breadcrumbRoot).not.toBeVisible({ timeout: 3_000 });
+  });
+});
