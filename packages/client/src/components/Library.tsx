@@ -1,13 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import type { Source, SourceType } from "@pi-tree/shared";
 import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, type JobWithSource } from "../api";
 import { useUser } from "../UserContext";
-import { LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, Rss, ArrowLeft } from "lucide-react";
+import { LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, ArrowLeft } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
 import { SettingsModal } from "./SettingsModal";
-import { FeedManagerModal } from "./FeedManagerModal";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
 import "./Library.css";
 
@@ -20,13 +19,15 @@ const TYPE_FILTERS: { label: string; value: SourceType | null }[] = [
 
 export function Library() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { displayName, clearUser } = useUser();
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showFeedManager, setShowFeedManager] = useState(false);
+
 
   // Search & filter state
   const [searchInput, setSearchInput] = useState("");
@@ -89,6 +90,13 @@ export function Library() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadTags();
   }, [loadTags]);
+
+  // Auto-focus search when navigating with ?focus=search
+  useEffect(() => {
+    if (searchParams.get("focus") === "search") {
+      searchInputRef.current?.focus();
+    }
+  }, [searchParams]);
 
   // Background jobs state
   const [jobs, setJobs] = useState<JobWithSource[]>([]);
@@ -250,14 +258,6 @@ export function Library() {
             Settings
           </button>
           <button
-            className="library-config-btn"
-            onClick={() => setShowFeedManager(true)}
-            title="Manage RSS feeds"
-          >
-            <Rss size={16} strokeWidth={2} />
-            Feeds
-          </button>
-          <button
             className="library-add-source-btn"
             onClick={() => setShowAddModal(true)}
             title="Add a book or news feed to your library"
@@ -286,6 +286,7 @@ export function Library() {
         <div className="library-search">
           <Search size={16} />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search sources and sessions..."
             value={searchInput}
@@ -587,7 +588,7 @@ export function Library() {
           onClose={() => setShowSettingsModal(false)}
         />
       )}
-      {showFeedManager && <FeedManagerModal onClose={() => setShowFeedManager(false)} />}
+
 
     </div>
   );

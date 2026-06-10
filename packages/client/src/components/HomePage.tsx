@@ -3,9 +3,10 @@ import { useNavigate } from "react-router";
 import type { RecentSession } from "@pi-tree/shared";
 import { fetchRecentSessions } from "../api";
 import { useUser } from "../UserContext";
-import { TreePine, LogOut, BookOpen, Settings } from "lucide-react";
+import { TreePine, LogOut, BookOpen, Settings, Search, Rss } from "lucide-react";
 import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
+import { FeedManagerModal } from "./FeedManagerModal";
 import { getSourceTypeConfig } from "../source-types";
 import "./HomePage.css";
 
@@ -30,6 +31,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const { userId, displayName, clearUser } = useUser();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showFeedManager, setShowFeedManager] = useState(false);
 
   // Continue rail state
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
@@ -69,7 +71,22 @@ export function HomePage() {
           </button>
           <button
             className="home-nav-btn"
+            onClick={() => navigate("/library?focus=search")}
+            title="Search library"
+          >
+            <Search size={16} />
+          </button>
+          <button
+            className="home-nav-btn"
+            onClick={() => setShowFeedManager(true)}
+            title="Manage RSS feeds"
+          >
+            <Rss size={16} />
+          </button>
+          <button
+            className="home-nav-btn"
             onClick={() => setShowSettingsModal(true)}
+            title="Settings"
           >
             <Settings size={16} />
           </button>
@@ -134,6 +151,7 @@ export function HomePage() {
       {showSettingsModal && (
         <SettingsModal onClose={() => setShowSettingsModal(false)} />
       )}
+      {showFeedManager && <FeedManagerModal onClose={() => setShowFeedManager(false)} />}
     </div>
   );
 }
