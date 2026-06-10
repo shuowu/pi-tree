@@ -513,7 +513,7 @@ export function Library() {
 
       {!loading && !error && !isEmptyLibrary && (
         <div className="library-grid">
-          {sources.filter(s => s.type !== 'news').map((source) => {
+          {sources.filter(s => s.type !== 'news' && s.type !== 'router').map((source) => {
             const typeConfig = getSourceTypeConfig(source.type);
             const TypeIcon = typeConfig.icon;
             return (

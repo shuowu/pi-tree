@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { eq, like, and, or, desc } from "drizzle-orm";
+import { eq, not, like, and, or, desc } from "drizzle-orm";
 import { getDb, sources, userSessions, users } from "../../src/db/index.js";
 
 export default function (pi: ExtensionAPI) {
@@ -18,7 +18,9 @@ export default function (pi: ExtensionAPI) {
       try {
         const db = getDb();
 
-        const conditions: ReturnType<typeof eq>[] = [];
+        const conditions: ReturnType<typeof eq>[] = [
+          not(eq(sources.type, "router")),
+        ];
 
         if (params.type) {
           conditions.push(eq(sources.type, params.type));

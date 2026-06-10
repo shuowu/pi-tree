@@ -9,7 +9,7 @@
  */
 
 import { Hono } from "hono";
-import { eq, and, desc, like, or, sql } from "drizzle-orm";
+import { eq, and, not, desc, like, or, sql } from "drizzle-orm";
 import { getDb, userSessions, users, sources } from "../db/index.js";
 import { closeSession } from "../services/session-store.js";
 import type { SourceSession, SessionContext, RecentSession } from "@pi-tree/shared";
@@ -58,6 +58,7 @@ sessionCrudRoutes.get("/:userId/recent", (c) => {
   const conditions = [
     eq(userSessions.userId, userId),
     eq(userSessions.isActive, 1),
+    not(eq(sources.type, "router")),
   ];
 
   if (search) {
