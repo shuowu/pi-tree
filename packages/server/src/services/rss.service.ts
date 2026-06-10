@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
+import yaml from "js-yaml";
 import Parser from "rss-parser";
 import { eq, desc } from "drizzle-orm";
 import { getDb, rssFeeds, rssItems, sources, userSessions, userSourceConfig, userSourceProgress } from "../db/index.js";
@@ -177,7 +178,7 @@ export class RssService {
 
   /**
    * Seed default feeds into the database if no feeds exist yet.
-   * Called once on startup. Reads from the shipped default-feeds.json.
+   * Called once on startup. Reads from the shipped default-feeds.yml.
    */
   public seedDefaultFeeds(): void {
     const db = getDb();
@@ -190,20 +191,11 @@ export class RssService {
     if (existing.length > 0) return;
 
     // Load defaults from the shipped config file
-    let defaultFeeds: FeedConfig[];
-    try {
-      const raw = readFileSync(
-        join(import.meta.dirname, "../../config/default-feeds.json"),
-        "utf-8",
-      );
-      defaultFeeds = JSON.parse(raw) as FeedConfig[];
-    } catch {
-      // Fallback to inline defaults if config file is missing
-      defaultFeeds = [
-        { id: "hacker-news", name: "Hacker News", url: "https://news.ycombinator.com/rss", tags: ["tech"] },
-        { id: "techcrunch", name: "TechCrunch", url: "https://techcrunch.com/feed/", tags: ["tech", "ai"] }
-      ];
-    }
+    const raw = readFileSync(
+      join(import.meta.dirname, "../../config/default-feeds.yml"),
+      "utf-8",
+    );
+    const defaultFeeds = yaml.load(raw) as FeedConfig[];
 
     const now = new Date().toISOString();
     for (const feed of defaultFeeds) {
@@ -222,7 +214,7 @@ export class RssService {
         .run();
     }
 
-    console.log(`[rss-service] Seeded ${defaultFeeds.length} default feeds from default-feeds.json`);
+    console.log(`[rss-service] Seeded ${defaultFeeds.length} default feeds from default-feeds.yml`);
   }
 
   /** List all active feeds from DB */

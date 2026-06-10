@@ -108,7 +108,7 @@ const { app } = await bootstrap({
 | `book-ingestion.ts` | `join(import.meta.dirname, "../../../..")` — repo root |
 | `dictionary.service.ts` | `join(import.meta.dirname, "../../../..")` — repo root |
 | `tree-manager.ts` | `join(import.meta.dirname, "../../../..")` — repo root |
-| `rss.service.ts` | `join(import.meta.dirname, "../../config/default-feeds.json")` — default feeds |
+| `rss.service.ts` | `join(import.meta.dirname, "../../config/default-feeds.yml")` — default feeds |
 
 **Fix**: Pass these paths through `BootstrapConfig` or the extension services context. Services receive resolved paths instead of computing them from `import.meta.dirname`. The current `import.meta.dirname` logic becomes the default fallback for non-Electron (CLI/Docker) usage.
 

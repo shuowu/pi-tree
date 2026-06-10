@@ -47,6 +47,7 @@
     "drizzle-orm": "^0.45.2",
     "epub2": "^3.0.2",
     "hono": "^4.7.0",
+    "js-yaml": "^4.2.0",
     "pdf-parse": "^2.4.5",
     "rss-parser": "^3.13.0",
     "turndown": "^7.2.4",
@@ -56,6 +57,7 @@
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
     "@types/turndown": "^5.0.6",
     "drizzle-kit": "^0.31.4",

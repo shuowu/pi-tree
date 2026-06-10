@@ -226,7 +226,7 @@ All mutable state (sessions, DB, library, news) lives under `DATA_PATH` (default
 | Outlines | `<DATA_PATH>/library/<sourceId>/analysis/` | Shared |
 | News reports | `<DATA_PATH>/news/analyses/`, `summaries/` | Shared (mutable) |
 | User skills | `<DATA_PATH>/skills/` (or `$SKILLS_PATH`) | Shared (mutable) |
-| Default feeds | `packages/server/config/default-feeds.json` | Repo (read-only) |
+| Default feeds | `packages/server/config/default-feeds.yml` | Repo (read-only) |
 
 ## Session Management
 

@@ -1,0 +1,62 @@
+# Default RSS feeds seeded on first run.
+# Users can add/remove feeds via the UI after initial setup.
+
+# ── Tech ──────────────────────────────────────────────
+- id: hacker-news
+  name: Hacker News
+  url: https://news.ycombinator.com/rss
+  tags: [tech]
+
+- id: techcrunch
+  name: TechCrunch
+  url: https://techcrunch.com/feed/
+  tags: [tech, startups]
+
+- id: the-verge
+  name: The Verge
+  url: https://www.theverge.com/rss/index.xml
+  tags: [tech]
+
+# ── AI ────────────────────────────────────────────────
+- id: mit-tech-review-ai
+  name: MIT Technology Review – AI
+  url: https://www.technologyreview.com/topic/artificial-intelligence/feed
+  tags: [ai]
+
+- id: the-decoder
+  name: The Decoder
+  url: https://the-decoder.com/feed/
+  tags: [ai]
+
+# ── World ─────────────────────────────────────────────
+- id: ap-news
+  name: AP News – Top Stories
+  url: https://rsshub.app/apnews/topics/apf-topnews
+  tags: [world]
+
+- id: bbc-world
+  name: BBC – World
+  url: https://feeds.bbci.co.uk/news/world/rss.xml
+  tags: [world]
+
+# ── Sports ────────────────────────────────────────────
+- id: espn-top
+  name: ESPN – Top Headlines
+  url: https://www.espn.com/espn/rss/news
+  tags: [sports]
+
+- id: bbc-sport
+  name: BBC – Sport
+  url: https://feeds.bbci.co.uk/sport/rss.xml
+  tags: [sports]
+
+# ── Finance ───────────────────────────────────────────
+- id: cnbc-top
+  name: CNBC – Top News
+  url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114
+  tags: [finance]
+
+- id: ft-world
+  name: Financial Times – World
+  url: https://www.ft.com/rss/home
+  tags: [finance, world]

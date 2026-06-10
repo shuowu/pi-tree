@@ -238,7 +238,7 @@ Pi-tree includes an RSS news feed feature. Feeds are crawled on a schedule, and 
 
 ### Default feeds
 
-On first startup, pi-tree seeds a small set of default feeds (Hacker News, TechCrunch, etc.) from `packages/server/config/default-feeds.json`. These are only seeded if no feeds exist yet — they won't overwrite feeds you've added.
+On first startup, pi-tree seeds a small set of default feeds (Hacker News, TechCrunch, Ars Technica, The Verge, MIT Tech Review, Nature, Quanta, Reuters, BBC) from `packages/server/config/default-feeds.yml`. These are only seeded if no feeds exist yet — they won't overwrite feeds you've added.
 
 ### Managing feeds
 
