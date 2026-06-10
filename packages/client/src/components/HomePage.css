@@ -68,6 +68,17 @@
   color: var(--text-primary);
 }
 
+.home-kbd {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 1.5;
+}
+
 .home-user-pill {
   display: inline-flex;
   align-items: center;

@@ -27,7 +27,11 @@ function timeAgo(dateStr: string): string {
   return `${months}mo ago`;
 }
 
-export function HomePage() {
+interface HomePageProps {
+  onOpenSpotlight: () => void;
+}
+
+export function HomePage({ onOpenSpotlight }: HomePageProps) {
   const navigate = useNavigate();
   const { userId, displayName, clearUser } = useUser();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -70,11 +74,12 @@ export function HomePage() {
             Library
           </button>
           <button
-            className="home-nav-btn"
-            onClick={() => navigate("/library?focus=search")}
-            title="Search library"
+            className="home-nav-btn spotlight-trigger"
+            onClick={onOpenSpotlight}
+            title="Search (⌘K)"
           >
             <Search size={16} />
+            <kbd className="home-kbd">⌘K</kbd>
           </button>
           <button
             className="home-nav-btn"
