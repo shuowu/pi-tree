@@ -97,6 +97,7 @@ export function useReaderSession(
           }
           // Clean up the "new" param if present
           next.delete("new");
+          next.delete("query");
           return next;
         },
         { replace },
@@ -449,6 +450,7 @@ export function useReaderSession(
     const initialSessionId = searchParams.get("session");
     const initialNodeId = searchParams.get("node") ?? null;
     const newSessionMode = searchParams.get("new"); // "reading" or "qa"
+    const initialQuery = searchParams.get("query"); // custom query
     lastViewNodeIdRef.current = initialNodeId;
 
     if (!initialSessionId) {
@@ -472,9 +474,11 @@ export function useReaderSession(
 
         // If this is a newly created session (from SessionsPage), send the
         // initial mode-specific message
-        if (newSessionMode) {
+        if (newSessionMode || initialQuery) {
           sessionIdRef.current = sid;
-          if (newSessionMode === "reading") {
+          if (initialQuery) {
+            handleSendMessage(initialQuery);
+          } else if (newSessionMode === "reading") {
             handleSendMessage(
               `Let's start reading "${source.title}" by ${source.author}. Give me a chapter briefing to begin.`,
             );

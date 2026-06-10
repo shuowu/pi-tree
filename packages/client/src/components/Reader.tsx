@@ -7,7 +7,6 @@ import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
 import { ChatView, Breadcrumb } from "@pi-tree/ui";
 import { SelectionToolbar } from "./SelectionToolbar";
-import { NewsQuickActions } from "./NewsQuickActions";
 import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
@@ -148,12 +147,6 @@ export function Reader() {
           />
         ) : session.sessionId !== null ? (
           <>
-            {source.type === 'news' && (
-              <NewsQuickActions
-                onSendMessage={session.handleSendMessage}
-                isLoading={session.isLoading}
-              />
-            )}
             <ChatView
               messages={session.messages}
               isLoading={session.isLoading}

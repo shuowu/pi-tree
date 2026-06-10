@@ -110,7 +110,6 @@ export function SpotlightSearch({
           setSessionResults(sessions.map((s) => ({ kind: "session", session: s })));
           setSourceResults(
             sources
-              .filter((s) => s.type !== "router")
               .slice(0, 5)
               .map((s) => ({ kind: "source" as const, source: s })),
           );
@@ -135,7 +134,6 @@ export function SpotlightSearch({
         setSessionResults(sessions.map((s) => ({ kind: "session" as const, session: s })));
         setSourceResults(
           sources
-            .filter((s) => s.type !== "router")
             .map((s) => ({ kind: "source" as const, source: s })),
         );
         setSelectedIndex(0);

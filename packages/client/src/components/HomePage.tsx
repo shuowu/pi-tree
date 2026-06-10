@@ -116,7 +116,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
       {/* Hero — centered chat */}
       <div className="home-hero">
         <p className="home-greeting">{greeting}{displayName ? `, ${displayName}` : ""}</p>
-        <RouterChat userId={userId} />
+        <RouterChat userId={userId!} />
         <div className="home-quick-actions">
           <button className="home-quick-chip" onClick={() => navigate("/source/news")}>📰 News</button>
           <button className="home-quick-chip" onClick={() => navigate("/library")}>📚 Library</button>

@@ -642,3 +642,16 @@ export async function fetchGlossary(
   const data = await res.json();
   return data.entries ?? [];
 }
+
+export interface ClientFeedConfig {
+  id: string;
+  name: string;
+  url: string;
+  tags: string[];
+}
+
+export async function fetchNewsFeeds(): Promise<ClientFeedConfig[]> {
+  const res = await fetch(`${API}/news/feeds`);
+  if (!res.ok) throw new Error(`Failed to fetch news feeds: ${res.status}`);
+  return res.json();
+}

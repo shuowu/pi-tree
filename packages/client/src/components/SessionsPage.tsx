@@ -13,7 +13,7 @@ import "./SessionsPage.css";
 const MODE_TITLES: Record<SessionMode, string> = {
   reading: "Interactive Reading",
   qa: "Freeform Q&A",
-  news: "News & Trends Scanner",
+  news: "News Feed",
 };
 
 export function SessionsPage() {
@@ -44,13 +44,14 @@ export function SessionsPage() {
     navigate(`/source/${source.id}?session=${session.id}`);
   };
 
-  const handleNewSession = async (mode: SessionMode) => {
+  const handleNewSession = async (mode: SessionMode, customTitle?: string, initialQuery?: string) => {
     if (!userId) return;
     setIsLoading(true);
     try {
-      const title = MODE_TITLES[mode];
+      const title = customTitle || MODE_TITLES[mode];
       const newSession = await createSession(userId, source.id, title, { mode });
-      navigate(`/source/${source.id}?session=${newSession.id}&new=${mode}`);
+      const queryParam = initialQuery ? `&query=${encodeURIComponent(initialQuery)}` : `&new=${mode}`;
+      navigate(`/source/${source.id}?session=${newSession.id}${queryParam}`);
     } catch {
       setIsLoading(false);
     }
