@@ -222,16 +222,17 @@ export async function fetchJobs(): Promise<JobWithSource[]> {
 
 export async function fetchRecentSessions(
   userId: string,
-  opts?: { limit?: number; search?: string },
-): Promise<RecentSession[]> {
+  opts?: { limit?: number; offset?: number; search?: string },
+): Promise<{ sessions: RecentSession[]; hasMore: boolean }> {
   const params = new URLSearchParams();
   if (opts?.limit) params.set('limit', String(opts.limit));
+  if (opts?.offset) params.set('offset', String(opts.offset));
   if (opts?.search) params.set('search', opts.search);
   const qs = params.toString();
   const res = await fetch(`${API}/sessions/${userId}/recent${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw new Error(`Failed to fetch recent sessions: ${res.status}`);
   const data = await res.json();
-  return data.sessions;
+  return { sessions: data.sessions, hasMore: data.hasMore ?? false };
 }
 
 

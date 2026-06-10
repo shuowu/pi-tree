@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import type { RecentSession } from "@pi-tree/shared";
 import { fetchRecentSessions } from "../api";
 import { useUser } from "../UserContext";
-import { TreePine, LogOut, BookOpen, Settings, Search, Rss } from "lucide-react";
+import { TreePine, LogOut, Search } from "lucide-react";
 import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
 import { FeedManagerModal } from "./FeedManagerModal";
@@ -49,22 +49,37 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
   const [showAddBook, setShowAddBook] = useState(false);
   const greeting = useMemo(() => getGreeting(), []);
 
-  // Continue rail state
+  // Continue section state
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const PAGE_SIZE = 5;
 
-  const loadRecentSessions = useCallback(async () => {
+  const loadRecentSessions = useCallback(async (offset = 0, append = false) => {
     if (!userId) return;
-    setRecentLoading(true);
+    if (!append) setRecentLoading(true);
     try {
-      const sessions = await fetchRecentSessions(userId, { limit: 8 });
-      setRecentSessions(sessions);
+      const { sessions, hasMore: more } = await fetchRecentSessions(userId, {
+        limit: PAGE_SIZE,
+        offset,
+      });
+      setRecentSessions((prev) => append ? [...prev, ...sessions] : sessions);
+      setHasMore(more);
     } catch {
-      setRecentSessions([]);
+      if (!append) setRecentSessions([]);
+      setHasMore(false);
     } finally {
       setRecentLoading(false);
     }
   }, [userId]);
+
+  const handleShowMore = useCallback(() => {
+    loadRecentSessions(recentSessions.length, true);
+  }, [recentSessions.length, loadRecentSessions]);
+
+  const handleShowLess = useCallback(() => {
+    loadRecentSessions(0, false);
+  }, [loadRecentSessions]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -79,33 +94,12 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
         </div>
         <div className="home-header-right">
           <button
-            className="home-nav-btn"
-            onClick={() => navigate("/library")}
-          >
-            <BookOpen size={16} />
-            Library
-          </button>
-          <button
             className="home-nav-btn spotlight-trigger"
             onClick={onOpenSpotlight}
             title="Search (⌘K)"
           >
             <Search size={16} />
             <kbd className="home-kbd">⌘K</kbd>
-          </button>
-          <button
-            className="home-nav-btn"
-            onClick={() => setShowFeedManager(true)}
-            title="Manage RSS feeds"
-          >
-            <Rss size={16} />
-          </button>
-          <button
-            className="home-nav-btn"
-            onClick={() => setShowSettingsModal(true)}
-            title="Settings"
-          >
-            <Settings size={16} />
           </button>
           {displayName && (
             <button className="home-user-pill" onClick={clearUser} title="Switch user">
@@ -127,42 +121,58 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
           <button className="home-quick-chip" onClick={() => navigate("/source/news-tech")}>📰 Tech News</button>
           <button className="home-quick-chip" onClick={() => navigate("/library")}>📚 Library</button>
           <button className="home-quick-chip" onClick={() => setShowAddBook(true)}>➕ Add Source</button>
+          <button className="home-quick-chip" onClick={() => setShowFeedManager(true)}>📡 Feeds</button>
+          <button className="home-quick-chip" onClick={() => setShowSettingsModal(true)}>⚙️ Settings</button>
         </div>
       </div>
 
-      {/* Continue rail — recent sessions */}
+      {/* Continue — recent sessions */}
       {!recentLoading && recentSessions.length > 0 && (
         <div className="home-continue">
           <span className="home-continue-title">Continue</span>
-          <div className="home-continue-rail">
+          <div className="home-continue-list">
             {recentSessions.map((rs) => {
               const config = getSourceTypeConfig(rs.sourceType);
               const Icon = config.icon;
               return (
                 <button
                   key={`${rs.sourceId}-${rs.sessionId}`}
-                  className="home-continue-card"
+                  className="home-continue-item"
                   onClick={() => navigate(`/source/${rs.sourceId}?session=${rs.sessionId}`)}
                 >
-                  <div className="home-continue-card-top">
-                    <div className="home-continue-card-icon">
-                      <Icon size={16} />
-                    </div>
-                    <span className="home-continue-card-source">{rs.sourceTitle}</span>
+                  <div className="home-continue-item-icon">
+                    <Icon size={16} />
                   </div>
-                  <div className="home-continue-card-session">{rs.sessionTitle}</div>
-                  <div className="home-continue-card-time">{timeAgo(rs.lastActiveAt)}</div>
+                  <div className="home-continue-item-text">
+                    <span className="home-continue-item-session">{rs.sessionTitle}</span>
+                    <span className="home-continue-item-source">{rs.sourceTitle}</span>
+                  </div>
+                  <span className="home-continue-item-time">{timeAgo(rs.lastActiveAt)}</span>
                 </button>
               );
             })}
           </div>
+          {(hasMore || recentSessions.length > PAGE_SIZE) && (
+            <div className="home-continue-actions">
+              {hasMore && (
+                <button className="home-continue-view-all" onClick={handleShowMore}>
+                  Show more
+                </button>
+              )}
+              {recentSessions.length > PAGE_SIZE && (
+                <button className="home-continue-view-all" onClick={handleShowLess}>
+                  Show less
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {recentLoading && (
         <div className="home-continue">
           <span className="home-continue-title">Continue</span>
-          <div className="home-continue-rail">
+          <div className="home-continue-list">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="home-continue-skeleton" />
             ))}

@@ -51,6 +51,8 @@ sessionCrudRoutes.get("/:userId/recent", (c) => {
   const userId = c.req.param("userId");
   const limitParam = Math.min(Number(c.req.query("limit") ?? 8), 50);
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 8;
+  const offsetParam = Number(c.req.query("offset") ?? 0);
+  const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
   const search = c.req.query("search")?.trim();
 
   const db = getDb();
@@ -86,10 +88,14 @@ sessionCrudRoutes.get("/:userId/recent", (c) => {
     .innerJoin(sources, eq(userSessions.sourceId, sources.id))
     .where(and(...conditions))
     .orderBy(desc(userSessions.lastActiveAt))
-    .limit(limit)
+    .limit(limit + 1)
+    .offset(offset)
     .all();
 
-  const sessions: RecentSession[] = rows.map((row) => {
+  const hasMore = rows.length > limit;
+  const sliced = hasMore ? rows.slice(0, limit) : rows;
+
+  const sessions: RecentSession[] = sliced.map((row) => {
     let mode = "reading";
     try {
       const ctx = JSON.parse(row.context) as SessionContext;
@@ -109,7 +115,7 @@ sessionCrudRoutes.get("/:userId/recent", (c) => {
     };
   });
 
-  return c.json({ sessions });
+  return c.json({ sessions, hasMore });
 });
 
 // ---------------------------------------------------------------------------

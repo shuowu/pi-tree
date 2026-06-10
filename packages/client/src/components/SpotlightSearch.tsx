@@ -54,7 +54,8 @@ export function SpotlightSearch({
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ResultItem[]>([]);
+  const [sessionResults, setSessionResults] = useState<ResultItem[]>([]);
+  const [sourceResults, setSourceResults] = useState<ResultItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -75,16 +76,18 @@ export function SpotlightSearch({
 
   // Merge search results + commands into a flat list for keyboard navigation
   const allItems: ResultItem[] = useMemo(() => [
-    ...results,
+    ...sessionResults,
+    ...sourceResults,
     ...filteredCommands,
-  ], [results, filteredCommands]);
+  ], [sessionResults, sourceResults, filteredCommands]);
 
   // Focus input when opened
   useEffect(() => {
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery("");
-      setResults([]);
+      setSessionResults([]);
+      setSourceResults([]);
       setSelectedIndex(0);
       // Small delay for CSS transition
       requestAnimationFrame(() => inputRef.current?.focus());
@@ -96,15 +99,27 @@ export function SpotlightSearch({
     if (!isOpen) return;
 
     if (!query.trim()) {
-      // Show recent sessions when no query
+      // Show recent sessions + sources when no query
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
-      fetchRecentSessions(userId, { limit: 6 })
-        .then((sessions) => {
-          setResults(sessions.map((s) => ({ kind: "session", session: s })));
+      Promise.all([
+        fetchRecentSessions(userId, { limit: 5 }),
+        fetchSources(),
+      ])
+        .then(([{ sessions }, sources]) => {
+          setSessionResults(sessions.map((s) => ({ kind: "session", session: s })));
+          setSourceResults(
+            sources
+              .filter((s) => s.type !== "router")
+              .slice(0, 5)
+              .map((s) => ({ kind: "source" as const, source: s })),
+          );
           setSelectedIndex(0);
         })
-        .catch(() => setResults([]))
+        .catch(() => {
+          setSessionResults([]);
+          setSourceResults([]);
+        })
         .finally(() => setLoading(false));
       return;
     }
@@ -112,21 +127,21 @@ export function SpotlightSearch({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const [sources, sessions] = await Promise.all([
+        const [sources, { sessions }] = await Promise.all([
           fetchSources({ search: query.trim() }),
           fetchRecentSessions(userId, { limit: 5, search: query.trim() }),
         ]);
 
-        const items: ResultItem[] = [
-          ...sessions.map((s) => ({ kind: "session" as const, session: s })),
-          ...sources
+        setSessionResults(sessions.map((s) => ({ kind: "session" as const, session: s })));
+        setSourceResults(
+          sources
             .filter((s) => s.type !== "router")
             .map((s) => ({ kind: "source" as const, source: s })),
-        ];
-        setResults(items);
+        );
         setSelectedIndex(0);
       } catch {
-        setResults([]);
+        setSessionResults([]);
+        setSourceResults([]);
       } finally {
         setLoading(false);
       }
@@ -273,15 +288,25 @@ export function SpotlightSearch({
 
         {hasAnyResults && (
           <div className="spotlight-results">
-            {/* Search / recent results section */}
-            {results.length > 0 && (
+            {/* Sessions section */}
+            {sessionResults.length > 0 && (
               <>
-                {!query.trim() && (
-                  <div className="spotlight-section-label">
-                    <Clock size={12} /> Recent
-                  </div>
+                <div className="spotlight-section-label">
+                  <Clock size={12} /> {query.trim() ? "Sessions" : "Recent"}
+                </div>
+                {sessionResults.map((item, i) => renderItem(item, i))}
+              </>
+            )}
+
+            {/* Sources section */}
+            {sourceResults.length > 0 && (
+              <>
+                <div className="spotlight-section-label">
+                  <BookOpen size={12} /> Sources
+                </div>
+                {sourceResults.map((item, i) =>
+                  renderItem(item, sessionResults.length + i),
                 )}
-                {results.map((item, i) => renderItem(item, i))}
               </>
             )}
 
@@ -290,7 +315,7 @@ export function SpotlightSearch({
               <>
                 <div className="spotlight-section-label">Actions</div>
                 {filteredCommands.map((item, i) =>
-                  renderItem(item, results.length + i),
+                  renderItem(item, sessionResults.length + sourceResults.length + i),
                 )}
               </>
             )}
