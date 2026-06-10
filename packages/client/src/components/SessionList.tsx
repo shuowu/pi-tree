@@ -94,8 +94,9 @@ function SessionCard({
         <div className="session-card-icon">{icon}</div>
         <div className="session-card-body">
           <span className="session-card-title">{session.title}</span>
-          {subtitle && <span className="session-card-subtitle">{subtitle}</span>}
-          <span className="session-card-meta">{relativeTime(session.lastActiveAt)}</span>
+          <span className="session-card-meta">
+            {subtitle && <>{subtitle} · </>}{relativeTime(session.lastActiveAt)}
+          </span>
         </div>
       </button>
     );
