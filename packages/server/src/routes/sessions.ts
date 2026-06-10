@@ -9,10 +9,10 @@
  */
 
 import { Hono } from "hono";
-import { eq, and, desc } from "drizzle-orm";
-import { getDb, userSessions, users } from "../db/index.js";
+import { eq, and, desc, like, or, sql } from "drizzle-orm";
+import { getDb, userSessions, users, sources } from "../db/index.js";
 import { closeSession } from "../services/session-store.js";
-import type { SourceSession, SessionContext } from "@pi-tree/shared";
+import type { SourceSession, SessionContext, RecentSession } from "@pi-tree/shared";
 
 export const sessionCrudRoutes = new Hono();
 
@@ -42,6 +42,74 @@ function rowToSourceSession(row: {
     isActive: row.isActive === 1,
   };
 }
+
+// ---------------------------------------------------------------------------
+// GET /sessions/:userId/recent — cross-source recent sessions (home page)
+// ---------------------------------------------------------------------------
+
+sessionCrudRoutes.get("/:userId/recent", (c) => {
+  const userId = c.req.param("userId");
+  const limitParam = Math.min(Number(c.req.query("limit") ?? 8), 50);
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 8;
+  const search = c.req.query("search")?.trim();
+
+  const db = getDb();
+
+  const conditions = [
+    eq(userSessions.userId, userId),
+    eq(userSessions.isActive, 1),
+  ];
+
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(
+        like(userSessions.title, pattern),
+        like(sources.title, pattern),
+      )!,
+    );
+  }
+
+  const rows = db
+    .select({
+      id: userSessions.id,
+      title: userSessions.title,
+      context: userSessions.context,
+      lastActiveAt: userSessions.lastActiveAt,
+      sourceId: sources.id,
+      sourceTitle: sources.title,
+      sourceType: sources.type,
+      coverUrl: sources.coverUrl,
+    })
+    .from(userSessions)
+    .innerJoin(sources, eq(userSessions.sourceId, sources.id))
+    .where(and(...conditions))
+    .orderBy(desc(userSessions.lastActiveAt))
+    .limit(limit)
+    .all();
+
+  const sessions: RecentSession[] = rows.map((row) => {
+    let mode = "reading";
+    try {
+      const ctx = JSON.parse(row.context) as SessionContext;
+      mode = ctx.mode ?? "reading";
+    } catch {
+      // default to reading
+    }
+    return {
+      sessionId: row.id,
+      sessionTitle: row.title,
+      sourceId: row.sourceId,
+      sourceTitle: row.sourceTitle,
+      sourceType: row.sourceType as RecentSession["sourceType"],
+      mode,
+      lastActiveAt: row.lastActiveAt,
+      hasCover: false,
+    };
+  });
+
+  return c.json({ sessions });
+});
 
 // ---------------------------------------------------------------------------
 // GET /sessions/:userId/:sourceId — list all sessions for a user+source

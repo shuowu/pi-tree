@@ -30,17 +30,23 @@ export function _resetLibraryServices(): void {
   _bookIngestion = null;
 }
 
-/** List all sources in the library (with optional search/tag filter) */
+/** List all sources in the library (with optional search/tag/type filter) */
 libraryRoutes.get("/sources", async (c) => {
   const search = c.req.query("search");
   const tagsParam = c.req.query("tags");
   const filterTags = tagsParam ? tagsParam.split(",").filter(Boolean) : undefined;
+  const typeFilter = c.req.query("type");
 
-  const sources =
+  let filteredSources =
     search || (filterTags && filterTags.length > 0)
       ? await getLibrary().searchSources(search, filterTags)
       : await getLibrary().listSources();
-  return c.json({ sources });
+
+  if (typeFilter) {
+    filteredSources = filteredSources.filter((s) => s.type === typeFilter);
+  }
+
+  return c.json({ sources: filteredSources });
 });
 
 /** Get a source's cover image */

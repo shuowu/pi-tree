@@ -74,6 +74,22 @@ export interface SourceSession {
   isActive: boolean;
 }
 
+/**
+ * A session enriched with its parent source info.
+ * Returned by the cross-source recent sessions endpoint
+ * (`GET /api/sessions/:userId/recent`).
+ */
+export interface RecentSession {
+  sessionId: number;
+  sessionTitle: string;
+  sourceId: string;
+  sourceTitle: string;
+  sourceType: SourceType;
+  mode: string;
+  lastActiveAt: string;
+  hasCover: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Topic Node — the universal tree node
 // ---------------------------------------------------------------------------

@@ -10,6 +10,8 @@ import type {
   SourceSession,
   SessionContext,
   UserInfo,
+  RecentSession,
+  SourceType,
 } from "@pi-tree/shared";
 
 const API = "/api";
@@ -86,10 +88,11 @@ export async function fetchUser(userId: string): Promise<UserInfo> {
 // Library
 // ---------------------------------------------------------------------------
 
-export async function fetchSources(opts?: { search?: string; tags?: string[] }): Promise<Source[]> {
+export async function fetchSources(opts?: { search?: string; tags?: string[]; type?: SourceType }): Promise<Source[]> {
   const params = new URLSearchParams();
   if (opts?.search) params.set('search', opts.search);
   if (opts?.tags?.length) params.set('tags', opts.tags.join(','));
+  if (opts?.type) params.set('type', opts.type);
   const qs = params.toString();
   const url = `${API}/library/sources${qs ? `?${qs}` : ''}`;
   const res = await fetch(url);
@@ -215,6 +218,20 @@ export async function fetchJobs(): Promise<JobWithSource[]> {
   if (!res.ok) throw new Error(`Failed to fetch jobs: ${res.status}`);
   const data = await res.json();
   return data.jobs || [];
+}
+
+export async function fetchRecentSessions(
+  userId: string,
+  opts?: { limit?: number; search?: string },
+): Promise<RecentSession[]> {
+  const params = new URLSearchParams();
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  if (opts?.search) params.set('search', opts.search);
+  const qs = params.toString();
+  const res = await fetch(`${API}/sessions/${userId}/recent${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(`Failed to fetch recent sessions: ${res.status}`);
+  const data = await res.json();
+  return data.sessions;
 }
 
 
