@@ -60,12 +60,10 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
-// Helper to query Honos API
-const API_BASE = "http://localhost:3947"; // dev fallback or relative in prod
-
+// Use relative URLs — Vite proxy routes /api/* to the server in dev,
+// and production serves everything from the same origin.
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE}${path}`;
-  const response = await fetch(url, options);
+  const response = await fetch(path, options);
   if (!response.ok) {
     const errText = await response.text();
     throw new Error(errText || `HTTP error ${response.status}`);
