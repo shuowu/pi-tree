@@ -5,6 +5,11 @@
  * Claude Desktop / Cursor). Spawns stdio or SSE connections, discovers
  * tools, and proxies tool calls from Pi SDK extensions.
  *
+ * Resilience:
+ *   - Automatic reconnection with exponential backoff on unexpected disconnect
+ *   - Handles `tools/list_changed` notifications to refresh tool lists
+ *   - Graceful degradation: failed servers are skipped, others continue working
+ *
  * Usage:
  *   const bridge = getMcpBridge();
  *   await bridge.connectAll("/path/to/mcp.json");
@@ -65,8 +70,19 @@ export interface McpToolContent {
 interface ServerConnection {
   client: Client;
   transport: StdioClientTransport | SSEClientTransport;
+  config: McpServerConfig;
   tools: DiscoveredTool[];
+  /** Whether this connection was intentionally closed (vs. unexpected disconnect) */
+  intentionalClose: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Reconnection config
+// ---------------------------------------------------------------------------
+
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+const RECONNECT_MAX_ATTEMPTS = 5;
 
 // ---------------------------------------------------------------------------
 // Config loader (separated for testability)
@@ -109,6 +125,8 @@ export function loadMcpConfig(configPath: string): McpConfig | null {
 export class McpBridge {
   private connections = new Map<string, ServerConnection>();
   private allTools: DiscoveredTool[] = [];
+  /** Tracks active reconnection attempts to prevent overlapping retries */
+  private reconnecting = new Set<string>();
 
   /**
    * Connect to all MCP servers defined in the config file.
@@ -182,6 +200,7 @@ export class McpBridge {
   async disconnectAll(): Promise<void> {
     for (const [name, conn] of this.connections) {
       try {
+        conn.intentionalClose = true;
         await conn.client.close();
         console.log(`[mcp-bridge] Disconnected "${name}"`);
       } catch (err: any) {
@@ -216,8 +235,53 @@ export class McpBridge {
 
     const client = new Client(
       { name: "pi-tree", version: "0.1.0" },
-      { capabilities: {} },
+      {
+        capabilities: {},
+        // Handle tools/list_changed notification: re-fetch tools when server updates
+        listChanged: {
+          tools: {
+            onChanged: (error, tools) => {
+              if (error) {
+                console.error(`[mcp-bridge] "${name}" tools list_changed error:`, error);
+                return;
+              }
+              // Update tool list for this server
+              const newTools: DiscoveredTool[] = (tools ?? []).map((t) => ({
+                serverName: name,
+                name: t.name,
+                description: t.description,
+                inputSchema: (t.inputSchema as Record<string, unknown>) ?? { type: "object", properties: {} },
+              }));
+
+              const conn = this.connections.get(name);
+              if (conn) {
+                const oldCount = conn.tools.length;
+                conn.tools = newTools;
+                this.rebuildToolList();
+                console.log(
+                  `[mcp-bridge] "${name}" tools updated: ${oldCount} → ${newTools.length}`,
+                );
+              }
+            },
+          },
+        },
+      },
     );
+
+    // Set up disconnect detection for automatic reconnection
+    transport.onclose = () => {
+      const conn = this.connections.get(name);
+      if (conn && !conn.intentionalClose) {
+        console.warn(`[mcp-bridge] "${name}" disconnected unexpectedly — scheduling reconnect`);
+        this.connections.delete(name);
+        this.rebuildToolList();
+        this.scheduleReconnect(name, config);
+      }
+    };
+
+    transport.onerror = (error: Error) => {
+      console.error(`[mcp-bridge] "${name}" transport error: ${error.message}`);
+    };
 
     await client.connect(transport);
 
@@ -230,10 +294,58 @@ export class McpBridge {
       inputSchema: (t.inputSchema as Record<string, unknown>) ?? { type: "object", properties: {} },
     }));
 
-    this.connections.set(name, { client, transport, tools });
-    this.allTools.push(...tools);
+    this.connections.set(name, { client, transport, config, tools, intentionalClose: false });
+    this.rebuildToolList();
 
     console.log(`[mcp-bridge] Connected to "${name}" (${tools.length} tools)`);
+  }
+
+  /**
+   * Rebuild the flat allTools array from all active connections.
+   * Called after any connection change (connect, disconnect, tool list update).
+   */
+  private rebuildToolList(): void {
+    this.allTools = [];
+    for (const conn of this.connections.values()) {
+      this.allTools.push(...conn.tools);
+    }
+  }
+
+  /**
+   * Schedule a reconnection attempt with exponential backoff and jitter.
+   * Gives up after RECONNECT_MAX_ATTEMPTS consecutive failures.
+   */
+  private scheduleReconnect(name: string, config: McpServerConfig, attempt = 0): void {
+    if (attempt >= RECONNECT_MAX_ATTEMPTS) {
+      console.error(
+        `[mcp-bridge] "${name}" — gave up reconnecting after ${RECONNECT_MAX_ATTEMPTS} attempts`,
+      );
+      this.reconnecting.delete(name);
+      return;
+    }
+
+    if (this.reconnecting.has(name)) return; // already reconnecting
+    this.reconnecting.add(name);
+
+    // Exponential backoff with jitter: base * 2^attempt + random(0..base)
+    const backoff = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+    const jitter = Math.random() * RECONNECT_BASE_MS;
+    const delay = backoff + jitter;
+
+    console.log(
+      `[mcp-bridge] "${name}" — reconnect attempt ${attempt + 1}/${RECONNECT_MAX_ATTEMPTS} in ${Math.round(delay)}ms`,
+    );
+
+    setTimeout(async () => {
+      this.reconnecting.delete(name);
+      try {
+        await this.connectServer(name, config);
+        console.log(`[mcp-bridge] "${name}" — reconnected successfully`);
+      } catch (err: any) {
+        console.error(`[mcp-bridge] "${name}" — reconnect attempt ${attempt + 1} failed: ${err.message}`);
+        this.scheduleReconnect(name, config, attempt + 1);
+      }
+    }, delay);
   }
 }
 
