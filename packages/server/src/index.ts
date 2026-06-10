@@ -13,6 +13,13 @@ const port = Number(process.env.PORT ?? 3847);
 const hostname = process.env.HOST ?? "0.0.0.0";
 const dataPath = process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-tree");
 
+// Activate mock AI mode for e2e testing — replaces LLM calls with scripted
+// responses while keeping real SessionManager (tree ops, JSONL persistence).
+if (process.env.PI_MOCK === "true") {
+  const { setupPiMock } = await import("./testing/setup-mock.js");
+  setupPiMock();
+}
+
 // Initialize RSS Service and seed default feeds on first run
 const rssService = new RssService();
 try {
