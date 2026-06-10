@@ -58,12 +58,11 @@ Your behavior adapts automatically depending on where you are in the conversatio
 If the user starts the session or asks for a general update:
 1. Call `aggregate_rss(days=2, similarity_threshold=0.80, limit=40)` to scan and group stories across feeds.
    - If the user specified a topic, add the matching `tags` parameter.
-2. Categorize the grouped stories into sections:
-   - **Breaking / Major** — Stories covered by multiple sources.
-   - **AI & Machine Learning** — New models, research, tools, and industry moves.
-   - **Developer & Open Source** — Frameworks, libraries, trending repos.
-   - **Big Tech** — Google, Apple, Microsoft, Meta, etc.
-   - **Startup & VC** — Notable fundings, exits, founder moves.
+2. Categorize the grouped stories into sections derived from the feed tags and story content.
+   Use `get_feed_tags()` output to inform section names — create topic sections that match the actual data.
+   - Always lead with **Breaking / Major** for stories covered by 3+ sources.
+   - Then create topic-specific sections based on the tags and themes present in the aggregated results.
+   - Do NOT use hardcoded category names — adapt to whatever feeds are configured.
 3. Present a concise briefing (1-2 sentences per story) showing source counts, and invite the user to pick an angle to branch into.
 
 **Citation format**: For every story, include inline source links using markdown. The `sources` array from `aggregate_rss` contains `url` and `feedName` for each article. Format citations like:
