@@ -4,19 +4,23 @@
  * The "router" is a special system source that powers the home page
  * chat interface, allowing users to discover sources and start sessions.
  *
+ * Each visit to the home page gets a FRESH router session — the
+ * concierge conversation is ephemeral, not persistent.
+ *
  * Mounted at `/api/router`.
  */
 
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
 import { getDb, sources, userSessions, users } from "../db/index.js";
+import { closeSession } from "../services/session-store.js";
 
 const ROUTER_SOURCE_ID = "home-router";
 
 export const routerRoutes = new Hono();
 
 // ---------------------------------------------------------------------------
-// GET /router/session/:userId — get or create router session
+// GET /router/session/:userId — always creates a fresh router session
 // ---------------------------------------------------------------------------
 
 routerRoutes.get("/session/:userId", (c) => {
@@ -40,7 +44,7 @@ routerRoutes.get("/session/:userId", (c) => {
     .onConflictDoNothing()
     .run();
 
-  // 2. Ensure user exists (auto-create pattern from sessions.ts)
+  // 2. Ensure user exists
   const existingUser = db.select().from(users).where(eq(users.id, userId)).get();
   if (!existingUser) {
     db.insert(users)
@@ -49,8 +53,9 @@ routerRoutes.get("/session/:userId", (c) => {
       .run();
   }
 
-  // 3. Find existing active router session for this user
-  const existingSession = db
+  // 3. Deactivate all previous router sessions for this user
+  //    (the concierge chat is ephemeral — no history across page visits)
+  const oldSessions = db
     .select()
     .from(userSessions)
     .where(
@@ -60,16 +65,19 @@ routerRoutes.get("/session/:userId", (c) => {
         eq(userSessions.isActive, 1),
       ),
     )
-    .get();
+    .all();
 
-  if (existingSession) {
-    return c.json({
-      sessionId: existingSession.id,
-      sourceId: ROUTER_SOURCE_ID,
-    });
+  for (const old of oldSessions) {
+    // Close any in-memory session state (TreeManager cache, JSONL file handles)
+    closeSession(userId, ROUTER_SOURCE_ID, old.id);
+    // Soft-delete in DB
+    db.update(userSessions)
+      .set({ isActive: 0 })
+      .where(eq(userSessions.id, old.id))
+      .run();
   }
 
-  // 4. Create a new router session
+  // 4. Create a fresh router session
   const result = db
     .insert(userSessions)
     .values({
