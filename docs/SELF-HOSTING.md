@@ -15,6 +15,7 @@ This guide covers configuration, customization, and extending pi-tree for self-h
 | `SKILLS_PATH` | `<DATA_PATH>/skills` | Custom skills directory |
 | `EXTENSIONS_PATH` | `<DATA_PATH>/extensions` | Custom extensions directory |
 | `PORT` | `3847` | Server port |
+| `RSS_CRAWL_INTERVAL_MIN` | `30` | How often to crawl RSS feeds (in minutes) |
 
 Env vars are the simplest way to configure a single provider. For multiple providers, use `models.json` below.
 
@@ -60,6 +61,7 @@ volumes:
 ```
 <DATA_PATH>/                          # ~/.local/share/pi-tree by default
 ├── pi-tree.db                       # SQLite database (users, sessions, config)
+├── mcp.json                          # MCP server config (optional, see below)
 ├── sessions/                         # Pi SDK session JSONL files
 │   └── <bookId>/<userId>/            # Per-user per-book sessions
 ├── books/                            # Uploaded books (from UI)
@@ -68,6 +70,9 @@ volumes:
 │       ├── markdown/                 # Converted markdown
 │       ├── analysis/                 # AI-generated outlines
 │       └── cover.jpg                 # Cover image
+├── news/                             # News feature data
+│   ├── analyses/                     # AI-generated news analyses (.md)
+│   └── summaries/                    # AI-generated news summaries (.md)
 ├── skills/                           # ← Your custom skills go here
 │   └── my-skill/
 │       └── SKILL.md
@@ -171,6 +176,102 @@ export default function myExtension(pi: ExtensionAPI) {
 Extensions are loaded at runtime via [jiti](https://github.com/unjs/jiti) — no build step required. They have access to the full Pi extension API (tools, commands, events).
 
 > **Note**: Extensions run with the server's permissions. Only load extensions you trust.
+
+## MCP Bridge (External Tools)
+
+Pi-tree can connect to external [MCP servers](https://modelcontextprotocol.io) and expose their tools to the AI agent. This lets you add web search, academic databases, translation APIs, or any MCP-compatible tool without writing code.
+
+### Configuration
+
+Create `<DATA_PATH>/mcp.json` (same format as Claude Desktop / Cursor):
+
+```json
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-brave-search"],
+      "env": { "BRAVE_API_KEY": "your-key-here" }
+    },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-fetch"]
+    }
+  }
+}
+```
+
+Each server entry can have:
+
+- **`command`** + **`args`**: Spawn a stdio-based MCP server (most common)
+- **`url`**: Connect to an HTTP/SSE-based MCP server (alternative to command)
+- **`env`**: Environment variables passed to the spawned process
+- **`disabled`**: Set to `true` to skip this server without removing the config
+
+### How it works
+
+On server startup, the MCP bridge:
+
+1. Reads `<DATA_PATH>/mcp.json`
+2. Connects to each configured server via stdio or SSE
+3. Discovers available tools via `tools/list`
+4. Registers each tool with the Pi SDK, prefixed as `mcp_<server>_<tool>` (e.g., `mcp_brave-search_web_search`)
+
+The AI agent can then use these tools during any session. If an MCP server disconnects unexpectedly, the bridge attempts to reconnect automatically with exponential backoff.
+
+If no `mcp.json` exists or is empty, the MCP bridge silently does nothing — no configuration is needed if you don't want external tools.
+
+### Docker
+
+Mount the config file and ensure the MCP server commands are available:
+
+```yaml
+volumes:
+  - ./mcp.json:/data/mcp.json:ro
+```
+
+For MCP servers that use `npx`, Node.js must be available in the container (it is by default).
+
+## News Feeds
+
+Pi-tree includes an RSS news feed feature. Feeds are crawled on a schedule, and the AI can analyze, summarize, and discuss recent news with you.
+
+### Default feeds
+
+On first startup, pi-tree seeds a small set of default feeds (Hacker News, TechCrunch, etc.) from `packages/server/config/default-feeds.json`. These are only seeded if no feeds exist yet — they won't overwrite feeds you've added.
+
+### Managing feeds
+
+Feeds can be managed through the web UI (News section) or the API:
+
+```bash
+# List feeds
+curl http://localhost:3847/api/news/feeds
+
+# Add a feed
+curl -X POST http://localhost:3847/api/news/feeds \
+  -H "Content-Type: application/json" \
+  -d '{"id": "ars-technica", "name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "tags": ["tech"]}'
+
+# Remove a feed
+curl -X DELETE http://localhost:3847/api/news/feeds/ars-technica
+
+# Trigger a manual crawl
+curl -X POST http://localhost:3847/api/news/crawl
+```
+
+### Crawl schedule
+
+Feeds are crawled automatically every 30 minutes by default. Set `RSS_CRAWL_INTERVAL_MIN` to change the interval. On startup, feeds are crawled immediately if they're stale (no crawl in the last interval).
+
+### Data storage
+
+News data lives under `<DATA_PATH>/news/`:
+
+- `analyses/` — AI-generated news analyses (Markdown files)
+- `summaries/` — AI-generated news summaries (Markdown files)
+
+Feed metadata and cached articles are stored in the SQLite database.
 
 ## Docker Compose
 

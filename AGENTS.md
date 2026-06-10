@@ -35,6 +35,7 @@ packages/
 - `docs/SESSION-MANAGEMENT.md` — Multi-session model, context binding, session lifecycle, API reference, future agent extensibility
 - `docs/SELF-HOSTING.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
 - `docs/VISION.md` — Design philosophy and product direction
+- `docs/ELECTRON.md` — Electron app design: architecture mapping, bootstrap extraction, IPC vs HTTP, packaging
 
 ## Key Concepts
 

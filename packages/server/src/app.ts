@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
@@ -28,6 +29,27 @@ app.use(
     },
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Global error handling
+// ---------------------------------------------------------------------------
+
+app.onError((err, c) => {
+  const status = err instanceof HTTPException ? err.status : 500;
+  const message = err instanceof Error ? err.message : "Internal server error";
+
+  if (status >= 500) {
+    console.error(`[${c.req.method}] ${c.req.path} → ${status}:`, err);
+  } else {
+    console.warn(`[${c.req.method}] ${c.req.path} → ${status}: ${message}`);
+  }
+
+  return c.json({ error: message, status }, status as any);
+});
+
+app.notFound((c) => {
+  return c.json({ error: "Not found", status: 404 }, 404);
+});
 
 // Health check
 app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));

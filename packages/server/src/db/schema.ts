@@ -10,7 +10,7 @@
  * with a `source_id` FK.
  */
 
-import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
 // Users — simple identity, no auth
@@ -74,7 +74,9 @@ export const userSourceConfig = sqliteTable("user_source_config", {
     .references(() => users.id),
   sourceId: text("source_id").notNull(),
   config: text("config").notNull(), // JSON blob of ReaderConfig
-}, () => []);
+}, (table) => ({
+  userSourceIdx: index("usc_user_source_idx").on(table.userId, table.sourceId),
+}));
 
 // ---------------------------------------------------------------------------
 // User ↔ Source progress — reading position tracking
@@ -88,7 +90,9 @@ export const userSourceProgress = sqliteTable("user_source_progress", {
   progress: real("progress").notNull().default(0),
   lastNodeId: text("last_node_id"),
   updatedAt: text("updated_at").notNull(),
-}, () => []);
+}, (table) => ({
+  userSourceIdx: index("usp_user_source_idx").on(table.userId, table.sourceId),
+}));
 
 // ---------------------------------------------------------------------------
 // Glossary — per-user per-source term definitions
@@ -103,7 +107,9 @@ export const glossaryEntries = sqliteTable("glossary_entries", {
   term: text("term").notNull(),
   definition: text("definition"),
   createdAt: text("created_at").notNull(),
-});
+}, (table) => ({
+  userSourceIdx: index("glossary_user_source_idx").on(table.userId, table.sourceId),
+}));
 
 // ---------------------------------------------------------------------------
 // Tags — global tag definitions
