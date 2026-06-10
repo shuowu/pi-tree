@@ -1,76 +1,44 @@
-# @pi-tree/mcp — MCP Server
+# @pi-tree/mcp
 
-> **This package exposes pi-tree as an MCP _server_.**
-> It is the opposite of the MCP _client_ bridge in `packages/server/src/services/mcp-bridge.ts`.
+MCP **server** — exposes pi-tree to external AI tools (Claude Desktop, Cursor, etc.) via stdio.
 
-## What this does
+> Not to be confused with the MCP **client** bridge (`packages/server/src/services/mcp-bridge.ts`) which lets pi-tree consume external MCP tools.
 
-External AI tools (Claude Desktop, Cursor, VS Code Copilot, etc.) can connect to this server and interact with your pi-tree library — browse sources, manage sessions, chat, and look up glossary terms — all via the standard [Model Context Protocol](https://modelcontextprotocol.io).
+## Files
 
 ```
-┌──────────────────┐     stdio (JSON-RPC)     ┌─────────────────┐
-│  Claude Desktop  │ ◄──────────────────────► │  @pi-tree/mcp   │
-│  Cursor / VS Code│                          │  (this package)  │
-└──────────────────┘                          └────────┬────────┘
-                                                       │ imports
-                                                       ▼
-                                              ┌─────────────────┐
-                                              │ @pi-tree/server  │
-                                              │  (DB, services)  │
-                                              └─────────────────┘
+src/
+  index.ts              (72L) — entry point, stdio transport, service init
+  tools/
+    library.ts         (124L) — list_sources, get_source_info, add_source
+    sessions.ts        (204L) — list_sessions, create_session, get_session_tree
+    chat.ts             (86L) — send_message, get_conversation
+    reference.ts       (138L) — lookup_term, list_glossary, add_glossary_entry
 ```
 
-## vs. the MCP Client Bridge
+## Direction
 
-| | This package (`packages/mcp`) | Client bridge (`packages/server`) |
-|---|---|---|
-| **Direction** | pi-tree **serves** tools to external AI | pi-tree **consumes** tools from external MCP servers |
-| **Transport** | stdio (spawned by Claude/Cursor) | stdio or SSE (spawns child processes) |
-| **Config** | External tool's `mcp.json` | `$DATA_PATH/mcp.json` |
-| **Purpose** | Let other AIs use your library | Give pi-tree's AI web search, etc. |
+```
+External AI (Claude, Cursor)  ──stdio──►  @pi-tree/mcp  ──imports──►  @pi-tree/server (DB, services)
+```
 
-## Tools exposed
+## Setup
 
-| Tool group | Tools | Source |
-|------------|-------|--------|
-| **Library** | `list_sources`, `get_source_info`, `add_source` | `src/tools/library.ts` |
-| **Sessions** | `list_sessions`, `create_session`, `get_session_tree` | `src/tools/sessions.ts` |
-| **Chat** | `send_message`, `get_conversation` | `src/tools/chat.ts` |
-| **Reference** | `lookup_term`, `list_glossary`, `add_glossary_entry` | `src/tools/reference.ts` |
-
-## Usage
-
-### In Claude Desktop / Cursor
-
-Add to your MCP config (`~/.config/claude/mcp.json` or `.cursor/mcp.json`):
+In Claude Desktop / Cursor MCP config:
 
 ```json
 {
   "mcpServers": {
     "pi-tree": {
       "command": "node",
-      "args": ["<path-to-repo>/packages/mcp/dist/index.js"]
+      "args": ["<repo>/packages/mcp/dist/index.js"]
     }
   }
 }
 ```
 
-### Dev mode
+## Boundary
 
-```bash
-npx tsx --conditions=source packages/mcp/src/index.ts
-```
-
-### Binary
-
-The package exposes a `pi-tree-mcp` bin entry, so after `npm link` or global install:
-
-```bash
-pi-tree-mcp
-```
-
-## Notes
-
-- **stdout is reserved** for MCP JSON-RPC protocol. All logging goes to stderr.
-- Shares the same SQLite database and `DATA_PATH` as the main server.
-- Must be built (`npm run build`) before use with Claude Desktop (which needs `dist/index.js`).
+- **May import**: `@pi-tree/server` (DB, services), `@pi-tree/shared`, `@modelcontextprotocol/sdk`
+- **stdout** is reserved for MCP JSON-RPC — all logging goes to stderr
+- Must `npm run build` before use (Claude/Cursor need `dist/index.js`)

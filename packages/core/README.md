@@ -1,60 +1,48 @@
-# @pi-tree/core — Pure Library
+# @pi-tree/core
 
-Pi SDK wrapper and session/tree types. **Pure library** — no `process.env`, no `import.meta.dirname`, no file I/O.
+Pure library — Pi SDK wrapper, conversation tree, session types. **No `process.env`, no file I/O.** All config injected via `PiSessionConfig`.
 
-## Key constraint
+## Files
 
-All environment resolution (API keys, model names, paths) happens in the server's app layer and is injected via `PiSessionConfig`. This keeps core testable and free of side effects.
+```
+src/
+  index.ts                        — re-exports session/ + types/
+  session/
+    pi-session.ts         (1029L) — PiSession: wraps Pi SDK, conversation lifecycle
+    model-setup.ts         (121L) — configureModelRegistry(): provider/model setup
+    conversation-tree.ts    (74L) — ConversationTree: builds tree from Pi SDK data
+    tree-nav.ts            (214L) — findNode, getPath, getBreadcrumbs, getChildren
+    tree-filter.ts          (37L) — isAbandoned, filterAbandonedNodes
+    streaming-utils.ts      (27L) — wrapTokenWithEarlyTreeUpdate
+    index.ts                       — barrel export
+  types/
+    tree.ts                        — TreeNodeView, ChatMessage, BranchOption, BreadcrumbItem, ContentAnchor, SessionState
+    message.ts                     — TopicMeta, SectionStatusMeta, SectionLabelMeta, PiTreeData, AnnotatedTreeNode
+    index.ts                       — barrel export
+```
 
 ## Sub-path exports
 
 ```typescript
-// Full library — PiSession, tree operations, model setup (server-side only)
-import { PiSession } from "@pi-tree/core";
+// Full library (server-side only — imports Pi SDK)
+import { PiSession, ConversationTree } from "@pi-tree/core";
 
-// Types only — safe for browser bundles
+// Types only (safe for browser bundles)
 import type { ChatMessage, TreeNodeView, SessionState } from "@pi-tree/core/types";
 
-// Session module — PiSession + tree utilities
-import { PiSession, ConversationTree } from "@pi-tree/core/session";
+// Session module
+import { PiSession, configureModelRegistry } from "@pi-tree/core/session";
 ```
 
-## Modules
+## Boundary
 
-### `session/` — Pi SDK wrapper and tree operations
-
-| File | What it does |
-|------|-------------|
-| `pi-session.ts` | `PiSession` — wraps Pi SDK, manages conversation lifecycle, resource loading |
-| `model-setup.ts` | `configureModelRegistry()` — extracted, testable model/provider setup |
-| `conversation-tree.ts` | `ConversationTree` — builds tree structure from Pi SDK conversation |
-| `tree-nav.ts` | Tree navigation utilities (find node, get path, breadcrumbs) |
-| `tree-filter.ts` | Filter/search within conversation trees |
-| `streaming-utils.ts` | SSE streaming helpers |
-
-### `types/` — Session-level types (browser-safe)
-
-| Type | Description |
-|------|-------------|
-| `TreeNodeView` | A node in the conversation tree (UI-ready) |
-| `ChatMessage` | Single message (user/assistant/toolResult) |
-| `BranchOption` | Branch preview card data |
-| `BreadcrumbItem` | Navigation breadcrumb entry |
-| `SessionState` | Current session state snapshot |
-| `ContentAnchor` | Reading position reference |
-| `AnnotatedTreeNode` | Tree node with Pi SDK metadata annotations |
-
-## Package boundaries
-
-| May import | Must NOT do |
-|-----------|-------------|
-| `@pi-tree/shared`, `@earendil-works/pi-coding-agent` | `process.env`, `import.meta.dirname`, file I/O, any server imports |
+- **May import**: `@pi-tree/shared`, `@earendil-works/pi-coding-agent`
+- **Must NOT**: `process.env`, `import.meta.dirname`, `node:fs`, any server imports
+- **`@pi-tree/core/types`** sub-path is safe for browser — no Pi SDK dependency
 
 ## Tests
 
-```bash
-cd packages/core
-npm test          # vitest
 ```
-
-Tests use `vi.stubEnv` to mock environment — no real env vars needed.
+src/session/__tests__/
+  model-setup.test.ts    — 15 tests, model registry configuration
+```

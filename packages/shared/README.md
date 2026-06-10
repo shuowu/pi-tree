@@ -1,44 +1,39 @@
-# @pi-tree/shared — Shared Types
+# @pi-tree/shared
 
-App-level TypeScript types shared between all packages. No runtime code — types only.
+App-level types shared across all packages. Types only — no runtime code.
 
-## Why a separate package
+## Files
 
-Types like `Source`, `UserInfo`, and `SessionContext` are needed by both the server (DB queries, API responses) and the client (rendering, API calls). Extracting them avoids circular dependencies between `@pi-tree/server` and `@pi-tree/client`.
+```
+src/
+  index.ts          — re-exports types.ts
+  types.ts          — all type definitions
+```
 
-## What lives here vs. `@pi-tree/core/types`
+## Exports
 
-| Package | Contains | Safe for browser? |
-|---------|----------|-------------------|
-| **`@pi-tree/shared`** | App-level: users, sources, library, config, outlines | ✅ Yes |
-| **`@pi-tree/core/types`** | Session-level: `ChatMessage`, `TreeNodeView`, `BranchOption`, `SessionState` | ✅ Yes |
+Types — users, sources, sessions, config:
 
-Rule of thumb: if it's about *what the user sees in the chat*, it's in `core/types`. If it's about *what the app manages* (sources, users, config), it's here.
+```
+UserInfo, SourceType, Source, BookMetadata, NewsMetadata,
+SessionContext, SourceSession, RecentSession,
+TopicNode, ContentAnchor, ReadingTree,
+BookPreferences, ReaderConfig, DEFAULT_CONFIG,
+OutlineEntry, SourceOutline, ThematicMapEntry, ReadingRecommendation,
+SummaryDetailLevel, SummaryFocus, SummaryConfig, CompactionConfig,
+NavigationConfig, LookupConfig,
+ServerConfig, DEFAULT_SERVER_CONFIG,
+UserIntent
+```
 
-## Exported types
-
-| Type | Description |
-|------|-------------|
-| `UserInfo` | User identity (slug id, displayName, avatarUrl) |
-| `Source` | Universal "thing you have conversations about" |
-| `SourceType` | `'book' \| 'news' \| 'paper' \| 'podcast'` |
-| `BookMetadata` / `NewsMetadata` | Type-specific metadata stored in `sources.metadata` JSON |
-| `SessionContext` | Mode, optional skill/model overrides for a session |
-| `SourceSession` / `RecentSession` | Session metadata for listings |
-| `TopicNode` | Tree node in the conversation |
-| `ReadingTree` | Full tree structure |
-| `Source` / `ContentAnchor` | Source metadata and reading position |
-| `OutlineEntry` / `SourceOutline` | Book structural analysis |
-| `SummaryConfig` / `CompactionConfig` | Per-source configuration |
-| `ServerConfig` / `DEFAULT_SERVER_CONFIG` | Server configuration shape + defaults |
-
-## Usage
+## Import
 
 ```typescript
 import type { Source, UserInfo, SourceType } from "@pi-tree/shared";
 ```
 
-## Package boundaries
+## Boundary
 
-- ✅ Safe to import from: `@pi-tree/server`, `@pi-tree/client`, `@pi-tree/core`, `@pi-tree/mcp`, `@pi-tree/ui`
-- ❌ Must NOT import from: any other `@pi-tree/*` package (shared is a leaf dependency)
+- **May import**: nothing (leaf dependency)
+- **Importable by**: every other `@pi-tree/*` package
+- **vs `@pi-tree/core/types`**: shared has app-level types (sources, users, config); core/types has session-level types (ChatMessage, TreeNodeView, SessionState)

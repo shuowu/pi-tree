@@ -1,61 +1,62 @@
-# @pi-tree/ui — React Component Library
+# @pi-tree/ui
 
-Reusable React components for the pi-tree chat interface. All components use the `pit-` CSS class prefix and are designed to be generic and prop-driven.
+React component library for the chat interface. Generic, prop-driven — no API calls, no env vars.
 
-## Components
+## Files
 
-| Component | Description |
-|-----------|-------------|
-| `ChatView` | Full chat interface — messages, input, branches, streaming |
-| `Breadcrumb` | Navigation breadcrumb bar with panel toggles |
-| `MessageBubble` | Single message render (user / assistant / toolResult) |
-| `StreamingBubble` | Streaming AI response with cursor animation |
-| `InlineBranches` | Branch preview cards with expand/collapse |
-| `ToolCallIndicator` | Tool execution spinner |
-
-## Hooks
-
-| Hook | Description |
-|------|-------------|
-| `useMermaid` | Renders mermaid diagrams embedded in markdown content |
-| `useScrollDirection` | Tracks scroll direction for shy-header UX pattern |
-
-## Design principles
-
-**Prop-driven, no app dependencies.** Components never make API calls or read env vars. All app-specific concerns are injected via props:
-
-```tsx
-<ChatView
-  renderSelectionToolbar={...}   // render prop
-  fetchBranchPreview={...}       // callback
-  modelName="glm-5-turbo"        // data
-  userId="shuo"                  // identity
-/>
+```
+src/
+  index.ts                  — barrel export
+  ChatView.tsx              — full chat: messages, input, branches, streaming
+  Breadcrumb.tsx            — navigation bar with panel toggles
+  MessageBubble.tsx         — single message (user/assistant/toolResult)
+  StreamingBubble.tsx       — streaming AI response with cursor animation
+  InlineBranches.tsx        — branch preview cards, expand/collapse
+  ToolCallIndicator.tsx     — tool execution spinner
+  hooks/
+    useMermaid.ts           — renders mermaid diagrams in markdown
+    useScrollDirection.ts   — tracks scroll for shy-header UX
+  styles/
+    pit-theme.css           — design tokens (--pit-*), bridges host app tokens
+    ChatView.css            — chat component styles
+    Breadcrumb.css          — breadcrumb component styles
 ```
 
-**Self-contained CSS.** Components import their own stylesheets — no separate CSS imports needed by consumers.
+## Exports
+
+```typescript
+// Components
+import { ChatView, Breadcrumb, MessageBubble, StreamingBubble,
+         InlineBranches, ToolCallIndicator } from "@pi-tree/ui";
+
+// Hooks
+import { useMermaid, useScrollDirection } from "@pi-tree/ui";
+
+// Types
+import type { BranchPreviewData, ScrollDirection } from "@pi-tree/ui";
+```
 
 ## CSS conventions
 
-- **Class prefix**: `pit-` (e.g. `.pit-chat-view`, `.pit-breadcrumb-bar`)
-- **Design tokens**: `--pit-*` custom properties (e.g. `--pit-accent`, `--pit-space-4`)
-- **Theme file**: `src/styles/pit-theme.css` bridges host app tokens to `pit-*` namespaced properties with sensible defaults
+- Class prefix: `pit-` (e.g. `.pit-chat-view`, `.pit-breadcrumb-bar`)
+- Design tokens: `--pit-*` custom properties
+- Components import their own CSS — no separate imports needed
+- Override `--pit-*` properties for custom theming
 
-### Theming
+## Prop-driven design
 
-Consumers can:
-1. Use defaults (works out of the box)
-2. Override `--pit-*` properties for custom theming
-3. (Future) Import only hooks for fully headless usage
-
-## Package boundaries
-
-| May import | Must NOT do |
-|-----------|-------------|
-| `@pi-tree/core/types`, React, lucide-react, marked, mermaid | App-specific API calls, env vars, server imports |
-
-## Usage
+Components take callbacks and render props for app-specific behavior:
 
 ```tsx
-import { ChatView, Breadcrumb, useMermaid } from "@pi-tree/ui";
+<ChatView
+  renderSelectionToolbar={...}  // render prop
+  fetchBranchPreview={...}      // callback
+  modelName="glm-5-turbo"       // data
+  userId="shuo"                 // identity
+/>
 ```
+
+## Boundary
+
+- **May import**: `@pi-tree/core/types`, React, lucide-react, marked, mermaid
+- **Must NOT**: API calls, env vars, server imports, `@pi-tree/core` main entry
