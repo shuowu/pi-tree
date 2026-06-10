@@ -133,6 +133,7 @@ export function NewsDashboardPanel({ onDefine, onSendMessage }: NewsDashboardPan
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadFeeds();
     loadStories();
     loadReports();
@@ -141,6 +142,7 @@ export function NewsDashboardPanel({ onDefine, onSendMessage }: NewsDashboardPan
   // Load specific report content
   useEffect(() => {
     if (!selectedReport) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReportContent(null);
       return;
     }

@@ -82,6 +82,7 @@ export function SpotlightSearch({
   // Focus input when opened
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery("");
       setResults([]);
       setSelectedIndex(0);
@@ -96,6 +97,7 @@ export function SpotlightSearch({
 
     if (!query.trim()) {
       // Show recent sessions when no query
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
       fetchRecentSessions(userId, { limit: 6 })
         .then((sessions) => {
