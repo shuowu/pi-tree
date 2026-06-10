@@ -172,7 +172,7 @@ export default function (pi: ExtensionAPI) {
             sourceId: params.source_id,
             title: params.title,
             context: JSON.stringify(context),
-            sessionFile: "", // Will be set on first loadOrCreate
+            sessionFile: `pending-${Date.now()}`, // Placeholder — overwritten on first loadOrCreate
             isActive: 1,
             createdAt: now,
             lastActiveAt: now,

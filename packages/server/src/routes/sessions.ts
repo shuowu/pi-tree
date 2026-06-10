@@ -170,7 +170,7 @@ sessionCrudRoutes.post("/:userId/:sourceId", async (c) => {
       sourceId,
       title: body.title,
       context: JSON.stringify(context),
-      sessionFile: "", // Will be set on first loadOrCreate
+      sessionFile: `pending-${Date.now()}`, // Placeholder — overwritten on first loadOrCreate
       isActive: 1,
       createdAt: now,
       lastActiveAt: now,

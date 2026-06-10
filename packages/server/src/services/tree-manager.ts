@@ -114,12 +114,14 @@ export class TreeManager {
           ...serverCfg,
           repoRoot,
           skillPaths,
-          extensionPaths: [
-            // User extensions: each subdir of the extensions folder
-            ...TreeManager.scanExtensionDirs(process.env.EXTENSIONS_PATH || join(dataPath, "extensions")),
-            // Built-in extensions from the repo
-            ...TreeManager.scanExtensionDirs(join(import.meta.dirname, "../../extensions")),
-          ],
+          extensionPaths: sourceType === "router"
+            ? [join(import.meta.dirname, "../../extensions/library-extension")]
+            : [
+                // User extensions: each subdir of the extensions folder
+                ...TreeManager.scanExtensionDirs(process.env.EXTENSIONS_PATH || join(dataPath, "extensions")),
+                // Built-in extensions from the repo
+                ...TreeManager.scanExtensionDirs(join(import.meta.dirname, "../../extensions")),
+              ],
           sourceType,
         },
       },
