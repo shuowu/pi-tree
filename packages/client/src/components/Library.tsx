@@ -2,11 +2,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import type { Source, SourceType } from "@pi-tree/shared";
 import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, type JobWithSource } from "../api";
-import { useUser } from "../UserContext";
-import { LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, TreePine, ArrowLeft } from "lucide-react";
+import { Plus, Search, Tag, X, Cpu, TreePine, ArrowLeft } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
-import { SettingsModal } from "./SettingsModal";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
 import "./Library.css";
 
@@ -20,13 +18,11 @@ const TYPE_FILTERS: { label: string; value: SourceType | null }[] = [
 export function Library() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { displayName, clearUser } = useUser();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
 
   // Search & filter state
@@ -250,14 +246,6 @@ export function Library() {
         </div>
         <div className="library-header-right">
           <button
-            className="library-config-btn"
-            onClick={() => setShowSettingsModal(true)}
-            title="Global AI Settings"
-          >
-            <Settings size={16} strokeWidth={2} />
-            Settings
-          </button>
-          <button
             className="library-add-source-btn"
             onClick={() => setShowAddModal(true)}
             title="Add a book or news feed to your library"
@@ -265,18 +253,6 @@ export function Library() {
             <Plus size={16} strokeWidth={2} />
             Add Source
           </button>
-
-          {displayName && (
-            <div className="library-user-menu">
-              <button className="library-user-pill" onClick={clearUser} title="Switch user">
-                <span className="library-user-avatar">
-                  {displayName.charAt(0).toUpperCase()}
-                </span>
-                {displayName}
-                <LogOut size={14} />
-              </button>
-            </div>
-          )}
         </div>
       </header>
 
@@ -410,30 +386,16 @@ export function Library() {
         </div>
       )}
 
-      {/* Empty library welcome state */}
       {isEmptyLibrary && (
         <div className="library-empty-state">
-          <div className="library-empty-icon">
-            <TreePine size={32} />
-          </div>
-          <h2>Welcome to Pi Tree</h2>
-          <p>Your AI-powered reading companion</p>
-          <div className="library-empty-actions">
-            <button
-              className="library-empty-action-btn primary"
-              onClick={() => setShowAddModal(true)}
-            >
-              <BookOpen size={16} />
-              Add a Book
-            </button>
-            <button
-              className="library-empty-action-btn"
-              onClick={() => setShowAddModal(true)}
-            >
-              <Newspaper size={16} />
-              Set Up News
-            </button>
-          </div>
+          <p>No sources yet</p>
+          <button
+            className="library-empty-action-btn primary"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus size={16} />
+            Add Source
+          </button>
         </div>
       )}
 
@@ -583,11 +545,6 @@ export function Library() {
         />
       )}
 
-      {showSettingsModal && (
-        <SettingsModal
-          onClose={() => setShowSettingsModal(false)}
-        />
-      )}
 
 
     </div>
