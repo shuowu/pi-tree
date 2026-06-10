@@ -9,11 +9,17 @@ import { BookLayout } from "./components/BookLayout";
 import { Reader } from "./components/Reader";
 import { SessionsPage } from "./components/SessionsPage";
 import { SpotlightSearch } from "./components/SpotlightSearch";
+import { AddBookModal } from "./components/AddBookModal";
+import { FeedManagerModal } from "./components/FeedManagerModal";
+import { SettingsModal } from "./components/SettingsModal";
 import "./App.css";
 
 function AppRoutes() {
   const { userId } = useUser();
   const [spotlightOpen, setSpotlightOpen] = useState(false);
+  const [addSourceOpen, setAddSourceOpen] = useState(false);
+  const [feedManagerOpen, setFeedManagerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const openSpotlight = useCallback(() => setSpotlightOpen(true), []);
   const closeSpotlight = useCallback(() => setSpotlightOpen(false), []);
@@ -50,7 +56,22 @@ function AppRoutes() {
         userId={userId}
         isOpen={spotlightOpen}
         onClose={closeSpotlight}
+        onAddSource={() => setAddSourceOpen(true)}
+        onManageFeeds={() => setFeedManagerOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
       />
+      {addSourceOpen && (
+        <AddBookModal
+          onClose={() => setAddSourceOpen(false)}
+          onSuccess={() => setAddSourceOpen(false)}
+        />
+      )}
+      {feedManagerOpen && (
+        <FeedManagerModal onClose={() => setFeedManagerOpen(false)} />
+      )}
+      {settingsOpen && (
+        <SettingsModal onClose={() => setSettingsOpen(false)} />
+      )}
     </>
   );
 }

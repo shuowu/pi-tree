@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router";
 import type { Source, RecentSession } from "@pi-tree/shared";
 import { fetchSources, fetchRecentSessions } from "../api";
 import { getSourceTypeConfig } from "../source-types";
-import { Search, X, Clock, ArrowRight, MessageSquare } from "lucide-react";
+import {
+  Search, X, Clock, ArrowRight, MessageSquare,
+  BookOpen, Plus, Rss, Settings,
+} from "lucide-react";
 import "./SpotlightSearch.css";
 
 /** Compute a human-readable relative time string from an ISO date */
@@ -23,23 +26,58 @@ function timeAgo(dateStr: string): string {
   return `${months}mo ago`;
 }
 
+interface CommandItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  action: () => void;
+}
+
 interface SpotlightSearchProps {
   userId: string;
   isOpen: boolean;
   onClose: () => void;
+  onAddSource?: () => void;
+  onManageFeeds?: () => void;
+  onSettings?: () => void;
 }
 
 type ResultItem =
   | { kind: "source"; source: Source }
-  | { kind: "session"; session: RecentSession };
+  | { kind: "session"; session: RecentSession }
+  | { kind: "command"; command: CommandItem };
 
-export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProps) {
+export function SpotlightSearch({
+  userId, isOpen, onClose,
+  onAddSource, onManageFeeds, onSettings,
+}: SpotlightSearchProps) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ResultItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Static command actions
+  const commands: CommandItem[] = useMemo(() => [
+    { id: "goto-library", label: "Go to Library", icon: BookOpen, action: () => { onClose(); navigate("/library"); } },
+    ...(onAddSource ? [{ id: "add-source", label: "Add Source", icon: Plus, action: () => { onClose(); onAddSource(); } }] : []),
+    ...(onManageFeeds ? [{ id: "manage-feeds", label: "Manage Feeds", icon: Rss, action: () => { onClose(); onManageFeeds(); } }] : []),
+    ...(onSettings ? [{ id: "settings", label: "Settings", icon: Settings, action: () => { onClose(); onSettings(); } }] : []),
+  ], [navigate, onClose, onAddSource, onManageFeeds, onSettings]);
+
+  // Filter commands by query
+  const filteredCommands: ResultItem[] = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matched = q ? commands.filter((c) => c.label.toLowerCase().includes(q)) : commands;
+    return matched.map((c) => ({ kind: "command" as const, command: c }));
+  }, [query, commands]);
+
+  // Merge search results + commands into a flat list for keyboard navigation
+  const allItems: ResultItem[] = useMemo(() => [
+    ...results,
+    ...filteredCommands,
+  ], [results, filteredCommands]);
 
   // Focus input when opened
   useEffect(() => {
@@ -95,13 +133,17 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
     return () => clearTimeout(timer);
   }, [query, isOpen, userId]);
 
-  const navigateToResult = useCallback(
+  const activateItem = useCallback(
     (item: ResultItem) => {
-      onClose();
-      if (item.kind === "session") {
-        navigate(`/source/${item.session.sourceId}?session=${item.session.sessionId}`);
+      if (item.kind === "command") {
+        item.command.action();
       } else {
-        navigate(`/source/${item.source.id}`);
+        onClose();
+        if (item.kind === "session") {
+          navigate(`/source/${item.session.sourceId}?session=${item.session.sessionId}`);
+        } else {
+          navigate(`/source/${item.source.id}`);
+        }
       }
     },
     [navigate, onClose],
@@ -111,19 +153,19 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
+        setSelectedIndex((i) => Math.min(i + 1, allItems.length - 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && results[selectedIndex]) {
+      } else if (e.key === "Enter" && allItems[selectedIndex]) {
         e.preventDefault();
-        navigateToResult(results[selectedIndex]);
+        activateItem(allItems[selectedIndex]);
       } else if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
     },
-    [results, selectedIndex, navigateToResult, onClose],
+    [allItems, selectedIndex, activateItem, onClose],
   );
 
   // Scroll selected item into view
@@ -134,6 +176,77 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
 
   if (!isOpen) return null;
 
+  const hasAnyResults = allItems.length > 0;
+
+  /** Render a single result row given the item and its index in allItems */
+  const renderItem = (item: ResultItem, i: number) => {
+    if (item.kind === "session") {
+      const config = getSourceTypeConfig(item.session.sourceType);
+      return (
+        <button
+          key={`s-${item.session.sessionId}`}
+          className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
+          onClick={() => activateItem(item)}
+          onMouseEnter={() => setSelectedIndex(i)}
+        >
+          <div className="spotlight-result-icon session">
+            <MessageSquare size={16} />
+          </div>
+          <div className="spotlight-result-text">
+            <span className="spotlight-result-title">{item.session.sessionTitle}</span>
+            <span className="spotlight-result-meta">
+              <span className="spotlight-result-badge">{config.label}</span>
+              {item.session.sourceTitle} · {timeAgo(item.session.lastActiveAt)}
+            </span>
+          </div>
+          <ArrowRight size={14} className="spotlight-result-arrow" />
+        </button>
+      );
+    }
+    if (item.kind === "source") {
+      const config = getSourceTypeConfig(item.source.type);
+      const Icon = config.icon;
+      return (
+        <button
+          key={`b-${item.source.id}`}
+          className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
+          onClick={() => activateItem(item)}
+          onMouseEnter={() => setSelectedIndex(i)}
+        >
+          <div className="spotlight-result-icon source">
+            <Icon size={16} />
+          </div>
+          <div className="spotlight-result-text">
+            <span className="spotlight-result-title">{item.source.title}</span>
+            <span className="spotlight-result-meta">
+              <span className="spotlight-result-badge">{config.label}</span>
+              {item.source.author}{item.source.year ? ` · ${item.source.year}` : ""}
+            </span>
+          </div>
+          <ArrowRight size={14} className="spotlight-result-arrow" />
+        </button>
+      );
+    }
+    // command
+    const CmdIcon = item.command.icon;
+    return (
+      <button
+        key={`cmd-${item.command.id}`}
+        className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
+        onClick={() => activateItem(item)}
+        onMouseEnter={() => setSelectedIndex(i)}
+      >
+        <div className="spotlight-result-icon command">
+          <CmdIcon size={16} />
+        </div>
+        <div className="spotlight-result-text">
+          <span className="spotlight-result-title">{item.command.label}</span>
+        </div>
+        <ArrowRight size={14} className="spotlight-result-arrow" />
+      </button>
+    );
+  };
+
   return (
     <div className="spotlight-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="spotlight-modal">
@@ -143,7 +256,7 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
             ref={inputRef}
             type="text"
             className="spotlight-input"
-            placeholder="Search sources and sessions…"
+            placeholder="Search sources, sessions, and actions…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -156,69 +269,37 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
           <kbd className="spotlight-kbd">esc</kbd>
         </div>
 
-        {results.length > 0 && (
+        {hasAnyResults && (
           <div className="spotlight-results">
-            {!query.trim() && (
-              <div className="spotlight-section-label">
-                <Clock size={12} /> Recent
-              </div>
+            {/* Search / recent results section */}
+            {results.length > 0 && (
+              <>
+                {!query.trim() && (
+                  <div className="spotlight-section-label">
+                    <Clock size={12} /> Recent
+                  </div>
+                )}
+                {results.map((item, i) => renderItem(item, i))}
+              </>
             )}
-            {results.map((item, i) => {
-              if (item.kind === "session") {
-                const config = getSourceTypeConfig(item.session.sourceType);
-                return (
-                  <button
-                    key={`s-${item.session.sessionId}`}
-                    className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
-                    onClick={() => navigateToResult(item)}
-                    onMouseEnter={() => setSelectedIndex(i)}
-                  >
-                    <div className="spotlight-result-icon session">
-                      <MessageSquare size={16} />
-                    </div>
-                    <div className="spotlight-result-text">
-                      <span className="spotlight-result-title">{item.session.sessionTitle}</span>
-                      <span className="spotlight-result-meta">
-                        <span className="spotlight-result-badge">{config.label}</span>
-                        {item.session.sourceTitle} · {timeAgo(item.session.lastActiveAt)}
-                      </span>
-                    </div>
-                    <ArrowRight size={14} className="spotlight-result-arrow" />
-                  </button>
-                );
-              } else {
-                const config = getSourceTypeConfig(item.source.type);
-                const Icon = config.icon;
-                return (
-                  <button
-                    key={`b-${item.source.id}`}
-                    className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
-                    onClick={() => navigateToResult(item)}
-                    onMouseEnter={() => setSelectedIndex(i)}
-                  >
-                    <div className="spotlight-result-icon source">
-                      <Icon size={16} />
-                    </div>
-                    <div className="spotlight-result-text">
-                      <span className="spotlight-result-title">{item.source.title}</span>
-                      <span className="spotlight-result-meta">
-                        <span className="spotlight-result-badge">{config.label}</span>
-                        {item.source.author}{item.source.year ? ` · ${item.source.year}` : ""}
-                      </span>
-                    </div>
-                    <ArrowRight size={14} className="spotlight-result-arrow" />
-                  </button>
-                );
-              }
-            })}
+
+            {/* Commands section */}
+            {filteredCommands.length > 0 && (
+              <>
+                <div className="spotlight-section-label">Actions</div>
+                {filteredCommands.map((item, i) =>
+                  renderItem(item, results.length + i),
+                )}
+              </>
+            )}
           </div>
         )}
 
-        {loading && results.length === 0 && (
+        {loading && allItems.length === 0 && (
           <div className="spotlight-empty">Searching…</div>
         )}
 
-        {!loading && query.trim() && results.length === 0 && (
+        {!loading && query.trim() && allItems.length === 0 && (
           <div className="spotlight-empty">No results for "{query}"</div>
         )}
 

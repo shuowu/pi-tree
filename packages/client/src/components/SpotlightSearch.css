@@ -156,6 +156,11 @@
   color: var(--text-secondary);
 }
 
+.spotlight-result-icon.command {
+  background: hsla(215, 60%, 55%, 0.12);
+  color: hsl(215, 60%, 55%);
+}
+
 .spotlight-result-text {
   flex: 1;
   min-width: 0;
