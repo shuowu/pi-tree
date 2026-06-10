@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import type { Source, RecentSession } from "@pi-tree/shared";
 import { fetchSources, fetchRecentSessions } from "../api";
 import { getSourceTypeConfig } from "../source-types";
-import { Search, X, Clock, ArrowRight } from "lucide-react";
+import { Search, X, Clock, ArrowRight, MessageSquare } from "lucide-react";
 import "./SpotlightSearch.css";
 
 /** Compute a human-readable relative time string from an ISO date */
@@ -166,7 +166,6 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
             {results.map((item, i) => {
               if (item.kind === "session") {
                 const config = getSourceTypeConfig(item.session.sourceType);
-                const Icon = config.icon;
                 return (
                   <button
                     key={`s-${item.session.sessionId}`}
@@ -175,11 +174,12 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
                     onMouseEnter={() => setSelectedIndex(i)}
                   >
                     <div className="spotlight-result-icon session">
-                      <Icon size={16} />
+                      <MessageSquare size={16} />
                     </div>
                     <div className="spotlight-result-text">
                       <span className="spotlight-result-title">{item.session.sessionTitle}</span>
                       <span className="spotlight-result-meta">
+                        <span className="spotlight-result-badge">{config.label}</span>
                         {item.session.sourceTitle} · {timeAgo(item.session.lastActiveAt)}
                       </span>
                     </div>
@@ -202,6 +202,7 @@ export function SpotlightSearch({ userId, isOpen, onClose }: SpotlightSearchProp
                     <div className="spotlight-result-text">
                       <span className="spotlight-result-title">{item.source.title}</span>
                       <span className="spotlight-result-meta">
+                        <span className="spotlight-result-badge">{config.label}</span>
                         {item.source.author}{item.source.year ? ` · ${item.source.year}` : ""}
                       </span>
                     </div>
