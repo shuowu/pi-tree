@@ -24,7 +24,7 @@ export function BookCover({ sourceId, title, author, hasCover, sourceType, size 
             <div className="fallback-cover-badge" style={{ backgroundColor: "#2563eb", color: "#ffffff" }}>📡 LIVE NEWS</div>
           </div>
           <div className="fallback-cover-title" style={{ fontSize: "1.2rem", fontWeight: "bold", letterSpacing: "-0.025em" }}>
-            News & Trends
+            News Feed
           </div>
           <div className="fallback-cover-divider" style={{ backgroundColor: "#2563eb" }} />
           <div className="fallback-cover-author">

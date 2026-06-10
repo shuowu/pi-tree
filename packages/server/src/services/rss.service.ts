@@ -144,8 +144,8 @@ export class RssService {
       .values({
         id: NEWS_SOURCE_ID,
         type: "news",
-        title: "News & Trends Feed",
-        author: "TrendRadar",
+        title: "News Feed",
+        author: "",
         source: "system",
         status: "ready",
         metadata: JSON.stringify({ description: "Aggregated RSS news feeds" }),
@@ -153,6 +153,12 @@ export class RssService {
         updatedAt: now
       })
       .onConflictDoNothing()
+      .run();
+
+    // Update existing row in case title/author changed
+    db.update(sources)
+      .set({ title: "News Feed", author: "" })
+      .where(eq(sources.id, NEWS_SOURCE_ID))
       .run();
 
     // Migrate from old "news-tech" source ID if it exists
