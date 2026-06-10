@@ -1,20 +1,20 @@
 # pi-tree
 
-**Turn any book into a conversation you can explore like a tree.**
+**AI made everyone a faster producer. Nobody's becoming a better reader.**
 
-You load your own books. An AI reads them *with* you — not as a flat Q&A, but as a branching conversation that captures how you actually think about the material. Go deep on a concept, branch into a tangent, zoom back out. Your reading path is a navigable tree, not a disposable chat log.
+Pi-tree is for the input side of knowledge work. Load your books, news feeds, or research papers — an AI reads them *with* you, not as a flat Q&A, but as branching conversations that capture how you actually think about the material. Go deep on a concept, branch into a tangent, zoom back out. Your reading path is a navigable tree, not a disposable chat log.
 
 > **Local-first, bring your own key.** Runs entirely on your machine. No cloud account, no subscription. Works with cloud APIs (DeepSeek, Gemini, Claude) or fully offline with [Ollama](https://ollama.com) / local models.
 
 <table align="center">
   <tr>
     <td align="center">
-      <img src="docs/images/library.png" alt="Pi-books library view" height="320" />
+      <img src="docs/images/library.png" alt="Pi-tree library view" height="320" />
       <br />
-      <sub>Browse your library — upload EPUBs, MOBIs, or PDFs</sub>
+      <sub>Browse your library — books, news feeds, and more</sub>
     </td>
     <td align="center">
-      <img src="docs/images/reading-session.png" alt="Pi-books reading session" height="320" />
+      <img src="docs/images/reading-session.png" alt="Pi-tree reading session" height="320" />
       <br />
       <sub>Branching conversation with topic tree navigation</sub>
     </td>
@@ -23,22 +23,24 @@ You load your own books. An AI reads them *with* you — not as a flat Q&A, but 
 
 ## The Problem
 
-Most AI tools treat books the same way they treat any prompt: paste text in, get a summary out, conversation gone. There's no structure, no persistence, no sense of *journey* through the material.
+Every AI assistant can summarize a book, answer questions about an article, or extract key points from a paper. But they all treat understanding as a step to skip — paste text in, get the answer out, move on. There's no structure, no persistence, no sense of *journey* through the material.
 
-Reading a non-fiction book isn't linear. You branch — *"wait, how does this connect to X?"* — then come back. You re-read a section with new context. You accumulate a personal vocabulary of terms and ideas. Flat chat threads can't capture any of this.
+Real comprehension isn't linear. You branch — *"wait, how does this connect to X?"* — then come back. You re-read something with new context. You accumulate a personal vocabulary of terms and ideas. Flat chat threads can't capture any of this.
 
-**Pi-books fixes this.** Each book gets a tree-structured conversation where:
+**Pi-tree fixes this.** Each source — a book, a news feed, a research paper — gets a tree-structured conversation where:
 
-- **Branches happen on semantic shifts** — go deeper, switch chapters, follow a tangent — each gets its own branch with full context preserved
+- **Branches happen on semantic shifts** — go deeper, switch topics, follow a tangent — each gets its own branch with full context preserved
 - **You can zoom in and out** — dive deep on a concept, then pull back with a summary without losing your place
-- **Every user gets their own tree** — multiple people can read the same book independently, each with their own conversation, glossary, and reading history
-- **The conversation IS the reading** — no separate "reader" and "chat." The AI surfaces book content as quotes within the conversation
-- **Everything stays local** — your books, sessions, questions, and intellectual journey never leave your machine
+- **Every user gets their own tree** — multiple people can explore the same source independently, each with their own conversation, glossary, and history
+- **The conversation IS the reading** — no separate "reader" and "chat." The AI surfaces content as quotes within the conversation
+- **Everything stays local** — your sources, sessions, questions, and intellectual journey never leave your machine
 
 ## Who Is This For
 
 - **Non-fiction readers** who want more than highlights and summaries — you want to *think through* a book
-- **Families and book clubs** — everyone gets their own conversation tree for the same book
+- **News followers** who want depth beyond headlines — follow feeds, surface trends, deep-dive into stories
+- **Researchers and students** working through papers who want comprehension, not just extraction
+- **Families and book clubs** — everyone gets their own conversation tree for the same source
 - **Privacy-conscious readers** who don't want their reading habits on someone else's server
 - **Self-hosters and tinkerers** who want full control over their tools
 
@@ -92,7 +94,7 @@ Open http://localhost:3847 (serves both frontend and API).
 
 ## Models
 
-Pi-books doesn't need frontier-class models — book reading is more about context and conversation than raw reasoning. Smaller, faster models work well and keep costs low (or free with local inference).
+Pi-tree doesn't need frontier-class models — reading and comprehension are more about context and conversation than raw reasoning. Smaller, faster models work well and keep costs low (or free with local inference).
 
 **Cloud APIs** (cheapest options that work well):
 
@@ -119,13 +121,12 @@ PI_MODEL=gemma4:12b
 > [!TIP]
 > You can also change models at runtime through the Settings UI — no restart needed.
 
-## Book Content
+## Content Sources
 
-Pi-books is a **reading tool** — no book content is included in this repository.
+Pi-tree supports multiple source types. No content is included in this repository.
 
-You can add books in two ways:
-1. **Upload** via the Library UI (supports EPUB, MOBI, PDF)
-2. **Local folder** — set `LIBRARY_PATH` in `.env` to point at your book collection
+- **Books** — upload via the Library UI (EPUB, MOBI, PDF) or set `LIBRARY_PATH` in `.env` to point at your collection
+- **News feeds** — add RSS/Atom feeds through the UI; pi-tree crawls, deduplicates, and presents them as conversational sources
 
 > [!IMPORTANT]
 > Users are responsible for ensuring they have the right to use any content loaded into pi-tree. This project does not distribute, host, or provide access to any copyrighted material.
@@ -144,14 +145,14 @@ packages/
 
 Key architectural choices:
 - **Server is thin** — receives a message, passes it to a Pi SDK session with book context, streams the response back via SSE
-- **Skills shape behavior** — 11 built-in reading skills (markdown instruction files) control how the AI reads. Change a SKILL.md, change the behavior — no code changes needed
+- **Skills shape behavior** — built-in reading skills (markdown instruction files) control how the AI interacts with each source type. Change a SKILL.md, change the behavior — no code changes needed
 - **Data separation** — Pi SDK owns conversation content (JSONL files); pi-tree owns metadata (SQLite: users, sessions, config, glossary)
 
 *Architecture deep dive → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)*
 
 ## Extensions
 
-Pi-books supports custom **skills** and **extensions**. Since it's built on [Pi](https://pi.dev), any Pi-compatible extension works here. One worth adding:
+Pi-tree supports custom **skills** and **extensions**. Since it's built on [Pi](https://pi.dev), any Pi-compatible extension works here. One worth adding:
 
 ```bash
 pi install npm:pi-web-search    # gives the AI web search during reading sessions
@@ -166,7 +167,7 @@ This lets the AI look up references, author background, or related concepts whil
 
 More on why pi-tree exists and the design decisions behind it → [docs/VISION.md](docs/VISION.md)
 
-The short version: general-purpose AI chatbots can summarize a book, but they do it in a flat, sessionless way. Pi-books is a **reading companion** — every design decision (tree structure, branching conversations, zoom controls, per-book glossaries) serves that single purpose.
+The short version: the AI industry is focused on **output** — helping you produce things faster. Pi-tree is focused on **input** — helping you understand things deeper. Every design decision (tree-structured conversations, persistent context, branching exploration, per-source glossaries) serves that single purpose: making information ingestion a richer experience, not a faster one.
 
 ## License
 
