@@ -1,17 +1,17 @@
-import type { Book } from "@pi-tree/shared";
+import type { Source } from "@pi-tree/shared";
 import type { Job } from "../api";
 import { Cpu, MessageCircle } from "lucide-react";
 import "./BookSetupState.css";
 
 interface BookSetupStateProps {
-  book: Book;
+  source: Source;
   job: Job | null;
   onSkipToChat: () => void;
   onProcess: () => void;
 }
 
-export function BookSetupState({ book, job, onSkipToChat, onProcess }: BookSetupStateProps) {
-  const isProcessing = book.status === "processing";
+export function BookSetupState({ source, job, onSkipToChat, onProcess }: BookSetupStateProps) {
+  const isProcessing = source.status === "processing";
 
   const getStepLabel = (step?: string) => {
     switch (step) {
@@ -32,8 +32,8 @@ export function BookSetupState({ book, job, onSkipToChat, onProcess }: BookSetup
     <div className="setup-state">
       <div className="setup-content">
         <div className="setup-book-info">
-          <h1 className="setup-title">{book.title}</h1>
-          <p className="setup-author">by {book.author}</p>
+          <h1 className="setup-title">{source.title}</h1>
+          <p className="setup-author">by {source.author}</p>
         </div>
 
         <div className="setup-options">

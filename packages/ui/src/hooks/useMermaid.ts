@@ -55,7 +55,7 @@ export function useMermaid(
     ensureMermaidInit();
 
     // Render each block
-    for (const codeEl of codeBlocks) {
+    for (const codeEl of Array.from(codeBlocks)) {
       const pre = codeEl.parentElement;
       if (!pre || pre.dataset.mermaidRendered === "true") continue;
 

@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router";
-import type { Book } from "@pi-tree/shared";
-import { fetchBooks, fetchTags, addBookTag, removeBookTag, fetchJobs, type JobWithBook } from "../api";
+import type { Source } from "@pi-tree/shared";
+import { fetchSources, fetchSessions, fetchTags, addSourceTag, removeSourceTag, fetchJobs, type JobWithSource } from "../api";
 import { useUser } from "../UserContext";
-import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu } from "lucide-react";
+import { BookOpen, LogOut, Plus, Search, Tag, X, Settings, Cpu, Newspaper, ChevronRight } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
 import { SettingsModal } from "./SettingsModal";
@@ -11,8 +11,8 @@ import "./Library.css";
 
 export function Library() {
   const navigate = useNavigate();
-  const { displayName, clearUser } = useUser();
-  const [books, setBooks] = useState<Book[]>([]);
+  const { userId, displayName, clearUser } = useUser();
+  const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -23,9 +23,12 @@ export function Library() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  // Separate news sources from the book grid
+  const newsSources = useMemo(() => sources.filter(s => s.type === 'news'), [sources]);
+  const bookSources = useMemo(() => sources.filter(s => s.type !== 'news'), [sources]);
 
   // Tag modal state
-  const [tagModalBook, setTagModalBook] = useState<Book | null>(null);
+  const [tagModalSource, setTagModalSource] = useState<Source | null>(null);
   const [newTagInput, setNewTagInput] = useState("");
 
   // Debounce search input
@@ -41,10 +44,10 @@ export function Library() {
       const opts = (query || (tags && tags.length > 0))
         ? { search: query || undefined, tags: tags?.length ? tags : undefined }
         : undefined;
-      const data = await fetchBooks(opts);
-      setBooks(data);
+      const data = await fetchSources(opts);
+      setSources(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load books");
+      setError(err instanceof Error ? err.message : "Failed to load sources");
     } finally {
       setLoading(false);
     }
@@ -72,7 +75,7 @@ export function Library() {
   }, [loadTags]);
 
   // Background jobs state
-  const [jobs, setJobs] = useState<JobWithBook[]>([]);
+  const [jobs, setJobs] = useState<JobWithSource[]>([]);
   const [showJobs, setShowJobs] = useState(false);
 
   const loadJobs = useCallback(async () => {
@@ -120,7 +123,7 @@ export function Library() {
   }, [jobs, loadJobs]);
 
   // If a job completes/fails, reload books to reflect new statuses/metadata
-  const prevJobsRef = useRef<JobWithBook[]>([]);
+  const prevJobsRef = useRef<JobWithSource[]>([]);
   useEffect(() => {
     const statusChanged = jobs.some(job => {
       const prev = prevJobsRef.current.find(p => p.id === job.id);
@@ -137,19 +140,39 @@ export function Library() {
 
   // Escape key closes tag modal
   useEffect(() => {
-    if (!tagModalBook) return;
+    if (!tagModalSource) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setTagModalBook(null);
+        setTagModalSource(null);
         setNewTagInput("");
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [tagModalBook]);
+  }, [tagModalSource]);
 
-  const selectBook = (book: Book) => {
-    navigate(`/book/${book.id}`);
+  const selectSource = (source: Source) => {
+    navigate(`/source/${source.id}`);
+  };
+
+  // Smart resume for news: jump straight to latest session if one exists
+  const selectNewsSource = async (source: Source) => {
+    try {
+      if (userId) {
+        const sessions = await fetchSessions(userId, source.id);
+        if (sessions.length > 0) {
+          // Sort by lastActiveAt descending, pick the most recent
+          const latest = [...sessions].sort(
+            (a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime(),
+          )[0];
+          navigate(`/source/${source.id}?session=${latest.id}`);
+          return;
+        }
+      }
+    } catch {
+      // Fall through to normal navigation
+    }
+    navigate(`/source/${source.id}`);
   };
 
   const toggleTag = (tag: string) => {
@@ -158,44 +181,44 @@ export function Library() {
     );
   };
 
-  const handleAddTag = async (bookId: string) => {
+  const handleAddTag = async (sourceId: string) => {
     const tag = newTagInput.toLowerCase().trim();
     if (!tag) return;
     try {
-      await addBookTag(bookId, tag);
+      await addSourceTag(sourceId, tag);
       setNewTagInput("");
       // Refresh data
-      const [updatedBooks] = await Promise.all([
-        fetchBooks(
+      const [updatedSources] = await Promise.all([
+        fetchSources(
           (searchQuery || selectedTags.length > 0)
             ? { search: searchQuery || undefined, tags: selectedTags.length ? selectedTags : undefined }
             : undefined
         ),
         loadTags(),
       ]);
-      setBooks(updatedBooks);
-      // Update the modal book reference
-      const updated = updatedBooks.find((b) => b.id === bookId);
-      if (updated) setTagModalBook(updated);
+      setSources(updatedSources);
+      // Update the modal source reference
+      const updated = updatedSources.find((s) => s.id === sourceId);
+      if (updated) setTagModalSource(updated);
     } catch (err) {
       console.error("Failed to add tag:", err);
     }
   };
 
-  const handleRemoveTag = async (bookId: string, tag: string) => {
+  const handleRemoveTag = async (sourceId: string, tag: string) => {
     try {
-      await removeBookTag(bookId, tag);
-      const [updatedBooks] = await Promise.all([
-        fetchBooks(
+      await removeSourceTag(sourceId, tag);
+      const [updatedSources] = await Promise.all([
+        fetchSources(
           (searchQuery || selectedTags.length > 0)
             ? { search: searchQuery || undefined, tags: selectedTags.length ? selectedTags : undefined }
             : undefined
         ),
         loadTags(),
       ]);
-      setBooks(updatedBooks);
-      const updated = updatedBooks.find((b) => b.id === bookId);
-      if (updated) setTagModalBook(updated);
+      setSources(updatedSources);
+      const updated = updatedSources.find((s) => s.id === sourceId);
+      if (updated) setTagModalSource(updated);
     } catch (err) {
       console.error("Failed to remove tag:", err);
     }
@@ -236,6 +259,39 @@ export function Library() {
           )}
         </div>
       </header>
+
+      {/* News banner — pinned at top for quick access */}
+      {!loading && newsSources.length > 0 && (
+        <div className="library-news-section">
+          {newsSources.map((ns) => (
+            <button
+              key={ns.id}
+              className="news-banner"
+              onClick={() => selectNewsSource(ns)}
+            >
+              <div className="news-banner-icon">
+                <Newspaper size={20} />
+              </div>
+              <div className="news-banner-content">
+                <div className="news-banner-title">{ns.title}</div>
+                <div className="news-banner-meta">
+                  {ns.tags && ns.tags.length > 0 && (
+                    <span className="news-banner-tags">
+                      {ns.tags.map(t => (
+                        <span key={t} className="news-banner-tag">{t}</span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="news-banner-action">
+                <span>Open</span>
+                <ChevronRight size={16} />
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="library-filters">
         <div className="library-search">
@@ -289,8 +345,8 @@ export function Library() {
                 return (
                   <div key={job.id} className={`job-item ${job.status}`}>
                     <div className="job-info">
-                      <div className="job-book-title">{job.bookTitle}</div>
-                      <div className="job-book-author">by {job.bookAuthor}</div>
+                      <div className="job-book-title">{job.sourceTitle}</div>
+                      <div className="job-book-author">by {job.sourceAuthor}</div>
                       <div className="job-step">{getStepLabel(job.step)}</div>
                     </div>
                     <div className="job-progress-section">
@@ -351,46 +407,48 @@ export function Library() {
 
       {!loading && !error && (
         <div className="library-grid">
-          {books.map((book) => (
+          {bookSources.map((source) => (
             <div
-              key={book.id}
+              key={source.id}
               className="book-card"
-              onClick={() => selectBook(book)}
+              onClick={() => selectSource(source)}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && selectBook(book)}
+              onKeyDown={(e) => e.key === "Enter" && selectSource(source)}
             >
               <BookCover
-                bookId={book.id}
-                title={book.title}
-                author={book.author}
-                hasCover={book.hasCover}
+                sourceId={source.id}
+                title={source.title}
+                author={source.author}
+                hasCover={source.hasCover}
+                sourceType={source.type}
                 size="md"
               />
               <div className="book-card-info">
-                <div className="book-card-title">{book.title}</div>
+                <div className="book-card-title">{source.title}</div>
                 <div className="book-card-author">
-                  {book.author}, {book.year}
+                  {source.author}, {source.year}
                 </div>
                 <div className="book-card-badges">
-                  {book.tags?.map((tag) => (
+
+                  {source.tags?.map((tag) => (
                     <span key={tag} className="badge badge-tag">{tag}</span>
                   ))}
-                  {book.hasMarkdown && (
+                  {source.hasMarkdown && (
                     <span className="badge badge-green">Converted</span>
                   )}
-                  {book.hasOutline && (
+                  {source.hasOutline && (
                     <span className="badge badge-amber">Outline</span>
                   )}
-                  {book.source === "upload" && (
+                  {source.source === "upload" && (
                     <span className="badge badge-blue">Uploaded</span>
                   )}
-                  {book.status === "failed" && (
+                  {source.status === "failed" && (
                     <span className="badge badge-red">Failed</span>
                   )}
-                  {(book.status === "pending" || book.status === "processing") && (
+                  {(source.status === "pending" || source.status === "processing") && (
                     <span className="badge badge-blue animate-pulse" style={{ animation: "pulse 1.5s ease-in-out infinite" }}>
-                      {book.status === "processing" ? "Processing..." : "Queued"}
+                      {source.status === "processing" ? "Processing..." : "Queued"}
                     </span>
                   )}
                 </div>
@@ -400,7 +458,7 @@ export function Library() {
                 className="book-card-tag-btn"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setTagModalBook(book);
+                  setTagModalSource(source);
                   setNewTagInput("");
                 }}
                 title="Manage tags"
@@ -413,12 +471,12 @@ export function Library() {
       )}
 
       {/* Tag management modal */}
-      {tagModalBook && (
+      {tagModalSource && (
         <div
           className="tag-modal-overlay"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setTagModalBook(null);
+              setTagModalSource(null);
               setNewTagInput("");
             }
           }}
@@ -426,20 +484,20 @@ export function Library() {
           <div className="tag-modal">
             <button
               className="tag-modal-close"
-              onClick={() => { setTagModalBook(null); setNewTagInput(""); }}
+              onClick={() => { setTagModalSource(null); setNewTagInput(""); }}
             >
               <X size={16} />
             </button>
             <h3 className="tag-modal-title">
               <Tag size={16} />
-              Tags for {tagModalBook.title}
+              Tags for {tagModalSource.title}
             </h3>
-            {tagModalBook.tags && tagModalBook.tags.length > 0 ? (
+            {tagModalSource.tags && tagModalSource.tags.length > 0 ? (
               <div className="tag-modal-tags">
-                {tagModalBook.tags.map((tag) => (
+                {tagModalSource.tags.map((tag) => (
                   <span key={tag} className="tag-modal-tag">
                     {tag}
-                    <button onClick={() => handleRemoveTag(tagModalBook.id, tag)}>
+                    <button onClick={() => handleRemoveTag(tagModalSource.id, tag)}>
                       <X size={12} />
                     </button>
                   </span>
@@ -457,14 +515,14 @@ export function Library() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    handleAddTag(tagModalBook.id);
+                    handleAddTag(tagModalSource.id);
                   }
                 }}
                 autoFocus
               />
               <button
                 className="tag-modal-add-btn"
-                onClick={() => handleAddTag(tagModalBook.id)}
+                onClick={() => handleAddTag(tagModalSource.id)}
                 disabled={!newTagInput.trim()}
               >
                 Add

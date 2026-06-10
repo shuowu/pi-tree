@@ -6,8 +6,8 @@ import type {
   BranchOption,
 } from "@pi-tree/core/types";
 import type {
-  Book,
-  BookSession,
+  Source,
+  SourceSession,
 } from "@pi-tree/shared";
 import {
   startSession,
@@ -30,7 +30,7 @@ interface UseReaderSessionDeps {
 }
 export function useReaderSession(
   userId: string | null,
-  book: Book,
+  source: Source,
   searchParams: URLSearchParams,
   setSearchParams: ReturnType<typeof import("react-router").useSearchParams>[1],
   deps: UseReaderSessionDeps,
@@ -45,7 +45,7 @@ export function useReaderSession(
     const param = searchParams.get("session");
     return param ? Number(param) : null;
   });
-  const [sessions, setSessions] = useState<BookSession[]>([]);
+  const [sessions, setSessions] = useState<SourceSession[]>([]);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -123,7 +123,7 @@ export function useReaderSession(
 
   // Reactive effect to sync global streaming state into the component
   useEffect(() => {
-    const key = `${book.id}:${sessionId}`;
+    const key = `${source.id}:${sessionId}`;
     const activeStream = streams[key];
 
     if (!activeStream) return;
@@ -163,7 +163,7 @@ export function useReaderSession(
           updateUrl(activeStream.result.viewNodeId, sessionId, true);
         }
       }
-      clearStream(book.id, sessionId!);
+      clearStream(source.id, sessionId!);
     } else if (activeStream.status === "error") {
       if (sendingNodeId) {
         setGeneratingNodeIds((prev) => {
@@ -188,9 +188,9 @@ export function useReaderSession(
           setMessages((prev) => [...prev, errorMsg]);
         }
       }
-      clearStream(book.id, sessionId!);
+      clearStream(source.id, sessionId!);
     }
-  }, [streams, viewNodeId, book.id, sessionId, applySessionData, updateUrl, clearStream]);
+  }, [streams, viewNodeId, source.id, sessionId, applySessionData, updateUrl, clearStream]);
 
   const handleSendMessage = useCallback(
     async (message: string) => {
@@ -214,13 +214,13 @@ export function useReaderSession(
       setIsLoading(true);
       setStreamingContent("");
 
-      startMessageStream(userId, book.id, sid, message, sendingNodeId, (updatedTree) => {
+      startMessageStream(userId, source.id, sid, message, sendingNodeId, (updatedTree) => {
         setTree(updatedTree);
       }).catch((err) => {
         console.error("Stream start failed:", err);
       });
     },
-    [userId, book.id, startMessageStream],
+    [userId, source.id, startMessageStream],
   );
 
   // ---------------------------------------------------------------------------
@@ -247,7 +247,7 @@ export function useReaderSession(
       try {
         const targetId = nodeId || null;
         // Empty nodeId = navigate to root
-        const state = await viewScope(userId, book.id, sid, targetId);
+        const state = await viewScope(userId, source.id, sid, targetId);
         applySessionData(state);
         updateUrl(state.viewNodeId, sid, false); // push history entry
         setScrollTopTrigger((c) => c + 1);
@@ -255,14 +255,14 @@ export function useReaderSession(
         console.error("Navigate failed:", err);
       } finally {
         const targetId = nodeId || null;
-        const activeStream = streams[`${book.id}:${sid}`];
+        const activeStream = streams[`${source.id}:${sid}`];
         const isRestoring = activeStream && activeStream.sendingNodeId === targetId && activeStream.status === "streaming";
         if (!isRestoring) {
           setIsLoading(false);
         }
       }
     },
-    [userId, book.id, applySessionData, updateUrl, isMobile, setSidebarOpen, streams],
+    [userId, source.id, applySessionData, updateUrl, isMobile, setSidebarOpen, streams],
   );
 
   const handleBackToRoot = useCallback(async () => {
@@ -272,20 +272,20 @@ export function useReaderSession(
 
     setIsLoading(true);
     try {
-      const state = await viewScope(userId, book.id, sid, null);
+      const state = await viewScope(userId, source.id, sid, null);
       applySessionData(state);
       updateUrl(state.viewNodeId, sid, false); // push history entry
       setScrollTopTrigger((c) => c + 1);
     } catch (err) {
       console.error("Back to root failed:", err);
     } finally {
-      const activeStream = streams[`${book.id}:null`] || streams[`${book.id}:${sid}`];
+      const activeStream = streams[`${source.id}:null`] || streams[`${source.id}:${sid}`];
       const isRestoring = activeStream && activeStream.sendingNodeId === null && activeStream.status === "streaming";
       if (!isRestoring) {
         setIsLoading(false);
       }
     }
-  }, [userId, book.id, applySessionData, updateUrl, streams]);
+  }, [userId, source.id, applySessionData, updateUrl, streams]);
 
   // ---------------------------------------------------------------------------
   // Session loading
@@ -299,11 +299,11 @@ export function useReaderSession(
       setSessionId(sid);
 
       try {
-        const state = await startSession(userId, book.id, sid);
+        const state = await startSession(userId, source.id, sid);
 
         // Load persisted glossary entries from DB
         try {
-          const saved = await fetchGlossary(userId, book.id);
+          const saved = await fetchGlossary(userId, source.id);
           if (saved.length > 0) {
             setDictEntries(saved.map((e) => ({
               id: `saved-${e.id}`,
@@ -321,7 +321,7 @@ export function useReaderSession(
           // Existing session with messages — restore it
           if (initialNodeId) {
             try {
-              const scopedState = await viewScope(userId, book.id, sid, initialNodeId);
+              const scopedState = await viewScope(userId, source.id, sid, initialNodeId);
               applySessionData(scopedState);
               updateUrl(scopedState.viewNodeId, sid, true);
             } catch {
@@ -344,7 +344,7 @@ export function useReaderSession(
         setIsLoading(false);
       }
     },
-    [userId, book.id, applySessionData, updateUrl, setDictEntries],
+    [userId, source.id, applySessionData, updateUrl, setDictEntries],
   );
 
   // ---------------------------------------------------------------------------
@@ -356,7 +356,7 @@ export function useReaderSession(
     async (sid: number) => {
       if (!userId) return;
       try {
-        await deleteSessionApi(userId, book.id, sid);
+        await deleteSessionApi(userId, source.id, sid);
 
         // If we deleted the active session, navigate to sessions page
         if (sessionId === sid) {
@@ -365,19 +365,19 @@ export function useReaderSession(
           setTree(null);
           setBreadcrumb([]);
           setBranches([]);
-          navigate(`/book/${book.id}/sessions`, { replace: true });
+          navigate(`/source/${source.id}/sessions`, { replace: true });
         }
       } catch (err) {
         console.error("Delete session failed:", err);
       }
     },
-    [userId, book.id, sessionId, navigate],
+    [userId, source.id, sessionId, navigate],
   );
 
   /** Navigate to the sessions management page */
   const handleBackToSessions = useCallback(() => {
-    navigate(`/book/${book.id}/sessions`);
-  }, [book.id, navigate]);
+    navigate(`/source/${source.id}/sessions`);
+  }, [source.id, navigate]);
 
   // ---------------------------------------------------------------------------
   // Handle mode selection from BookSetupState skip-to-chat
@@ -386,9 +386,9 @@ export function useReaderSession(
   const handleSelectMode = useCallback(
     () => {
       // Redirect to sessions page — the user can create a session there
-      navigate(`/book/${book.id}/sessions`);
+      navigate(`/source/${source.id}/sessions`);
     },
-    [book.id, navigate],
+    [source.id, navigate],
   );
 
   const handleDeleteNode = useCallback(async (nodeId: string) => {
@@ -396,20 +396,20 @@ export function useReaderSession(
     const sid = sessionIdRef.current;
     if (sid === null) return;
     try {
-      const state = await deleteNode(userId, book.id, sid, nodeId, viewNodeId);
+      const state = await deleteNode(userId, source.id, sid, nodeId, viewNodeId);
       applySessionData(state);
       updateUrl(state.viewNodeId, sid, true);
     } catch (err) {
       console.error("Delete node failed:", err);
     }
-  }, [userId, book.id, viewNodeId, applySessionData, updateUrl]);
+  }, [userId, source.id, viewNodeId, applySessionData, updateUrl]);
 
   const handleRenameNode = useCallback(async (nodeId: string, newLabel: string) => {
     if (!userId) return;
     const sid = sessionIdRef.current;
     if (sid === null) return;
     try {
-      const state = await renameNode(userId, book.id, sid, nodeId, newLabel, viewNodeId);
+      const state = await renameNode(userId, source.id, sid, nodeId, newLabel, viewNodeId);
       // Only update tree + breadcrumb — don't touch messages/branches.
       // This avoids disrupting in-progress streaming conversations.
       setTree(state.tree);
@@ -417,7 +417,7 @@ export function useReaderSession(
     } catch (err) {
       console.error("Rename node failed:", err);
     }
-  }, [userId, book.id, viewNodeId]);
+  }, [userId, source.id, viewNodeId]);
 
   const handleResetSession = useCallback(async () => {
     if (!userId) return;
@@ -429,13 +429,13 @@ export function useReaderSession(
     }
     if (!confirm("Clear this session? All conversation history will be lost.")) return;
     try {
-      await resetSession(userId, book.id, sid);
+      await resetSession(userId, source.id, sid);
       // Full reload to get a clean slate
-      window.location.href = `/book/${book.id}?session=${sid}`;
+      window.location.href = `/source/${source.id}?session=${sid}`;
     } catch (err) {
       console.error("Reset failed:", err);
     }
-  }, [userId, book.id, handleBackToSessions]);
+  }, [userId, source.id, handleBackToSessions]);
 
   // ---------------------------------------------------------------------------
   // On mount: load the session from URL, or redirect to sessions page
@@ -453,7 +453,7 @@ export function useReaderSession(
 
     if (!initialSessionId) {
       // No session param — redirect to sessions page
-      navigate(`/book/${book.id}/sessions`, { replace: true });
+      navigate(`/source/${source.id}/sessions`, { replace: true });
       return;
     }
 
@@ -463,7 +463,7 @@ export function useReaderSession(
       setIsLoading(true);
       try {
         // Fetch sessions list (for session label in breadcrumb)
-        const sessionsList = await fetchSessions(userId, book.id);
+        const sessionsList = await fetchSessions(userId, source.id);
         setSessions(sessionsList);
 
         // Load the session
@@ -476,20 +476,24 @@ export function useReaderSession(
           sessionIdRef.current = sid;
           if (newSessionMode === "reading") {
             handleSendMessage(
-              `Let's start reading "${book.title}" by ${book.author}. Give me a chapter briefing to begin.`,
+              `Let's start reading "${source.title}" by ${source.author}. Give me a chapter briefing to begin.`,
             );
           } else if (newSessionMode === "qa") {
             handleSendMessage(
-              `I'd like to explore "${book.title}" by ${book.author} through Q&A. I'll ask questions about the book — its themes, arguments, key passages, and ideas. Start by briefly introducing the book's main thesis in 2-3 sentences, then let me lead with questions.`,
+              `I'd like to explore "${source.title}" by ${source.author} through Q&A. I'll ask questions about the book — its themes, arguments, key passages, and ideas. Start by briefly introducing the book's main thesis in 2-3 sentences, then let me lead with questions.`,
+            );
+          } else if (newSessionMode === "news") {
+            handleSendMessage(
+              `Let's scan today's news feeds. Give me a structured tech overview of what's happening.`,
             );
           }
         }
       } catch {
         // Session load failed — go to sessions page
-        navigate(`/book/${book.id}/sessions`, { replace: true });
+        navigate(`/source/${source.id}/sessions`, { replace: true });
       }
     })();
-  }, [userId, book, loadSession, searchParams, navigate, handleSendMessage]);
+  }, [userId, source, loadSession, searchParams, navigate, handleSendMessage]);
 
   // React to browser back/forward: when viewNodeId changes from a popstate
   // (not from our own programmatic update), re-fetch the node data.
@@ -505,20 +509,20 @@ export function useReaderSession(
     (async () => {
       setIsLoading(true);
       try {
-        const state = await viewScope(userId, book.id, sid, viewNodeId);
+        const state = await viewScope(userId, source.id, sid, viewNodeId);
         applySessionData(state);
         setScrollTopTrigger((c) => c + 1);
       } catch (err) {
         console.error("Browser nav restore failed:", err);
       } finally {
-        const activeStream = streams[`${book.id}:${sid}`];
+        const activeStream = streams[`${source.id}:${sid}`];
         const isRestoring = activeStream && activeStream.sendingNodeId === viewNodeId && activeStream.status === "streaming";
         if (!isRestoring) {
           setIsLoading(false);
         }
       }
     })();
-  }, [viewNodeId, userId, book.id, applySessionData, streams]);
+  }, [viewNodeId, userId, source.id, applySessionData, streams]);
 
   // Escape key: go back one scope level
   useEffect(() => {

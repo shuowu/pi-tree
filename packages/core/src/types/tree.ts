@@ -52,10 +52,10 @@ export interface BreadcrumbItem {
 }
 
 // ---------------------------------------------------------------------------
-// Book Anchor — linking tree nodes to book content
+// Content Anchor — linking tree nodes to source content
 // ---------------------------------------------------------------------------
 
-export interface BookAnchor {
+export interface ContentAnchor {
   /** Line range in the markdown file (from the outline's navigation map) */
   lineRange: [start: number, end: number];
   /** The heading text from the outline */
@@ -67,10 +67,10 @@ export interface BookAnchor {
 // ---------------------------------------------------------------------------
 
 export interface SessionState {
-  /** Database session ID — identifies which session within user+book */
+  /** Database session ID — identifies which session within user+source */
   sessionId: number;
   userId: string;
-  bookId: string;
+  sourceId: string;
   activeNodeId: string;
   /** Which tree node the chat view is scoped to (null = root) */
   viewNodeId: string | null;

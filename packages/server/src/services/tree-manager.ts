@@ -4,7 +4,7 @@
  * This is now a thin layer that:
  * 1. Classifies user intent (branch vs continue)
  * 2. Delegates tree operations to PiSession (which wraps Pi SDK)
- * 3. Manages reading-specific metadata (topic labels, book anchors)
+ * 3. Manages reading-specific metadata (topic labels, content anchors)
  *
  * Pi SDK handles: session storage, tree structure, AI responses,
  * compaction, streaming, context building.
@@ -27,9 +27,10 @@ import {
   wrapTokenWithEarlyTreeUpdate,
 } from "@pi-tree/core";
 import { eq, and } from "drizzle-orm";
-import { getDb, users, userBookSessions, books } from "../db/index.js";
+import { getDb, users, userSessions, sources } from "../db/index.js";
 import { LibraryService } from "./library.js";
 import { join } from "node:path";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import os from "node:os";
 
 export class TreeManager {
@@ -39,7 +40,7 @@ export class TreeManager {
   private constructor(
     private piSession: PiSession,
     private userId: string,
-    private bookId: string,
+    private sourceId: string,
     private library: LibraryService,
   ) {
     this.config = { ...DEFAULT_CONFIG };
@@ -59,12 +60,12 @@ export class TreeManager {
    *
    * @param options.sessionId — When provided, loads the specific session by
    *   DB row ID. When omitted, loads the most recently active session for
-   *   the user+book (backward compatible).
+   *   the user+source (backward compatible).
    * @param options.resumeSession — Legacy: explicit JSONL file path to resume.
    */
   static async loadOrCreate(
     userId: string,
-    bookId: string,
+    sourceId: string,
     options?: { sessionId?: number; resumeSession?: string },
   ): Promise<TreeManager> {
     const library = new LibraryService();
@@ -74,15 +75,15 @@ export class TreeManager {
     // Resolve which session file to resume:
     // 1. Explicit resumeSession path (legacy)
     // 2. sessionId → look up that specific row
-    // 3. Most recently active session for user+book
+    // 3. Most recently active session for user+source
     let resumeSession = options?.resumeSession;
     if (!resumeSession) {
-      resumeSession = TreeManager.readActiveSession(userId, bookId, options?.sessionId);
+      resumeSession = TreeManager.readActiveSession(userId, sourceId, options?.sessionId);
     }
 
     const db = getDb();
-    const bookRow = db.select().from(books).where(eq(books.id, bookId)).get();
-    const isUpload = bookRow && bookRow.source !== "library";
+    const sourceRow = db.select().from(sources).where(eq(sources.id, sourceId)).get();
+    const isUpload = sourceRow && sourceRow.source !== "library";
     const resolvedLibraryPath = isUpload
       ? join(dataPath, "books")
       : library.getLibraryPath();
@@ -95,7 +96,7 @@ export class TreeManager {
 
     const piSession = await PiSession.create(
       userId,
-      bookId,
+      sourceId,
       resolvedLibraryPath,
       dataPath,
       {
@@ -108,8 +109,12 @@ export class TreeManager {
             coreSkills,     // second: core skills from repo
           ],
           extensionPaths: [
-            process.env.EXTENSIONS_PATH || join(dataPath, "extensions"),
+            // User extensions: each subdir of the extensions folder
+            ...TreeManager.scanExtensionDirs(process.env.EXTENSIONS_PATH || join(dataPath, "extensions")),
+            // Built-in extensions from the repo
+            ...TreeManager.scanExtensionDirs(join(import.meta.dirname, "../../extensions")),
           ],
+          sourceType: sourceRow?.type ?? "book",
         },
       },
     );
@@ -119,23 +124,23 @@ export class TreeManager {
     console.log(`[tree-manager] Session created — user: ${userId}, file: ${sessionFile}`);
     let dbId: number | undefined;
     if (sessionFile) {
-      dbId = TreeManager.writeActiveSession(userId, bookId, sessionFile, options?.sessionId);
+      dbId = TreeManager.writeActiveSession(userId, sourceId, sessionFile, options?.sessionId);
     }
 
-    const tm = new TreeManager(piSession, userId, bookId, library);
-    tm.sessionDbId = dbId ?? TreeManager.readSessionDbId(userId, bookId, options?.sessionId) ?? 0;
+    const tm = new TreeManager(piSession, userId, sourceId, library);
+    tm.sessionDbId = dbId ?? TreeManager.readSessionDbId(userId, sourceId, options?.sessionId) ?? 0;
     return tm;
   }
 
   /**
-   * Read the active session file path for a user+book from the DB.
+   * Read the active session file path for a user+source from the DB.
    *
    * @param sessionId — When provided, looks up that specific row by ID.
    *   When omitted, finds the most recently active session.
    */
   private static readActiveSession(
     userId: string,
-    bookId: string,
+    sourceId: string,
     sessionId?: number,
   ): string | undefined {
     try {
@@ -145,37 +150,37 @@ export class TreeManager {
       if (sessionId !== undefined) {
         const row = db
           .select()
-          .from(userBookSessions)
+          .from(userSessions)
           .where(
             and(
-              eq(userBookSessions.id, sessionId),
-              eq(userBookSessions.userId, userId),
-              eq(userBookSessions.bookId, bookId),
-              eq(userBookSessions.isActive, 1),
+              eq(userSessions.id, sessionId),
+              eq(userSessions.userId, userId),
+              eq(userSessions.sourceId, sourceId),
+              eq(userSessions.isActive, 1),
             ),
           )
           .get();
         if (!row) return undefined;
-        console.log(`[tree-manager] Resuming session #${sessionId} for ${userId}/${bookId}: ${row.sessionFile}`);
+        console.log(`[tree-manager] Resuming session #${sessionId} for ${userId}/${sourceId}: ${row.sessionFile}`);
         return row.sessionFile;
       }
 
       // Fallback: most recently active session
       const row = db
         .select()
-        .from(userBookSessions)
+        .from(userSessions)
         .where(
           and(
-            eq(userBookSessions.userId, userId),
-            eq(userBookSessions.bookId, bookId),
-            eq(userBookSessions.isActive, 1),
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, sourceId),
+            eq(userSessions.isActive, 1),
           ),
         )
         .get();
 
       if (!row) return undefined;
 
-      console.log(`[tree-manager] Resuming session for ${userId}/${bookId}: ${row.sessionFile}`);
+      console.log(`[tree-manager] Resuming session for ${userId}/${sourceId}: ${row.sessionFile}`);
       return row.sessionFile;
     } catch {
       return undefined; // DB not ready or no rows — first session
@@ -183,14 +188,14 @@ export class TreeManager {
   }
 
   /**
-   * Read the DB row ID of the active session for a user+book.
+   * Read the DB row ID of the active session for a user+source.
    *
    * @param sessionId — When provided, verifies that specific row exists.
    *   When omitted, finds the most recently active session.
    */
   private static readSessionDbId(
     userId: string,
-    bookId: string,
+    sourceId: string,
     sessionId?: number,
   ): number | undefined {
     try {
@@ -198,14 +203,14 @@ export class TreeManager {
 
       if (sessionId !== undefined) {
         const row = db
-          .select({ id: userBookSessions.id })
-          .from(userBookSessions)
+          .select({ id: userSessions.id })
+          .from(userSessions)
           .where(
             and(
-              eq(userBookSessions.id, sessionId),
-              eq(userBookSessions.userId, userId),
-              eq(userBookSessions.bookId, bookId),
-              eq(userBookSessions.isActive, 1),
+              eq(userSessions.id, sessionId),
+              eq(userSessions.userId, userId),
+              eq(userSessions.sourceId, sourceId),
+              eq(userSessions.isActive, 1),
             ),
           )
           .get();
@@ -213,13 +218,13 @@ export class TreeManager {
       }
 
       const row = db
-        .select({ id: userBookSessions.id })
-        .from(userBookSessions)
+        .select({ id: userSessions.id })
+        .from(userSessions)
         .where(
           and(
-            eq(userBookSessions.userId, userId),
-            eq(userBookSessions.bookId, bookId),
-            eq(userBookSessions.isActive, 1),
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, sourceId),
+            eq(userSessions.isActive, 1),
           ),
         )
         .get();
@@ -240,7 +245,7 @@ export class TreeManager {
    */
   private static writeActiveSession(
     userId: string,
-    bookId: string,
+    sourceId: string,
     sessionFile: string,
     sessionId?: number,
   ): number | undefined {
@@ -253,37 +258,37 @@ export class TreeManager {
 
       // If we have a specific session ID, update that row directly
       if (sessionId !== undefined) {
-        db.update(userBookSessions)
+        db.update(userSessions)
           .set({
             sessionFile,
             lastActiveAt: now,
           })
           .where(
             and(
-              eq(userBookSessions.id, sessionId),
-              eq(userBookSessions.isActive, 1),
+              eq(userSessions.id, sessionId),
+              eq(userSessions.isActive, 1),
             ),
           )
           .run();
         return sessionId;
       }
 
-      // Legacy: deactivate previous sessions for this user+book
-      db.update(userBookSessions)
+      // Legacy: deactivate previous sessions for this user+source
+      db.update(userSessions)
         .set({ isActive: 0 })
         .where(
           and(
-            eq(userBookSessions.userId, userId),
-            eq(userBookSessions.bookId, bookId),
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, sourceId),
           ),
         )
         .run();
 
       // Insert or update the current session
-      db.insert(userBookSessions)
+      db.insert(userSessions)
         .values({
           userId,
-          bookId,
+          sourceId,
           sessionFile,
           isActive: 1,
           createdAt: now,
@@ -291,9 +296,9 @@ export class TreeManager {
         })
         .onConflictDoUpdate({
           target: [
-            userBookSessions.userId,
-            userBookSessions.bookId,
-            userBookSessions.sessionFile,
+            userSessions.userId,
+            userSessions.sourceId,
+            userSessions.sessionFile,
           ],
           set: {
             isActive: 1,
@@ -304,13 +309,13 @@ export class TreeManager {
 
       // Return the ID of the row we just wrote
       const row = db
-        .select({ id: userBookSessions.id })
-        .from(userBookSessions)
+        .select({ id: userSessions.id })
+        .from(userSessions)
         .where(
           and(
-            eq(userBookSessions.userId, userId),
-            eq(userBookSessions.bookId, bookId),
-            eq(userBookSessions.isActive, 1),
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, sourceId),
+            eq(userSessions.isActive, 1),
           ),
         )
         .get();
@@ -342,6 +347,31 @@ export class TreeManager {
           updatedAt: now,
         })
         .run();
+    }
+  }
+
+  /**
+   * Scan an extensions parent directory for individual extension subdirectories.
+   * Pi SDK expects paths to individual extension dirs (each with index.ts/js),
+   * not the parent directory itself.
+   */
+  private static scanExtensionDirs(parentDir: string): string[] {
+    if (!existsSync(parentDir)) return [];
+    try {
+      return readdirSync(parentDir)
+        .map((name) => join(parentDir, name))
+        .filter((p) => {
+          try {
+            return (
+              statSync(p).isDirectory() &&
+              (existsSync(join(p, "index.ts")) || existsSync(join(p, "index.js")))
+            );
+          } catch {
+            return false;
+          }
+        });
+    } catch {
+      return [];
     }
   }
 
@@ -443,14 +473,14 @@ export class TreeManager {
   }
 
   async navigateToOutlineEntry(lineNumber: number): Promise<SessionState> {
-    const outline = await this.library.getOutline(this.bookId);
-    if (!outline) throw new Error("No outline for this book");
+    const outline = await this.library.getOutline(this.sourceId);
+    if (!outline) throw new Error("No outline for this source");
 
     // Find the outline entry closest to this line
     const entry = this.findOutlineEntry(outline.entries, lineNumber);
     const label = entry?.title ?? `Section at L${lineNumber}`;
 
-    // Create a new branch anchored to this book section
+    // Create a new branch anchored to this source section
     const breadcrumb = this.piSession.getBreadcrumb();
     const rootId = breadcrumb[0]?.entryId;
     if (rootId) {
@@ -458,7 +488,7 @@ export class TreeManager {
         label,
         source: "outline",
         status: "active",
-        bookAnchor: {
+        contentAnchor: {
           lineRange: [lineNumber, lineNumber + 100],
           outlineHeading: label,
         },
@@ -520,7 +550,7 @@ export class TreeManager {
     return {
       sessionId: this.sessionDbId,
       userId: this.userId,
-      bookId: this.bookId,
+      sourceId: this.sourceId,
       activeNodeId:
         this.piSession.getBreadcrumb().slice(-1)[0]?.entryId ?? "",
       viewNodeId,
@@ -548,7 +578,7 @@ export class TreeManager {
       return {
         id: "",
         parentId: null,
-        label: this.bookId,
+        label: this.sourceId,
         status: "active",
         messageCount: 0,
         children: [],

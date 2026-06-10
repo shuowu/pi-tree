@@ -6,11 +6,8 @@ services:
       - "${PORT:-3847}:${PORT:-3847}"
     env_file: .env
     volumes:
-      - ${LIBRARY_PATH:-./library}:/library:ro
       - pi-tree-data:/data
     environment:
-      # Override paths for container filesystem
-      - LIBRARY_PATH=/library
       - DATA_PATH=/data
 
 volumes:

@@ -1,8 +1,8 @@
-import type { Book } from "@pi-tree/shared";
+import type { Source } from "@pi-tree/shared";
 import { eq, sql } from "drizzle-orm";
 import { mkdir, writeFile, rm, readdir, stat, readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
-import { getDb, books } from "../db/index.js";
+import { getDb, sources } from "../db/index.js";
 import { getParser } from "../parsers/index.js";
 import { createAgentSession, SessionManager, AuthStorage, ModelRegistry, DefaultResourceLoader, getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { getServerConfig } from "../config.js";
@@ -35,7 +35,7 @@ export class BookIngestionService {
     file: Buffer,
     filename: string,
     meta: { title: string; author: string; year?: number },
-  ): Promise<Book> {
+  ): Promise<Source> {
     const db = getDb();
     const ext = extname(filename).toLowerCase();
 
@@ -48,7 +48,7 @@ export class BookIngestionService {
 
     // Check for collision
     while (true) {
-      const existing = db.select().from(books).where(eq(books.id, bookId)).get();
+      const existing = db.select().from(sources).where(eq(sources.id, bookId)).get();
       if (!existing) break;
       suffix++;
       bookId = `${baseId}-${suffix}`;
@@ -65,15 +65,15 @@ export class BookIngestionService {
 
     // Insert DB row
     const now = new Date().toISOString();
-    db.insert(books)
+    db.insert(sources)
       .values({
         id: bookId,
+        type: "book",
         title: meta.title,
         author: meta.author,
         year: meta.year ?? null,
-        sourceFormat: ext.slice(1),
+        source: "upload",
         status: "pending",
-        originalFilename: filename,
         createdAt: now,
         updatedAt: now,
       })
@@ -88,6 +88,7 @@ export class BookIngestionService {
 
     return {
       id: bookId,
+      type: "book" as const,
       title: meta.title,
       author: meta.author,
       year: meta.year ?? 0,
@@ -103,25 +104,25 @@ export class BookIngestionService {
 
   async processBookWithJob(bookId: string, jobId: string, queue: any): Promise<void> {
     const db = getDb();
-    const row = db.select().from(books).where(eq(books.id, bookId)).get();
+    const row = db.select().from(sources).where(eq(sources.id, bookId)).get();
     if (!row) throw new Error(`Book ${bookId} not found in DB`);
 
     const now = () => new Date().toISOString();
 
     // Update status to processing
-    db.update(books)
+    db.update(sources)
       .set({ status: "processing", updatedAt: now() })
-      .where(eq(books.id, bookId))
+      .where(eq(sources.id, bookId))
       .run();
 
     const bookDir = join(booksBasePath, bookId);
-    const originalPath = join(bookDir, `original.${row.sourceFormat}`);
+    const originalPath = join(bookDir, `original.${row.source === "upload" ? "epub" : "epub"}`);
 
     try {
       queue.updateProgress(jobId, "parsing_file", 10);
-      const parser = getParser(row.originalFilename);
+      const parser = getParser(row.title);
       if (!parser) {
-        throw new Error(`No parser for format: ${row.sourceFormat}`);
+        throw new Error(`No parser for source: ${bookId}`);
       }
 
       const result = await parser.parse(originalPath);
@@ -258,7 +259,7 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
       await this.runAgentSession(bookDir, summaryPrompt);
 
       // Update DB with success
-      db.update(books)
+      db.update(sources)
         .set({
           status: "ready",
           error: null,
@@ -267,7 +268,7 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
           year: result.metadata.year ?? row.year,
           updatedAt: now(),
         })
-        .where(eq(books.id, bookId))
+        .where(eq(sources.id, bookId))
         .run();
 
       console.log(`[book-ingestion] Successfully processed ${bookId}`);
@@ -275,13 +276,13 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[book-ingestion] Failed to process ${bookId}:`, message);
       try {
-        db.update(books)
+        db.update(sources)
           .set({
             status: "failed",
             error: message,
             updatedAt: now(),
           })
-          .where(eq(books.id, bookId))
+          .where(eq(sources.id, bookId))
           .run();
         console.log(`[book-ingestion] Updated DB record status to failed for book ${bookId}`);
       } catch (dbErr) {
@@ -512,19 +513,19 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     const db = getDb();
 
     // Delete DB row
-    db.delete(books).where(eq(books.id, bookId)).run();
+    db.delete(sources).where(eq(sources.id, bookId)).run();
 
     // Delete directory
     const bookDir = join(booksBasePath, bookId);
     await rm(bookDir, { recursive: true, force: true });
   }
 
-  async listUploadedBooks(): Promise<Book[]> {
+  async listUploadedBooks(): Promise<Source[]> {
     const db = getDb();
-    const rows = db.select().from(books).where(
-      sql`${books.source} != 'library' OR ${books.source} IS NULL`
+    const rows = db.select().from(sources).where(
+      sql`${sources.source} != 'library' AND ${sources.source} != 'system'`
     ).all();
-    const result: Book[] = [];
+    const result: Source[] = [];
 
     for (const row of rows) {
       const bookDir = join(booksBasePath, row.id);
@@ -544,6 +545,7 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
 
       result.push({
         id: row.id,
+        type: (row.type ?? "book") as Source["type"],
         title: row.title,
         author: row.author,
         year: row.year ?? 0,
@@ -553,7 +555,7 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
         hasOutline,
         hasCover,
         source: "upload",
-        status: row.status as Book["status"],
+        status: row.status as Source["status"],
         error: row.error ?? undefined,
       });
     }

@@ -1,4 +1,4 @@
-import { getDb, backgroundJobs, books } from "../db/index.js";
+import { getDb, backgroundJobs, sources } from "../db/index.js";
 import { eq, and, or, desc } from "drizzle-orm";
 import { BookIngestionService } from "./book-ingestion.js";
 
@@ -6,7 +6,7 @@ export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface Job {
   id: string;
-  bookId: string;
+  sourceId: string;
   status: JobStatus;
   progress: number;
   step: string;
@@ -63,14 +63,14 @@ export class JobQueueService {
   /**
    * Create a new job in the queue
    */
-  async createJob(bookId: string): Promise<Job> {
+  async createJob(sourceId: string): Promise<Job> {
     const db = getDb();
-    const jobId = `${bookId}-${Date.now()}`;
+    const jobId = `${sourceId}-${Date.now()}`;
     const now = new Date().toISOString();
 
     const newJob = {
       id: jobId,
-      bookId,
+      sourceId,
       status: "pending" as JobStatus,
       progress: 0,
       step: "queued",
@@ -80,7 +80,7 @@ export class JobQueueService {
     };
 
     db.insert(backgroundJobs).values(newJob).run();
-    console.log(`[job-queue] Job ${jobId} created for book ${bookId}`);
+    console.log(`[job-queue] Job ${jobId} created for source ${sourceId}`);
 
     // Trigger processing
     this.triggerQueue();
@@ -113,14 +113,14 @@ export class JobQueueService {
   }
 
   /**
-   * Retrieve the latest active or completed job for a book
+   * Retrieve the latest active or completed job for a source
    */
-  getLatestJobForBook(bookId: string): Job | null {
+  getLatestJobForSource(sourceId: string): Job | null {
     const db = getDb();
     const row = db
       .select()
       .from(backgroundJobs)
-      .where(eq(backgroundJobs.bookId, bookId))
+      .where(eq(backgroundJobs.sourceId, sourceId))
       .orderBy(desc(backgroundJobs.createdAt))
       .limit(1)
       .get();
@@ -172,7 +172,7 @@ export class JobQueueService {
 
     this.isProcessing = true;
     const jobId = nextJob.id;
-    const bookId = nextJob.bookId;
+    const sourceId = nextJob.sourceId;
 
     try {
       // Mark job as processing
@@ -182,7 +182,7 @@ export class JobQueueService {
         .run();
 
       // Trigger the actual book processing
-      await this.ingestionService.processBookWithJob(bookId, jobId, this);
+      await this.ingestionService.processBookWithJob(sourceId, jobId, this);
 
       // Mark job as completed
       db.update(backgroundJobs)

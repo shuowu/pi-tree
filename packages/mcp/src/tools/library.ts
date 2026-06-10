@@ -33,12 +33,12 @@ export function registerLibraryTools(
         .describe("Filter by tags (all must match)"),
     },
     async ({ query, tags }) => {
-      const books = await libraryService.searchBooks(query, tags);
+      const sources = await libraryService.searchSources(query, tags);
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(books, null, 2),
+            text: JSON.stringify(sources, null, 2),
           },
         ],
       };

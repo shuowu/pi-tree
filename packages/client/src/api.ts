@@ -5,9 +5,9 @@
 
 import type { SessionState, TreeNodeView } from "@pi-tree/core/types";
 import type {
-  Book,
-  BookOutline,
-  BookSession,
+  Source,
+  SourceOutline,
+  SourceSession,
   SessionContext,
   UserInfo,
 } from "@pi-tree/shared";
@@ -86,16 +86,16 @@ export async function fetchUser(userId: string): Promise<UserInfo> {
 // Library
 // ---------------------------------------------------------------------------
 
-export async function fetchBooks(opts?: { search?: string; tags?: string[] }): Promise<Book[]> {
+export async function fetchSources(opts?: { search?: string; tags?: string[] }): Promise<Source[]> {
   const params = new URLSearchParams();
   if (opts?.search) params.set('search', opts.search);
   if (opts?.tags?.length) params.set('tags', opts.tags.join(','));
   const qs = params.toString();
-  const url = `${API}/library/books${qs ? `?${qs}` : ''}`;
+  const url = `${API}/library/sources${qs ? `?${qs}` : ''}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch books: ${res.status}`);
+  if (!res.ok) throw new Error(`Failed to fetch sources: ${res.status}`);
   const data = await res.json();
-  return data.books;
+  return data.sources;
 }
 
 export async function fetchTags(): Promise<string[]> {
@@ -105,8 +105,8 @@ export async function fetchTags(): Promise<string[]> {
   return data.tags;
 }
 
-export async function addBookTag(bookId: string, tag: string): Promise<void> {
-  const res = await fetch(`${API}/library/books/${encodeURIComponent(bookId)}/tags`, {
+export async function addSourceTag(sourceId: string, tag: string): Promise<void> {
+  const res = await fetch(`${API}/library/sources/${encodeURIComponent(sourceId)}/tags`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tag }),
@@ -114,32 +114,32 @@ export async function addBookTag(bookId: string, tag: string): Promise<void> {
   if (!res.ok) throw new Error(`Failed to add tag: ${res.status}`);
 }
 
-export async function removeBookTag(bookId: string, tag: string): Promise<void> {
-  const res = await fetch(`${API}/library/books/${encodeURIComponent(bookId)}/tags/${encodeURIComponent(tag)}`, {
+export async function removeSourceTag(sourceId: string, tag: string): Promise<void> {
+  const res = await fetch(`${API}/library/sources/${encodeURIComponent(sourceId)}/tags/${encodeURIComponent(tag)}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`Failed to remove tag: ${res.status}`);
 }
 
-export async function fetchBook(bookId: string): Promise<Book> {
-  const res = await fetch(`${API}/library/books/${bookId}`);
-  if (!res.ok) throw new Error(`Book not found: ${bookId}`);
+export async function fetchSource(sourceId: string): Promise<Source> {
+  const res = await fetch(`${API}/library/sources/${sourceId}`);
+  if (!res.ok) throw new Error(`Source not found: ${sourceId}`);
   return res.json();
 }
 
-export async function fetchOutline(bookId: string): Promise<BookOutline | null> {
-  const res = await fetch(`${API}/library/books/${bookId}/outline`);
+export async function fetchOutline(sourceId: string): Promise<SourceOutline | null> {
+  const res = await fetch(`${API}/library/sources/${sourceId}/outline`);
   if (!res.ok) return null;
   return res.json();
 }
 
 export async function fetchContent(
-  bookId: string,
+  sourceId: string,
   startLine: number,
   endLine: number,
 ): Promise<string> {
   const res = await fetch(
-    `${API}/library/books/${bookId}/content?start=${startLine}&end=${endLine}`,
+    `${API}/library/sources/${sourceId}/content?start=${startLine}&end=${endLine}`,
   );
   if (!res.ok) throw new Error(`Failed to fetch content`);
   const data = await res.json();
@@ -152,23 +152,23 @@ export interface BookHeading {
   title: string;
 }
 
-export async function fetchHeadings(bookId: string): Promise<BookHeading[]> {
-  const res = await fetch(`${API}/library/books/${bookId}/headings`);
+export async function fetchHeadings(sourceId: string): Promise<BookHeading[]> {
+  const res = await fetch(`${API}/library/sources/${sourceId}/headings`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.headings ?? [];
 }
 
-export async function uploadBook(file: File, meta: {
+export async function uploadSource(file: File, meta: {
   title: string; author: string; year?: number;
-}): Promise<Book> {
+}): Promise<Source> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('title', meta.title);
   formData.append('author', meta.author);
   if (meta.year) formData.append('year', String(meta.year));
 
-  const res = await fetch(`${API}/library/books`, {
+  const res = await fetch(`${API}/library/sources`, {
     method: 'POST',
     body: formData,
   });
@@ -179,38 +179,38 @@ export async function uploadBook(file: File, meta: {
   return res.json();
 }
 
-export async function deleteBook(bookId: string): Promise<void> {
-  const res = await fetch(`${API}/library/books/${bookId}`, { method: 'DELETE' });
+export async function deleteSource(sourceId: string): Promise<void> {
+  const res = await fetch(`${API}/library/sources/${sourceId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }
 
-export async function processBook(bookId: string): Promise<void> {
-  const res = await fetch(`${API}/library/books/${bookId}/process`, { method: 'POST' });
+export async function processSource(sourceId: string): Promise<void> {
+  const res = await fetch(`${API}/library/sources/${sourceId}/process`, { method: 'POST' });
   if (!res.ok) throw new Error(`Processing trigger failed: ${res.status}`);
 }
 
 export interface Job {
   id: string;
-  bookId: string;
+  sourceId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
   step: string;
   error?: string | null;
 }
 
-export interface JobWithBook extends Job {
-  bookTitle: string;
-  bookAuthor: string;
+export interface JobWithSource extends Job {
+  sourceTitle: string;
+  sourceAuthor: string;
 }
 
-export async function fetchJobStatus(bookId: string): Promise<Job | null> {
-  const res = await fetch(`${API}/library/books/${bookId}/job`);
+export async function fetchJobStatus(sourceId: string): Promise<Job | null> {
+  const res = await fetch(`${API}/library/sources/${sourceId}/job`);
   if (!res.ok) return null;
   const data = await res.json();
   return data.job;
 }
 
-export async function fetchJobs(): Promise<JobWithBook[]> {
+export async function fetchJobs(): Promise<JobWithSource[]> {
   const res = await fetch(`${API}/library/jobs`);
   if (!res.ok) throw new Error(`Failed to fetch jobs: ${res.status}`);
   const data = await res.json();
@@ -219,29 +219,29 @@ export async function fetchJobs(): Promise<JobWithBook[]> {
 
 
 // ---------------------------------------------------------------------------
-// Session Management (CRUD) — multi-session per book
+// Session Management (CRUD) — multi-session per source
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch all sessions for a user+book pair.
+ * Fetch all sessions for a user+source pair.
  */
-export async function fetchSessions(userId: string, bookId: string): Promise<BookSession[]> {
-  const res = await fetch(`${API}/sessions/${userId}/${bookId}`);
+export async function fetchSessions(userId: string, sourceId: string): Promise<SourceSession[]> {
+  const res = await fetch(`${API}/sessions/${userId}/${sourceId}`);
   if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.status}`);
   const data = await res.json();
   return data.sessions;
 }
 
 /**
- * Create a new session for a user+book pair.
+ * Create a new session for a user+source pair.
  */
 export async function createSession(
   userId: string,
-  bookId: string,
+  sourceId: string,
   title: string,
   context?: SessionContext,
-): Promise<BookSession> {
-  const res = await fetch(`${API}/sessions/${userId}/${bookId}`, {
+): Promise<SourceSession> {
+  const res = await fetch(`${API}/sessions/${userId}/${sourceId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, context }),
@@ -255,11 +255,11 @@ export async function createSession(
  */
 export async function updateSession(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
   updates: { title?: string; context?: SessionContext },
 ): Promise<void> {
-  const res = await fetch(`${API}/sessions/${userId}/${bookId}/${sessionId}`, {
+  const res = await fetch(`${API}/sessions/${userId}/${sourceId}/${sessionId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updates),
@@ -272,10 +272,10 @@ export async function updateSession(
  */
 export async function deleteSession(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
 ): Promise<void> {
-  const res = await fetch(`${API}/sessions/${userId}/${bookId}/${sessionId}`, {
+  const res = await fetch(`${API}/sessions/${userId}/${sourceId}/${sessionId}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to delete session: ${res.status}`);
@@ -286,36 +286,36 @@ export async function deleteSession(
 // ---------------------------------------------------------------------------
 
 /**
- * Start or resume a session for a book.
+ * Start or resume a session for a source.
  * Returns existing state (with messages) if the session already exists,
  * or a fresh empty state for a new session.
  */
-export async function startSession(userId: string, bookId: string, sessionId: number): Promise<SessionState> {
+export async function startSession(userId: string, sourceId: string, sessionId: number): Promise<SessionState> {
   const res = await fetch(`${API}/session/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId }),
+    body: JSON.stringify({ userId, sourceId, sessionId }),
   });
   if (!res.ok) throw new Error(`Failed to start session: ${res.status}`);
   return res.json();
 }
 
 /**
- * Reset a book's session — clears all history.
+ * Reset a source's session — clears all history.
  * The next startSession call will create a fresh session.
  */
-export async function resetSession(userId: string, bookId: string, sessionId: number): Promise<void> {
+export async function resetSession(userId: string, sourceId: string, sessionId: number): Promise<void> {
   const res = await fetch(`${API}/session/reset`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId }),
+    body: JSON.stringify({ userId, sourceId, sessionId }),
   });
   if (!res.ok) throw new Error(`Failed to reset session: ${res.status}`);
 }
 
 export async function sendMessage(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
   message: string,
   viewNodeId?: string | null,
@@ -323,7 +323,7 @@ export async function sendMessage(
   const res = await fetch(`${API}/session/message`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId, message, viewNodeId }),
+    body: JSON.stringify({ userId, sourceId, sessionId, message, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Failed to send message: ${res.status}`);
   return res.json();
@@ -331,7 +331,7 @@ export async function sendMessage(
 
 export async function sendMessageStreaming(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
   message: string,
   viewNodeId: string | null,
@@ -350,7 +350,7 @@ export async function sendMessageStreaming(
   const res = await fetch(`${API}/session/message/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId, message, viewNodeId }),
+    body: JSON.stringify({ userId, sourceId, sessionId, message, viewNodeId }),
     signal,
   });
 
@@ -438,7 +438,7 @@ export async function sendMessageStreaming(
 
 export async function navigateTo(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
   nodeId: string,
   options?: { summarize?: boolean },
@@ -446,7 +446,7 @@ export async function navigateTo(
   const res = await fetch(`${API}/session/navigate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId, targetNodeId: nodeId, ...options }),
+    body: JSON.stringify({ userId, sourceId, sessionId, targetNodeId: nodeId, ...options }),
   });
   if (!res.ok) throw new Error(`Navigate failed: ${res.status}`);
   return res.json();
@@ -459,24 +459,24 @@ export async function navigateTo(
  */
 export async function viewScope(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
   viewNodeId: string | null,
 ): Promise<SessionState> {
   const res = await fetch(`${API}/session/view`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId, viewNodeId }),
+    body: JSON.stringify({ userId, sourceId, sessionId, viewNodeId }),
   });
   if (!res.ok) throw new Error(`View scope failed: ${res.status}`);
   return res.json();
 }
 
-export async function fetchTree(userId: string, bookId: string, sessionId: number): Promise<TreeNodeView> {
+export async function fetchTree(userId: string, sourceId: string, sessionId: number): Promise<TreeNodeView> {
   const res = await fetch(`${API}/session/tree`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId }),
+    body: JSON.stringify({ userId, sourceId, sessionId }),
   });
   if (!res.ok) throw new Error(`Failed to fetch tree: ${res.status}`);
   return res.json();
@@ -488,7 +488,7 @@ export async function fetchTree(userId: string, bookId: string, sessionId: numbe
  */
 export async function deleteNode(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
   nodeId: string,
   viewNodeId?: string | null,
@@ -496,7 +496,7 @@ export async function deleteNode(
   const res = await fetch(`${API}/session/delete-node`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId, nodeId, viewNodeId }),
+    body: JSON.stringify({ userId, sourceId, sessionId, nodeId, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Delete node failed: ${res.status}`);
   return res.json();
@@ -507,7 +507,7 @@ export async function deleteNode(
  */
 export async function renameNode(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number,
   nodeId: string,
   newLabel: string,
@@ -516,7 +516,7 @@ export async function renameNode(
   const res = await fetch(`${API}/session/rename-node`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, sessionId, nodeId, newLabel, viewNodeId }),
+    body: JSON.stringify({ userId, sourceId, sessionId, nodeId, newLabel, viewNodeId }),
   });
   if (!res.ok) throw new Error(`Rename node failed: ${res.status}`);
   return res.json();
@@ -532,7 +532,7 @@ export async function renameNode(
  */
 export async function streamLookup(
   userId: string,
-  bookId: string | undefined,
+  sourceId: string | undefined,
   term: string,
   onToken: (token: string) => void,
   context?: string,
@@ -540,7 +540,7 @@ export async function streamLookup(
   const res = await fetch(`${API}/dict/lookup/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, term, context }),
+    body: JSON.stringify({ userId, sourceId, term, context }),
   });
 
   if (!res.ok) throw new Error(`Lookup failed: ${res.status}`);
@@ -586,26 +586,26 @@ export async function streamLookup(
  */
 export async function saveGlossary(
   userId: string,
-  bookId: string,
+  sourceId: string,
   term: string,
   definition?: string,
 ): Promise<void> {
   const res = await fetch(`${API}/dict/glossary/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, bookId, term, definition }),
+    body: JSON.stringify({ userId, sourceId, term, definition }),
   });
   if (!res.ok) throw new Error(`Save glossary failed: ${res.status}`);
 }
 
 /**
- * Fetch all saved glossary entries for a user+book.
+ * Fetch all saved glossary entries for a user+source.
  */
 export async function fetchGlossary(
   userId: string,
-  bookId: string,
+  sourceId: string,
 ): Promise<Array<{ id: number; term: string; definition: string | null; createdAt: string }>> {
-  const res = await fetch(`${API}/dict/glossary/${userId}/${bookId}`);
+  const res = await fetch(`${API}/dict/glossary/${userId}/${sourceId}`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.entries ?? [];

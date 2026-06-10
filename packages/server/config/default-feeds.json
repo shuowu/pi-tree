@@ -1,0 +1,14 @@
+[
+  {
+    "id": "hacker-news",
+    "name": "Hacker News",
+    "url": "https://news.ycombinator.com/rss",
+    "tags": ["tech"]
+  },
+  {
+    "id": "techcrunch",
+    "name": "TechCrunch",
+    "url": "https://techcrunch.com/feed/",
+    "tags": ["tech", "ai"]
+  }
+]

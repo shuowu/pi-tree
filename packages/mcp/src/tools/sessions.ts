@@ -1,7 +1,7 @@
 /**
  * Session tools — list, create, and inspect reading sessions.
  *
- * Sessions are per-user per-book. Each session has its own conversation tree,
+ * Sessions are per-user per-source. Each session has its own conversation tree,
  * context configuration, and Pi SDK JSONL file.
  */
 
@@ -9,7 +9,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { LibraryService } from "@pi-tree/server/services/library";
 import { z } from "zod";
 import { eq, and, desc } from "drizzle-orm";
-import { getDb, userBookSessions } from "@pi-tree/server/db";
+import { getDb, userSessions } from "@pi-tree/server/db";
 import { getSession } from "@pi-tree/server/services/session-store";
 
 /** Session mode — matches the DB context.mode values. */
@@ -21,7 +21,7 @@ interface SessionContext {
 }
 
 /** API-facing session shape. */
-interface BookSession {
+interface SourceSession {
   id: number;
   title: string;
   context: SessionContext;
@@ -30,15 +30,15 @@ interface BookSession {
   isActive: boolean;
 }
 
-/** Parse a DB row into a BookSession. */
-function rowToBookSession(row: {
+/** Parse a DB row into a SourceSession. */
+function rowToSourceSession(row: {
   id: number;
   title: string;
   context: string;
   createdAt: string;
   lastActiveAt: string;
   isActive: number;
-}): BookSession {
+}): SourceSession {
   let context: SessionContext;
   try {
     context = JSON.parse(row.context) as SessionContext;
@@ -60,30 +60,30 @@ export function registerSessionTools(
   _deps: { libraryService: LibraryService },
 ) {
   // ------------------------------------------------------------------
-  // list_sessions — list all sessions for a user+book
+  // list_sessions — list all sessions for a user+source
   // ------------------------------------------------------------------
   server.tool(
     "list_sessions",
-    "List all reading sessions for a specific user and book.",
+    "List all reading sessions for a specific user and source.",
     {
       userId: z.string().describe("User ID (slug like 'shuo')"),
-      bookId: z.string().describe("Book ID (folder name)"),
+      sourceId: z.string().describe("Source ID (e.g. book folder name)"),
     },
-    async ({ userId, bookId }) => {
+    async ({ userId, sourceId }) => {
       const db = getDb();
       const rows = db
         .select()
-        .from(userBookSessions)
+        .from(userSessions)
         .where(
           and(
-            eq(userBookSessions.userId, userId),
-            eq(userBookSessions.bookId, bookId),
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, sourceId),
           ),
         )
-        .orderBy(desc(userBookSessions.lastActiveAt))
+        .orderBy(desc(userSessions.lastActiveAt))
         .all();
 
-      const sessions: BookSession[] = rows.map(rowToBookSession);
+      const sessions: SourceSession[] = rows.map(rowToSourceSession);
       return {
         content: [
           {
@@ -100,10 +100,10 @@ export function registerSessionTools(
   // ------------------------------------------------------------------
   server.tool(
     "create_session",
-    "Create a new reading session for a user and book.",
+    "Create a new reading session for a user and source.",
     {
       userId: z.string().describe("User ID (slug like 'shuo')"),
-      bookId: z.string().describe("Book ID (folder name)"),
+      sourceId: z.string().describe("Source ID (e.g. book folder name)"),
       title: z
         .string()
         .describe("Session title (e.g. 'Chapter 3 Deep Dive')"),
@@ -113,16 +113,16 @@ export function registerSessionTools(
         .default("reading")
         .describe("Session mode"),
     },
-    async ({ userId, bookId, title, mode }) => {
+    async ({ userId, sourceId, title, mode }) => {
       const context: SessionContext = { mode };
       const now = new Date().toISOString();
       const db = getDb();
 
       const result = db
-        .insert(userBookSessions)
+        .insert(userSessions)
         .values({
           userId,
-          bookId,
+          sourceId,
           title,
           context: JSON.stringify(context),
           sessionFile: "",
@@ -135,8 +135,8 @@ export function registerSessionTools(
       const newId = Number(result.lastInsertRowid);
       const row = db
         .select()
-        .from(userBookSessions)
-        .where(eq(userBookSessions.id, newId))
+        .from(userSessions)
+        .where(eq(userSessions.id, newId))
         .get();
 
       if (!row) {
@@ -155,7 +155,7 @@ export function registerSessionTools(
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(rowToBookSession(row), null, 2),
+            text: JSON.stringify(rowToSourceSession(row), null, 2),
           },
         ],
       };
@@ -170,16 +170,16 @@ export function registerSessionTools(
     "Get the current state of a reading session, including conversation messages, tree structure, and breadcrumb navigation. If no sessionId is provided, uses the most recently active session.",
     {
       userId: z.string().describe("User ID"),
-      bookId: z.string().describe("Book ID"),
+      sourceId: z.string().describe("Source ID"),
       sessionId: z
         .number()
         .int()
         .optional()
         .describe("Session ID (omit for most recent)"),
     },
-    async ({ userId, bookId, sessionId }) => {
+    async ({ userId, sourceId, sessionId }) => {
       try {
-        const manager = await getSession(userId, bookId, sessionId);
+        const manager = await getSession(userId, sourceId, sessionId);
         const state = manager.getSessionState(null);
         return {
           content: [

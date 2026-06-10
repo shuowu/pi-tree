@@ -28,21 +28,20 @@ import { tmpdir } from "node:os";
 // Stub env vars BEFORE importing app/config so they pick up test paths.
 const TEST_ROOT = mkdtempSync(join(tmpdir(), "pi-tree-test-"));
 const TEST_DATA_PATH = join(TEST_ROOT, "data");
-const TEST_LIBRARY_PATH = join(TEST_ROOT, "library");
 
 vi.stubEnv("DATA_PATH", TEST_DATA_PATH);
-vi.stubEnv("LIBRARY_PATH", TEST_LIBRARY_PATH);
 
 // Now safe to import — modules will read our stubbed env vars.
 const { app } = await import("../app.js");
-const { resetDb } = await import("../db/index.js");
+const { resetDb, getDb, sources } = await import("../db/index.js");
 const { resetServerConfig } = await import("../config.js");
 
 // ── Test isolation ──────────────────────────────────────────────────────────
 
 beforeAll(() => {
   mkdirSync(TEST_DATA_PATH, { recursive: true });
-  mkdirSync(TEST_LIBRARY_PATH, { recursive: true });
+  // Library dir is now DATA_PATH/library/ — create it
+  mkdirSync(join(TEST_DATA_PATH, "library"), { recursive: true });
 });
 
 afterAll(() => {
@@ -79,12 +78,10 @@ describe("Health", () => {
 // ── Environment isolation ──────────────────────────────────────────────────
 
 describe("Environment isolation", () => {
-  it("uses mocked DATA_PATH and LIBRARY_PATH, not system defaults", () => {
+  it("uses mocked DATA_PATH, not system defaults", () => {
     expect(process.env.DATA_PATH).toBe(TEST_DATA_PATH);
-    expect(process.env.LIBRARY_PATH).toBe(TEST_LIBRARY_PATH);
     // Verify these are temp dirs, not real user data
     expect(TEST_DATA_PATH).toMatch(/pi-tree-test-/);
-    expect(TEST_LIBRARY_PATH).toMatch(/pi-tree-test-/);
   });
 });
 
@@ -180,26 +177,26 @@ describe("Users CRUD", () => {
 // ── Library ─────────────────────────────────────────────────────────────────
 
 describe("Library", () => {
-  it("GET /api/library/books → 200 + books array", async () => {
-    const res = await app.request("/api/library/books");
+  it("GET /api/library/sources → 200 + sources array", async () => {
+    const res = await app.request("/api/library/sources");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toHaveProperty("books");
-    expect(Array.isArray(body.books)).toBe(true);
+    expect(body).toHaveProperty("sources");
+    expect(Array.isArray(body.sources)).toBe(true);
   });
 
-  it("GET /api/library/books/:bookId → 404 (nonexistent book)", async () => {
-    const res = await app.request("/api/library/books/nonexistent-book");
+  it("GET /api/library/sources/:sourceId → 404 (nonexistent book)", async () => {
+    const res = await app.request("/api/library/sources/nonexistent-book");
     expect(res.status).toBe(404);
   });
 
-  it("GET /api/library/books/:bookId/outline → 404 (nonexistent)", async () => {
-    const res = await app.request("/api/library/books/nonexistent-book/outline");
+  it("GET /api/library/sources/:sourceId/outline → 404 (nonexistent)", async () => {
+    const res = await app.request("/api/library/sources/nonexistent-book/outline");
     expect(res.status).toBe(404);
   });
 
-  it("GET /api/library/books/:bookId/headings → 404 (nonexistent)", async () => {
-    const res = await app.request("/api/library/books/nonexistent-book/headings");
+  it("GET /api/library/sources/:sourceId/headings → 404 (nonexistent)", async () => {
+    const res = await app.request("/api/library/sources/nonexistent-book/headings");
     expect(res.status).toBe(404);
   });
 
@@ -223,24 +220,28 @@ describe("Library", () => {
 
 describe("Sessions CRUD", () => {
   const userId = "session-test-user";
-  const bookId = "test-book";
+  const sourceId = "test-book";
   let sessionId: number;
 
   beforeAll(async () => {
     // Create a user for session tests
     await app.request("/api/users", json({ id: userId, displayName: "Session Tester" }));
+    // Create a source so FK constraint is satisfied
+    const db = getDb();
+    const now = new Date().toISOString();
+    db.insert(sources).values({ id: sourceId, type: "book", title: "Test Book", author: "Test", source: "library", status: "ready", createdAt: now, updatedAt: now }).onConflictDoNothing().run();
   });
 
-  it("GET /api/sessions/:userId/:bookId → 200 + empty sessions", async () => {
-    const res = await app.request(`/api/sessions/${userId}/${bookId}`);
+  it("GET /api/sessions/:userId/:sourceId → 200 + empty sessions", async () => {
+    const res = await app.request(`/api/sessions/${userId}/${sourceId}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.sessions).toEqual([]);
   });
 
-  it("POST /api/sessions/:userId/:bookId → 201 (create session)", async () => {
+  it("POST /api/sessions/:userId/:sourceId → 201 (create session)", async () => {
     const res = await app.request(
-      `/api/sessions/${userId}/${bookId}`,
+      `/api/sessions/${userId}/${sourceId}`,
       json({ title: "Test Reading Session" }),
     );
     expect(res.status).toBe(201);
@@ -250,16 +251,16 @@ describe("Sessions CRUD", () => {
     sessionId = body.id;
   });
 
-  it("GET /api/sessions/:userId/:bookId → 200 + 1 session", async () => {
-    const res = await app.request(`/api/sessions/${userId}/${bookId}`);
+  it("GET /api/sessions/:userId/:sourceId → 200 + 1 session", async () => {
+    const res = await app.request(`/api/sessions/${userId}/${sourceId}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.sessions).toHaveLength(1);
     expect(body.sessions[0].title).toBe("Test Reading Session");
   });
 
-  it("PUT /api/sessions/:userId/:bookId/:sessionId → 200 (rename)", async () => {
-    const res = await app.request(`/api/sessions/${userId}/${bookId}/${sessionId}`, {
+  it("PUT /api/sessions/:userId/:sourceId/:sessionId → 200 (rename)", async () => {
+    const res = await app.request(`/api/sessions/${userId}/${sourceId}/${sessionId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: "Renamed Session" }),
@@ -267,8 +268,8 @@ describe("Sessions CRUD", () => {
     expect(res.status).toBe(200);
   });
 
-  it("DELETE /api/sessions/:userId/:bookId/:sessionId → 200 (soft-delete)", async () => {
-    const res = await app.request(`/api/sessions/${userId}/${bookId}/${sessionId}`, {
+  it("DELETE /api/sessions/:userId/:sourceId/:sessionId → 200 (soft-delete)", async () => {
+    const res = await app.request(`/api/sessions/${userId}/${sourceId}/${sessionId}`, {
       method: "DELETE",
     });
     expect(res.status).toBe(200);
@@ -283,14 +284,18 @@ describe("Sessions CRUD", () => {
 
 describe("Glossary CRUD", () => {
   const userId = "glossary-test-user";
-  const bookId = "test-book";
+  const sourceId = "test-book";
 
   beforeAll(async () => {
     await app.request("/api/users", json({ id: userId, displayName: "Glossary Tester" }));
+    // Create a source so FK constraint is satisfied
+    const db = getDb();
+    const now = new Date().toISOString();
+    db.insert(sources).values({ id: sourceId, type: "book", title: "Test Book", author: "Test", source: "library", status: "ready", createdAt: now, updatedAt: now }).onConflictDoNothing().run();
   });
 
-  it("GET /api/dict/glossary/:userId/:bookId → 200 + empty entries", async () => {
-    const res = await app.request(`/api/dict/glossary/${userId}/${bookId}`);
+  it("GET /api/dict/glossary/:userId/:sourceId → 200 + empty entries", async () => {
+    const res = await app.request(`/api/dict/glossary/${userId}/${sourceId}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("entries");
@@ -300,13 +305,13 @@ describe("Glossary CRUD", () => {
   it("POST /api/dict/glossary/save → 200 (save entry)", async () => {
     const res = await app.request(
       "/api/dict/glossary/save",
-      json({ userId, bookId, term: "protagonist", definition: "The main character" }),
+      json({ userId, sourceId, term: "protagonist", definition: "The main character" }),
     );
     expect(res.status).toBe(200);
   });
 
-  it("GET /api/dict/glossary/:userId/:bookId → 200 + 1 entry", async () => {
-    const res = await app.request(`/api/dict/glossary/${userId}/${bookId}`);
+  it("GET /api/dict/glossary/:userId/:sourceId → 200 + 1 entry", async () => {
+    const res = await app.request(`/api/dict/glossary/${userId}/${sourceId}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.entries).toHaveLength(1);

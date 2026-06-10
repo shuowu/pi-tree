@@ -11,7 +11,7 @@
 
 import { join } from "node:path";
 import type {
-  BookAnchor,
+  ContentAnchor,
   TopicMeta,
   SectionStatusMeta,
   SectionLabelMeta,
@@ -75,6 +75,8 @@ export interface PiSessionConfig {
    * The app layer resolves env vars (EXTENSIONS_PATH) and package paths.
    */
   extensionPaths?: string[];
+  /** Source type (book, news, paper, podcast) — drives context injection */
+  sourceType?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,10 +168,20 @@ export class PiSession {
       });
       await resourceLoader.reload();
 
+      // Log extension loading summary
+      const extResult = (resourceLoader as any).extensionsResult;
+      if (extResult?.extensions?.length || extResult?.errors?.length) {
+        console.log(`[pi-session] Extensions: ${extResult.extensions?.length ?? 0} loaded, ${extResult.errors?.length ?? 0} errors`);
+        for (const err of extResult.errors ?? []) {
+          console.warn(`[pi-session]   Extension error: ${err.path}: ${err.error}`);
+        }
+      }
+
       const { session } = await createAgentSession({
-        // cwd for tools (read, grep, etc.) — point at library so AI can read books
         cwd: libraryPath,
-        tools: ["read", "grep", "find", "ls"], // read-only for book reading
+        // Block shell and in-place edits; keep read/write/grep/find/ls for
+        // book content reading AND news analysis writing.
+        excludeTools: ["bash", "edit"],
         resourceLoader,
         sessionManager: sm,
         settingsManager: SettingsManager.create(repoRoot),
@@ -206,21 +218,34 @@ export class PiSession {
       // Defer context injection — will be prepended to the first user message.
       // This keeps startSession() fast so the client can show a welcome screen.
       if (agent) {
-        const bookDir = join(libraryPath, bookId);
-        piSession.pendingContext = [
-          `[SYSTEM CONTEXT — Book Session]`,
-          `You are now in a dedicated reading session for a specific book.`,
-          `Book directory: ${bookDir}`,
-          `Book ID: ${bookId}`,
-          ``,
-          `IMPORTANT: Focus ONLY on this book. Do NOT list other books in the library.`,
-          `Do NOT ask which book to read — the book is already selected.`,
-          `The book's markdown content is in: ${bookDir}/markdown/`,
-          `The book's analysis/outline is in: ${bookDir}/analysis/`,
-          ``,
-          `Read the outline from ${bookDir}/analysis/outline.md if it exists`,
-          `to understand the book's structure before responding.`,
-        ].join("\n");
+        const sourceType = options?.config?.sourceType ?? "book";
+        if (sourceType === "news") {
+          piSession.pendingContext = [
+            `[SYSTEM CONTEXT — News Session]`,
+            `You are in a news reading and analysis session.`,
+            `Source ID: ${bookId}`,
+            ``,
+            `IMPORTANT: Use the RSS extension tools (get_latest_rss, aggregate_rss, trigger_rss_refresh, etc.) to fetch and analyze news data.`,
+            `Do NOT browse the filesystem for news articles or RSS configuration.`,
+            `If feeds haven't been crawled recently, call trigger_rss_refresh() first.`,
+          ].join("\n");
+        } else {
+          const bookDir = join(libraryPath, bookId);
+          piSession.pendingContext = [
+            `[SYSTEM CONTEXT — Book Session]`,
+            `You are now in a dedicated reading session for a specific book.`,
+            `Book directory: ${bookDir}`,
+            `Book ID: ${bookId}`,
+            ``,
+            `IMPORTANT: Focus ONLY on this book. Do NOT list other books in the library.`,
+            `Do NOT ask which book to read — the book is already selected.`,
+            `The book's markdown content is in: ${bookDir}/markdown/`,
+            `The book's analysis/outline is in: ${bookDir}/analysis/`,
+            ``,
+            `Read the outline from ${bookDir}/analysis/outline.md if it exists`,
+            `to understand the book's structure before responding.`,
+          ].join("\n");
+        }
       }
     }
 
@@ -491,7 +516,7 @@ export class PiSession {
         label: meta.label,
         source: meta.source,
         status: meta.status,
-        bookAnchor: meta.bookAnchor,
+        contentAnchor: meta.contentAnchor,
         messageCount: this.countMessages(piNode),
         isCurrent: entry.id === leafId || this.isOnCurrentPath(piNode, leafId),
         summary: entry.type === "branch_summary" ? (entry as any).summary : undefined,
@@ -860,7 +885,7 @@ export class PiSession {
       label: meta?.label ?? this.inferLabel(piNode.entry),
       source: meta?.source ?? "auto",
       status: meta?.status ?? "active",
-      bookAnchor: meta?.bookAnchor,
+      contentAnchor: meta?.contentAnchor,
       messageCount,
       isCurrent: piNode.entry.id === leafId,
       summary:

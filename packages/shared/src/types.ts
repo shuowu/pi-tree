@@ -3,7 +3,7 @@
  *
  * Session/tree types (TreeNodeView, ChatMessage, BranchOption, etc.) now
  * live in @pi-tree/core. This package keeps app-specific types:
- * users, books, library, config, intents, outlines.
+ * users, sources, library, config, intents, outlines.
  */
 
 // ---------------------------------------------------------------------------
@@ -19,7 +19,25 @@ export interface UserInfo {
 }
 
 // ---------------------------------------------------------------------------
-// Session — multi-session per book support
+// Source Types — discriminator for the generic sources model
+// ---------------------------------------------------------------------------
+
+export type SourceType = 'book' | 'news' | 'paper' | 'podcast';
+
+/** Book-specific metadata stored in `sources.metadata` JSON column */
+export interface BookMetadata {
+  sourceFormat: 'epub' | 'pdf' | 'mobi' | 'markdown' | 'library';
+  originalFilename: string;
+  folderName: string;
+}
+
+/** News collection metadata stored in `sources.metadata` JSON column */
+export interface NewsMetadata {
+  crawlIntervalMinutes?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Session — multi-session per source support
 // ---------------------------------------------------------------------------
 
 /**
@@ -34,7 +52,7 @@ export interface UserInfo {
  */
 export interface SessionContext {
   /** Which mode the user picked — extensible to future modes */
-  mode: 'reading' | 'qa' | 'custom';
+  mode: 'reading' | 'qa' | 'custom' | 'news';
   /** Optional custom system prompt override */
   systemPrompt?: string;
   /** Optional skill filter — which skills to enable for this session */
@@ -44,10 +62,10 @@ export interface SessionContext {
 }
 
 /**
- * A reading session record as returned by the session management API.
- * One user+book pair can have many BookSessions.
+ * A session record as returned by the session management API.
+ * One user+source pair can have many SourceSessions.
  */
-export interface BookSession {
+export interface SourceSession {
   id: number;
   title: string;
   context: SessionContext;
@@ -62,7 +80,7 @@ export interface BookSession {
 
 export interface TopicNode {
   id: string;
-  parentId: string | null; // null = root (book level)
+  parentId: string | null; // null = root (source level)
 
   /** User-visible name: "Ch 3: Radical Open-Mindedness", "Ego barrier", etc. */
   label: string;
@@ -70,8 +88,8 @@ export interface TopicNode {
   /** Where this node came from */
   source: "outline" | "user" | "auto";
 
-  /** Optional anchor into the book's markdown content */
-  bookAnchor?: BookAnchor;
+  /** Optional anchor into the source's markdown content */
+  contentAnchor?: ContentAnchor;
 
   /** Node lifecycle */
   status: "active" | "completed" | "abandoned";
@@ -86,20 +104,20 @@ export interface TopicNode {
   lastActiveAt: string;
 }
 
-export interface BookAnchor {
+export interface ContentAnchor {
   /** Line range in the markdown file (from the outline's navigation map) */
   lineRange: [start: number, end: number];
 
-  /** The heading text from the outline, e.g. "### Chapter 3: Be Radically Open-Minded" */
+  /** The heading text from the outline */
   outlineHeading?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Reading Tree — the full tree for one book session
+// Reading Tree — the full tree for one session
 // ---------------------------------------------------------------------------
 
 export interface ReadingTree {
-  bookId: string;
+  sourceId: string;
   rootNodeId: string;
   nodes: Map<string, TopicNode>;
   /** The node the user is currently on */
@@ -107,41 +125,53 @@ export interface ReadingTree {
 }
 
 // ---------------------------------------------------------------------------
-// Book & Library
+// Source — the universal "thing you have conversations about"
 // ---------------------------------------------------------------------------
 
-export interface Book {
+export interface Source {
   id: string;
 
+  /** Discriminator: 'book', 'news', 'paper', 'podcast', ... */
+  type: SourceType;
+
   title: string;
+  subtitle?: string;
   author: string;
-  year: number;
+  year?: number;
 
-  /** Folder name in the library, e.g. "Principles_Dalio_2017" */
-  folderName: string;
+  /** Where this source came from */
+  source: "library" | "upload" | "system";
 
-  /** Reading progress 0..1 */
-  progress: number;
-
-  /** Whether the book has been converted to markdown */
-  hasMarkdown: boolean;
-
-  /** Whether an outline has been generated */
-  hasOutline: boolean;
-
-  /** Whether the book has a cover image */
-  hasCover?: boolean;
-
-  /** Where this book came from */
-  source: "library" | "upload";
-
-  /** Import status for uploaded books */
+  /** Import/processing status */
   status?: "pending" | "processing" | "ready" | "failed";
 
   /** Error message if import failed */
   error?: string;
 
-  /** Per-book reading preferences (user-configured) */
+  /** Type-specific metadata (BookMetadata, NewsMetadata, etc.) */
+  metadata?: Record<string, unknown>;
+
+  // --- Computed/UI fields (not stored in DB) ---
+
+  /** Folder name in the library, e.g. "Principles_Dalio_2017" */
+  folderName?: string;
+
+  /** Reading progress 0..1 */
+  progress: number;
+
+  /** Whether the source has been converted to markdown */
+  hasMarkdown: boolean;
+
+  /** Whether an outline has been generated */
+  hasOutline: boolean;
+
+  /** Whether the source has a cover image */
+  hasCover?: boolean;
+
+  /** Cover image URL/path */
+  coverUrl?: string;
+
+  /** Per-source reading preferences (user-configured, mainly for books) */
   preferences?: BookPreferences;
 
   /** User-defined tags for categorization and filtering */
@@ -176,8 +206,8 @@ export interface OutlineEntry {
   children: OutlineEntry[];
 }
 
-export interface BookOutline {
-  bookId: string;
+export interface SourceOutline {
+  sourceId: string;
   summary: string;
   thesis?: string;
   entries: OutlineEntry[];
@@ -239,10 +269,10 @@ export interface NavigationConfig {
 export interface LookupConfig {
   /**
    * Prompt template for dictionary lookups.
-   * Placeholders: {{term}}, {{context}}, {{bookTitle}}
+   * Placeholders: {{term}}, {{context}}, {{sourceTitle}}
    *
    * The actual default lives in packages/server/prompts/dictionary-prompt.md.
-   * User overrides: DATA_PATH/dictionary-prompt.md or DATA_PATH/books/<bookId>/dictionary-prompt.md.
+   * User overrides: DATA_PATH/dictionary-prompt.md or DATA_PATH/sources/<sourceId>/dictionary-prompt.md.
    * This field is only used as a last-resort compiled-in fallback.
    */
   promptTemplate: string;
@@ -287,7 +317,6 @@ export const DEFAULT_CONFIG: ReaderConfig = {
  * Env vars:
  *   PI_MODEL        → readingModel  (default: "glm-5-turbo")
  *   PI_LOOKUP_MODEL → lookupModel   (default: same as readingModel)
- *   LIBRARY_PATH    → libraryPath   (default: ~/.local/share/pi-tree/library)
  *   DATA_PATH       → dataPath      (default: ~/.local/share/pi-tree)
  */
 export interface ServerConfig {
@@ -295,9 +324,7 @@ export interface ServerConfig {
   readingModel: string;
   /** Model used for dictionary lookups (fast/cheap preferred) */
   lookupModel: string;
-  /** Path to the book library on disk */
-  libraryPath?: string;
-  /** Path for mutable state (sessions, DB) */
+  /** Path for mutable state (sessions, DB) — library lives at dataPath/library/ */
   dataPath?: string;
 }
 
@@ -316,5 +343,5 @@ export type UserIntent =
   | { type: "next_chapter"; chapterLabel?: string }
   | { type: "zoom_out"; targetLevel?: string }
   | { type: "lateral_move"; target: string }
-  | { type: "cross_book"; otherBook: string; topic: string }
+  | { type: "cross_source"; otherSource: string; topic: string }
   | { type: "toc_navigate"; outlineEntry: OutlineEntry };

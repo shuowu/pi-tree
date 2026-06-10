@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Cpu, RotateCcw, X } from "lucide-react";
-import type { Book } from "@pi-tree/shared";
+import type { Source } from "@pi-tree/shared";
 import { getBranchesCollapsed, setBranchesCollapsed as saveBranchesCollapsed } from "../utils/preferences";
 import "./BookSettingsModal.css";
 
 interface BookSettingsModalProps {
-  book: Book;
+  source: Source;
   onClose: () => void;
   onReprocess: () => void;
   onClearSession: () => void;
@@ -13,7 +13,7 @@ interface BookSettingsModalProps {
   sessionLabel?: string | null;
 }
 
-export function BookSettingsModal({ book, onClose, onReprocess, onClearSession, sessionLabel }: BookSettingsModalProps) {
+export function BookSettingsModal({ source, onClose, onReprocess, onClearSession, sessionLabel }: BookSettingsModalProps) {
   const [branchesCollapsed, setBranchesCollapsed] = useState(getBranchesCollapsed);
 
   const toggleBranchesCollapsed = () => {
@@ -33,8 +33,8 @@ export function BookSettingsModal({ book, onClose, onReprocess, onClearSession, 
 
         <div className="book-settings-body">
           <div className="book-settings-info">
-            <div className="book-settings-title">{book.title}</div>
-            <div className="book-settings-author">by {book.author}</div>
+            <div className="book-settings-title">{source.title}</div>
+            <div className="book-settings-author">by {source.author}</div>
           </div>
 
           <hr className="book-settings-divider" />

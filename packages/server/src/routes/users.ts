@@ -96,13 +96,13 @@ userRoutes.delete("/:userId", async (c) => {
   }
 
   // Cascade: remove related records manually (SQLite FK cascade is opt-in)
-  const { userBookSessions, userBookConfig, userBookProgress, glossaryEntries } =
+  const { userSessions, userSourceConfig, userSourceProgress, glossaryEntries } =
     await import("../db/index.js");
 
   db.delete(glossaryEntries).where(eq(glossaryEntries.userId, userId)).run();
-  db.delete(userBookProgress).where(eq(userBookProgress.userId, userId)).run();
-  db.delete(userBookConfig).where(eq(userBookConfig.userId, userId)).run();
-  db.delete(userBookSessions).where(eq(userBookSessions.userId, userId)).run();
+  db.delete(userSourceProgress).where(eq(userSourceProgress.userId, userId)).run();
+  db.delete(userSourceConfig).where(eq(userSourceConfig.userId, userId)).run();
+  db.delete(userSessions).where(eq(userSessions.userId, userId)).run();
   db.delete(users).where(eq(users.id, userId)).run();
 
   return c.json({ ok: true });

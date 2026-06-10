@@ -53,6 +53,8 @@ interface ChatViewProps {
     sessionId: number,
     nodeId: string,
   ) => Promise<BranchPreviewData>;
+  /** Custom placeholder text for the input (overrides default book-centric text) */
+  placeholderText?: string;
 }
 
 export function ChatView({
@@ -76,6 +78,7 @@ export function ChatView({
   renderSelectionToolbar,
   defaultBranchesCollapsed,
   fetchBranchPreview,
+  placeholderText,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
@@ -223,7 +226,7 @@ export function ChatView({
       ? "New branch from this point…"
       : isScoped
         ? "Continue this thread…"
-        : "Ask about the book, or try: deep dive, next chapter, zoom out…";
+        : placeholderText ?? "Ask about the book, or try: deep dive, next chapter, zoom out…";
 
   const handleAsk = useCallback(
     (text: string) => {

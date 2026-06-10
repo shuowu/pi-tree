@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import type { Book, BookSession } from "@pi-tree/shared";
+import type { Source, SourceSession } from "@pi-tree/shared";
 import type { SessionMode } from "./WelcomeState";
-import { BookOpen, MessageCircle, Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { BookOpen, MessageCircle, Newspaper, Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { getSourceTypeConfig } from "../source-types";
 import "./SessionPicker.css";
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,8 @@ function modeIcon(mode: string) {
       return "📖";
     case "qa":
       return "💬";
+    case "news":
+      return "📡";
     case "custom":
       return "⚙️";
     default:
@@ -63,9 +66,9 @@ function modeIcon(mode: string) {
 // ---------------------------------------------------------------------------
 
 interface SessionPickerProps {
-  book: Book;
-  sessions: BookSession[];
-  onSelectSession: (session: BookSession) => void;
+  source: Source;
+  sessions: SourceSession[];
+  onSelectSession: (session: SourceSession) => void;
   onNewSession: (mode: SessionMode) => void;
   onDeleteSession: (sessionId: number) => void;
   onRenameSession: (sessionId: number, newTitle: string) => void;
@@ -73,7 +76,7 @@ interface SessionPickerProps {
 }
 
 export function SessionPicker({
-  book,
+  source,
   sessions,
   onSelectSession,
   onNewSession,
@@ -102,7 +105,7 @@ export function SessionPicker({
     }
   }, [editingId]);
 
-  const startRename = (session: BookSession) => {
+  const startRename = (session: SourceSession) => {
     setEditingId(session.id);
     setEditValue(session.title);
   };
@@ -130,52 +133,78 @@ export function SessionPicker({
       <div className="session-picker-content">
         {/* Book header */}
         <div className="session-picker-book-info">
-          <h1 className="session-picker-title">{book.title}</h1>
-          <p className="session-picker-author">by {book.author}</p>
+          <h1 className="session-picker-title">{source.title}</h1>
+          <p className="session-picker-author">by {source.author}</p>
         </div>
 
         {showOnlyNewSession ? (
           <>
             {/* No sessions — show creation flow directly */}
-            <p className="session-picker-prompt">How would you like to explore this book?</p>
+            <p className="session-picker-prompt">
+              {source.type === 'news'
+                ? 'Start a news session'
+                : `How would you like to explore this ${getSourceTypeConfig(source.type).label.toLowerCase()}?`}
+            </p>
             <div className="session-picker-mode-options">
-              <button
-                className="session-picker-mode-option"
-                onClick={() => onNewSession("reading")}
-                disabled={isLoading}
-              >
-                <div className="session-picker-mode-icon">
-                  <BookOpen size={24} strokeWidth={1.5} />
-                </div>
-                <div className="session-picker-mode-text">
-                  <span className="session-picker-mode-label">Interactive Reading</span>
-                  <span className="session-picker-mode-desc">
-                    Guided chapter-by-chapter exploration with briefings, discussions, and deep dives
-                  </span>
-                </div>
-              </button>
+              {source.type === 'news' ? (
+                <button
+                  className="session-picker-mode-option"
+                  onClick={() => onNewSession("news")}
+                  disabled={isLoading}
+                >
+                  <div className="session-picker-mode-icon">
+                    <Newspaper size={24} strokeWidth={1.5} />
+                  </div>
+                  <div className="session-picker-mode-text">
+                    <span className="session-picker-mode-label">News Overview</span>
+                    <span className="session-picker-mode-desc">
+                      Get an overview of today's news, trending topics, and deep-dive into stories
+                    </span>
+                  </div>
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="session-picker-mode-option"
+                    onClick={() => onNewSession("reading")}
+                    disabled={isLoading}
+                  >
+                    <div className="session-picker-mode-icon">
+                      <BookOpen size={24} strokeWidth={1.5} />
+                    </div>
+                    <div className="session-picker-mode-text">
+                      <span className="session-picker-mode-label">Interactive Reading</span>
+                      <span className="session-picker-mode-desc">
+                        Guided chapter-by-chapter exploration with briefings, discussions, and deep dives
+                      </span>
+                    </div>
+                  </button>
 
-              <button
-                className="session-picker-mode-option"
-                onClick={() => onNewSession("qa")}
-                disabled={isLoading}
-              >
-                <div className="session-picker-mode-icon">
-                  <MessageCircle size={24} strokeWidth={1.5} />
-                </div>
-                <div className="session-picker-mode-text">
-                  <span className="session-picker-mode-label">Freeform Q&amp;A</span>
-                  <span className="session-picker-mode-desc">
-                    Ask anything about the book — themes, arguments, passages, or comparisons
-                  </span>
-                </div>
-              </button>
+                  <button
+                    className="session-picker-mode-option"
+                    onClick={() => onNewSession("qa")}
+                    disabled={isLoading}
+                  >
+                    <div className="session-picker-mode-icon">
+                      <MessageCircle size={24} strokeWidth={1.5} />
+                    </div>
+                    <div className="session-picker-mode-text">
+                      <span className="session-picker-mode-label">Freeform Q&amp;A</span>
+                      <span className="session-picker-mode-desc">
+                        Ask anything about the book — themes, arguments, passages, or comparisons
+                      </span>
+                    </div>
+                  </button>
+                </>
+              )}
             </div>
           </>
         ) : (
           <>
             {/* Existing sessions list */}
-            <p className="session-picker-prompt">Your Reading Sessions</p>
+            <p className="session-picker-prompt">
+              {source.type === 'news' ? 'Your News Sessions' : 'Your Reading Sessions'}
+            </p>
 
             <div className="session-picker-list">
               {sorted.map((session) => (
@@ -278,36 +307,56 @@ export function SessionPicker({
               <div className="session-picker-new-expanded">
                 <p className="session-picker-new-label">Choose a mode:</p>
                 <div className="session-picker-mode-options compact">
-                  <button
-                    className="session-picker-mode-option"
-                    onClick={() => { setShowNewSessionOptions(false); onNewSession("reading"); }}
-                    disabled={isLoading}
-                  >
-                    <div className="session-picker-mode-icon">
-                      <BookOpen size={20} strokeWidth={1.5} />
-                    </div>
-                    <div className="session-picker-mode-text">
-                      <span className="session-picker-mode-label">Interactive Reading</span>
-                      <span className="session-picker-mode-desc">
-                        Guided chapter-by-chapter exploration
-                      </span>
-                    </div>
-                  </button>
-                  <button
-                    className="session-picker-mode-option"
-                    onClick={() => { setShowNewSessionOptions(false); onNewSession("qa"); }}
-                    disabled={isLoading}
-                  >
-                    <div className="session-picker-mode-icon">
-                      <MessageCircle size={20} strokeWidth={1.5} />
-                    </div>
-                    <div className="session-picker-mode-text">
-                      <span className="session-picker-mode-label">Freeform Q&amp;A</span>
-                      <span className="session-picker-mode-desc">
-                        Ask anything about the book
-                      </span>
-                    </div>
-                  </button>
+                  {source.type === 'news' ? (
+                    <button
+                      className="session-picker-mode-option"
+                      onClick={() => { setShowNewSessionOptions(false); onNewSession("news"); }}
+                      disabled={isLoading}
+                    >
+                      <div className="session-picker-mode-icon">
+                        <Newspaper size={20} strokeWidth={1.5} />
+                      </div>
+                      <div className="session-picker-mode-text">
+                        <span className="session-picker-mode-label">News Overview</span>
+                        <span className="session-picker-mode-desc">
+                          Today's news overview and deep-dives
+                        </span>
+                      </div>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="session-picker-mode-option"
+                        onClick={() => { setShowNewSessionOptions(false); onNewSession("reading"); }}
+                        disabled={isLoading}
+                      >
+                        <div className="session-picker-mode-icon">
+                          <BookOpen size={20} strokeWidth={1.5} />
+                        </div>
+                        <div className="session-picker-mode-text">
+                          <span className="session-picker-mode-label">Interactive Reading</span>
+                          <span className="session-picker-mode-desc">
+                            Guided chapter-by-chapter exploration
+                          </span>
+                        </div>
+                      </button>
+                      <button
+                        className="session-picker-mode-option"
+                        onClick={() => { setShowNewSessionOptions(false); onNewSession("qa"); }}
+                        disabled={isLoading}
+                      >
+                        <div className="session-picker-mode-icon">
+                          <MessageCircle size={20} strokeWidth={1.5} />
+                        </div>
+                        <div className="session-picker-mode-text">
+                          <span className="session-picker-mode-label">Freeform Q&amp;A</span>
+                          <span className="session-picker-mode-desc">
+                            Ask anything about the book
+                          </span>
+                        </div>
+                      </button>
+                    </>
+                  )}
                 </div>
                 <button
                   className="session-picker-cancel-btn"
@@ -319,7 +368,13 @@ export function SessionPicker({
             ) : (
               <button
                 className="session-picker-new-btn"
-                onClick={() => setShowNewSessionOptions(true)}
+                onClick={() => {
+                  if (source.type === "news") {
+                    onNewSession("news");
+                  } else {
+                    setShowNewSessionOptions(true);
+                  }
+                }}
                 disabled={isLoading}
               >
                 <Plus size={16} />

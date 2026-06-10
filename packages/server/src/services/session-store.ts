@@ -1,11 +1,11 @@
 /**
- * SessionStore — keeps active TreeManager instances in memory per user+book+session.
+ * SessionStore — keeps active TreeManager instances in memory per user+source+session.
  *
  * Without this, every request creates a new Pi session (new JSONL file).
- * This store ensures one session per user+book+session, reused across requests.
+ * This store ensures one session per user+source+session, reused across requests.
  *
- * Multi-session support: the composite key is now `userId:bookId:sessionId`.
- * When sessionId is undefined, we fall back to the legacy `userId:bookId` key
+ * Multi-session support: the composite key is now `userId:sourceId:sessionId`.
+ * When sessionId is undefined, we fall back to the legacy `userId:sourceId` key
  * and log a deprecation warning so callers can be updated incrementally.
  *
  * Concurrency: A per-session mutex ensures only one prompt() runs at a time
@@ -22,12 +22,12 @@ import { TreeManager } from "./tree-manager.js";
 const activeSessions = new Map<string, TreeManager>();
 
 /** Composite key for the session store */
-function sessionKey(userId: string, bookId: string, sessionId?: number): string {
+function sessionKey(userId: string, sourceId: string, sessionId?: number): string {
   if (sessionId !== undefined) {
-    return `${userId}:${bookId}:${sessionId}`;
+    return `${userId}:${sourceId}:${sessionId}`;
   }
   // Legacy fallback — callers that haven't been updated yet
-  return `${userId}:${bookId}`;
+  return `${userId}:${sourceId}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,28 +78,28 @@ const sessionAbortControllers = new Map<string, AbortController>();
 // ---------------------------------------------------------------------------
 
 /**
- * Get or create a session for a user+book+session triple.
+ * Get or create a session for a user+source+session triple.
  * The first call creates the session; subsequent calls return the same instance.
  *
  * @param sessionId — DB row ID of the session. When provided, loads that
  *   specific session. When omitted, loads the most recently active session
- *   for the user+book (backward compatible).
+ *   for the user+source (backward compatible).
  */
 export async function getSession(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId?: number,
 ): Promise<TreeManager> {
   if (sessionId === undefined) {
     console.warn(
-      `[session-store] getSession called without sessionId for ${userId}/${bookId} — using legacy key`,
+      `[session-store] getSession called without sessionId for ${userId}/${sourceId} — using legacy key`,
     );
   }
 
-  const key = sessionKey(userId, bookId, sessionId);
+  const key = sessionKey(userId, sourceId, sessionId);
   let manager = activeSessions.get(key);
   if (!manager) {
-    manager = await TreeManager.loadOrCreate(userId, bookId, { sessionId });
+    manager = await TreeManager.loadOrCreate(userId, sourceId, { sessionId });
     activeSessions.set(key, manager);
   }
   return manager;
@@ -113,15 +113,15 @@ export async function getSession(
  */
 export async function withSessionLock<T>(
   userId: string,
-  bookId: string,
+  sourceId: string,
   sessionId: number | undefined,
   fn: (manager: TreeManager) => Promise<T>,
 ): Promise<T> {
-  const key = sessionKey(userId, bookId, sessionId);
+  const key = sessionKey(userId, sourceId, sessionId);
   const lock = getLock(key);
   const release = await lock.acquire();
   try {
-    const manager = await getSession(userId, bookId, sessionId);
+    const manager = await getSession(userId, sourceId, sessionId);
     return await fn(manager);
   } finally {
     release();
@@ -135,8 +135,8 @@ export async function withSessionLock<T>(
  * the abort will cause the in-flight prompt to error out and release the lock,
  * allowing the new request to proceed.
  */
-export function abortSession(userId: string, bookId: string, sessionId?: number): void {
-  const key = sessionKey(userId, bookId, sessionId);
+export function abortSession(userId: string, sourceId: string, sessionId?: number): void {
+  const key = sessionKey(userId, sourceId, sessionId);
   const existing = sessionAbortControllers.get(key);
   if (existing) {
     existing.abort();
@@ -148,8 +148,8 @@ export function abortSession(userId: string, bookId: string, sessionId?: number)
  * Get the current AbortSignal for a session.
  * Returns a fresh signal if none exists yet.
  */
-export function getSessionAbortSignal(userId: string, bookId: string, sessionId?: number): AbortSignal {
-  const key = sessionKey(userId, bookId, sessionId);
+export function getSessionAbortSignal(userId: string, sourceId: string, sessionId?: number): AbortSignal {
+  const key = sessionKey(userId, sourceId, sessionId);
   let controller = sessionAbortControllers.get(key);
   if (!controller) {
     controller = new AbortController();
@@ -159,12 +159,12 @@ export function getSessionAbortSignal(userId: string, bookId: string, sessionId?
 }
 
 /**
- * Remove a session from the store (e.g., when user leaves a book).
+ * Remove a session from the store (e.g., when user leaves a source).
  * Also cleans up the lock and abort controller for the session.
  */
-export function closeSession(userId: string, bookId: string, sessionId?: number): void {
+export function closeSession(userId: string, sourceId: string, sessionId?: number): void {
   if (sessionId !== undefined) {
-    const key = sessionKey(userId, bookId, sessionId);
+    const key = sessionKey(userId, sourceId, sessionId);
     activeSessions.delete(key);
     sessionLocks.delete(key);
     const ac = sessionAbortControllers.get(key);
@@ -172,7 +172,7 @@ export function closeSession(userId: string, bookId: string, sessionId?: number)
     sessionAbortControllers.delete(key);
   } else {
     // Legacy: also try the old key format
-    const key = sessionKey(userId, bookId);
+    const key = sessionKey(userId, sourceId);
     activeSessions.delete(key);
     sessionLocks.delete(key);
     const ac = sessionAbortControllers.get(key);
@@ -182,7 +182,7 @@ export function closeSession(userId: string, bookId: string, sessionId?: number)
 }
 
 /**
- * List all active session keys (userId:bookId or userId:bookId:sessionId).
+ * List all active session keys (userId:sourceId or userId:sourceId:sessionId).
  */
 export function listSessions(): string[] {
   return [...activeSessions.keys()];

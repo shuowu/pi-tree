@@ -51,7 +51,6 @@ COPY --from=build /app/packages/extension/skills ./packages/extension/skills
 
 ENV NODE_ENV=production
 ENV PORT=3847
-ENV LIBRARY_PATH=/library
 ENV DATA_PATH=/data
 
 EXPOSE 3847

@@ -1,26 +1,26 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useOutletContext, Outlet } from "react-router";
-import type { Book } from "@pi-tree/shared";
-import { fetchBook } from "../api";
+import type { Source } from "@pi-tree/shared";
+import { fetchSource } from "../api";
 import { useUser } from "../UserContext";
 
 
 /**
- * Layout route for /book/:bookId/*.
+ * Layout route for /source/:sourceId/*.
  *
- * Resolves bookId from URL params, fetches the Book object, and renders
- * child routes via <Outlet> with the book passed as context.
+ * Resolves sourceId from URL params, fetches the Source object, and renders
+ * child routes via <Outlet> with the source passed as context.
  */
 export function BookLayout() {
-  const { bookId } = useParams<{ bookId: string }>();
+  const { sourceId } = useParams<{ sourceId: string }>();
   const { userId } = useUser();
   const navigate = useNavigate();
-  const [book, setBook] = useState<Book | null>(null);
+  const [source, setSource] = useState<Source | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!bookId || !userId) {
+    if (!sourceId || !userId) {
       navigate("/", { replace: true });
       return;
     }
@@ -28,14 +28,14 @@ export function BookLayout() {
     let cancelled = false;
     (async () => {
       try {
-        const b = await fetchBook(bookId);
-        if (!cancelled) setBook(b);
+        const s = await fetchSource(sourceId);
+        if (!cancelled) setSource(s);
       } catch {
-        if (!cancelled) setError(`Book "${bookId}" not found`);
+        if (!cancelled) setError(`Source "${sourceId}" not found`);
       }
     })();
     return () => { cancelled = true; };
-  }, [bookId, userId, navigate]);
+  }, [sourceId, userId, navigate]);
 
   if (error) {
     return (
@@ -46,7 +46,7 @@ export function BookLayout() {
     );
   }
 
-  if (!book) {
+  if (!source) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", opacity: 0.5 }}>
         Loading…
@@ -54,10 +54,10 @@ export function BookLayout() {
     );
   }
 
-  return <Outlet context={{ book }} />;
+  return <Outlet context={{ source }} />;
 }
 
-/** Hook for child routes to access the Book loaded by BookLayout. */
-export function useBook(): Book {
-  return useOutletContext<{ book: Book }>().book;
+/** Hook for child routes to access the Source loaded by BookLayout. */
+export function useSource(): Source {
+  return useOutletContext<{ source: Source }>().source;
 }

@@ -18,7 +18,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Library />} />
-      <Route path="/book/:bookId" element={<BookLayout />}>
+      <Route path="/source/:sourceId" element={<BookLayout />}>
         <Route index element={<Reader />} />
         <Route path="sessions" element={<SessionsPage />} />
       </Route>

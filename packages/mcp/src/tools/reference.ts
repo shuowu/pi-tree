@@ -23,20 +23,20 @@ export function registerReferenceTools(
     "Look up the definition of a term or concept using AI. Optionally provide book context for more accurate definitions. This uses a separate AI session — no reading session needed.",
     {
       term: z.string().describe("The term or concept to look up"),
-      bookId: z
+      sourceId: z
         .string()
         .optional()
-        .describe("Book ID for context-aware definitions"),
+        .describe("Source ID for context-aware definitions"),
       context: z
         .string()
         .optional()
         .describe("Surrounding text for better accuracy"),
     },
-    async ({ term, bookId, context }) => {
+    async ({ term, sourceId, context }) => {
       try {
         let fullResponse = "";
         await dictionaryService.streamLookup(term, {
-          bookId,
+          sourceId,
           context,
           onToken: async (token) => {
             fullResponse += token;

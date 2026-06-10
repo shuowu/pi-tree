@@ -25,19 +25,19 @@ interface StreamContextValue {
   streams: Record<string, ActiveStreamState>;
   startMessageStream: (
     userId: string,
-    bookId: string,
+    sourceId: string,
     sessionId: number,
     message: string,
     viewNodeId: string | null,
     onTreeUpdate: (tree: TreeNodeView) => void,
   ) => Promise<void>;
-  clearStream: (bookId: string, sessionId: number) => void;
+  clearStream: (sourceId: string, sessionId: number) => void;
 }
 
 const StreamContext = createContext<StreamContextValue | null>(null);
 
-function getStreamKey(bookId: string, sessionId: number): string {
-  return `${bookId}:${sessionId}`;
+function getStreamKey(sourceId: string, sessionId: number): string {
+  return `${sourceId}:${sessionId}`;
 }
 
 /* eslint-disable react-refresh/only-export-components */
@@ -49,13 +49,13 @@ export function StreamProvider({ children }: { children: ReactNode }) {
   const startMessageStream = useCallback(
     async (
       userId: string,
-      bookId: string,
+      sourceId: string,
       sessionId: number,
       message: string,
       viewNodeId: string | null,
       onTreeUpdate: (tree: TreeNodeView) => void,
     ) => {
-      const key = getStreamKey(bookId, sessionId);
+      const key = getStreamKey(sourceId, sessionId);
       const nextGen = (streamGensRef.current[key] ?? 0) + 1;
       streamGensRef.current[key] = nextGen;
 
@@ -73,7 +73,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
       }));
 
       try {
-        await sendMessageStreaming(userId, bookId, sessionId, message, viewNodeId, {
+        await sendMessageStreaming(userId, sourceId, sessionId, message, viewNodeId, {
           onToken: (token) => {
             const currentGen = streamGensRef.current[key];
             if (nextGen !== currentGen) return;
@@ -217,8 +217,8 @@ export function StreamProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const clearStream = useCallback((bookId: string, sessionId: number) => {
-    const key = getStreamKey(bookId, sessionId);
+  const clearStream = useCallback((sourceId: string, sessionId: number) => {
+    const key = getStreamKey(sourceId, sessionId);
     setStreams((prev) => {
       const next = { ...prev };
       delete next[key];

@@ -2,15 +2,39 @@ import { useState } from "react";
 import "./BookCover.css";
 
 interface BookCoverProps {
-  bookId: string;
+  sourceId: string;
   title: string;
   author: string;
   hasCover?: boolean;
+  sourceType?: string;
   size?: "sm" | "md" | "lg";
 }
 
-export function BookCover({ bookId, title, author, hasCover, size = "md" }: BookCoverProps) {
+export function BookCover({ sourceId, title, author, hasCover, sourceType, size = "md" }: BookCoverProps) {
   const [imgError, setImgError] = useState(false);
+
+  if (sourceType === "news") {
+    return (
+      <div
+        className={`book-cover-container fallback-cover size-${size}`}
+        style={{ background: "linear-gradient(135deg, #111827 0%, #1e40af 50%, #3b82f6 100%)" }}
+      >
+        <div className="fallback-cover-content">
+          <div className="fallback-cover-header">
+            <div className="fallback-cover-badge" style={{ backgroundColor: "#2563eb", color: "#ffffff" }}>📡 LIVE NEWS</div>
+          </div>
+          <div className="fallback-cover-title" style={{ fontSize: "1.2rem", fontWeight: "bold", letterSpacing: "-0.025em" }}>
+            News & Trends
+          </div>
+          <div className="fallback-cover-divider" style={{ backgroundColor: "#2563eb" }} />
+          <div className="fallback-cover-author">
+            RSS Aggregator
+          </div>
+        </div>
+        <div className="book-cover-spine-effect" />
+      </div>
+    );
+  }
 
   // Generate deterministic gradient background based on book title
   const getBookGradient = (text: string) => {
@@ -35,7 +59,7 @@ export function BookCover({ bookId, title, author, hasCover, size = "md" }: Book
   };
 
   const showImageCover = hasCover && !imgError;
-  const coverUrl = `/api/library/books/${bookId}/cover`;
+  const coverUrl = `/api/library/sources/${sourceId}/cover`;
 
   if (showImageCover) {
     return (

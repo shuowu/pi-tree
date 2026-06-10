@@ -14,14 +14,16 @@ import * as schema from "./schema.js";
 // Re-export schema tables for convenient imports
 export {
   users,
-  userBookSessions,
-  userBookConfig,
-  userBookProgress,
+  sources,
+  userSessions,
+  userSourceConfig,
+  userSourceProgress,
   glossaryEntries,
-  books,
   tags,
-  bookTags,
+  sourceTags,
   backgroundJobs,
+  rssFeeds,
+  rssItems,
 } from "./schema.js";
 
 // ---------------------------------------------------------------------------
@@ -94,56 +96,58 @@ function ensureTables(sqlite: Database.Database): void {
       updated_at    TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS user_book_sessions (
+    CREATE TABLE IF NOT EXISTS sources (
+      id             TEXT PRIMARY KEY,
+      type           TEXT NOT NULL DEFAULT 'book',
+      title          TEXT NOT NULL,
+      subtitle       TEXT,
+      author         TEXT NOT NULL DEFAULT '',
+      year           INTEGER,
+      source         TEXT NOT NULL DEFAULT 'library',
+      status         TEXT NOT NULL DEFAULT 'ready',
+      error          TEXT,
+      metadata       TEXT,
+      cover_url      TEXT,
+      created_at     TEXT NOT NULL,
+      updated_at     TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_sessions (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id        TEXT NOT NULL REFERENCES users(id),
-      book_id        TEXT NOT NULL,
-      title          TEXT NOT NULL DEFAULT 'Reading Session',
+      source_id      TEXT NOT NULL REFERENCES sources(id),
+      title          TEXT NOT NULL DEFAULT 'Session',
       context        TEXT NOT NULL DEFAULT '{"mode":"reading"}',
       session_file   TEXT NOT NULL,
       is_active      INTEGER NOT NULL DEFAULT 1,
       created_at     TEXT NOT NULL,
       last_active_at TEXT NOT NULL,
-      UNIQUE(user_id, book_id, session_file)
+      UNIQUE(user_id, source_id, session_file)
     );
 
-    CREATE TABLE IF NOT EXISTS user_book_config (
-      user_id  TEXT NOT NULL REFERENCES users(id),
-      book_id  TEXT NOT NULL,
-      config   TEXT NOT NULL,
-      PRIMARY KEY (user_id, book_id)
+    CREATE TABLE IF NOT EXISTS user_source_config (
+      user_id    TEXT NOT NULL REFERENCES users(id),
+      source_id  TEXT NOT NULL,
+      config     TEXT NOT NULL,
+      PRIMARY KEY (user_id, source_id)
     );
 
-    CREATE TABLE IF NOT EXISTS user_book_progress (
+    CREATE TABLE IF NOT EXISTS user_source_progress (
       user_id     TEXT NOT NULL REFERENCES users(id),
-      book_id     TEXT NOT NULL,
+      source_id   TEXT NOT NULL,
       progress    REAL NOT NULL DEFAULT 0,
       last_node_id TEXT,
       updated_at  TEXT NOT NULL,
-      PRIMARY KEY (user_id, book_id)
+      PRIMARY KEY (user_id, source_id)
     );
 
     CREATE TABLE IF NOT EXISTS glossary_entries (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id     TEXT NOT NULL REFERENCES users(id),
-      book_id     TEXT NOT NULL,
+      source_id   TEXT NOT NULL,
       term        TEXT NOT NULL,
       definition  TEXT,
       created_at  TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS books (
-      id                TEXT PRIMARY KEY,
-      title             TEXT NOT NULL,
-      author            TEXT NOT NULL,
-      year              INTEGER,
-      source            TEXT NOT NULL DEFAULT 'upload',
-      source_format     TEXT NOT NULL,
-      status            TEXT NOT NULL DEFAULT 'pending',
-      error             TEXT,
-      original_filename TEXT NOT NULL,
-      created_at        TEXT NOT NULL,
-      updated_at        TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS tags (
@@ -152,15 +156,15 @@ function ensureTables(sqlite: Database.Database): void {
       created_at  TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS book_tags (
-      book_id   TEXT NOT NULL,
-      tag_id    INTEGER NOT NULL REFERENCES tags(id),
-      PRIMARY KEY (book_id, tag_id)
+    CREATE TABLE IF NOT EXISTS source_tags (
+      source_id  TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+      tag_id     INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+      PRIMARY KEY (source_id, tag_id)
     );
 
     CREATE TABLE IF NOT EXISTS background_jobs (
       id          TEXT PRIMARY KEY,
-      book_id     TEXT NOT NULL,
+      source_id   TEXT NOT NULL,
       status      TEXT NOT NULL DEFAULT 'pending',
       progress    INTEGER NOT NULL DEFAULT 0,
       step        TEXT NOT NULL DEFAULT 'queued',
@@ -168,24 +172,30 @@ function ensureTables(sqlite: Database.Database): void {
       created_at  TEXT NOT NULL,
       updated_at  TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS rss_feeds (
+      id                 TEXT PRIMARY KEY,
+      source_id          TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+      name               TEXT NOT NULL,
+      url                TEXT NOT NULL,
+      is_active          INTEGER NOT NULL DEFAULT 1,
+      last_fetch_time    TEXT,
+      last_fetch_status  TEXT,
+      created_at         TEXT NOT NULL,
+      updated_at         TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS rss_items (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      title        TEXT NOT NULL,
+      feed_id      TEXT NOT NULL REFERENCES rss_feeds(id) ON DELETE CASCADE,
+      url          TEXT NOT NULL,
+      guid         TEXT NOT NULL DEFAULT '',
+      published_at TEXT,
+      summary      TEXT,
+      author       TEXT,
+      created_at   TEXT NOT NULL,
+      updated_at   TEXT NOT NULL
+    );
   `);
-
-  // Add source column to existing books tables (may already exist)
-  try {
-    sqlite.exec(`ALTER TABLE books ADD COLUMN source TEXT NOT NULL DEFAULT 'upload';`);
-  } catch {
-    // Column already exists — ignore
-  }
-
-  // Multi-session migration: add title + context columns to existing DBs
-  try {
-    sqlite.exec(`ALTER TABLE user_book_sessions ADD COLUMN title TEXT NOT NULL DEFAULT 'Reading Session';`);
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    sqlite.exec(`ALTER TABLE user_book_sessions ADD COLUMN context TEXT NOT NULL DEFAULT '{"mode":"reading"}';`);
-  } catch {
-    // Column already exists — ignore
-  }
 }

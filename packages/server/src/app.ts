@@ -7,6 +7,7 @@ import { sessionRoutes } from "./routes/session.js";
 import { sessionCrudRoutes } from "./routes/sessions.js";
 import { userRoutes } from "./routes/users.js";
 import { dictionaryRoutes } from "./routes/dictionary.js";
+import { newsRoutes } from "./routes/news.js";
 import { getServerConfig, saveServerConfig } from "./config.js";
 
 export const app = new Hono();
@@ -36,6 +37,7 @@ app.route("/api/session", sessionRoutes);
 app.route("/api/sessions", sessionCrudRoutes);
 app.route("/api/users", userRoutes);
 app.route("/api/dict", dictionaryRoutes);
+app.route("/api/news", newsRoutes);
 
 // Server config endpoints
 app.get("/api/config", (c) => {

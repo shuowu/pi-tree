@@ -56,7 +56,6 @@ export function getServerConfig(): ServerConfigFull {
       fileConfig.lookupModel ||
       process.env.PI_LOOKUP_MODEL ||
       "",
-    libraryPath: process.env.LIBRARY_PATH,
     dataPath: process.env.DATA_PATH,
     provider:
       fileConfig.provider ||
@@ -148,7 +147,6 @@ export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerCo
   _config = {
     readingModel: toSave.readingModel || process.env.PI_MODEL || "",
     lookupModel: toSave.lookupModel || process.env.PI_LOOKUP_MODEL || "",
-    libraryPath: process.env.LIBRARY_PATH,
     dataPath: process.env.DATA_PATH,
     provider: toSave.provider || process.env.PI_PROVIDER || "",
     apiKey: toSave.apiKey || process.env.PI_API_KEY || "",

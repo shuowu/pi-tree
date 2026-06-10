@@ -1,6 +1,6 @@
 # Pi-Tree
 
-AI-assisted book reading app with tree-structured conversations.
+AI-assisted reading and research app with tree-structured conversations. Supports multiple source types: books, news feeds, papers, and more.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ packages/
 
 ### Types sub-path
 
-`@pi-tree/core/types` exports only TypeScript types (TopicNode, Book, SessionState, ChatMessage, BranchOption, etc.) — safe for browser bundles. The main `@pi-tree/core` entry exports the Pi SDK wrapper and must only be imported server-side.
+`@pi-tree/core/types` exports only TypeScript types (TopicNode, Source, SessionState, ChatMessage, BranchOption, etc.) — safe for browser bundles. The main `@pi-tree/core` entry exports the Pi SDK wrapper and must only be imported server-side.
 
 ## Docs
 
@@ -38,13 +38,14 @@ packages/
 
 ## Key Concepts
 
-- **Conversation-first**: The AI conversation IS the reading experience
-- **Multi-session per book**: Each user+book can have multiple independent sessions (reading, Q&A, custom) — each with its own conversation tree and optional context configuration
+- **Conversation-first**: The AI conversation IS the reading/research experience
+- **Generic sources model**: Books, news feeds, papers, podcasts — all stored as `sources` with a `type` discriminator
+- **Multi-session per source**: Each user+source can have multiple independent sessions (reading, Q&A, custom, news) — each with its own conversation tree and optional context configuration
 - **Tree-structured sessions**: Each session has a topic tree; branches on semantic shifts only
 - **Free-form depth**: Every node is a TopicNode — no rigid hierarchy
 - **TOC + Chat navigation**: Clickable table of contents alongside conversational navigation
-- **Configurable summaries**: Brief/medium/detailed, per-book overrides via BOOK.md
-- **Multi-user**: Each user has isolated sessions, config, glossary per book (no auth, slug-based identity)
+- **Configurable summaries**: Brief/medium/detailed, per-source overrides via config
+- **Multi-user**: Each user has isolated sessions, config, glossary per source (no auth, slug-based identity)
 
 ## Core (`@pi-tree/core`)
 
@@ -53,7 +54,7 @@ Pure library — no `process.env`, no `import.meta.dirname`, no file system acce
 - `PiSession`: wraps Pi SDK, manages conversation lifecycle
 - `configureModelRegistry()`: extracted, testable model/provider setup (in `session/model-setup.ts`)
 - `TreeManager`: intent classification → tree operations → PiSession
-- Types: TopicNode, Book, SessionState, ChatMessage, BranchOption, etc.
+- Types: TopicNode, Source, SourceType, SessionState, ChatMessage, BranchOption, ContentAnchor, etc.
 
 All config is injected via `PiSessionConfig` — the server resolves env vars and passes them in.
 
@@ -68,6 +69,7 @@ Located in `packages/server/skills/`:
 - `interactive-reading` — Core reading flow: chapter briefings, navigation, Q&A, bookmarks
 - `book-outline` — Structural overview: navigation map with line numbers, toc.json
 - `book-analysis` — Generate structured analysis (summary, key-ideas, quotes, comparison)
+- `news-reading` — News feed overview, trend analysis, article deep-dives
 
 ### Skill Override Mechanism
 
@@ -118,8 +120,8 @@ App layer — owns environment resolution, config, database, and HTTP routes.
 
 - Hono framework (lightweight, Electron-compatible)
 - Resolves all env vars (`PI_MODEL`, `PI_API_KEY`, `DATA_PATH`, etc.) and injects into core via config
-- DictionaryService: standalone dictionary lookup + glossary CRUD
-- LibraryService: reads from user-configured book library on disk
+- LibraryService: reads from user-configured source library on disk + manages uploaded sources
+- RssService: RSS feed crawling, deduplication, and aggregation for news sources
 - SSE streaming for real-time AI responses
 - SQLite + Drizzle ORM for user/session/config/glossary metadata
 
@@ -129,10 +131,12 @@ Thin app shell — wires `@pi-tree/ui` components with app-specific context.
 
 - React + Vite (future: Electron desktop app)
 - **Pages**: Library, Reader, SessionsPage, UserPicker
-- **App panels**: Sidebar, RightPanel, DictionaryPanel, BookContentPanel
+- **App panels**: Sidebar, RightPanel, DictionaryPanel, BookContentPanel, NewsDashboardPanel
+- **News UX**: NewsQuickActions (skill command buttons), NewsDashboardPanel (interactive feed viewer with deep-dive)
 - **Modals**: AddBookModal, BookSettingsModal, SettingsModal
 - **Wiring**: Reader.tsx injects app dependencies into `@pi-tree/ui` via props
 - **Context**: UserContext + UserPicker (localStorage-based identity)
+- **Source type config**: `source-types.ts` exports `SOURCE_TYPE_CONFIGS` map — drives per-type UI behavior (icon, session modes, processing, content panel). Adding a new source type = one config entry.
 
 ## Database
 
@@ -140,47 +144,53 @@ SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-tree.db` (de
 
 Tables:
 - `users` — simple identity (slug id, displayName, avatarUrl)
-- `user_book_sessions` — tracks Pi SDK JSONL session files per user+book. Supports multiple sessions per user+book with `title`, `context` (JSON blob of SessionContext), and `is_active` flag
-- `user_book_config` — per-user per-book ReaderConfig JSON blob
-- `user_book_progress` — reading position tracking
-- `glossary_entries` — per-user per-book term definitions
+- `sources` — universal "thing you have conversations about" with `type` discriminator ('book' | 'news' | 'paper' | 'podcast'), `metadata` JSON column for type-specific fields
+- `user_sessions` — tracks Pi SDK JSONL session files per user+source. Supports multiple sessions per user+source with `title`, `context` (JSON blob of SessionContext), and `is_active` flag
+- `user_source_config` — per-user per-source ReaderConfig JSON blob
+- `user_source_progress` — reading position tracking
+- `glossary_entries` — per-user per-source term definitions
+- `source_tags` — source↔tag junction (replaces both book_tags and feed_tags)
+- `rss_feeds` — RSS feed configurations, linked to sources via `source_id` FK
+- `rss_items` — cached RSS feed entries
 
 Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/server/src/db/schema.ts`.
 
 ## Data Source
 
-Reads from `~/.local/share/pi-tree/library/` by default (configurable via `LIBRARY_PATH` env var). Users can also upload books via the UI. This is read-only.
+Books are stored in `<DATA_PATH>/library/` (default: `~/.local/share/pi-tree/library/`). Users can also upload books via the UI.
 
-Mutable state (sessions, DB) lives at `DATA_PATH` (default: `~/.local/share/pi-tree/`).
+All mutable state (sessions, DB, library, news) lives under `DATA_PATH` (default: `~/.local/share/pi-tree/`).
 
 ## Data Isolation
 
 | Data | Location | Scope |
 |------|----------|-------|
-| Session JSONL | `<DATA_PATH>/sessions/<bookId>/<userId>/` | Per session per user per book |
+| Session JSONL | `<DATA_PATH>/sessions/<sourceId>/<userId>/` | Per session per user per source |
 | SQLite DB | `<DATA_PATH>/pi-tree.db` | All users |
-| Session metadata | SQLite `user_book_sessions` | Per session per user per book |
-| Config | SQLite `user_book_config` | Per user per book |
-| Glossary | SQLite `glossary_entries` | Per user per book |
-| Book content | `<LIBRARY_PATH>/<bookId>/markdown/` | Shared (read-only) |
-| Outlines | `<LIBRARY_PATH>/<bookId>/analysis/` | Shared (read-only) |
+| Session metadata | SQLite `user_sessions` | Per session per user per source |
+| Config | SQLite `user_source_config` | Per user per source |
+| Glossary | SQLite `glossary_entries` | Per user per source |
+| Book content | `<DATA_PATH>/library/<sourceId>/markdown/` | Shared |
+| Outlines | `<DATA_PATH>/library/<sourceId>/analysis/` | Shared |
+| News reports | `<DATA_PATH>/news/analyses/`, `summaries/` | Shared (mutable) |
 | User skills | `<DATA_PATH>/skills/` (or `$SKILLS_PATH`) | Shared (mutable) |
+| Default feeds | `packages/server/config/default-feeds.json` | Repo (read-only) |
 
 ## Session Management
 
-Multiple sessions per user+book. Each session has a `SessionContext` (mode, optional skills/prompt/model overrides) stored as JSON. See `docs/SESSION-MANAGEMENT.md` for full architecture.
+Multiple sessions per user+source. Each session has a `SessionContext` (mode, optional skills/prompt/model overrides) stored as JSON. See `docs/SESSION-MANAGEMENT.md` for full architecture.
 
 **Session API** (CRUD):
-- `GET /api/sessions/:userId/:bookId` — list all sessions
-- `POST /api/sessions/:userId/:bookId` — create `{ title, context? }`
-- `PUT /api/sessions/:userId/:bookId/:sessionId` — update `{ title?, context? }`
-- `DELETE /api/sessions/:userId/:bookId/:sessionId` — soft-delete
+- `GET /api/sessions/:userId/:sourceId` — list all sessions
+- `POST /api/sessions/:userId/:sourceId` — create `{ title, context? }`
+- `PUT /api/sessions/:userId/:sourceId/:sessionId` — update `{ title?, context? }`
+- `DELETE /api/sessions/:userId/:sourceId/:sessionId` — soft-delete
 
 **Session interaction routes** (`/api/session/*`) all accept optional `sessionId` in request body. When omitted, defaults to most recently active session.
 
 **URLs**:
-- Sessions management: `/book/:bookId/sessions`
-- Reading session: `/book/:bookId?session=<id>&node=<nodeId>`
+- Sessions management: `/source/:sourceId/sessions`
+- Reading session: `/source/:sourceId?session=<id>&node=<nodeId>`
 
 ## Multi-User Flow
 
@@ -270,10 +280,9 @@ docker compose up --build
 
 The container has `restart: unless-stopped` so it auto-starts with Docker.
 
-Docker reads `.env` directly via `env_file` and uses `PORT=3847` as-is. The `docker-compose.yml` overrides `LIBRARY_PATH` and `DATA_PATH` for the container filesystem.
+Docker reads `.env` directly via `env_file` and uses `PORT=3847` as-is. The `docker-compose.yml` overrides `DATA_PATH` for the container filesystem.
 
 Volumes:
-- `LIBRARY_PATH` (or `./library`) → `/library` (read-only content)
-- `pi-tree-data` named volume → `/data` (mutable state: sessions + SQLite DB)
+- `pi-tree-data` named volume → `/data` (all state: library, sessions, SQLite DB)
 
-Env vars: `LIBRARY_PATH`, `DATA_PATH`, `PORT`, `PI_MODEL`.
+Env vars: `DATA_PATH`, `PORT`, `PI_MODEL`.

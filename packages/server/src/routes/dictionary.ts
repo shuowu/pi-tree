@@ -8,7 +8,7 @@ export const dictionaryRoutes = new Hono();
 dictionaryRoutes.post("/lookup/stream", async (c) => {
   const body = await c.req.json<{
     term: string;
-    bookId?: string;
+    sourceId?: string;
     context?: string;
     userId?: string;
   }>();
@@ -18,7 +18,7 @@ dictionaryRoutes.post("/lookup/stream", async (c) => {
   return streamSSE(c, async (stream) => {
     try {
       const definition = await dictService.streamLookup(body.term, {
-        bookId: body.bookId,
+        sourceId: body.sourceId,
         context: body.context,
         onToken: async (token: string) => {
           await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
@@ -41,22 +41,22 @@ dictionaryRoutes.post("/lookup/stream", async (c) => {
 dictionaryRoutes.post("/glossary/save", async (c) => {
   const body = await c.req.json<{
     userId: string;
-    bookId: string;
+    sourceId: string;
     term: string;
     definition?: string;
   }>();
 
   const dictService = DictionaryService.getInstance();
-  await dictService.saveGlossaryEntry(body.userId, body.bookId, body.term, body.definition);
+  await dictService.saveGlossaryEntry(body.userId, body.sourceId, body.term, body.definition);
   return c.json({ ok: true });
 });
 
-/** Get all saved glossary entries for a user+book */
-dictionaryRoutes.get("/glossary/:userId/:bookId", async (c) => {
+/** Get all saved glossary entries for a user+source */
+dictionaryRoutes.get("/glossary/:userId/:sourceId", async (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
   const dictService = DictionaryService.getInstance();
-  const entries = dictService.getGlossaryEntries(userId, bookId);
+  const entries = dictService.getGlossaryEntries(userId, sourceId);
   return c.json({ entries });
 });
 

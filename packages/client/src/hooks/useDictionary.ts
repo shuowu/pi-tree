@@ -4,7 +4,7 @@ import { streamLookup, saveGlossary } from "../api";
 
 export function useDictionary(
   userId: string | null,
-  bookId: string,
+  sourceId: string,
   rightTab: "dict" | "book",
   setRightPanelOpen: (open: boolean) => void,
   setRightTab: (tab: "dict" | "book") => void,
@@ -35,7 +35,7 @@ export function useDictionary(
         setRightTab("dict");
       }
 
-      streamLookup(userId, bookId, term, (token) => {
+      streamLookup(userId, sourceId, term, (token) => {
         setDictEntries((prev) =>
           prev.map((e) =>
             e.id === entryId ? { ...e, definition: e.definition + token } : e,
@@ -52,7 +52,7 @@ export function useDictionary(
           );
           // Auto-save to glossary
           if (userId) {
-            saveGlossary(userId, bookId, term, fullDef).catch(() => {});
+            saveGlossary(userId, sourceId, term, fullDef).catch(() => {});
           }
         })
         .catch(() => {
@@ -65,7 +65,7 @@ export function useDictionary(
           );
         });
     },
-    [userId, bookId, rightTab, setRightPanelOpen, setRightTab],
+    [userId, sourceId, rightTab, setRightPanelOpen, setRightTab],
   );
 
 

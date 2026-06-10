@@ -32,10 +32,10 @@ function extractSessionIdFromQuery(c: { req: { query: (key: string) => string | 
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Start or resume a reading session for a book */
+/** Start or resume a reading session for a source */
 sessionRoutes.post("/start", async (c) => {
-  const { bookId, viewNodeId, userId: rawUserId, sessionId: rawSessionId } = await c.req.json<{
-    bookId: string;
+  const { sourceId, viewNodeId, userId: rawUserId, sessionId: rawSessionId } = await c.req.json<{
+    sourceId: string;
     viewNodeId?: string | null;
     userId?: string;
     sessionId?: number;
@@ -44,7 +44,7 @@ sessionRoutes.post("/start", async (c) => {
   const sessionId = rawSessionId !== undefined && rawSessionId !== null
     ? Number(rawSessionId)
     : undefined;
-  const manager = await getSession(userId, bookId, sessionId);
+  const manager = await getSession(userId, sourceId, sessionId);
   const state = manager.getSessionState(viewNodeId ?? null);
   return c.json(state);
 });
@@ -52,14 +52,14 @@ sessionRoutes.post("/start", async (c) => {
 /** View a specific scope in the tree (no AI call, just scoped messages) */
 sessionRoutes.post("/view", async (c) => {
   const body = await c.req.json<{
-    bookId: string;
+    sourceId: string;
     viewNodeId: string | null;
     userId?: string;
     sessionId?: number;
   }>();
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
-  const manager = await getSession(userId, body.bookId, sessionId);
+  const manager = await getSession(userId, body.sourceId, sessionId);
   const state = manager.getSessionState(body.viewNodeId);
   return c.json(state);
 });
@@ -67,7 +67,7 @@ sessionRoutes.post("/view", async (c) => {
 /** Send a user message — the core interaction */
 sessionRoutes.post("/message", async (c) => {
   const body = await c.req.json<{
-    bookId: string;
+    sourceId: string;
     message: string;
     viewNodeId?: string | null;
     userId?: string;
@@ -76,7 +76,7 @@ sessionRoutes.post("/message", async (c) => {
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
 
-  const result = await withSessionLock(userId, body.bookId, sessionId, async (manager) => {
+  const result = await withSessionLock(userId, body.sourceId, sessionId, async (manager) => {
     return manager.handleMessage(body.message, body.viewNodeId ?? null);
   });
   return c.json(result);
@@ -85,7 +85,7 @@ sessionRoutes.post("/message", async (c) => {
 /** Stream a message response via SSE (for real-time AI responses) */
 sessionRoutes.post("/message/stream", async (c) => {
   const body = await c.req.json<{
-    bookId: string;
+    sourceId: string;
     message: string;
     viewNodeId?: string | null;
     userId?: string;
@@ -99,7 +99,7 @@ sessionRoutes.post("/message/stream", async (c) => {
       // Let the client know this request is queued behind another operation
       await stream.writeSSE({ data: JSON.stringify({ type: "queued" }) });
 
-      await withSessionLock(userId, body.bookId, sessionId, async (manager) => {
+      await withSessionLock(userId, body.sourceId, sessionId, async (manager) => {
         await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, {
           onToken: async (token: string) => {
             await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
@@ -142,7 +142,7 @@ sessionRoutes.post("/message/stream", async (c) => {
 /** Navigate to a specific node (from tree panel or TOC click) */
 sessionRoutes.post("/navigate", async (c) => {
   const body = await c.req.json<{
-    bookId: string;
+    sourceId: string;
     targetNodeId: string;
     summarizeCurrent?: boolean;
     userId?: string;
@@ -151,7 +151,7 @@ sessionRoutes.post("/navigate", async (c) => {
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
 
-  const manager = await getSession(userId, body.bookId, sessionId);
+  const manager = await getSession(userId, body.sourceId, sessionId);
   const state = await manager.navigateTo(body.targetNodeId, {
     summarize: body.summarizeCurrent ?? true,
   });
@@ -163,7 +163,7 @@ sessionRoutes.post("/navigate", async (c) => {
 /** Navigate from a TOC entry (creates node if needed) */
 sessionRoutes.post("/navigate/toc", async (c) => {
   const body = await c.req.json<{
-    bookId: string;
+    sourceId: string;
     outlineEntryLine: number;
     userId?: string;
     sessionId?: number;
@@ -171,67 +171,67 @@ sessionRoutes.post("/navigate/toc", async (c) => {
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
 
-  const manager = await getSession(userId, body.bookId, sessionId);
+  const manager = await getSession(userId, body.sourceId, sessionId);
   const state = await manager.navigateToOutlineEntry(body.outlineEntryLine);
   return c.json(state);
 });
 
 /** Get the full tree for the tree panel */
-sessionRoutes.get("/tree/:userId/:bookId", async (c) => {
+sessionRoutes.get("/tree/:userId/:sourceId", async (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
   const sessionId = extractSessionIdFromQuery(c);
-  const manager = await getSession(userId, bookId, sessionId);
+  const manager = await getSession(userId, sourceId, sessionId);
   const tree = manager.getTreeView();
   return c.json(tree);
 });
 
 /** Get the current breadcrumb path */
-sessionRoutes.get("/breadcrumb/:userId/:bookId", async (c) => {
+sessionRoutes.get("/breadcrumb/:userId/:sourceId", async (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
   const sessionId = extractSessionIdFromQuery(c);
-  const manager = await getSession(userId, bookId, sessionId);
+  const manager = await getSession(userId, sourceId, sessionId);
   const breadcrumb = manager.getBreadcrumb();
   return c.json({ breadcrumb });
 });
 
-/** Close a session (user leaves the book) */
+/** Close a session (user leaves the source) */
 sessionRoutes.post("/close", async (c) => {
-  const body = await c.req.json<{ bookId: string; userId?: string; sessionId?: number }>();
+  const body = await c.req.json<{ sourceId: string; userId?: string; sessionId?: number }>();
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
-  closeSession(userId, body.bookId, sessionId);
+  closeSession(userId, body.sourceId, sessionId);
   return c.json({ ok: true });
 });
 
 /** Reset a session — clears all history and starts fresh */
 sessionRoutes.post("/reset", async (c) => {
-  const body = await c.req.json<{ bookId: string; userId?: string; sessionId?: number }>();
+  const body = await c.req.json<{ sourceId: string; userId?: string; sessionId?: number }>();
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
-  closeSession(userId, body.bookId, sessionId);
+  closeSession(userId, body.sourceId, sessionId);
 
   // Deactivate DB session records so loadOrCreate won't resume
   try {
     const { eq, and } = await import("drizzle-orm");
-    const { getDb, userBookSessions } = await import("../db/index.js");
+    const { getDb, userSessions } = await import("../db/index.js");
     const db = getDb();
 
     if (sessionId !== undefined) {
       // Reset a specific session
-      db.update(userBookSessions)
+      db.update(userSessions)
         .set({ isActive: 0 })
-        .where(eq(userBookSessions.id, sessionId))
+        .where(eq(userSessions.id, sessionId))
         .run();
     } else {
-      // Legacy: reset all sessions for user+book
-      db.update(userBookSessions)
+      // Legacy: reset all sessions for user+source
+      db.update(userSessions)
         .set({ isActive: 0 })
         .where(
           and(
-            eq(userBookSessions.userId, userId),
-            eq(userBookSessions.bookId, body.bookId),
+            eq(userSessions.userId, userId),
+            eq(userSessions.sourceId, body.sourceId),
           ),
         )
         .run();
@@ -246,7 +246,7 @@ sessionRoutes.post("/reset", async (c) => {
 /** Soft-delete (abandon) a node in the session tree */
 sessionRoutes.post("/delete-node", async (c) => {
   const body = await c.req.json<{
-    bookId: string;
+    sourceId: string;
     nodeId: string;
     viewNodeId?: string | null;
     userId?: string;
@@ -254,7 +254,7 @@ sessionRoutes.post("/delete-node", async (c) => {
   }>();
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
-  const manager = await getSession(userId, body.bookId, sessionId);
+  const manager = await getSession(userId, body.sourceId, sessionId);
   const result = manager.deleteNode(body.nodeId, body.viewNodeId ?? null);
   return c.json(result);
 });
@@ -262,7 +262,7 @@ sessionRoutes.post("/delete-node", async (c) => {
 /** Rename a node in the session tree */
 sessionRoutes.post("/rename-node", async (c) => {
   const body = await c.req.json<{
-    bookId: string;
+    sourceId: string;
     nodeId: string;
     newLabel: string;
     viewNodeId?: string | null;
@@ -271,18 +271,18 @@ sessionRoutes.post("/rename-node", async (c) => {
   }>();
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
-  const manager = await getSession(userId, body.bookId, sessionId);
+  const manager = await getSession(userId, body.sourceId, sessionId);
   const result = manager.renameNode(body.nodeId, body.newLabel, body.viewNodeId ?? null);
   return c.json(result);
 });
 
 /** Update session configuration */
-sessionRoutes.put("/config/:userId/:bookId", async (c) => {
+sessionRoutes.put("/config/:userId/:sourceId", async (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
   const sessionId = extractSessionIdFromQuery(c);
   const config = await c.req.json();
-  const manager = await getSession(userId, bookId, sessionId);
+  const manager = await getSession(userId, sourceId, sessionId);
   manager.updateConfig(config);
   return c.json({ ok: true });
 });

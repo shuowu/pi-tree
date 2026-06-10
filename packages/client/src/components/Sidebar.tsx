@@ -15,7 +15,7 @@ function findNodeLabel(tree: TreeNodeView, nodeId: string): string | null {
 }
 
 interface SidebarProps {
-  bookId: string;
+  sourceId: string;
   tree: TreeNodeView | null;
   viewNodeId: string | null;
   /** Node IDs that have in-flight AI responses (show spinner) */

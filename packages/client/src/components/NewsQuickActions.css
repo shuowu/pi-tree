@@ -1,0 +1,73 @@
+.news-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.news-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+
+.news-quick-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.news-quick-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.news-scan-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.news-scan-input input {
+  width: 120px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.news-scan-input input:focus {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.news-scan-input button {
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.news-scan-input button:hover {
+  color: var(--text-primary);
+}

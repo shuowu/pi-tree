@@ -1,22 +1,46 @@
-import type { Book } from "@pi-tree/shared";
+import { useEffect } from "react";
+import type { Source } from "@pi-tree/shared";
 import { BookOpen, MessageCircle } from "lucide-react";
+import { getSourceTypeConfig } from "../source-types";
 import "./WelcomeState.css";
 
-export type SessionMode = "reading" | "qa";
+export type SessionMode = "reading" | "qa" | "news";
 
 interface WelcomeStateProps {
-  book: Book;
+  source: Source;
   onSelectMode: (mode: SessionMode) => void;
   isLoading: boolean;
 }
 
-export function WelcomeState({ book, onSelectMode, isLoading }: WelcomeStateProps) {
+export function WelcomeState({ source, onSelectMode, isLoading }: WelcomeStateProps) {
+  const config = getSourceTypeConfig(source.type);
+
+  useEffect(() => {
+    if (config.autoStartMode && !isLoading) {
+      onSelectMode(config.autoStartMode as SessionMode);
+    }
+  }, [config.autoStartMode, isLoading, onSelectMode]);
+
+  if (source.type === "news") {
+    return (
+      <div className="welcome-state">
+        <div className="welcome-content">
+          <div className="welcome-book-info">
+            <h1 className="welcome-title">News &amp; Trends</h1>
+            <p className="welcome-author">RSS Aggregator</p>
+          </div>
+          <p className="welcome-prompt">Initializing news feeds scanner...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="welcome-state">
       <div className="welcome-content">
         <div className="welcome-book-info">
-          <h1 className="welcome-title">{book.title}</h1>
-          <p className="welcome-author">by {book.author}</p>
+          <h1 className="welcome-title">{source.title}</h1>
+          <p className="welcome-author">by {source.author}</p>
         </div>
 
         <p className="welcome-prompt">How would you like to explore this book?</p>

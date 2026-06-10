@@ -1,15 +1,15 @@
-import type { Book, BookOutline, OutlineEntry } from "@pi-tree/shared";
+import type { Source, SourceOutline, OutlineEntry } from "@pi-tree/shared";
 import { readdir, readFile, stat } from "node:fs/promises";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { eq, sql } from "drizzle-orm";
-import { getDb, books as booksTable, tags as tagsTable, bookTags } from "../db/index.js";
+import { getDb, sources as sourcesTable, tags as tagsTable, sourceTags } from "../db/index.js";
 import { BookIngestionService } from "./book-ingestion.js";
 
 /**
- * LibraryService — reads books from a user-configured library path on disk.
+ * LibraryService — reads sources from DATA_PATH/library/ on disk.
  *
- * Set LIBRARY_PATH env var to point at your book collection, or upload books
- * through the UI. Defaults to ~/.local/share/pi-tree/library if not set.
+ * Place books in $DATA_PATH/library/ or upload them through the UI.
  * Reads the existing folder structure: book/, markdown/, analysis/, notes/.
  */
 export class LibraryService {
@@ -18,16 +18,18 @@ export class LibraryService {
   private ingestion: BookIngestionService;
   private synced = false;
 
-  constructor(libraryPath?: string, dataPath?: string) {
-    this.libraryPath =
-      libraryPath ??
-      process.env.LIBRARY_PATH ??
-      join(process.env.HOME ?? "~", ".local", "share", "pi-tree", "library");
+  constructor(dataPath?: string) {
     const dp =
       dataPath ??
       process.env.DATA_PATH ??
       join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
+    this.libraryPath = join(dp, "library");
     this.userBooksPath = join(dp, "books");
+    
+    // Ensure the directories exist
+    mkdirSync(this.libraryPath, { recursive: true });
+    mkdirSync(this.userBooksPath, { recursive: true });
+    
     this.ingestion = new BookIngestionService();
   }
 
@@ -35,9 +37,9 @@ export class LibraryService {
     return this.libraryPath;
   }
 
-  async listBooks(): Promise<Book[]> {
+  async listSources(): Promise<Source[]> {
     const entries = await readdir(this.libraryPath, { withFileTypes: true });
-    const libraryBooks: Book[] = [];
+    const librarySources: Source[] = [];
 
     for (const entry of entries) {
       if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
@@ -60,8 +62,9 @@ export class LibraryService {
         await this.exists(join(bookPath, "cover.gif"))
       );
 
-      libraryBooks.push({
+      librarySources.push({
         id: folderName,
+        type: "book" as const,
         title: parsed.title,
         author: parsed.author,
         year: parsed.year,
@@ -74,69 +77,87 @@ export class LibraryService {
       });
     }
 
-    // Sync library books to DB (idempotent) so they can be tagged
+    // Sync library sources to DB (idempotent) so they can be tagged
     if (!this.synced) {
-      this.syncBooksToDb(libraryBooks);
+      this.syncSourcesToDb(librarySources);
       this.synced = true;
     }
 
     const uploadedBooks = await this.ingestion.listUploadedBooks();
-    const allBooks = [...libraryBooks, ...uploadedBooks];
+    
+    // Fetch system-defined sources (like news feeds)
+    const db = getDb();
+    const systemSources = db.select().from(sourcesTable).where(eq(sourcesTable.source, "system")).all();
+    const systemSourcesList: Source[] = systemSources.map(s => ({
+      id: s.id,
+      type: (s.type ?? "news") as Source["type"],
+      title: s.title,
+      author: s.author,
+      year: s.year ?? new Date().getFullYear(),
+      folderName: s.id,
+      progress: 0,
+      hasMarkdown: false,
+      hasOutline: false,
+      hasCover: false,
+      source: "library",
+      status: "ready"
+    }));
+
+    const allSources = [...librarySources, ...uploadedBooks, ...systemSourcesList];
 
     // Attach tags from DB
-    const bookIds = allBooks.map((b) => b.id);
-    const tagMap = this.getBookTags(bookIds);
-    for (const book of allBooks) {
-      book.tags = tagMap.get(book.id) ?? [];
+    const sourceIds = allSources.map((s) => s.id);
+    const tagMap = this.getSourceTags(sourceIds);
+    for (const src of allSources) {
+      src.tags = tagMap.get(src.id) ?? [];
     }
 
-    return allBooks;
+    return allSources;
   }
 
   /**
-   * Search and filter books by query text and/or tags.
+   * Search and filter sources by query text and/or tags.
    */
-  async searchBooks(query?: string, filterTags?: string[]): Promise<Book[]> {
-    let books = await this.listBooks();
+  async searchSources(query?: string, filterTags?: string[]): Promise<Source[]> {
+    let results = await this.listSources();
 
     if (query) {
       const q = query.toLowerCase();
-      books = books.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          b.author.toLowerCase().includes(q),
+      results = results.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.author.toLowerCase().includes(q),
       );
     }
 
     if (filterTags && filterTags.length > 0) {
-      books = books.filter((b) => {
-        const bookTagSet = new Set(b.tags ?? []);
-        return filterTags.every((t) => bookTagSet.has(t));
+      results = results.filter((s) => {
+        const sourceTagSet = new Set(s.tags ?? []);
+        return filterTags.every((t) => sourceTagSet.has(t));
       });
     }
 
-    return books;
+    return results;
   }
 
   // ---------------------------------------------------------------------------
-  // Book sync — upsert library books into DB for tagging
+  // Source sync — upsert library sources into DB for tagging
   // ---------------------------------------------------------------------------
 
-  private syncBooksToDb(libraryBooks: Book[]): void {
+  private syncSourcesToDb(librarySources: Source[]): void {
     const db = getDb();
     const now = new Date().toISOString();
 
-    for (const book of libraryBooks) {
-      db.insert(booksTable)
+    for (const src of librarySources) {
+      db.insert(sourcesTable)
         .values({
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          year: book.year,
+          id: src.id,
+          type: "book",
+          title: src.title,
+          author: src.author,
+          year: src.year,
           source: "library",
-          sourceFormat: "library",
           status: "ready",
-          originalFilename: book.folderName,
           createdAt: now,
           updatedAt: now,
         })
@@ -150,46 +171,46 @@ export class LibraryService {
   // ---------------------------------------------------------------------------
 
   /**
-   * Get tags for a list of book IDs. Returns a map of bookId → tag names.
+   * Get tags for a list of source IDs. Returns a map of sourceId → tag names.
    */
-  getBookTags(bookIds: string[]): Map<string, string[]> {
+  getSourceTags(sourceIds: string[]): Map<string, string[]> {
     const result = new Map<string, string[]>();
-    if (bookIds.length === 0) return result;
+    if (sourceIds.length === 0) return result;
 
     const db = getDb();
     // Use raw SQL for efficient join query
-    const rows = db.all<{ book_id: string; name: string }>(
-      sql`SELECT bt.book_id, t.name
-          FROM book_tags bt
-          JOIN tags t ON t.id = bt.tag_id
-          WHERE bt.book_id IN (${sql.join(
-            bookIds.map((id) => sql`${id}`),
+    const rows = db.all<{ source_id: string; name: string }>(
+      sql`SELECT st.source_id, t.name
+          FROM source_tags st
+          JOIN tags t ON t.id = st.tag_id
+          WHERE st.source_id IN (${sql.join(
+            sourceIds.map((id) => sql`${id}`),
             sql`, `,
           )})`,
     );
 
     for (const row of rows) {
-      const existing = result.get(row.book_id);
+      const existing = result.get(row.source_id);
       if (existing) {
         existing.push(row.name);
       } else {
-        result.set(row.book_id, [row.name]);
+        result.set(row.source_id, [row.name]);
       }
     }
     return result;
   }
 
   /**
-   * Add a tag to a book. Creates the tag if it doesn't exist.
+   * Add a tag to a source. Creates the tag if it doesn't exist.
    */
-  async addTag(bookId: string, tagName: string): Promise<void> {
+  async addTag(sourceId: string, tagName: string): Promise<void> {
     const db = getDb();
     const name = tagName.toLowerCase().trim();
     if (!name) return;
 
-    // Ensure the book exists in DB (sync if needed)
+    // Ensure the source exists in DB (sync if needed)
     if (!this.synced) {
-      await this.listBooks();
+      await this.listSources();
     }
 
     // Create tag if it doesn't exist
@@ -208,14 +229,14 @@ export class LibraryService {
 
     // Insert junction row
     db.run(
-      sql`INSERT OR IGNORE INTO book_tags (book_id, tag_id) VALUES (${bookId}, ${tag.id})`,
+      sql`INSERT OR IGNORE INTO source_tags (source_id, tag_id) VALUES (${sourceId}, ${tag.id})`,
     );
   }
 
   /**
-   * Remove a tag from a book. Cleans up orphaned tags.
+   * Remove a tag from a source. Cleans up orphaned tags.
    */
-  async removeTag(bookId: string, tagName: string): Promise<void> {
+  async removeTag(sourceId: string, tagName: string): Promise<void> {
     const db = getDb();
     const name = tagName.toLowerCase().trim();
 
@@ -228,14 +249,14 @@ export class LibraryService {
 
     // Remove junction row
     db.run(
-      sql`DELETE FROM book_tags WHERE book_id = ${bookId} AND tag_id = ${tag.id}`,
+      sql`DELETE FROM source_tags WHERE source_id = ${sourceId} AND tag_id = ${tag.id}`,
     );
 
-    // Clean up orphaned tag (no books reference it)
+    // Clean up orphaned tag (no sources reference it)
     const usage = db
       .select({ count: sql<number>`count(*)` })
-      .from(bookTags)
-      .where(eq(bookTags.tagId, tag.id))
+      .from(sourceTags)
+      .where(eq(sourceTags.tagId, tag.id))
       .get();
     if (usage && usage.count === 0) {
       db.delete(tagsTable).where(eq(tagsTable.id, tag.id)).run();
@@ -255,15 +276,15 @@ export class LibraryService {
     return rows.map((r) => r.name);
   }
 
-  async getBook(bookId: string): Promise<Book | null> {
-    const books = await this.listBooks();
-    return books.find((b) => b.id === bookId) ?? null;
+  async getSource(sourceId: string): Promise<Source | null> {
+    const sources = await this.listSources();
+    return sources.find((s) => s.id === sourceId) ?? null;
   }
 
-  async getCoverPath(bookId: string): Promise<string | null> {
+  async getCoverPath(sourceId: string): Promise<string | null> {
     const searchPaths = [
-      join(this.libraryPath, bookId),
-      join(this.userBooksPath, bookId),
+      join(this.libraryPath, sourceId),
+      join(this.userBooksPath, sourceId),
     ];
     const extensions = ["jpg", "jpeg", "png", "webp", "gif"];
     for (const basePath of searchPaths) {
@@ -277,21 +298,21 @@ export class LibraryService {
     return null;
   }
 
-  async getOutline(bookId: string): Promise<BookOutline | null> {
+  async getOutline(sourceId: string): Promise<SourceOutline | null> {
     // 1. Try toc.json first (structured, zero-parsing)
-    const tocJson = await this.loadTocJson(bookId);
+    const tocJson = await this.loadTocJson(sourceId);
     if (tocJson) return tocJson;
 
     // 2. Fallback: parse outline.md (Navigation Map or heading extraction)
     const candidatePaths = [
-      join(this.libraryPath, bookId, "analysis", "outline.md"),
-      join(this.userBooksPath, bookId, "analysis", "outline.md"),
+      join(this.libraryPath, sourceId, "analysis", "outline.md"),
+      join(this.userBooksPath, sourceId, "analysis", "outline.md"),
     ];
 
     for (const outlinePath of candidatePaths) {
       try {
         const content = await readFile(outlinePath, "utf-8");
-        return this.parseOutline(bookId, content);
+        return this.parseOutline(sourceId, content);
       } catch {
         // Try next path
       }
@@ -303,10 +324,10 @@ export class LibraryService {
    * Load a structured toc.json if it exists.
    * This is the preferred source — emitted by the book-outline skill as clean JSON.
    */
-  private async loadTocJson(bookId: string): Promise<BookOutline | null> {
+  private async loadTocJson(sourceId: string): Promise<SourceOutline | null> {
     const candidatePaths = [
-      join(this.libraryPath, bookId, "analysis", "toc.json"),
-      join(this.userBooksPath, bookId, "analysis", "toc.json"),
+      join(this.libraryPath, sourceId, "analysis", "toc.json"),
+      join(this.userBooksPath, sourceId, "analysis", "toc.json"),
     ];
 
     for (const tocPath of candidatePaths) {
@@ -332,8 +353,8 @@ export class LibraryService {
         // Try to get summary from outline.md if it exists
         let summary = "";
         const outlineCandidates = [
-          join(this.libraryPath, bookId, "analysis", "outline.md"),
-          join(this.userBooksPath, bookId, "analysis", "outline.md"),
+          join(this.libraryPath, sourceId, "analysis", "outline.md"),
+          join(this.userBooksPath, sourceId, "analysis", "outline.md"),
         ];
         for (const outlinePath of outlineCandidates) {
           try {
@@ -345,7 +366,7 @@ export class LibraryService {
           }
         }
 
-        return { bookId, summary, entries: root };
+        return { sourceId, summary, entries: root };
       } catch {
         // Try next path
       }
@@ -354,13 +375,13 @@ export class LibraryService {
   }
 
   async readContent(
-    bookId: string,
+    sourceId: string,
     startLine: number,
     endLine: number,
   ): Promise<string | null> {
     const candidateDirs = [
-      join(this.libraryPath, bookId, "markdown"),
-      join(this.userBooksPath, bookId, "markdown"),
+      join(this.libraryPath, sourceId, "markdown"),
+      join(this.userBooksPath, sourceId, "markdown"),
     ];
 
     for (const mdDir of candidateDirs) {
@@ -388,16 +409,16 @@ export class LibraryService {
    *  3. Regex extraction from raw markdown (fallback)
    */
   async getHeadings(
-    bookId: string,
+    sourceId: string,
   ): Promise<Array<{ line: number; level: number; title: string }> | null> {
     // 1. Try outline's Navigation Map first (AI-cleaned, reliable)
-    const outline = await this.getOutline(bookId);
+    const outline = await this.getOutline(sourceId);
     if (outline && outline.entries.length > 0) {
       return this.flattenOutline(outline.entries);
     }
 
     // 2. Fallback: regex from raw markdown
-    return this.extractHeadingsFromMarkdown(bookId);
+    return this.extractHeadingsFromMarkdown(sourceId);
   }
 
   /**
@@ -426,11 +447,11 @@ export class LibraryService {
    * Used as fallback when no outline Navigation Map is available.
    */
   private async extractHeadingsFromMarkdown(
-    bookId: string,
+    sourceId: string,
   ): Promise<Array<{ line: number; level: number; title: string }> | null> {
     const candidateDirs = [
-      join(this.libraryPath, bookId, "markdown"),
-      join(this.userBooksPath, bookId, "markdown"),
+      join(this.libraryPath, sourceId, "markdown"),
+      join(this.userBooksPath, sourceId, "markdown"),
     ];
 
     for (const mdDir of candidateDirs) {
@@ -535,11 +556,11 @@ export class LibraryService {
   }
 
   /**
-   * Parse a book's outline.md, preferring the Navigation Map code block
+   * Parse a source's outline.md, preferring the Navigation Map code block
    * (L-prefixed line entries) produced by the book-outline skill.
    * Falls back to extracting headings from the outline markdown itself.
    */
-  private parseOutline(bookId: string, content: string): BookOutline {
+  private parseOutline(sourceId: string, content: string): SourceOutline {
     const lines = content.split("\n");
 
     // 1. Try to extract from Navigation Map code block (L<line> format)
@@ -548,7 +569,7 @@ export class LibraryService {
     if (navMapEntries.length > 0) {
       const root = this.buildOutlineTree(navMapEntries);
       return {
-        bookId,
+        sourceId,
         summary: this.extractSummary(lines),
         entries: root,
       };
@@ -570,7 +591,7 @@ export class LibraryService {
 
     const root = this.buildOutlineTree(entries);
     return {
-      bookId,
+      sourceId,
       summary: this.extractSummary(lines),
       entries: root,
     };

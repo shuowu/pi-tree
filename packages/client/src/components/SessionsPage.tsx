@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
-import type { BookSession } from "@pi-tree/shared";
+import type { SourceSession } from "@pi-tree/shared";
 import type { SessionMode } from "./WelcomeState";
 import { fetchSessions, createSession, updateSession, deleteSession } from "../api";
 import { useUser } from "../UserContext";
 import { SessionPicker } from "./SessionPicker";
-import { useBook } from "./BookLayout";
+import { useSource } from "./BookLayout";
 import { Breadcrumb } from "@pi-tree/ui";
 import { Home } from "lucide-react";
 import "./SessionsPage.css";
@@ -13,13 +13,14 @@ import "./SessionsPage.css";
 const MODE_TITLES: Record<SessionMode, string> = {
   reading: "Interactive Reading",
   qa: "Freeform Q&A",
+  news: "News & Trends Scanner",
 };
 
 export function SessionsPage() {
-  const book = useBook();
+  const source = useSource();
   const { userId } = useUser();
   const navigate = useNavigate();
-  const [sessions, setSessions] = useState<BookSession[]>([]);
+  const [sessions, setSessions] = useState<SourceSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function SessionsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const list = await fetchSessions(userId, book.id);
+        const list = await fetchSessions(userId, source.id);
         if (!cancelled) setSessions(list);
       } catch {
         // If fetch fails, start with empty list
@@ -37,10 +38,10 @@ export function SessionsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [userId, book.id]);
+  }, [userId, source.id]);
 
-  const handleSelectSession = (session: BookSession) => {
-    navigate(`/book/${book.id}?session=${session.id}`);
+  const handleSelectSession = (session: SourceSession) => {
+    navigate(`/source/${source.id}?session=${session.id}`);
   };
 
   const handleNewSession = async (mode: SessionMode) => {
@@ -48,8 +49,8 @@ export function SessionsPage() {
     setIsLoading(true);
     try {
       const title = MODE_TITLES[mode];
-      const newSession = await createSession(userId, book.id, title, { mode });
-      navigate(`/book/${book.id}?session=${newSession.id}&new=${mode}`);
+      const newSession = await createSession(userId, source.id, title, { mode });
+      navigate(`/source/${source.id}?session=${newSession.id}&new=${mode}`);
     } catch {
       setIsLoading(false);
     }
@@ -58,7 +59,7 @@ export function SessionsPage() {
   const handleDeleteSession = async (sessionId: number) => {
     if (!userId) return;
     try {
-      await deleteSession(userId, book.id, sessionId);
+      await deleteSession(userId, source.id, sessionId);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
     } catch {
       // Silently fail — session may already be deleted
@@ -68,7 +69,7 @@ export function SessionsPage() {
   const handleRenameSession = async (sessionId: number, newTitle: string) => {
     if (!userId) return;
     try {
-      await updateSession(userId, book.id, sessionId, { title: newTitle });
+      await updateSession(userId, source.id, sessionId, { title: newTitle });
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s)),
       );
@@ -86,13 +87,13 @@ export function SessionsPage() {
       <Breadcrumb
         items={[]}
         onNavigate={() => {}}
-        bookTitle={book.title}
+        bookTitle={source.title}
         isScoped={false}
         panelToggles={panelToggles}
       />
 
       <SessionPicker
-        book={book}
+        source={source}
         sessions={sessions}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}

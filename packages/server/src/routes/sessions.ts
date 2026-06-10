@@ -1,5 +1,5 @@
 /**
- * Session CRUD routes — manage multiple sessions per user+book.
+ * Session CRUD routes — manage multiple sessions per user+source.
  *
  * Mounted at `/api/sessions/` (plural) — separate from the existing
  * `/api/session/` (singular) which handles real-time session interaction.
@@ -10,23 +10,23 @@
 
 import { Hono } from "hono";
 import { eq, and, desc } from "drizzle-orm";
-import { getDb, userBookSessions } from "../db/index.js";
+import { getDb, userSessions, users } from "../db/index.js";
 import { closeSession } from "../services/session-store.js";
-import type { BookSession, SessionContext } from "@pi-tree/shared";
+import type { SourceSession, SessionContext } from "@pi-tree/shared";
 
 export const sessionCrudRoutes = new Hono();
 
 /**
- * Parse a DB row into a BookSession API response object.
+ * Parse a DB row into a SourceSession API response object.
  */
-function rowToBookSession(row: {
+function rowToSourceSession(row: {
   id: number;
   title: string;
   context: string;
   createdAt: string;
   lastActiveAt: string;
   isActive: number;
-}): BookSession {
+}): SourceSession {
   let context: SessionContext;
   try {
     context = JSON.parse(row.context) as SessionContext;
@@ -44,38 +44,38 @@ function rowToBookSession(row: {
 }
 
 // ---------------------------------------------------------------------------
-// GET /sessions/:userId/:bookId — list all sessions for a user+book
+// GET /sessions/:userId/:sourceId — list all sessions for a user+source
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.get("/:userId/:bookId", (c) => {
+sessionCrudRoutes.get("/:userId/:sourceId", (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
 
   const db = getDb();
   const rows = db
     .select()
-    .from(userBookSessions)
+    .from(userSessions)
     .where(
       and(
-        eq(userBookSessions.userId, userId),
-        eq(userBookSessions.bookId, bookId),
-        eq(userBookSessions.isActive, 1),
+        eq(userSessions.userId, userId),
+        eq(userSessions.sourceId, sourceId),
+        eq(userSessions.isActive, 1),
       ),
     )
-    .orderBy(desc(userBookSessions.lastActiveAt))
+    .orderBy(desc(userSessions.lastActiveAt))
     .all();
 
-  const sessions: BookSession[] = rows.map(rowToBookSession);
+  const sessions: SourceSession[] = rows.map(rowToSourceSession);
   return c.json({ sessions });
 });
 
 // ---------------------------------------------------------------------------
-// POST /sessions/:userId/:bookId — create a new session
+// POST /sessions/:userId/:sourceId — create a new session
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.post("/:userId/:bookId", async (c) => {
+sessionCrudRoutes.post("/:userId/:sourceId", async (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
   const body = await c.req.json<{
     title: string;
     context?: SessionContext;
@@ -85,11 +85,20 @@ sessionCrudRoutes.post("/:userId/:bookId", async (c) => {
   const now = new Date().toISOString();
 
   const db = getDb();
+
+  // Auto-create user if not present (mirrors TreeManager.ensureUser)
+  const existingUser = db.select().from(users).where(eq(users.id, userId)).get();
+  if (!existingUser) {
+    db.insert(users)
+      .values({ id: userId, displayName: userId, createdAt: now, updatedAt: now })
+      .run();
+  }
+
   const result = db
-    .insert(userBookSessions)
+    .insert(userSessions)
     .values({
       userId,
-      bookId,
+      sourceId,
       title: body.title,
       context: JSON.stringify(context),
       sessionFile: "", // Will be set on first loadOrCreate
@@ -103,24 +112,24 @@ sessionCrudRoutes.post("/:userId/:bookId", async (c) => {
   const newId = Number(result.lastInsertRowid);
   const row = db
     .select()
-    .from(userBookSessions)
-    .where(eq(userBookSessions.id, newId))
+    .from(userSessions)
+    .where(eq(userSessions.id, newId))
     .get();
 
   if (!row) {
     return c.json({ error: "Failed to create session" }, 500);
   }
 
-  return c.json(rowToBookSession(row), 201);
+  return c.json(rowToSourceSession(row), 201);
 });
 
 // ---------------------------------------------------------------------------
-// PUT /sessions/:userId/:bookId/:sessionId — update session metadata
+// PUT /sessions/:userId/:sourceId/:sessionId — update session metadata
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.put("/:userId/:bookId/:sessionId", async (c) => {
+sessionCrudRoutes.put("/:userId/:sourceId/:sessionId", async (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
   const sessionId = Number(c.req.param("sessionId"));
   const body = await c.req.json<{
     title?: string;
@@ -140,13 +149,13 @@ sessionCrudRoutes.put("/:userId/:bookId/:sessionId", async (c) => {
   }
 
   const db = getDb();
-  db.update(userBookSessions)
+  db.update(userSessions)
     .set(updates)
     .where(
       and(
-        eq(userBookSessions.id, sessionId),
-        eq(userBookSessions.userId, userId),
-        eq(userBookSessions.bookId, bookId),
+        eq(userSessions.id, sessionId),
+        eq(userSessions.userId, userId),
+        eq(userSessions.sourceId, sourceId),
       ),
     )
     .run();
@@ -155,28 +164,28 @@ sessionCrudRoutes.put("/:userId/:bookId/:sessionId", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /sessions/:userId/:bookId/:sessionId — soft-delete a session
+// DELETE /sessions/:userId/:sourceId/:sessionId — soft-delete a session
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.delete("/:userId/:bookId/:sessionId", (c) => {
+sessionCrudRoutes.delete("/:userId/:sourceId/:sessionId", (c) => {
   const userId = c.req.param("userId");
-  const bookId = c.req.param("bookId");
+  const sourceId = c.req.param("sourceId");
   const sessionId = Number(c.req.param("sessionId"));
 
   const db = getDb();
-  db.update(userBookSessions)
+  db.update(userSessions)
     .set({ isActive: 0 })
     .where(
       and(
-        eq(userBookSessions.id, sessionId),
-        eq(userBookSessions.userId, userId),
-        eq(userBookSessions.bookId, bookId),
+        eq(userSessions.id, sessionId),
+        eq(userSessions.userId, userId),
+        eq(userSessions.sourceId, sourceId),
       ),
     )
     .run();
 
   // Evict from memory
-  closeSession(userId, bookId, sessionId);
+  closeSession(userId, sourceId, sessionId);
 
   return c.json({ ok: true });
 });

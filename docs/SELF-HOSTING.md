@@ -11,8 +11,7 @@ This guide covers configuration, customization, and extending pi-tree for self-h
 | `PI_BASE_URL` | — | Custom base URL (for proxies or self-hosted models) |
 | `PI_MODEL` | — | Model ID for reading sessions (e.g., `claude-sonnet-4-20250514`) |
 | `PI_LOOKUP_MODEL` | — | Model ID for dictionary lookups (can be a cheaper/faster model) |
-| `LIBRARY_PATH` | `~/.local/share/pi-tree/library` | Path to your book library (read-only) |
-| `DATA_PATH` | `~/.local/share/pi-tree` | Mutable state: sessions, database, user skills |
+| `DATA_PATH` | `~/.local/share/pi-tree` | Root for all state: sessions, database, library, user skills |
 | `SKILLS_PATH` | `<DATA_PATH>/skills` | Custom skills directory |
 | `EXTENSIONS_PATH` | `<DATA_PATH>/extensions` | Custom extensions directory |
 | `PORT` | `3847` | Server port |

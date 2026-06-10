@@ -1,6 +1,9 @@
 import type { DictEntry } from "./DictionaryPanel";
 import { DictionaryPanel, DictQuickCard } from "./DictionaryPanel";
 import { BookContentPanel } from "./BookContentPanel";
+import { NewsDashboardPanel } from "./NewsDashboardPanel";
+import { getSourceTypeConfig } from "../source-types";
+import type { SourceType } from "@pi-tree/shared";
 import { X } from "lucide-react";
 
 interface RightPanelProps {
@@ -10,12 +13,14 @@ interface RightPanelProps {
   onClose: () => void;
   dictEntries: DictEntry[];
   onDictRemove: (id: string) => void;
-  bookId: string;
+  sourceId: string;
+  sourceType?: string;
   onDefine: (term: string, context?: string) => void;
   quickLookupId: string | null;
   onDismissQuickLookup: () => void;
   onGoToDict: () => void;
   onResizeStart: (e: React.MouseEvent) => void;
+  onSendMessage?: (message: string) => void;
 }
 
 export function RightPanel({
@@ -25,13 +30,17 @@ export function RightPanel({
   onClose,
   dictEntries,
   onDictRemove,
-  bookId,
+  sourceId,
+  sourceType,
   onDefine,
   quickLookupId,
   onDismissQuickLookup,
   onGoToDict,
   onResizeStart,
+  onSendMessage,
 }: RightPanelProps) {
+  const config = getSourceTypeConfig((sourceType as SourceType) ?? "book");
+
   return (
     <>
       {/* Right sidebar: always rendered, hidden via CSS to preserve nav state */}
@@ -52,7 +61,7 @@ export function RightPanel({
               className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
               onClick={() => onTabChange("book")}
             >
-              Book
+              {config.label}
             </button>
           </div>
           <button
@@ -68,18 +77,24 @@ export function RightPanel({
             <DictionaryPanel entries={dictEntries} onRemove={onDictRemove} />
           </div>
           <div style={{ display: rightTab === "book" ? "contents" : "none" }}>
-            <BookContentPanel bookId={bookId} onDefine={onDefine} />
-            {quickLookupId && (() => {
-              const entry = dictEntries.find((e) => e.id === quickLookupId);
-              if (!entry) return null;
-              return (
-                <DictQuickCard
-                  entry={entry}
-                  onDismiss={onDismissQuickLookup}
-                  onGoToDict={onGoToDict}
-                />
-              );
-            })()}
+            {!config.hasContentPanel ? (
+              <NewsDashboardPanel onDefine={onDefine} onSendMessage={onSendMessage} />
+            ) : (
+              <>
+                <BookContentPanel bookId={sourceId} onDefine={onDefine} />
+                {quickLookupId && (() => {
+                  const entry = dictEntries.find((e) => e.id === quickLookupId);
+                  if (!entry) return null;
+                  return (
+                    <DictQuickCard
+                      entry={entry}
+                      onDismiss={onDismissQuickLookup}
+                      onGoToDict={onGoToDict}
+                    />
+                  );
+                })()}
+              </>
+            )}
           </div>
         </div>
       </aside>

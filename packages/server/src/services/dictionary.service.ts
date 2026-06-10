@@ -72,17 +72,17 @@ export class DictionaryService {
   async streamLookup(
     term: string,
     opts: {
-      bookId?: string;
+      sourceId?: string;
       context?: string;
       onToken: (token: string) => Promise<void>;
     },
   ): Promise<string> {
-    const template = this.resolveLookupPrompt(opts.bookId);
-    const bookTitle = opts.bookId?.replace(/_/g, " ") ?? "";
+    const template = this.resolveLookupPrompt(opts.sourceId);
+    const sourceTitle = opts.sourceId?.replace(/_/g, " ") ?? "";
     const prompt = this.renderLookupTemplate(template, {
       term,
       context: opts.context,
-      bookTitle,
+      bookTitle: sourceTitle,
     });
 
     let agent: AgentSession | null = null;
@@ -128,14 +128,14 @@ export class DictionaryService {
    *   3. Project default:         packages/server/prompts/dictionary-prompt.md
    *   4. Compiled-in fallback:    minimal inline string (last resort)
    */
-  private resolveLookupPrompt(bookId?: string): string {
+  private resolveLookupPrompt(sourceId?: string): string {
     const dataPath =
       process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-tree");
 
     // Per-book user override
-    if (bookId) {
-      const bookPromptPath = join(dataPath, "books", bookId, "dictionary-prompt.md");
-      const loaded = this.tryReadPromptFile(bookPromptPath);
+    if (sourceId) {
+      const sourcePromptPath = join(dataPath, "books", sourceId, "dictionary-prompt.md");
+      const loaded = this.tryReadPromptFile(sourcePromptPath);
       if (loaded) return loaded;
     }
 
@@ -222,7 +222,7 @@ export class DictionaryService {
 
   async saveGlossaryEntry(
     userId: string,
-    bookId: string,
+    sourceId: string,
     term: string,
     definition?: string,
   ): Promise<void> {
@@ -233,7 +233,7 @@ export class DictionaryService {
     db.insert(glossaryEntries)
       .values({
         userId,
-        bookId,
+        sourceId,
         term,
         definition: definition ?? null,
         createdAt: now,
@@ -243,7 +243,7 @@ export class DictionaryService {
 
   getGlossaryEntries(
     userId: string,
-    bookId: string,
+    sourceId: string,
   ): Array<{
     id: number;
     term: string;
@@ -257,7 +257,7 @@ export class DictionaryService {
       .where(
         and(
           eq(glossaryEntries.userId, userId),
-          eq(glossaryEntries.bookId, bookId),
+          eq(glossaryEntries.sourceId, sourceId),
         ),
       )
       .orderBy(desc(glossaryEntries.createdAt))

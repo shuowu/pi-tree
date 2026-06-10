@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, FileText, X, Loader2, Check } from "lucide-react";
-import { uploadBook } from "../api";
+import { uploadSource } from "../api";
 import "./AddBookModal.css";
 
 interface AddBookModalProps {
@@ -79,7 +79,7 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
     setUploading(true);
     setError(null);
     try {
-      await uploadBook(file, {
+      await uploadSource(file, {
         title: title.trim(),
         author: author.trim(),
         year: year ? Number(year) : undefined,

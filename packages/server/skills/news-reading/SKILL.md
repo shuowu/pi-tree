@@ -1,0 +1,76 @@
+---
+name: news-reading
+description: AI-assisted news reading and trend analysis using tree-structured conversations. Handles daily briefings, category filtering, keyword searches, article reading, and report saving.
+---
+
+# News Reading & Trend Analysis
+
+AI-assisted news aggregation, trend analysis, and story deep-dives using tree-structured conversations.
+
+## IMPORTANT: Always Use Tools
+
+**You MUST use the RSS tools below to fetch and analyze news data.** Do NOT browse the filesystem to check for articles or RSS configuration. The tools handle all RSS data access.
+
+## Core RSS Tools
+
+You have access to these native news tools:
+- `get_rss_feeds_status()` — Check feed configurations and last fetch status.
+- `trigger_rss_refresh()` — Fetch latest items from all RSS feeds.
+- `get_latest_rss(feeds, days, limit)` — Retrieve chronological RSS items.
+- `search_rss(keyword, feeds, days, limit)` — Substring search feed titles and summaries.
+- `aggregate_rss(feeds, days, similarity_threshold, limit)` — Group and deduplicate stories across feeds.
+- `read_article(url)` — Fetch clean Markdown content from an article URL.
+- `save_news_analysis(title, content, type)` — Save the markdown report to the local filesystem.
+
+---
+
+## Workflow
+
+### Step 1: Pre-flight Freshness Check
+
+On **every** session start or user request for news, **immediately** call the tools — do NOT read the filesystem:
+1. Call `get_rss_feeds_status()` to inspect status.
+2. If the last crawl was >1 hour old or no items are present, call `trigger_rss_refresh()` to fetch fresh RSS entries.
+3. Wait for the stats response, then proceed.
+
+### Step 2: Determine Tree Node Context
+
+Your behavior adapts automatically depending on where you are in the conversation tree:
+
+#### Context A: Root Node (The Broad Scan)
+If the user starts the session or asks for a general update:
+1. Call `aggregate_rss(days=2, similarity_threshold=0.80, limit=40)` to scan and group stories across feeds.
+2. Categorize the grouped stories into sections:
+   - **Breaking / Major** — Stories covered by multiple sources.
+   - **AI & Machine Learning** — New models, research, tools, and industry moves.
+   - **Developer & Open Source** — Frameworks, libraries, trending repos.
+   - **Big Tech** — Google, Apple, Microsoft, Meta, etc.
+   - **Startup & VC** — Notable fundings, exits, founder moves.
+3. Present a concise briefing (1-2 sentences per story) showing source counts, and invite the user to pick an angle to branch into.
+
+**Citation format**: For every story, include inline source links using markdown. The `sources` array from `aggregate_rss` contains `url` and `feedName` for each article. Format citations like:
+
+- **Story headline** — 1-2 sentence summary. *[Source1](url1), [Source2](url2)*
+
+For single-source stories: *[TechCrunch](https://techcrunch.com/...)*
+For multi-source stories: *[Hacker News](https://...), [TechCrunch](https://...)*
+
+#### Context B: Branch Nodes (The Deep Dives)
+If the user asks to go deeper on a story, or if the system creates a branch:
+1. Run targeted searches: `search_rss(keyword=...)` with specific keywords.
+2. If the user points to a specific URL or article, call `read_article(url=...)` to retrieve the full-text content.
+3. Synthesize the findings:
+   - What the story is about.
+   - Key drivers and timeline.
+   - Sentiment snapshot (overall tone in the community/outlets).
+   - Practical or investment implications.
+4. Present the analysis and answer follow-up questions within the branch.
+
+### Step 3: Save Analyses on Request
+
+If the user says "save this", "write it up", or similar:
+1. Call `save_news_analysis` with:
+   - `title`: A slug-friendly title (e.g., "OpenAI Search Launch").
+   - `content`: The complete synthesized Markdown report.
+   - `type`: Use "summaries" for root-level briefings, and "analyses" for deep-dive branches.
+2. Confirm the saved file path to the user.
