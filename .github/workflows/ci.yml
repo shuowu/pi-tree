@@ -29,6 +29,13 @@ jobs:
           DATA_PATH: /tmp/pi-tree-ci
           LIBRARY_PATH: /tmp/pi-tree-ci-library
 
+      # Layer 3: Playwright E2E (Dev Services)
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests (Dev Services)
+        run: npm run e2e -- --project=chromium
+
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -83,7 +90,7 @@ jobs:
           curl -sf http://localhost:3847/ | grep '</html>'
           echo "✓ Frontend HTML served"
 
-      # Layer 3: Playwright E2E (piggyback on running container)
+      # Layer 4: Playwright E2E Smoke Test (piggyback on running container)
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -94,7 +101,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: E2E smoke test
-        run: npm run e2e -- --project=chromium
+        run: npx playwright test e2e/smoke.spec.ts --project=chromium
         env:
           BASE_URL: http://localhost:3847
 
