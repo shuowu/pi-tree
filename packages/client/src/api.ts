@@ -331,7 +331,7 @@ export async function resetSession(userId: string, sourceId: string, sessionId: 
 }
 
 export async function fetchRouterSession(userId: string): Promise<{ sessionId: number; sourceId: string }> {
-  const res = await fetch(`${API}/router/session/${userId}`);
+  const res = await fetch(`${API}/router/session/${encodeURIComponent(userId)}`);
   if (!res.ok) throw new Error(`Failed to get router session: ${res.status}`);
   return res.json();
 }
