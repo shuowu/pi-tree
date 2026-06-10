@@ -56,7 +56,7 @@ export const SESSION_PROFILES: Record<string, SessionProfile> = {
   "router": {
     label: "Session Router",
     skills: ["session-router"],
-    extensions: ["library", "mcp"],
+    extensions: ["library"],
     excludeTools: ["bash", "edit"],
   },
 

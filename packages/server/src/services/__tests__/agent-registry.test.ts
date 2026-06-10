@@ -242,7 +242,7 @@ describe("AgentRegistry", () => {
 
       expect(profile.resolvedFrom).toBe("router");
       expect(profile.skills).toEqual(["session-router"]);
-      expect(profile.extensions).toEqual(["library", "mcp"]);
+      expect(profile.extensions).toEqual(["library"]);
     });
 
     it("falls back to sourceType-level profile when mode not found", () => {
