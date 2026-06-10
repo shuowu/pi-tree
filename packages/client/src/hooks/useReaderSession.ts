@@ -465,7 +465,7 @@ export function useReaderSession(
       setIsLoading(true);
       try {
         // Fetch sessions list (for session label in breadcrumb)
-        const sessionsList = await fetchSessions(userId, source.id);
+        const { sessions: sessionsList } = await fetchSessions(userId, { source: source.id });
         setSessions(sessionsList);
 
         // Load the session

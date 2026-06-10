@@ -10,7 +10,6 @@ import type {
   SourceSession,
   SessionContext,
   UserInfo,
-  RecentSession,
   SourceType,
 } from "@pi-tree/shared";
 
@@ -219,35 +218,26 @@ export async function fetchJobs(): Promise<JobWithSource[]> {
   const data = await res.json();
   return data.jobs || [];
 }
-
-export async function fetchRecentSessions(
+/**
+ * Fetch sessions — unified endpoint.
+ *
+ * Without `source`: cross-source recent sessions (home page).
+ * With `source`: scoped to a specific source (session picker).
+ */
+export async function fetchSessions(
   userId: string,
-  opts?: { limit?: number; offset?: number; search?: string },
-): Promise<{ sessions: RecentSession[]; hasMore: boolean }> {
+  opts?: { source?: string; limit?: number; offset?: number; search?: string },
+): Promise<{ sessions: SourceSession[]; hasMore: boolean }> {
   const params = new URLSearchParams();
+  if (opts?.source) params.set('source', opts.source);
   if (opts?.limit) params.set('limit', String(opts.limit));
   if (opts?.offset) params.set('offset', String(opts.offset));
   if (opts?.search) params.set('search', opts.search);
   const qs = params.toString();
-  const res = await fetch(`${API}/sessions/${userId}/recent${qs ? `?${qs}` : ''}`);
-  if (!res.ok) throw new Error(`Failed to fetch recent sessions: ${res.status}`);
-  const data = await res.json();
-  return { sessions: data.sessions, hasMore: data.hasMore ?? false };
-}
-
-
-// ---------------------------------------------------------------------------
-// Session Management (CRUD) — multi-session per source
-// ---------------------------------------------------------------------------
-
-/**
- * Fetch all sessions for a user+source pair.
- */
-export async function fetchSessions(userId: string, sourceId: string): Promise<SourceSession[]> {
-  const res = await fetch(`${API}/sessions/${userId}/${sourceId}`);
+  const res = await fetch(`${API}/sessions/${userId}${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.status}`);
   const data = await res.json();
-  return data.sessions;
+  return { sessions: data.sessions ?? [], hasMore: data.hasMore ?? false };
 }
 
 /**

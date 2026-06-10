@@ -64,6 +64,9 @@ export interface SessionContext {
 /**
  * A session record as returned by the session management API.
  * One user+source pair can have many SourceSessions.
+ *
+ * When returned from cross-source queries (e.g. recent sessions),
+ * the optional source fields are populated.
  */
 export interface SourceSession {
   id: number;
@@ -72,23 +75,21 @@ export interface SourceSession {
   createdAt: string;
   lastActiveAt: string;
   isActive: boolean;
+  /** Populated in cross-source queries */
+  sourceId?: string;
+  /** Populated in cross-source queries */
+  sourceTitle?: string;
+  /** Populated in cross-source queries */
+  sourceType?: SourceType;
+  /** Populated in cross-source queries */
+  hasCover?: boolean;
 }
 
 /**
- * A session enriched with its parent source info.
- * Returned by the cross-source recent sessions endpoint
- * (`GET /api/sessions/:userId/recent`).
+ * @deprecated Use `SourceSession` with source fields populated instead.
+ * Kept temporarily for backward compatibility.
  */
-export interface RecentSession {
-  sessionId: number;
-  sessionTitle: string;
-  sourceId: string;
-  sourceTitle: string;
-  sourceType: SourceType;
-  mode: string;
-  lastActiveAt: string;
-  hasCover: boolean;
-}
+export type RecentSession = SourceSession;
 
 // ---------------------------------------------------------------------------
 // Topic Node — the universal tree node

@@ -1,47 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import type { Source, SourceSession } from "@pi-tree/shared";
 import type { SessionMode } from "./WelcomeState";
-import { BookOpen, MessageCircle, Newspaper, Plus, Trash2, Pencil, Check, X, Search, TrendingUp, Filter, Sparkles } from "lucide-react";
+import { BookOpen, MessageCircle, Newspaper, Plus, Search, TrendingUp, Filter, Sparkles } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
+import { SessionList } from "./SessionList";
 import { CustomTriggerModal } from "./CustomTriggerModal";
 import "./SessionPicker.css";
-
-// ---------------------------------------------------------------------------
-// Relative time formatting
-// ---------------------------------------------------------------------------
-
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-
-  if (diffMs < 0) return "just now";
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return "just now";
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-
-  const years = Math.floor(months / 12);
-  return `${years}y ago`;
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Mode icon helper
@@ -86,9 +50,6 @@ export function SessionPicker({
   isLoading,
 }: SessionPickerProps) {
   const [showNewSessionOptions, setShowNewSessionOptions] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [scanKeyword, setScanKeyword] = useState("");
   const [customTriggers, setCustomTriggers] = useState<Array<{
     id: string;
@@ -124,45 +85,11 @@ export function SessionPicker({
     });
   };
 
-  const editInputRef = useRef<HTMLInputElement>(null);
-
-  // Sort sessions: most recently active first
-  const sorted = [...sessions].sort(
-    (a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime(),
-  );
-
   // If no sessions exist at all, jump straight to mode selection
   const showOnlyNewSession = sessions.length === 0;
 
-  useEffect(() => {
-    if (editingId !== null && editInputRef.current) {
-      editInputRef.current.focus();
-      editInputRef.current.select();
-    }
-  }, [editingId]);
-
-  const startRename = (session: SourceSession) => {
-    setEditingId(session.id);
-    setEditValue(session.title);
-  };
-
-  const commitRename = () => {
-    if (editingId !== null && editValue.trim()) {
-      onRenameSession(editingId, editValue.trim());
-    }
-    setEditingId(null);
-    setEditValue("");
-  };
-
-  const cancelRename = () => {
-    setEditingId(null);
-    setEditValue("");
-  };
-
-  const confirmDelete = (sessionId: number) => {
-    onDeleteSession(sessionId);
-    setDeletingId(null);
-  };
+  /** Render mode icon for SessionList */
+  const renderModeIcon = (session: SourceSession) => modeIcon(session.context.mode);
 
   return (
     <div className={`session-picker ${source.type === 'news' ? 'news-layout' : ''}`}>
@@ -362,101 +289,15 @@ export function SessionPicker({
                 <p className="session-picker-prompt" style={{ marginTop: "var(--space-3)" }}>
                   Recent Sessions
                 </p>
-                <div className="session-picker-list">
-                  {sorted.map((session) => (
-                    <div
-                      key={session.id}
-                      className={`session-card ${deletingId === session.id ? "session-card-deleting" : ""}`}
-                    >
-                      {deletingId === session.id ? (
-                        <div className="session-card-delete-confirm">
-                          <p>Delete this session? All conversation history will be lost.</p>
-                          <div className="session-card-delete-actions">
-                            <button
-                              className="session-card-delete-yes"
-                              onClick={() => confirmDelete(session.id)}
-                            >
-                              Delete
-                            </button>
-                            <button
-                              className="session-card-delete-no"
-                              onClick={() => setDeletingId(null)}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="session-card-icon">
-                            {modeIcon(session.context.mode)}
-                          </div>
-                          <div className="session-card-body">
-                            {editingId === session.id ? (
-                              <div className="session-card-edit-row">
-                                <input
-                                  ref={editInputRef}
-                                  className="session-card-edit-input"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") commitRename();
-                                    if (e.key === "Escape") cancelRename();
-                                  }}
-                                  onBlur={commitRename}
-                                />
-                                <button
-                                  className="session-card-edit-btn"
-                                  onClick={commitRename}
-                                  title="Save"
-                                >
-                                  <Check size={14} />
-                                </button>
-                                <button
-                                  className="session-card-edit-btn"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={cancelRename}
-                                  title="Cancel"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="session-card-title">{session.title}</span>
-                            )}
-                            <span className="session-card-meta">
-                              Started {formatDate(session.createdAt)} · Last active{" "}
-                              {relativeTime(session.lastActiveAt)}
-                            </span>
-                          </div>
-                          <div className="session-card-actions">
-                            <button
-                              className="session-card-action-btn"
-                              onClick={(e) => { e.stopPropagation(); startRename(session); }}
-                              title="Rename session"
-                            >
-                              <Pencil size={13} />
-                            </button>
-                            <button
-                              className="session-card-action-btn session-card-action-delete"
-                              onClick={(e) => { e.stopPropagation(); setDeletingId(session.id); }}
-                              title="Delete session"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                            <button
-                              className="session-card-resume-btn"
-                              onClick={() => onSelectSession(session)}
-                              disabled={isLoading}
-                            >
-                              Resume
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <SessionList
+                  sessions={sessions}
+                  renderIcon={renderModeIcon}
+                  onSelectSession={onSelectSession}
+                  onDeleteSession={onDeleteSession}
+                  onRenameSession={onRenameSession}
+                  isLoading={isLoading}
+                  className="session-picker-list"
+                />
               </>
             )}
           </>
@@ -509,101 +350,15 @@ export function SessionPicker({
               {/* Existing sessions list */}
               <p className="session-picker-prompt">Your Reading Sessions</p>
 
-              <div className="session-picker-list">
-                {sorted.map((session) => (
-                  <div
-                    key={session.id}
-                    className={`session-card ${deletingId === session.id ? "session-card-deleting" : ""}`}
-                  >
-                    {deletingId === session.id ? (
-                      <div className="session-card-delete-confirm">
-                        <p>Delete this session? All conversation history will be lost.</p>
-                        <div className="session-card-delete-actions">
-                          <button
-                            className="session-card-delete-yes"
-                            onClick={() => confirmDelete(session.id)}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            className="session-card-delete-no"
-                            onClick={() => setDeletingId(null)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="session-card-icon">
-                          {modeIcon(session.context.mode)}
-                        </div>
-                        <div className="session-card-body">
-                          {editingId === session.id ? (
-                            <div className="session-card-edit-row">
-                              <input
-                                ref={editInputRef}
-                                className="session-card-edit-input"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") commitRename();
-                                  if (e.key === "Escape") cancelRename();
-                                }}
-                                onBlur={commitRename}
-                              />
-                              <button
-                                className="session-card-edit-btn"
-                                onClick={commitRename}
-                                title="Save"
-                              >
-                                <Check size={14} />
-                              </button>
-                              <button
-                                className="session-card-edit-btn"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={cancelRename}
-                                title="Cancel"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="session-card-title">{session.title}</span>
-                          )}
-                          <span className="session-card-meta">
-                            Started {formatDate(session.createdAt)} · Last active{" "}
-                            {relativeTime(session.lastActiveAt)}
-                          </span>
-                        </div>
-                        <div className="session-card-actions">
-                          <button
-                            className="session-card-action-btn"
-                            onClick={(e) => { e.stopPropagation(); startRename(session); }}
-                            title="Rename session"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            className="session-card-action-btn session-card-action-delete"
-                            onClick={(e) => { e.stopPropagation(); setDeletingId(session.id); }}
-                            title="Delete session"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                          <button
-                            className="session-card-resume-btn"
-                            onClick={() => onSelectSession(session)}
-                            disabled={isLoading}
-                          >
-                            Resume
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <SessionList
+                sessions={sessions}
+                renderIcon={renderModeIcon}
+                onSelectSession={onSelectSession}
+                onDeleteSession={onDeleteSession}
+                onRenameSession={onRenameSession}
+                isLoading={isLoading}
+                className="session-picker-list"
+              />
 
               {/* New session button / mode picker */}
               {showNewSessionOptions ? (

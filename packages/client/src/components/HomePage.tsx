@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
-import type { RecentSession } from "@pi-tree/shared";
-import { fetchRecentSessions } from "../api";
+import type { SourceSession } from "@pi-tree/shared";
+import { fetchSessions } from "../api";
 import { useUser } from "../UserContext";
 import { TreePine, LogOut, Search } from "lucide-react";
 import { RouterChat } from "./RouterChat";
@@ -50,7 +50,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
   const greeting = useMemo(() => getGreeting(), []);
 
   // Continue section state
-  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
+  const [recentSessions, setRecentSessions] = useState<SourceSession[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const PAGE_SIZE = 5;
@@ -59,7 +59,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
     if (!userId) return;
     if (!append) setRecentLoading(true);
     try {
-      const { sessions, hasMore: more } = await fetchRecentSessions(userId, {
+      const { sessions, hasMore: more } = await fetchSessions(userId, {
         limit: PAGE_SIZE,
         offset,
       });
@@ -132,19 +132,19 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
           <span className="home-continue-title">Continue</span>
           <div className="home-continue-list">
             {recentSessions.map((rs) => {
-              const config = getSourceTypeConfig(rs.sourceType);
+              const config = getSourceTypeConfig(rs.sourceType ?? 'book');
               const Icon = config.icon;
               return (
                 <button
-                  key={`${rs.sourceId}-${rs.sessionId}`}
+                  key={`${rs.sourceId}-${rs.id}`}
                   className="home-continue-item"
-                  onClick={() => navigate(`/source/${rs.sourceId}?session=${rs.sessionId}`)}
+                  onClick={() => navigate(`/source/${rs.sourceId}?session=${rs.id}`)}
                 >
                   <div className="home-continue-item-icon">
                     <Icon size={16} />
                   </div>
                   <div className="home-continue-item-text">
-                    <span className="home-continue-item-session">{rs.sessionTitle}</span>
+                    <span className="home-continue-item-session">{rs.title}</span>
                     <span className="home-continue-item-source">{rs.sourceTitle}</span>
                   </div>
                   <span className="home-continue-item-time">{timeAgo(rs.lastActiveAt)}</span>

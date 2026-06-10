@@ -12,12 +12,12 @@ import { Hono } from "hono";
 import { eq, and, not, desc, like, or, sql } from "drizzle-orm";
 import { getDb, userSessions, users, sources } from "../db/index.js";
 import { closeSession } from "../services/session-store.js";
-import type { SourceSession, SessionContext, RecentSession } from "@pi-tree/shared";
+import type { SourceSession, SessionContext } from "@pi-tree/shared";
 
 export const sessionCrudRoutes = new Hono();
 
 /**
- * Parse a DB row into a SourceSession API response object.
+ * Parse a DB row (with joined source info) into a SourceSession API response.
  */
 function rowToSourceSession(row: {
   id: number;
@@ -26,6 +26,9 @@ function rowToSourceSession(row: {
   createdAt: string;
   lastActiveAt: string;
   isActive: number;
+  sourceId?: string;
+  sourceTitle?: string;
+  sourceType?: string;
 }): SourceSession {
   let context: SessionContext;
   try {
@@ -40,17 +43,29 @@ function rowToSourceSession(row: {
     createdAt: row.createdAt,
     lastActiveAt: row.lastActiveAt,
     isActive: row.isActive === 1,
+    sourceId: row.sourceId,
+    sourceTitle: row.sourceTitle,
+    sourceType: row.sourceType as SourceSession["sourceType"],
   };
 }
 
 // ---------------------------------------------------------------------------
-// GET /sessions/:userId/recent — cross-source recent sessions (home page)
+// GET /sessions/:userId — unified session list
+//
+// Query params:
+//   source  — optional source ID filter (omit for cross-source)
+//   limit   — optional, default 50, max 100
+//   offset  — optional, default 0
+//   search  — optional text search (matches session title or source title)
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.get("/:userId/recent", (c) => {
+sessionCrudRoutes.get("/:userId", (c) => {
+  // Guard: don't match if this looks like a sourceId path segment
+  // (handled by the legacy /:userId/:sourceId route below)
   const userId = c.req.param("userId");
-  const limitParam = Math.min(Number(c.req.query("limit") ?? 8), 50);
-  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 8;
+  const sourceFilter = c.req.query("source")?.trim();
+  const limitParam = Math.min(Number(c.req.query("limit") ?? 50), 100);
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 50;
   const offsetParam = Number(c.req.query("offset") ?? 0);
   const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
   const search = c.req.query("search")?.trim();
@@ -62,6 +77,10 @@ sessionCrudRoutes.get("/:userId/recent", (c) => {
     eq(userSessions.isActive, 1),
     not(eq(sources.type, "router")),
   ];
+
+  if (sourceFilter) {
+    conditions.push(eq(userSessions.sourceId, sourceFilter));
+  }
 
   if (search) {
     const pattern = `%${search}%`;
@@ -78,11 +97,12 @@ sessionCrudRoutes.get("/:userId/recent", (c) => {
       id: userSessions.id,
       title: userSessions.title,
       context: userSessions.context,
+      createdAt: userSessions.createdAt,
       lastActiveAt: userSessions.lastActiveAt,
+      isActive: userSessions.isActive,
       sourceId: sources.id,
       sourceTitle: sources.title,
       sourceType: sources.type,
-      coverUrl: sources.coverUrl,
     })
     .from(userSessions)
     .innerJoin(sources, eq(userSessions.sourceId, sources.id))
@@ -95,31 +115,13 @@ sessionCrudRoutes.get("/:userId/recent", (c) => {
   const hasMore = rows.length > limit;
   const sliced = hasMore ? rows.slice(0, limit) : rows;
 
-  const sessions: RecentSession[] = sliced.map((row) => {
-    let mode = "reading";
-    try {
-      const ctx = JSON.parse(row.context) as SessionContext;
-      mode = ctx.mode ?? "reading";
-    } catch {
-      // default to reading
-    }
-    return {
-      sessionId: row.id,
-      sessionTitle: row.title,
-      sourceId: row.sourceId,
-      sourceTitle: row.sourceTitle,
-      sourceType: row.sourceType as RecentSession["sourceType"],
-      mode,
-      lastActiveAt: row.lastActiveAt,
-      hasCover: false,
-    };
-  });
-
+  const sessions: SourceSession[] = sliced.map(rowToSourceSession);
   return c.json({ sessions, hasMore });
 });
 
 // ---------------------------------------------------------------------------
-// GET /sessions/:userId/:sourceId — list all sessions for a user+source
+// Legacy: GET /sessions/:userId/:sourceId — redirects to unified endpoint
+// Kept for backward compatibility; new code should use ?source= query param.
 // ---------------------------------------------------------------------------
 
 sessionCrudRoutes.get("/:userId/:sourceId", (c) => {
@@ -128,8 +130,19 @@ sessionCrudRoutes.get("/:userId/:sourceId", (c) => {
 
   const db = getDb();
   const rows = db
-    .select()
+    .select({
+      id: userSessions.id,
+      title: userSessions.title,
+      context: userSessions.context,
+      createdAt: userSessions.createdAt,
+      lastActiveAt: userSessions.lastActiveAt,
+      isActive: userSessions.isActive,
+      sourceId: sources.id,
+      sourceTitle: sources.title,
+      sourceType: sources.type,
+    })
     .from(userSessions)
+    .innerJoin(sources, eq(userSessions.sourceId, sources.id))
     .where(
       and(
         eq(userSessions.userId, userId),

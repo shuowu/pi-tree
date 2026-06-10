@@ -29,7 +29,7 @@ export function SessionsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const list = await fetchSessions(userId, source.id);
+        const { sessions: list } = await fetchSessions(userId, { source: source.id });
         if (!cancelled) setSessions(list);
       } catch {
         // If fetch fails, start with empty list

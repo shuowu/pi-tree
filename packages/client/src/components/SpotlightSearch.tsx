@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router";
-import type { Source, RecentSession } from "@pi-tree/shared";
-import { fetchSources, fetchRecentSessions } from "../api";
+import type { Source, SourceSession } from "@pi-tree/shared";
+import { fetchSources, fetchSessions } from "../api";
 import { getSourceTypeConfig } from "../source-types";
 import {
   Search, X, Clock, ArrowRight, MessageSquare,
@@ -44,7 +44,7 @@ interface SpotlightSearchProps {
 
 type ResultItem =
   | { kind: "source"; source: Source }
-  | { kind: "session"; session: RecentSession }
+  | { kind: "session"; session: SourceSession }
   | { kind: "command"; command: CommandItem };
 
 export function SpotlightSearch({
@@ -103,7 +103,7 @@ export function SpotlightSearch({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
       Promise.all([
-        fetchRecentSessions(userId, { limit: 5 }),
+        fetchSessions(userId, { limit: 5 }),
         fetchSources(),
       ])
         .then(([{ sessions }, sources]) => {
@@ -128,7 +128,7 @@ export function SpotlightSearch({
       try {
         const [sources, { sessions }] = await Promise.all([
           fetchSources({ search: query.trim() }),
-          fetchRecentSessions(userId, { limit: 5, search: query.trim() }),
+          fetchSessions(userId, { limit: 5, search: query.trim() }),
         ]);
 
         setSessionResults(sessions.map((s) => ({ kind: "session" as const, session: s })));
@@ -155,7 +155,7 @@ export function SpotlightSearch({
       } else {
         onClose();
         if (item.kind === "session") {
-          navigate(`/source/${item.session.sourceId}?session=${item.session.sessionId}`);
+          navigate(`/source/${item.session.sourceId}?session=${item.session.id}`);
         } else {
           navigate(`/source/${item.source.id}`);
         }
@@ -196,10 +196,10 @@ export function SpotlightSearch({
   /** Render a single result row given the item and its index in allItems */
   const renderItem = (item: ResultItem, i: number) => {
     if (item.kind === "session") {
-      const config = getSourceTypeConfig(item.session.sourceType);
+      const config = getSourceTypeConfig(item.session.sourceType ?? 'book');
       return (
         <button
-          key={`s-${item.session.sessionId}`}
+          key={`s-${item.session.id}`}
           className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
           onClick={() => activateItem(item)}
           onMouseEnter={() => setSelectedIndex(i)}
@@ -208,7 +208,7 @@ export function SpotlightSearch({
             <MessageSquare size={16} />
           </div>
           <div className="spotlight-result-text">
-            <span className="spotlight-result-title">{item.session.sessionTitle}</span>
+            <span className="spotlight-result-title">{item.session.title}</span>
             <span className="spotlight-result-meta">
               <span className="spotlight-result-badge">{config.label}</span>
               {item.session.sourceTitle} · {timeAgo(item.session.lastActiveAt)}
@@ -223,7 +223,7 @@ export function SpotlightSearch({
       const Icon = config.icon;
       return (
         <button
-          key={`b-${item.source.id}`}
+          key={`s-${item.source.id}`}
           className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
           onClick={() => activateItem(item)}
           onMouseEnter={() => setSelectedIndex(i)}
