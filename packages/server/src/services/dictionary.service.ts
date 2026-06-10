@@ -125,7 +125,7 @@ export class DictionaryService {
    * Resolution order (first found wins):
    *   1. Per-book user override:  DATA_PATH/books/<bookId>/dictionary-prompt.md
    *   2. Global user override:    DATA_PATH/dictionary-prompt.md
-   *   3. Project default:         packages/server/prompts/dictionary-prompt.md
+   *   3. Project default:         packages/server/src/agents/prompts/dictionary-prompt.md
    *   4. Compiled-in fallback:    minimal inline string (last resort)
    */
   private resolveLookupPrompt(sourceId?: string): string {
@@ -146,7 +146,7 @@ export class DictionaryService {
 
     // Project default (shipped with the repo)
     const thisDir = dirname(fileURLToPath(import.meta.url));
-    const projectPromptPath = join(thisDir, "..", "..", "prompts", "dictionary-prompt.md");
+    const projectPromptPath = join(thisDir, "..", "agents", "prompts", "dictionary-prompt.md");
     const projectLoaded = this.tryReadPromptFile(projectPromptPath);
     if (projectLoaded) return projectLoaded;
 
