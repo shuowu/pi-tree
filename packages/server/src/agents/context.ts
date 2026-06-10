@@ -35,19 +35,18 @@ export interface ExtensionServices {
 // Service locator
 // ---------------------------------------------------------------------------
 
-let _services: ExtensionServices | null = null;
-
 /**
  * Get the extension services. Must be called after server startup has
  * populated services via `setExtensionServices()`.
  */
 export function getExtensionServices(): ExtensionServices {
-  if (!_services) {
+  const services = (globalThis as any).__piTreeExtensionServices;
+  if (!services) {
     throw new Error(
       "Extension services not initialized — server must call setExtensionServices() at startup",
     );
   }
-  return _services;
+  return services;
 }
 
 /**
@@ -55,6 +54,6 @@ export function getExtensionServices(): ExtensionServices {
  * before any extension is loaded.
  */
 export function setExtensionServices(services: ExtensionServices): void {
-  _services = services;
+  (globalThis as any).__piTreeExtensionServices = services;
   console.log("[agents/context] Extension services initialized");
 }
