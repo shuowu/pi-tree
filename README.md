@@ -6,20 +6,13 @@ Pi-tree is for the input side of knowledge work. Load your books, news feeds, or
 
 > **Local-first, bring your own key.** Runs entirely on your machine. No cloud account, no subscription. Works with cloud APIs (DeepSeek, Gemini, Claude) or fully offline with [Ollama](https://ollama.com) / local models.
 
-<table align="center">
-  <tr>
-    <td align="center">
-      <img src="docs/images/library.png" alt="Pi-tree library view" height="320" />
-      <br />
-      <sub>Browse your library — books, news feeds, and more</sub>
-    </td>
-    <td align="center">
-      <img src="docs/images/reading-session.png" alt="Pi-tree reading session" height="320" />
-      <br />
-      <sub>Branching conversation with topic tree navigation</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <a href="https://shuowu.github.io/pi-tree/">
+    <img src="docs/images/demo-preview.png" alt="Pi-tree — topic tree, AI conversation, branch cards" width="720" />
+  </a>
+  <br />
+  <sub><a href="https://shuowu.github.io/pi-tree/">📖 Documentation</a> · <a href="https://shuowu.github.io/pi-tree/vision">Vision</a></sub>
+</p>
 
 ## The Problem
 
@@ -35,22 +28,13 @@ Real comprehension isn't linear. You branch — *"wait, how does this connect to
 - **The conversation IS the reading** — no separate "reader" and "chat." The AI surfaces content as quotes within the conversation
 - **Everything stays local** — your sources, sessions, questions, and intellectual journey never leave your machine
 
-## Who Is This For
-
-- **Non-fiction readers** who want more than highlights and summaries — you want to *think through* a book
-- **News followers** who want depth beyond headlines — follow feeds, surface trends, deep-dive into stories
-- **Researchers and students** working through papers who want comprehension, not just extraction
-- **Families and book clubs** — everyone gets their own conversation tree for the same source
-- **Privacy-conscious readers** who don't want their reading habits on someone else's server
-- **Self-hosters and tinkerers** who want full control over their tools
-
 ## Getting Started
 
 ### Prerequisites
 
 [Node.js](https://nodejs.org/) 22+, npm.
 
-### Local setup (no Docker)
+### Local setup
 
 ```bash
 cp .env.example .env   # edit with your API key and provider
@@ -62,35 +46,26 @@ Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
 
 ### Docker
 
-Pre-built images are published to GitHub Container Registry on every release (linux/amd64 + linux/arm64):
-
 ```bash
-docker pull ghcr.io/shuowu/pi-tree:latest
-```
-
-**Quick start with the pre-built image:**
-
-```bash
-cp .env.example .env   # edit with your API key and paths
+cp .env.example .env   # edit with your API key
 
 docker run -d --name pi-tree \
   --env-file .env \
   -p 3847:3847 \
-  -v /path/to/your/books:/library:ro \
   -v pi-tree-data:/data \
   ghcr.io/shuowu/pi-tree:latest
 ```
 
+Open http://localhost:3847 (serves both frontend and API).
+
 **Or build from source:**
 
 ```bash
-cp .env.example .env   # edit with your API key and ABSOLUTE paths
 docker compose up --build
 ```
 
-Open http://localhost:3847 (serves both frontend and API).
-
-*Full env vars, volumes, custom skills → [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)*
+> [!TIP]
+> Full setup options → [Docker guide](https://shuowu.github.io/pi-tree/docs/docker)
 
 ## Models
 
@@ -105,27 +80,23 @@ Pi-tree doesn't need frontier-class models — reading and comprehension are mor
 | Anthropic | `claude-haiku-4-20250514` | Fast, great quality-to-cost ratio |
 | Zhipu | `glm-5-turbo` | Good Chinese + English bilingual support |
 
-**Local models** — completely offline, no API costs. Use [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/) to run models locally. Gemma 4 (12B, 256K context) and Qwen 3.6 are good starting points — explore what works for your hardware and reading language.
-
-Point pi-tree at your local server in `.env`:
+**Local models** — completely offline, no API costs. Use [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/). Gemma 4 (12B) and Qwen 3.6 are good starting points.
 
 ```bash
 PI_PROVIDER=openai                              # Ollama/LM Studio expose an OpenAI-compatible API
 PI_API_KEY=not-needed
-PI_BASE_URL=http://localhost:11434/v1            # Ollama default (LM Studio: http://localhost:1234/v1)
+PI_BASE_URL=http://localhost:11434/v1            # Ollama default
 PI_MODEL=gemma4:12b
 ```
 
-**Multiple providers** — for advanced setups (e.g., Ollama for offline + DeepSeek for cloud), use Pi's native [`models.json`](https://pi.dev/docs/latest/models) config at `~/.pi/agent/models.json`. Env vars and `models.json` merge automatically — you can use both.
-
 > [!TIP]
-> You can also change models at runtime through the Settings UI — no restart needed.
+> Multiple providers, runtime switching, and more → [Models & Providers](https://shuowu.github.io/pi-tree/docs/models)
 
 ## Content Sources
 
 Pi-tree supports multiple source types. No content is included in this repository.
 
-- **Books** — upload via the Library UI (EPUB, MOBI, PDF) or set `LIBRARY_PATH` in `.env` to point at your collection
+- **Books** — upload via the Library UI (EPUB, MOBI, PDF)
 - **News feeds** — add RSS/Atom feeds through the UI; pi-tree crawls, deduplicates, and presents them as conversational sources
 
 > [!IMPORTANT]
@@ -133,39 +104,28 @@ Pi-tree supports multiple source types. No content is included in this repositor
 
 ## How It Works
 
-Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) — a minimalist AI agent with tree-structured conversations. The same `extension` package powers both the GUI and the [Pi terminal](https://pi.dev).
+Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) — a minimalist AI agent with tree-structured conversations.
 
 ```
 packages/
-  shared/      — TypeScript types shared between client and server
-  extension/   — Pi Package: skills, ebook parsers, Pi extensions (publishable)
-  server/      — Hono API server wrapping Pi SDK + tree manager
-  client/      — React + Vite frontend
+  core/      — Pure library: PiSession, TreeManager, model setup, types
+  ui/        — React component library: ChatView, Breadcrumb, InlineBranches
+  server/    — Hono API server: routes, config, DB, agents (skills + extensions)
+  client/    — React + Vite frontend: pages, panels, app-specific wiring
 ```
 
 Key architectural choices:
-- **Server is thin** — receives a message, passes it to a Pi SDK session with book context, streams the response back via SSE
-- **Skills shape behavior** — built-in reading skills (markdown instruction files) control how the AI interacts with each source type. Change a SKILL.md, change the behavior — no code changes needed
+- **Server is thin** — receives a message, passes it to a Pi SDK session with source context, streams the response back via SSE
+- **Skills shape behavior** — markdown instruction files control how the AI interacts with each source type. Change a SKILL.md, change the behavior — no code changes needed
 - **Data separation** — Pi SDK owns conversation content (JSONL files); pi-tree owns metadata (SQLite: users, sessions, config, glossary)
+- **MCP bridge** — connect external MCP servers (web search, academic databases, etc.) without writing code
 
-*Architecture deep dive → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)*
-
-## Extensions
-
-Pi-tree supports custom **skills** and **extensions**. Since it's built on [Pi](https://pi.dev), any Pi-compatible extension works here. One worth adding:
-
-```bash
-pi install npm:pi-web-search    # gives the AI web search during reading sessions
-```
-
-This lets the AI look up references, author background, or related concepts while you read — without leaving the conversation.
-
-> [!NOTE]
-> Extension documentation is a work in progress. See [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md) for the current skill and extension format.
+> [!TIP]
+> Architecture deep dive, custom skills, extensions, MCP setup → [Documentation](https://shuowu.github.io/pi-tree/docs/architecture)
 
 ## Design Philosophy
 
-More on why pi-tree exists and the design decisions behind it → [docs/VISION.md](docs/VISION.md)
+More on why pi-tree exists → [Vision](https://shuowu.github.io/pi-tree/vision)
 
 The short version: the AI industry is focused on **output** — helping you produce things faster. Pi-tree is focused on **input** — helping you understand things deeper. Every design decision (tree-structured conversations, persistent context, branching exploration, per-source glossaries) serves that single purpose: making information ingestion a richer experience, not a faster one.
 
