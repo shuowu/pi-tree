@@ -70,7 +70,7 @@ export default withMermaid(defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/shuowu/pi-tree/edit/main/website/:path',
+      pattern: 'https://github.com/shuowu/pi-tree/edit/master/website/:path',
       text: 'Edit this page on GitHub',
     },
   },
