@@ -226,10 +226,11 @@ export async function fetchJobs(): Promise<JobWithSource[]> {
  */
 export async function fetchSessions(
   userId: string,
-  opts?: { source?: string; limit?: number; offset?: number; search?: string },
+  opts?: { source?: string; sourceType?: string; limit?: number; offset?: number; search?: string },
 ): Promise<{ sessions: SourceSession[]; hasMore: boolean }> {
   const params = new URLSearchParams();
   if (opts?.source) params.set('source', opts.source);
+  if (opts?.sourceType) params.set('source_type', opts.sourceType);
   if (opts?.limit) params.set('limit', String(opts.limit));
   if (opts?.offset) params.set('offset', String(opts.offset));
   if (opts?.search) params.set('search', opts.search);

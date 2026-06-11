@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { Loader2, ArrowUp } from "lucide-react";
+import { Loader2, ArrowUp, BookOpen, Newspaper, Rss, Hash, FileText, Headphones, Library } from "lucide-react";
 import { Marked } from "marked";
 import { fetchRouterSession, sendMessageStreaming } from "../api";
+import { useSourceMentions, parseMentionQuery, type MentionSuggestion } from "../hooks/useSourceMentions";
 import "./RouterChat.css";
 
 const marked = new Marked({
@@ -15,6 +16,27 @@ const marked = new Marked({
     },
   },
 });
+
+/** Pick icon component by mention kind + source type */
+function MentionIcon({ suggestion }: { suggestion: MentionSuggestion }) {
+  if (suggestion.kind === "feed") return <Rss size={14} />;
+  if (suggestion.kind === "tag") return <Hash size={14} />;
+  if (suggestion.kind === "category") {
+    switch (suggestion.type) {
+      case "news": return <Newspaper size={14} />;
+      case "paper": return <FileText size={14} />;
+      case "podcast": return <Headphones size={14} />;
+      default: return <Library size={14} />;
+    }
+  }
+  // Source kind — pick by source type
+  switch (suggestion.type) {
+    case "news": return <Newspaper size={14} />;
+    case "paper": return <FileText size={14} />;
+    case "podcast": return <Headphones size={14} />;
+    default: return <BookOpen size={14} />;
+  }
+}
 
 interface RouterChatProps {
   userId: string;
@@ -29,6 +51,18 @@ export function RouterChat({ userId }: RouterChatProps) {
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // @ mention state
+  const [mentionQuery, setMentionQuery] = useState<{ query: string; startIndex: number } | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mentionDropdownRef = useRef<HTMLDivElement>(null);
+  const { ensureLoaded, filterItems } = useSourceMentions();
+
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionQuery) return [];
+    return filterItems(mentionQuery.query);
+  }, [mentionQuery, filterItems]);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   // Structured result from create_session tool — no regex needed
@@ -81,9 +115,51 @@ export function RouterChat({ userId }: RouterChatProps) {
     });
   }, [messages]);
 
+  // Handle input changes — detect @mention
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+
+    const cursorPos = e.target.selectionStart ?? value.length;
+    const mention = parseMentionQuery(value, cursorPos);
+    if (mention) {
+      ensureLoaded();
+      setMentionQuery(mention);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+  }, [ensureLoaded]);
+
+  // Insert a selected mention into the input
+  const insertMention = useCallback((suggestion: MentionSuggestion) => {
+    if (!mentionQuery) return;
+    const before = input.slice(0, mentionQuery.startIndex);
+    const after = input.slice(inputRef.current?.selectionStart ?? input.length);
+    const newInput = `${before}${suggestion.insertText} ${after}`;
+    setInput(newInput);
+    setMentionQuery(null);
+    // Restore focus and cursor
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        const pos = before.length + suggestion.insertText.length + 1; // +1 for trailing space
+        el.setSelectionRange(pos, pos);
+      }
+    });
+  }, [input, mentionQuery]);
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+
+      // If mention dropdown is open and user presses Enter, select the mention
+      if (mentionQuery && mentionSuggestions.length > 0) {
+        insertMention(mentionSuggestions[mentionIndex]);
+        return;
+      }
+
       const trimmed = input.trim();
       if (!trimmed || isStreaming || !sessionInfo) return;
 
@@ -162,8 +238,40 @@ export function RouterChat({ userId }: RouterChatProps) {
         },
       );
     },
-    [input, isStreaming, sessionInfo, userId, navigate],
+    [input, isStreaming, sessionInfo, userId, navigate, mentionQuery, mentionSuggestions, mentionIndex, insertMention],
   );
+
+  // Handle keyboard navigation in mention dropdown
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (mentionQuery && mentionSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((i) => Math.min(i + 1, mentionSuggestions.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        insertMention(mentionSuggestions[mentionIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMentionQuery(null);
+        return;
+      }
+    }
+  }, [mentionQuery, mentionSuggestions, mentionIndex, insertMention]);
+
+  // Scroll selected mention item into view
+  useEffect(() => {
+    const el = mentionDropdownRef.current?.querySelector(".router-mention-item.selected");
+    el?.scrollIntoView({ block: "nearest" });
+  }, [mentionIndex]);
 
   return (
     <div className={`router-chat ${isExpanded ? "expanded" : ""}`}>
@@ -193,14 +301,45 @@ export function RouterChat({ userId }: RouterChatProps) {
       )}
 
       <form onSubmit={handleSubmit} className="router-chat-input-form">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="What would you like to read or explore?"
-          disabled={isStreaming || isRedirecting}
-          className="router-chat-input"
-        />
+        <div className="router-chat-input-wrapper">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="What would you like to read or explore? Type @ to mention a source"
+            disabled={isStreaming || isRedirecting}
+            className="router-chat-input"
+          />
+          {/* @ mention dropdown */}
+          {mentionQuery && mentionSuggestions.length > 0 && (
+            <div className="router-mention-dropdown" ref={mentionDropdownRef}>
+              {mentionSuggestions.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`router-mention-item ${i === mentionIndex ? "selected" : ""} kind-${s.kind}`}
+                  onClick={() => insertMention(s)}
+                  onMouseEnter={() => setMentionIndex(i)}
+                >
+                  <span className="router-mention-icon">
+                    <MentionIcon suggestion={s} />
+                  </span>
+                  <span className="router-mention-text">
+                    <span className="router-mention-title">{s.label}</span>
+                    {s.sublabel && <span className="router-mention-meta">{s.sublabel}</span>}
+                  </span>
+                  {s.kind !== "source" && (
+                    <span className={`router-mention-badge kind-${s.kind}`}>
+                      {s.kind}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button type="submit" disabled={isStreaming || isRedirecting || !input.trim()} className="router-chat-send">
           {isStreaming ? <Loader2 className="spin" size={16} /> : <ArrowUp size={16} />}
         </button>

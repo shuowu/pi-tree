@@ -53,10 +53,11 @@ function rowToSourceSession(row: {
 // GET /sessions/:userId — unified session list
 //
 // Query params:
-//   source  — optional source ID filter (omit for cross-source)
-//   limit   — optional, default 50, max 100
-//   offset  — optional, default 0
-//   search  — optional text search (matches session title or source title)
+//   source       — optional source ID filter (omit for cross-source)
+//   source_type  — optional source type filter ('book', 'news', 'paper', 'podcast')
+//   limit        — optional, default 50, max 100
+//   offset       — optional, default 0
+//   search       — optional text search (matches session title or source title)
 // ---------------------------------------------------------------------------
 
 sessionCrudRoutes.get("/:userId", (c) => {
@@ -64,6 +65,7 @@ sessionCrudRoutes.get("/:userId", (c) => {
   // (handled by the legacy /:userId/:sourceId route below)
   const userId = c.req.param("userId");
   const sourceFilter = c.req.query("source")?.trim();
+  const sourceTypeFilter = c.req.query("source_type")?.trim();
   const limitParam = Math.min(Number(c.req.query("limit") ?? 50), 100);
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 50;
   const offsetParam = Number(c.req.query("offset") ?? 0);
@@ -80,6 +82,10 @@ sessionCrudRoutes.get("/:userId", (c) => {
 
   if (sourceFilter) {
     conditions.push(eq(userSessions.sourceId, sourceFilter));
+  }
+
+  if (sourceTypeFilter) {
+    conditions.push(eq(sources.type, sourceTypeFilter));
   }
 
   if (search) {

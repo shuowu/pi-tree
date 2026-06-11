@@ -1,5 +1,5 @@
 name: router
 label: Session Router
 skills: [session-router]
-extensions: [library]
-exclude_tools: [bash, edit]
+extensions: [library, news]
+exclude_tools: [bash, edit, get_latest_rss, search_rss, aggregate_rss, trigger_rss_refresh, read_article, save_news_analysis]

@@ -19,8 +19,13 @@
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
-.router-chat-input {
+.router-chat-input-wrapper {
   flex: 1;
+  position: relative;
+}
+
+.router-chat-input {
+  width: 100%;
   background: none;
   border: none;
   color: var(--text-primary);
@@ -139,4 +144,131 @@
 
 .router-chat .spin {
   animation: router-spin 1s linear infinite;
+}
+
+/* =========================================================================
+   @ Mention Dropdown
+   ========================================================================= */
+
+.router-mention-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--space-1) 0;
+  margin-bottom: var(--space-2);
+  z-index: 100;
+  animation: mention-slide-in 0.12s ease;
+}
+
+@keyframes mention-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.router-mention-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.router-mention-item:hover,
+.router-mention-item.selected {
+  background: var(--accent-dim);
+}
+
+.router-mention-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.router-mention-item.selected .router-mention-icon,
+.router-mention-item:hover .router-mention-icon {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.router-mention-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.router-mention-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.router-mention-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Kind badges — small pill on feed/tag items */
+
+.router-mention-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+
+.router-mention-badge.kind-feed {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.router-mention-badge.kind-tag {
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+/* Kind-specific icon tints */
+
+.router-mention-item.kind-feed .router-mention-icon {
+  color: var(--accent);
+}
+
+.router-mention-item.kind-tag .router-mention-icon {
+  color: var(--text-muted);
 }

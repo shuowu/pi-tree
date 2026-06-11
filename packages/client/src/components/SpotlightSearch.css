@@ -60,6 +60,7 @@
   font-family: var(--font-sans);
   outline: none;
   padding: var(--space-1) 0;
+  min-width: 0;
 }
 
 .spotlight-input::placeholder {
@@ -94,6 +95,57 @@
   padding: 1px 5px;
   line-height: 1.4;
   flex-shrink: 0;
+}
+
+/* ── Scope Chip ────────────────────────────────────────────────────────── */
+
+.spotlight-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px 2px 8px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
+  animation: spotlight-chip-in 0.15s ease;
+}
+
+.spotlight-scope-chip:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.spotlight-scope-chip svg:last-child {
+  opacity: 0.5;
+}
+
+.spotlight-scope-chip:hover svg:last-child {
+  opacity: 1;
+}
+
+.spotlight-scope-label {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes spotlight-chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* ── Results ────────────────────────────────────────────────────────────── */
@@ -161,6 +213,33 @@
   color: hsl(215, 60%, 55%);
 }
 
+.spotlight-result-icon.action {
+  background: hsla(145, 55%, 45%, 0.12);
+  color: hsl(145, 55%, 45%);
+}
+
+/* Mention kind icons */
+
+.spotlight-result-icon.mention-category {
+  background: hsla(260, 50%, 55%, 0.12);
+  color: hsl(260, 50%, 55%);
+}
+
+.spotlight-result-icon.mention-source {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.spotlight-result-icon.mention-feed {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.spotlight-result-icon.mention-tag {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
 .spotlight-result-text {
   flex: 1;
   min-width: 0;
@@ -202,6 +281,29 @@
   flex-shrink: 0;
 }
 
+/* Mention kind badges */
+
+.spotlight-mention-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+
+.spotlight-mention-badge.kind-feed {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.spotlight-mention-badge.kind-tag {
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
 .spotlight-result-arrow {
   color: var(--text-muted);
   opacity: 0;
@@ -221,6 +323,10 @@
   text-align: center;
   font-size: var(--text-sm);
   color: var(--text-muted);
+}
+
+.spotlight-empty-scoped {
+  padding: var(--space-4) var(--space-4) var(--space-2);
 }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
