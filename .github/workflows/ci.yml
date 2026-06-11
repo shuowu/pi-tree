@@ -80,8 +80,8 @@ jobs:
           curl -sf http://localhost:3847/api/users | grep '"users"'
           echo "✓ /api/users"
 
-          curl -sf http://localhost:3847/api/library/books | grep '"books"'
-          echo "✓ /api/library/books"
+          curl -sf http://localhost:3847/api/library/sources | grep '"sources"'
+          echo "✓ /api/library/sources"
 
           curl -sf http://localhost:3847/api/config | grep '"readingModel"'
           echo "✓ /api/config"
