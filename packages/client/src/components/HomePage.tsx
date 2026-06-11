@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import type { SourceSession } from "@pi-tree/shared";
 import { fetchSessions } from "../api";
 import { useUser } from "../UserContext";
-import { TreePine, LogOut, Search } from "lucide-react";
+import { GitFork, LogOut, Search } from "lucide-react";
 import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
 import { FeedManagerModal } from "./FeedManagerModal";
@@ -74,7 +74,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
     <div className="home-page">
       <header className="home-header">
         <div className="home-header-left">
-          <h1><TreePine size={24} strokeWidth={1.5} /> <span>Pi Tree</span></h1>
+          <h1><GitFork size={24} strokeWidth={1.5} /> <span>Pi Tree</span></h1>
         </div>
         <div className="home-header-right">
           <button

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import type { Source, SourceType } from "@pi-tree/shared";
 import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, type JobWithSource } from "../api";
-import { Plus, Search, Tag, X, Cpu, TreePine, ArrowLeft } from "lucide-react";
+import { Plus, Search, Tag, X, Cpu, GitFork, ArrowLeft } from "lucide-react";
 import { BookCover } from "./BookCover";
 import { AddBookModal } from "./AddBookModal";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
@@ -242,7 +242,7 @@ export function Library() {
           <button className="library-back-btn" onClick={() => navigate("/")}>
             <ArrowLeft size={16} />
           </button>
-          <h1><TreePine size={24} strokeWidth={1.5} /> <span>Library</span></h1>
+          <h1><GitFork size={24} strokeWidth={1.5} /> <span>Library</span></h1>
         </div>
         <div className="library-header-right">
           <button
