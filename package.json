@@ -34,12 +34,19 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
     "e2e": "playwright test",
+    "docs:dev": "vitepress dev website",
+    "docs:build": "vitepress build website",
+    "docs:preview": "vitepress preview website",
+    "docs:record-demo": "BASE_URL=http://localhost:5947 npx playwright test --config=scripts/record-demo.config.ts",
     "prepare": "husky"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "concurrently": "^9.1.0",
     "husky": "^9.1.7",
-    "typescript": "^5.7.0"
+    "mermaid": "^11.15.0",
+    "typescript": "^5.7.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
   }
 }

@@ -1,6 +1,11 @@
-# Self-Hosting Setup
+---
+title: Self-Hosting Guide
+description: Complete guide to configuring, customizing, and extending a self-hosted pi-tree deployment — environment variables, data layout, custom skills, extensions, session profiles, MCP bridge, news feeds, and runtime configuration.
+---
 
-This guide covers configuration, customization, and extending pi-tree for self-hosted deployments.
+# Self-Hosting Guide
+
+This guide covers everything you need to configure, customize, and extend your self-hosted pi-tree deployment. Whether you're running pi-tree directly on your machine or via [Docker](/docs/docker), the configuration concepts are the same.
 
 ## Environment Variables
 
@@ -17,11 +22,13 @@ This guide covers configuration, customization, and extending pi-tree for self-h
 | `PORT` | `3847` | Server port |
 | `RSS_CRAWL_INTERVAL_MIN` | `30` | How often to crawl RSS feeds (in minutes) |
 
-Env vars are the simplest way to configure a single provider. For multiple providers, use `models.json` below.
+:::tip
+Env vars are the simplest way to configure a single provider. For multiple providers, use `models.json` — see [Multi-Provider Models](/docs/models).
+:::
 
 ## Multi-Provider Models (`models.json`)
 
-Pi-books uses Pi's native [`models.json`](https://pi.dev/docs/latest/models) for advanced model configuration. This lets you define multiple providers and models — e.g., Ollama for offline reading and DeepSeek for cloud — and switch between them at runtime.
+Pi-tree uses Pi's native [`models.json`](https://pi.dev/docs/latest/models) for advanced model configuration. This lets you define multiple providers and models — e.g., Ollama for offline reading and DeepSeek for cloud — and switch between them at runtime.
 
 Place the file at `~/.pi/agent/models.json`:
 
@@ -47,7 +54,9 @@ Place the file at `~/.pi/agent/models.json`:
 }
 ```
 
-**Resolution order**: env vars and `models.json` merge automatically. If you set `PI_PROVIDER` + `PI_API_KEY` in `.env` *and* have providers in `models.json`, all providers are available. The env var provider's API key takes precedence over `models.json` for that specific provider.
+:::info Resolution Order
+Env vars and `models.json` merge automatically. If you set `PI_PROVIDER` + `PI_API_KEY` in `.env` *and* have providers in `models.json`, all providers are available. The env var provider's API key takes precedence over `models.json` for that specific provider.
+:::
 
 For Docker, mount the file into the container:
 
@@ -56,7 +65,11 @@ volumes:
   - ~/.pi/agent/models.json:/root/.pi/agent/models.json:ro
 ```
 
+See the [Models guide](/docs/models) for more details on model configuration.
+
 ## Data Layout
+
+All mutable state lives under `DATA_PATH` (default: `~/.local/share/pi-tree/`):
 
 ```
 <DATA_PATH>/                          # ~/.local/share/pi-tree by default
@@ -84,9 +97,9 @@ volumes:
 
 ## Custom Skills
 
-Skills are markdown instruction files that shape how the AI behaves during reading sessions. Pi-tree ships with 3 core skills — `interactive-reading`, `book-outline`, and `book-analysis` (in `packages/server/skills/`). You can add your own or override the core ones.
+Skills are markdown instruction files that shape how the AI behaves during reading sessions. Pi-tree ships with core skills — `interactive-reading`, `book-outline`, `book-analysis`, `news-reading`, and `session-router` — built into the server package. You can add your own or override the core ones.
 
-### Creating a skill
+### Creating a Skill
 
 Create a directory with a `SKILL.md` file:
 
@@ -113,7 +126,7 @@ When discussing book content with the reader:
 5. Reference specific passages from the book to ground the discussion
 ```
 
-### Skill format
+### Skill Format
 
 - **`name`** (required): Identifier for the skill
 - **`description`** (required): One-line summary — shown to the AI as a skill catalogue entry
@@ -121,7 +134,7 @@ When discussing book content with the reader:
 
 Skills follow the [Pi Agent Skills standard](https://agentskills.io). The same format works in the Pi terminal.
 
-### Overriding core skills
+### Overriding Core Skills
 
 To override a core skill, create a skill with the same name in your user skills directory:
 
@@ -131,20 +144,22 @@ To override a core skill, create a skill with the same name in your user skills 
 
 User skills load first. The Pi SDK uses first-wins dedup, so if a user skill has the same `name` as a core skill, the user version wins.
 
-### How skills are discovered
+### How Skills Are Discovered
 
 On each new reading session, the server scans:
 
 1. `<DATA_PATH>/skills/` (or `<SKILLS_PATH>/`) — **user skills (loaded first, wins on name collision)**
-2. `packages/server/skills/` — core skills (shipped with the app)
+2. `packages/server/src/agents/skills/` — core skills (shipped with the app)
 
+:::tip
 No restart is needed — new skills are picked up when a reading session starts.
+:::
 
 ## Custom Extensions
 
 Extensions are TypeScript modules that register tools and commands with the Pi agent. They're more powerful than skills — they can execute code, call APIs, and provide interactive tools.
 
-### Creating an extension
+### Creating an Extension
 
 ```
 <DATA_PATH>/extensions/my-tool/index.ts
@@ -175,13 +190,15 @@ export default function myExtension(pi: ExtensionAPI) {
 
 Extensions are loaded at runtime via [jiti](https://github.com/unjs/jiti) — no build step required. They have access to the full Pi extension API (tools, commands, events).
 
-> **Note**: Extensions run with the server's permissions. Only load extensions you trust.
+:::warning
+Extensions run with the server's permissions. Only load extensions you trust.
+:::
 
 ## Custom Session Profiles
 
 Session profiles define the "recipe" for an AI session — which skills, extensions, and model to use. Pi-tree ships with built-in profiles for books and news, but you can define your own to add custom session modes for existing source types.
 
-### Creating a profile
+### Creating a Profile
 
 Create a YAML file in `<DATA_PATH>/profiles/` (one file per profile):
 
@@ -196,7 +213,7 @@ skills:
   - socratic-reading
 ```
 
-### Profile format
+### Profile Format
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -209,15 +226,17 @@ skills:
 | `exclude_tools` | No | Pi SDK tools to block (default: `["bash", "edit"]`) |
 | `model` | No | Model override (falls back to server default) |
 
-### How profiles are used
+### How Profiles Are Used
 
 User profiles appear as additional session modes in the SessionPicker for matching source types. They are discovered at startup and merged with built-in profiles.
 
+:::info
 User profiles override built-in profiles with the same name.
+:::
 
-## MCP Bridge (External Tools)
+## MCP Bridge (External Tools) {#mcp-bridge}
 
-Pi-tree can connect to external [MCP servers](https://modelcontextprotocol.io) and expose their tools to the AI agent. This lets you add web search, academic databases, translation APIs, or any MCP-compatible tool without writing code.
+Pi-tree can connect to external [MCP servers](https://modelcontextprotocol.io) and expose their tools to the AI agent. This lets you add web search, academic databases, translation APIs, or any MCP-compatible tool — without writing code.
 
 ### Configuration
 
@@ -239,11 +258,13 @@ Create `<DATA_PATH>/mcp.json` (same format as Claude Desktop / Cursor):
 }
 ```
 
-> [!TIP]
-> A ready-made template with popular servers lives at `packages/server/config/mcp.example.json`. Copy it to your data path and enable what you need:
-> ```bash
-> cp packages/server/config/mcp.example.json ~/.local/share/pi-tree/mcp.json
-> ```
+:::tip
+A ready-made template with popular servers lives at `packages/server/config/mcp.example.json`. Copy it to your data path and enable what you need:
+
+```bash
+cp packages/server/config/mcp.example.json ~/.local/share/pi-tree/mcp.json
+```
+:::
 
 Each server entry can have:
 
@@ -252,7 +273,7 @@ Each server entry can have:
 - **`env`**: Environment variables passed to the spawned process
 - **`disabled`**: Set to `true` to skip this server without removing the config
 
-### How it works
+### How It Works
 
 On server startup, the MCP bridge:
 
@@ -276,15 +297,17 @@ volumes:
 
 For MCP servers that use `npx`, Node.js must be available in the container (it is by default).
 
+See the [Docker guide](/docs/docker) for more container configuration examples.
+
 ## News Feeds
 
 Pi-tree includes an RSS news feed feature. Feeds are crawled on a schedule, and the AI can analyze, summarize, and discuss recent news with you.
 
-### Default feeds
+### Default Feeds
 
 On first startup, pi-tree seeds a small set of default feeds (Hacker News, TechCrunch, Ars Technica, The Verge, MIT Tech Review, Nature, Quanta, Reuters, BBC) from `packages/server/config/default-feeds.yml`. These are only seeded if no feeds exist yet — they won't overwrite feeds you've added.
 
-### Managing feeds
+### Managing Feeds
 
 Feeds can be managed through the web UI (News section) or the API:
 
@@ -304,11 +327,11 @@ curl -X DELETE http://localhost:3847/api/news/feeds/ars-technica
 curl -X POST http://localhost:3847/api/news/crawl
 ```
 
-### Crawl schedule
+### Crawl Schedule
 
 Feeds are crawled automatically every 30 minutes by default. Set `RSS_CRAWL_INTERVAL_MIN` to change the interval. On startup, feeds are crawled immediately if they're stale (no crawl in the last interval).
 
-### Data storage
+### Data Storage
 
 News data lives under `<DATA_PATH>/news/`:
 
@@ -317,66 +340,11 @@ News data lives under `<DATA_PATH>/news/`:
 
 Feed metadata and cached articles are stored in the SQLite database.
 
-## Docker Compose
-
-### Basic setup
-
-```yaml
-services:
-  pi-tree:
-    build: .
-    ports:
-      - "3847:3847"
-    environment:
-      - PI_PROVIDER=anthropic
-      - PI_API_KEY=${PI_API_KEY}
-      - PI_MODEL=claude-sonnet-4-20250514
-    volumes:
-      - ./library:/library:ro          # your books (read-only)
-      - pi-tree-data:/data            # mutable state
-
-volumes:
-  pi-tree-data:
-```
-
-### With custom skills
-
-Mount a host directory into the data volume's skills path:
-
-```yaml
-services:
-  pi-tree:
-    build: .
-    ports:
-      - "3847:3847"
-    environment:
-      - PI_PROVIDER=anthropic
-      - PI_API_KEY=${PI_API_KEY}
-      - SKILLS_PATH=/data/skills
-      - EXTENSIONS_PATH=/data/extensions
-    volumes:
-      - ./library:/library:ro
-      - pi-tree-data:/data
-      - ./my-skills:/data/skills:ro        # your custom skills
-      - ./my-extensions:/data/extensions:ro # your custom extensions
-
-volumes:
-  pi-tree-data:
-```
-
-### Using a local LLM (Ollama, etc.)
-
-```yaml
-environment:
-  - PI_PROVIDER=openai           # Ollama exposes an OpenAI-compatible API
-  - PI_API_KEY=not-needed
-  - PI_BASE_URL=http://host.docker.internal:11434/v1
-  - PI_MODEL=llama3.1:70b
-```
+For Docker-specific setup (Compose files, volumes, local LLM), see the [Docker guide](/docs/docker).
 
 ## Runtime Configuration
 
-Settings can also be changed at runtime through the web UI (Settings page), which writes to `<DATA_PATH>/global-config.json`. This overrides environment variables for:
+Settings can also be changed at runtime through the web UI (**Settings** page), which writes to `<DATA_PATH>/global-config.json`. This overrides environment variables for:
 
 - Reading model
 - Lookup model
@@ -384,4 +352,6 @@ Settings can also be changed at runtime through the web UI (Settings page), whic
 - API key
 - Base URL
 
-Environment variables are used as initial defaults. The config file takes precedence once saved.
+:::info
+Environment variables are used as initial defaults. The `global-config.json` file takes precedence once saved through the Settings UI.
+:::

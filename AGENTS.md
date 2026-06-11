@@ -31,11 +31,17 @@ packages/
 
 ## Docs
 
-- `docs/ARCHITECTURE.md` — How the server wraps Pi SDK, data ownership (Pi SDK owns JSONL sessions, pi-tree owns SQLite metadata), extension package design
-- `docs/SESSION-MANAGEMENT.md` — Multi-session model, context binding, session lifecycle, API reference, future agent extensibility
-- `docs/SELF-HOSTING.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
-- `docs/VISION.md` — Design philosophy and product direction
+User-facing documentation lives in `website/docs/` (published to GitHub Pages):
+
+- `website/docs/architecture.md` — How the server wraps Pi SDK, data ownership, agent directory, session profiles
+- `website/docs/sessions.md` — Multi-session model, context binding, session lifecycle, API reference
+- `website/docs/self-hosting.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
+- `website/vision.md` — Design philosophy and product direction
+
+Internal design docs (not published):
+
 - `docs/ELECTRON.md` — Electron app design: architecture mapping, bootstrap extraction, IPC vs HTTP, packaging
+- `docs/GLOBAL-CHAT.md` — Cross-source conversation / global chat design: memory tiers, tool design, data model
 
 ## Key Concepts
 
@@ -233,7 +239,7 @@ All mutable state (sessions, DB, library, news) lives under `DATA_PATH` (default
 
 ## Session Management
 
-Multiple sessions per user+source. Each session has a `SessionContext` (mode, optional skills/prompt/model overrides) stored as JSON. See `docs/SESSION-MANAGEMENT.md` for full architecture.
+Multiple sessions per user+source. Each session has a `SessionContext` (mode, optional skills/prompt/model overrides) stored as JSON. See `website/docs/sessions.md` for full architecture.
 
 **Session API** (CRUD):
 - `GET /api/sessions/:userId/:sourceId` — list all sessions

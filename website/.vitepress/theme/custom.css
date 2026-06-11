@@ -1,0 +1,149 @@
+/**
+ * Pi-tree VitePress Theme
+ * 
+ * Warm, earthy palette inspired by the app's design system.
+ * Uses amber/brown tones instead of the default VitePress blue.
+ */
+
+:root {
+  /* ── Brand colors (warm amber/brown) ── */
+  --vp-c-brand-1: #7a5a38;
+  --vp-c-brand-2: #8c6a44;
+  --vp-c-brand-3: #a07830;
+  --vp-c-brand-soft: rgba(122, 90, 56, 0.14);
+
+  /* ── Typography ── */
+  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans',
+    'Helvetica Neue', sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular,
+    'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* ── Home page hero ── */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #7a5a38 0%, #a07830 50%, #c49a52 100%);
+  --vp-home-hero-image-background-image: linear-gradient(135deg, rgba(122, 90, 56, 0.2) 0%, rgba(160, 120, 48, 0.2) 100%);
+  --vp-home-hero-image-filter: blur(44px);
+
+  /* ── Button overrides ── */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #fff;
+  --vp-button-brand-bg: #7a5a38;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #fff;
+  --vp-button-brand-hover-bg: #644828;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #fff;
+  --vp-button-brand-active-bg: #543c20;
+
+  --vp-button-alt-border: #d8ccb4;
+  --vp-button-alt-text: #3b2e1e;
+  --vp-button-alt-bg: #f3e8d2;
+  --vp-button-alt-hover-border: #c4b89e;
+  --vp-button-alt-hover-text: #3b2e1e;
+  --vp-button-alt-hover-bg: #e8dcc4;
+
+  /* ── Custom properties ── */
+  --pit-hero-tagline-max-width: 560px;
+}
+
+.dark {
+  --vp-c-brand-1: #c49a52;
+  --vp-c-brand-2: #b08840;
+  --vp-c-brand-3: #a07830;
+  --vp-c-brand-soft: rgba(196, 154, 82, 0.14);
+
+  --vp-button-brand-bg: #8c6a44;
+  --vp-button-brand-hover-bg: #a07830;
+  --vp-button-brand-active-bg: #7a5a38;
+
+  --vp-button-alt-border: rgba(255, 255, 255, 0.12);
+  --vp-button-alt-text: #e8dcc4;
+  --vp-button-alt-bg: rgba(255, 255, 255, 0.06);
+  --vp-button-alt-hover-border: rgba(255, 255, 255, 0.18);
+  --vp-button-alt-hover-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Hero section ── */
+.VPHero .VPImage {
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(60, 40, 20, 0.12);
+}
+
+.VPHero .tagline {
+  max-width: var(--pit-hero-tagline-max-width) !important;
+}
+
+/* ── Feature cards ── */
+.VPFeature {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.VPFeature:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(60, 40, 20, 0.1);
+}
+
+.VPFeature .icon {
+  font-size: 1.5rem;
+}
+
+/* ── Demo GIF showcase ── */
+.demo-showcase {
+  max-width: 960px;
+  margin: 48px auto 24px;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.demo-showcase figure {
+  margin: 0;
+}
+
+.demo-showcase img {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(60, 40, 20, 0.15);
+  width: 100%;
+  max-width: 800px;
+}
+
+.demo-showcase video {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(60, 40, 20, 0.15);
+  width: 100%;
+  max-width: 800px;
+}
+
+.demo-showcase figcaption {
+  margin-top: 12px;
+  font-size: 0.875rem;
+  color: var(--vp-c-text-2);
+  letter-spacing: 0.02em;
+}
+
+/* ── Custom "problem" callout section ── */
+.problem-section {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.problem-section h2 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  margin-bottom: 16px;
+}
+
+.problem-section .lead {
+  font-size: 1.125rem;
+  line-height: 1.75;
+  color: var(--vp-c-text-2);
+  margin-bottom: 24px;
+}
+
+/* ── Smooth page transitions ── */
+.VPContent {
+  transition: opacity 0.2s ease;
+}

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+**/.vitepress/cache/
+**/.vitepress/dist/
 *.tsbuildinfo
 .env
 .env.*

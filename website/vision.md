@@ -1,4 +1,9 @@
-# Vision
+---
+title: Vision & Philosophy
+description: Why pi-tree exists — building for the input side of AI, tree-structured conversations, and the case for local-first reading tools.
+---
+
+# Vision & Philosophy
 
 ## The Other Half of AI
 
@@ -8,7 +13,7 @@ Nobody's building for the other side.
 
 **Input** — how you absorb information, make sense of it, connect it to what you already know — that's the harder, quieter problem. And it's the one that actually matters for most of what we do. Before you can write the essay, you need to understand the book. Before you can form an opinion, you need to digest the reporting. Before you can decide, you need to comprehend what you're choosing between.
 
-AI has made everyone a prolific producer. It hasn't made anyone a better understander.
+> AI has made everyone a prolific producer. It hasn't made anyone a better understander.
 
 Pi-tree is built for the input side. It's not about generating content — it's about **ingesting** it. Reading a book. Following a news beat. Working through a research paper. The AI doesn't produce things on your behalf; it thinks alongside you while you absorb and process information, helping you go deeper, draw connections, and build genuine comprehension.
 
@@ -38,7 +43,7 @@ Right now, the dominant pattern is general-purpose: one model, one interface, in
 
 I think the future looks different. Not one model that does everything, but **specific tools doing specific things exceptionally well**, wrapped in purpose-built UX that respects the activity. A reading tool that understands how people actually read. A research tool that understands how people actually explore. A learning tool that helps you build genuine comprehension, not just collect AI-generated summaries.
 
-Pi-tree is a bet on that direction. It's not a general chatbot with content bolted on. It's a **reading companion** — and every design decision, from the tree structure to the branching conversations to the zoom controls — serves that single purpose: helping you understand what you're taking in.
+Pi-tree is a bet on that direction. It's not a general chatbot with content bolted on. It's a **reading companion** — and every design decision, from the tree structure to the branching conversations to the zoom controls, serves that single purpose: helping you understand what you're taking in.
 
 ## Local-First, by Design
 
@@ -48,9 +53,9 @@ This isn't just a privacy feature — it's a design philosophy. When you own the
 
 Today, you can already point pi-tree at [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), or any OpenAI-compatible local server. The reading experience with a good 7B or 14B model running on your own hardware is surprisingly capable — and completely offline. No tokens metered, no API costs, no data leaving your network.
 
-This matters more than people think. Reading is intimate. The questions you ask about a book — the tangents you explore, the connections you draw — reveal how you think. That data shouldn't live on someone else's infrastructure. Local-first means your intellectual journey stays yours.
+> Reading is intimate. The questions you ask about a book — the tangents you explore, the connections you draw — reveal how you think. That data shouldn't live on someone else's infrastructure.
 
-The trajectory here is clear: local models will keep getting better, consumer hardware will keep getting cheaper, and the gap between cloud and local inference will keep shrinking. Pi-books is built for that future — a world where a powerful, personalized AI reading companion runs entirely on your laptop, no internet required.
+The trajectory here is clear: local models will keep getting better, consumer hardware will keep getting cheaper, and the gap between cloud and local inference will keep shrinking. Pi-tree is built for that future — a world where a powerful, personalized AI reading companion runs entirely on your laptop, no internet required.
 
 ## What This Means in Practice
 
@@ -66,9 +71,9 @@ The most interesting thing about pi-tree isn't the reading app — it's the conv
 
 Tree-structured conversations solve a fundamental problem with AI chat: linear conversations force you to choose between depth and breadth. Go deep on a tangent, and you lose your place. Stay on track, and you can't explore. The tree gives you both — branch off freely, and the trunk is always there to return to.
 
-This isn't specific to reading books. The same model works for research, learning, code review, problem-solving — any domain where human thinking naturally branches. "Wait, what about X?" shouldn't destroy your context on Y. It should create a branch you can explore and return from.
+This isn't specific to reading books. The same model works for research, learning, code review, problem-solving — any domain where human thinking naturally branches. *"Wait, what about X?"* shouldn't destroy your context on Y. It should create a branch you can explore and return from.
 
-We've structured pi-tree's codebase around this insight:
+Pi-tree's codebase is structured around this insight:
 
 - **`@pi-tree/core`** is a pure library — PiSession, TreeManager, model setup — with no environment assumptions. It doesn't know about books, servers, or browsers. Anyone can import it and build a tree-structured AI conversation for any purpose.
 - **`@pi-tree/ui`** is a headless-capable component library — ChatView, Breadcrumb, InlineBranches — with prop-driven design and themeable CSS. You can use the default styled components, override the theme tokens, or import only the hooks and build your own UI entirely.
@@ -78,3 +83,8 @@ The reading app is the first instance of this architecture, not the only one. So
 
 This modularity isn't premature abstraction. It's a consequence of getting the boundaries right: the AI orchestration layer shouldn't know how it's being rendered, and the UI components shouldn't know what AI is behind them. When you separate those concerns cleanly, reusability falls out naturally.
 
+---
+
+::: info Next steps
+Ready to try it? Check the [Getting Started guide](/docs/getting-started) to run pi-tree on your own machine, or explore the [Architecture](/docs/architecture) to understand how the pieces fit together.
+:::
