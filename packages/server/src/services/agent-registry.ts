@@ -1,5 +1,7 @@
 import { join } from "node:path";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import yaml from "js-yaml";
+import { z } from "zod";
 import type { SessionContext } from "@pi-tree/shared";
 import type {
   SkillEntry,
@@ -9,7 +11,36 @@ import type {
   AgentRegistryConfig,
   ValidationResult,
 } from "../types/agent.js";
-import { SESSION_PROFILES } from "../config/session-profiles.js";
+// ---------------------------------------------------------------------------
+// Profile YAML schema — validated with Zod
+// ---------------------------------------------------------------------------
+
+/**
+ * Zod schema for session profile YAML files.
+ *
+ * Uses `strictObject` so unknown fields (e.g. typo "skill" instead of "skills")
+ * are caught and reported rather than silently ignored.
+ */
+export const profileSchema = z.strictObject({
+  /** Profile key — used to reference this profile (e.g. "book.reading") */
+  name: z.string().min(1, "name must be a non-empty string"),
+  /** Human-readable label shown in the UI */
+  label: z.string().optional(),
+  /** One-line description (informational only, not used at runtime) */
+  description: z.string().optional(),
+  /** Source type this profile applies to (e.g. "book", "news"). Shown only for matching sources. */
+  source_type: z.string().optional(),
+  /** Skill names to load (must exist in skills directories) */
+  skills: z.array(z.string()),
+  /** Extension names to load (default: []) */
+  extensions: z.array(z.string()).default([]),
+  /** Pi SDK tools to block (default: ["bash", "edit"]) */
+  exclude_tools: z.array(z.string()).default(["bash", "edit"]),
+  /** Model override — falls back to server default if not set */
+  model: z.string().optional(),
+});
+
+export type ProfileYaml = z.infer<typeof profileSchema>;
 
 // ---------------------------------------------------------------------------
 // AgentRegistry — discovery, validation, and profile resolution
@@ -23,6 +54,14 @@ export class AgentRegistry {
   /**
    * Initialize the registry: scan directories and populate maps.
    * Called once at server startup.
+   *
+   * Derives all paths from the two-root config:
+   *   coreDir/agents/skills/      → core skills
+   *   coreDir/agents/extensions/  → core extensions
+   *   coreDir/profiles/           → core session profiles
+   *   dataDir/skills/             → user skill overrides
+   *   dataDir/extensions/         → user extension overrides
+   *   dataDir/profiles/           → user-defined session profiles
    */
   initialize(config: AgentRegistryConfig): void {
     this.skills.clear();
@@ -31,19 +70,17 @@ export class AgentRegistry {
 
     // --- Discover skills ---
     // Core skills first, then user skills override (user wins on name collision)
-    const coreSkillsDir = join(config.coreAgentsDir, "skills");
-    this.discoverSkills(coreSkillsDir, "core");
-    this.discoverSkills(config.userSkillsDir, "user");
+    this.discoverSkills(join(config.coreDir, "agents", "skills"), "core");
+    this.discoverSkills(join(config.dataDir, "skills"), "user");
 
     // --- Discover extensions ---
-    const coreExtensionsDir = join(config.coreAgentsDir, "extensions");
-    this.discoverExtensions(coreExtensionsDir, "core");
-    this.discoverExtensions(config.userExtensionsDir, "user");
+    this.discoverExtensions(join(config.coreDir, "agents", "extensions"), "core");
+    this.discoverExtensions(join(config.dataDir, "extensions"), "user");
 
     // --- Load profiles ---
-    for (const [key, profile] of Object.entries(SESSION_PROFILES)) {
-      this.profiles.set(key, profile);
-    }
+    // Core profiles first (shipped YAML), then user profiles override
+    this.discoverProfiles(join(config.coreDir, "profiles"));
+    this.discoverProfiles(join(config.dataDir, "profiles"));
 
     console.log(
       `[agent-registry] Initialized: ${this.skills.size} skills, ` +
@@ -55,31 +92,41 @@ export class AgentRegistry {
    * Resolve a concrete profile for a session.
    *
    * Resolution order:
-   *   1. SessionContext overrides (skills/model from DB row)
-   *   2. Profile for `${sourceType}.${mode}`
+   *   1. `sessionContext.profile` — direct reference to a registered profile (highest priority)
+   *   2. Profile for `${sourceType}.${mode}` (composite key)
    *   3. Profile for `${sourceType}` (type-level default)
-   *   4. `_default` profile
+   *   4. `_default` profile (global fallback)
    *
-   * SessionContext.skills replaces the profile's skills list.
-   * SessionContext.model overrides the profile's model.
+   * After the base profile is found, SessionContext overrides are applied:
+   *   - SessionContext.skills replaces the profile's skills list.
+   *   - SessionContext.model overrides the profile's model.
    */
   resolveProfile(
     sourceType: string,
     mode?: string,
     sessionContext?: SessionContext,
   ): ResolvedProfile {
-    // Find the base profile
-    const profileKey = mode ? `${sourceType}.${mode}` : sourceType;
-    const profile =
-      this.profiles.get(profileKey) ??
-      this.profiles.get(sourceType) ??
-      this.profiles.get("_default")!;
-    const resolvedFrom =
-      this.profiles.has(profileKey)
-        ? profileKey
-        : this.profiles.has(sourceType)
-          ? sourceType
-          : "_default";
+    // 1. Direct profile reference from SessionContext (highest priority)
+    let profile: SessionProfile | undefined;
+    let resolvedFrom: string;
+
+    if (sessionContext?.profile && this.profiles.has(sessionContext.profile)) {
+      profile = this.profiles.get(sessionContext.profile)!;
+      resolvedFrom = sessionContext.profile;
+    } else {
+      // 2–4. Standard fallback chain: sourceType.mode → sourceType → _default
+      const profileKey = mode ? `${sourceType}.${mode}` : sourceType;
+      profile =
+        this.profiles.get(profileKey) ??
+        this.profiles.get(sourceType) ??
+        this.profiles.get("_default")!;
+      resolvedFrom =
+        this.profiles.has(profileKey)
+          ? profileKey
+          : this.profiles.has(sourceType)
+            ? sourceType
+            : "_default";
+    }
 
     // Apply SessionContext overrides
     const effectiveSkills = sessionContext?.skills?.length
@@ -256,6 +303,53 @@ export class AgentRegistry {
       }
     }
     return paths;
+  }
+
+  /**
+   * Scan a directory for session profile YAML files.
+   * Each .yml/.yaml file is parsed, validated against profileSchema, and registered.
+   */
+  private discoverProfiles(dir: string): void {
+    if (!existsSync(dir)) return;
+    try {
+      for (const file of readdirSync(dir)) {
+        if (!/\.ya?ml$/i.test(file)) continue;
+        const filePath = join(dir, file);
+        try {
+          if (!statSync(filePath).isFile()) continue;
+          const raw = readFileSync(filePath, "utf-8");
+          const data = yaml.load(raw);
+
+          const result = profileSchema.safeParse(data);
+          if (!result.success) {
+            const issues = result.error.issues
+              .map((i) => `  ${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join("\n");
+            console.warn(`[agent-registry] Profile ${file} — validation failed:\n${issues}`);
+            continue;
+          }
+
+          const parsed = result.data;
+          const profile: SessionProfile = {
+            label: parsed.label ?? parsed.name,
+            skills: parsed.skills,
+            extensions: parsed.extensions,
+            excludeTools: parsed.exclude_tools,
+            ...(parsed.description ? { description: parsed.description } : {}),
+            ...(parsed.model ? { model: parsed.model } : {}),
+            // sourceType: explicit field, or derived from name prefix (e.g. "book.reading" → "book")
+            sourceType: parsed.source_type ?? (parsed.name.includes(".") ? parsed.name.split(".")[0] : undefined),
+          };
+
+          this.profiles.set(parsed.name, profile);
+          console.log(`[agent-registry] Loaded profile "${parsed.name}" from ${file}`);
+        } catch (err) {
+          console.warn(`[agent-registry] Failed to parse profile ${file}:`, err);
+        }
+      }
+    } catch {
+      // Directory unreadable
+    }
   }
 }
 

@@ -1,0 +1,5 @@
+name: book
+label: Book (Default)
+skills: [interactive-reading]
+extensions: [mcp]
+exclude_tools: [bash, edit]

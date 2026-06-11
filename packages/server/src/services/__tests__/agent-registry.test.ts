@@ -37,25 +37,63 @@ function createExtension(baseDir: string, name: string, content = "export defaul
   return dir;
 }
 
-/** Build a test config pointing at temp directories */
+/** Create a mock YAML profile file */
+function createProfile(baseDir: string, filename: string, content: string): string {
+  mkdirSync(baseDir, { recursive: true });
+  const filePath = join(baseDir, filename);
+  writeFileSync(filePath, content);
+  return filePath;
+}
+
+/** Seed the core profiles that built-in resolution tests depend on */
+function seedCoreProfiles(profilesDir: string): void {
+  createProfile(profilesDir, "book-reading.yml", "name: book.reading\nlabel: Book Reading\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "book-qa.yml", "name: book.qa\nlabel: Book Q&A\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "book-analysis.yml", "name: book.analysis\nlabel: Book Analysis\nskills: [book-analysis, book-outline]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "book.yml", "name: book\nlabel: Book (Default)\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "news-reading.yml", "name: news.news\nlabel: News Reading\nskills: [news-reading]\nextensions: [news, mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "news.yml", "name: news\nlabel: News (Default)\nskills: [news-reading]\nextensions: [news, mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "router.yml", "name: router\nlabel: Session Router\nskills: [session-router]\nextensions: [library]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "default.yml", "name: _default\nlabel: Default\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
+}
+
+/**
+ * Build a test config pointing at temp directories.
+ *
+ * Layout mirrors the real server layout:
+ *   <root>/core/agents/skills/      — core skills
+ *   <root>/core/agents/extensions/  — core extensions
+ *   <root>/core/profiles/           — core profiles (YAML)
+ *   <root>/data/skills/             — user skill overrides
+ *   <root>/data/extensions/         — user extension overrides
+ *   <root>/data/profiles/           — user-defined profiles
+ */
 function makeConfig(suffix: string) {
   const coreDir = join(TEST_ROOT, suffix, "core");
-  const coreSkillsDir = join(coreDir, "skills");
-  const coreExtDir = join(coreDir, "extensions");
-  const userSkillsDir = join(TEST_ROOT, suffix, "user-skills");
-  const userExtensionsDir = join(TEST_ROOT, suffix, "user-extensions");
-  mkdirSync(coreSkillsDir, { recursive: true });
-  mkdirSync(coreExtDir, { recursive: true });
-  mkdirSync(userSkillsDir, { recursive: true });
-  mkdirSync(userExtensionsDir, { recursive: true });
+  const dataDir = join(TEST_ROOT, suffix, "data");
+  // Core subdirs
+  const coreSkillsDir = join(coreDir, "agents", "skills");
+  const coreExtDir = join(coreDir, "agents", "extensions");
+  const coreProfilesDir = join(coreDir, "profiles");
+  // User subdirs
+  const userSkillsDir = join(dataDir, "skills");
+  const userExtDir = join(dataDir, "extensions");
+  const userProfilesDir = join(dataDir, "profiles");
+  // Create all
+  for (const d of [coreSkillsDir, coreExtDir, coreProfilesDir, userSkillsDir, userExtDir, userProfilesDir]) {
+    mkdirSync(d, { recursive: true });
+  }
   return {
     // AgentRegistryConfig fields
-    coreAgentsDir: coreDir,
-    userSkillsDir,
-    userExtensionsDir,
+    coreDir,
+    dataDir,
     // Convenience accessors for tests
     coreSkillsDir,
     coreExtDir,
+    coreProfilesDir,
+    userSkillsDir,
+    userExtDir,
+    userProfilesDir,
   };
 }
 
@@ -112,13 +150,13 @@ describe("AgentRegistry", () => {
       expect(skills).toHaveLength(1);
       expect(skills[0].name).toBe("interactive-reading");
       expect(skills[0].source).toBe("user");
-      expect(skills[0].path).toContain("user-skills");
+      expect(skills[0].path).toContain(join("data", "skills"));
     });
 
     it("user extensions override core extensions with same name", () => {
       const cfg = makeConfig("disc-override-ext");
       createExtension(cfg.coreExtDir, "news", "// core");
-      createExtension(cfg.userExtensionsDir, "news", "// user override");
+      createExtension(cfg.userExtDir, "news", "// user override");
 
       registry.initialize(cfg);
 
@@ -126,7 +164,7 @@ describe("AgentRegistry", () => {
       expect(extensions).toHaveLength(1);
       expect(extensions[0].name).toBe("news");
       expect(extensions[0].source).toBe("user");
-      expect(extensions[0].path).toContain("user-extensions");
+      expect(extensions[0].path).toContain(join("data", "extensions"));
     });
 
     it("merges core and user skills (different names)", () => {
@@ -183,9 +221,8 @@ describe("AgentRegistry", () => {
 
     it("handles nonexistent directories gracefully", () => {
       registry.initialize({
-        coreAgentsDir: "/tmp/nonexistent-dir-12345",
-        userSkillsDir: "/tmp/also-nonexistent-67890",
-        userExtensionsDir: "/tmp/nope-11111",
+        coreDir: "/tmp/nonexistent-dir-12345",
+        dataDir: "/tmp/also-nonexistent-67890",
       });
 
       expect(registry.getSkills()).toHaveLength(0);
@@ -199,6 +236,7 @@ describe("AgentRegistry", () => {
     /** Set up a registry with realistic skills and extensions */
     function setupRealisticRegistry() {
       const cfg = makeConfig(`resolve-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+      seedCoreProfiles(cfg.coreProfilesDir);
       createSkill(cfg.coreSkillsDir, "interactive-reading");
       createSkill(cfg.coreSkillsDir, "book-outline");
       createSkill(cfg.coreSkillsDir, "book-analysis");
@@ -345,6 +383,40 @@ describe("AgentRegistry", () => {
       expect(profile.skills).toEqual(["nonexistent-skill"]);
       expect(profile.skillPaths).toHaveLength(0); // not found → skipped
     });
+
+    // --- sessionContext.profile direct resolution ---
+
+    it("resolves profile directly when sessionContext.profile is set", () => {
+      const cfg = setupRealisticRegistry();
+      // Create a custom profile that doesn't follow sourceType.mode naming
+      writeFileSync(
+        join(cfg.userProfilesDir, "github-exploration.yml"),
+        "name: github-exploration\nlabel: GitHub Exploration\nskills: [interactive-reading]\nextensions: [mcp]\n",
+      );
+      // Re-initialize to pick up the new profile
+      registry.initialize(cfg);
+
+      const profile = registry.resolveProfile("book", "reading", {
+        mode: "reading",
+        profile: "github-exploration",
+      });
+
+      // Should use the directly-referenced profile, not book.reading
+      expect(profile.resolvedFrom).toBe("github-exploration");
+      expect(profile.label).toBe("GitHub Exploration");
+    });
+
+    it("falls back to normal resolution when sessionContext.profile doesn't exist", () => {
+      setupRealisticRegistry();
+
+      const profile = registry.resolveProfile("book", "reading", {
+        mode: "reading",
+        profile: "nonexistent-profile",
+      });
+
+      // Should fall back to book.reading
+      expect(profile.resolvedFrom).toBe("book.reading");
+    });
   });
 
   // --- Validation ---
@@ -352,6 +424,7 @@ describe("AgentRegistry", () => {
   describe("validate", () => {
     it("passes with valid profiles", () => {
       const cfg = makeConfig("valid-profiles");
+      seedCoreProfiles(cfg.coreProfilesDir);
       createSkill(cfg.coreSkillsDir, "interactive-reading");
       createSkill(cfg.coreSkillsDir, "book-analysis");
       createSkill(cfg.coreSkillsDir, "book-outline");
@@ -370,6 +443,7 @@ describe("AgentRegistry", () => {
 
     it("reports errors for missing skills referenced by profiles", () => {
       const cfg = makeConfig("missing-skills");
+      seedCoreProfiles(cfg.coreProfilesDir);
       // Only create some skills — profiles reference others that don't exist
       createSkill(cfg.coreSkillsDir, "interactive-reading");
       createExtension(cfg.coreExtDir, "library");
@@ -391,6 +465,7 @@ describe("AgentRegistry", () => {
 
     it("reports errors for missing extensions referenced by profiles", () => {
       const cfg = makeConfig("missing-ext");
+      seedCoreProfiles(cfg.coreProfilesDir);
       createSkill(cfg.coreSkillsDir, "interactive-reading");
       createSkill(cfg.coreSkillsDir, "book-analysis");
       createSkill(cfg.coreSkillsDir, "book-outline");
@@ -409,6 +484,7 @@ describe("AgentRegistry", () => {
 
     it("warns about unused skills not referenced by any profile", () => {
       const cfg = makeConfig("unused-skills");
+      seedCoreProfiles(cfg.coreProfilesDir);
       createSkill(cfg.coreSkillsDir, "interactive-reading");
       createSkill(cfg.coreSkillsDir, "book-analysis");
       createSkill(cfg.coreSkillsDir, "book-outline");
@@ -461,6 +537,7 @@ describe("AgentRegistry", () => {
 
     it("getProfiles returns all registered profiles", () => {
       const cfg = makeConfig("intro-profiles");
+      seedCoreProfiles(cfg.coreProfilesDir);
       registry.initialize(cfg);
 
       const profiles = registry.getProfiles();
@@ -469,6 +546,170 @@ describe("AgentRegistry", () => {
       expect(profiles.has("news.news")).toBe(true);
       expect(profiles.has("router")).toBe(true);
       expect(profiles.has("_default")).toBe(true);
+    });
+  });
+
+  // --- User-defined profiles ---
+
+  describe("user-defined profiles", () => {
+    it("discovers valid YAML profiles from user profiles directory", () => {
+      const cfg = makeConfig("user-profiles-basic");
+      writeFileSync(
+        join(cfg.userProfilesDir, "github-exploration.yml"),
+        [
+          "name: github-exploration",
+          "label: GitHub Repo Exploration",
+          "description: Explore and research GitHub repositories",
+          "skills: [repo-exploration]",
+          "extensions: [mcp]",
+          "exclude_tools: [edit]",
+        ].join("\n"),
+      );
+
+      registry.initialize(cfg);
+
+      const profiles = registry.getProfiles();
+      expect(profiles.has("github-exploration")).toBe(true);
+      const profile = profiles.get("github-exploration")!;
+      expect(profile.label).toBe("GitHub Repo Exploration");
+      expect(profile.skills).toEqual(["repo-exploration"]);
+      expect(profile.extensions).toEqual(["mcp"]);
+      expect(profile.excludeTools).toEqual(["edit"]);
+    });
+
+    it("rejects profiles missing required 'name' field", () => {
+      const cfg = makeConfig("user-profiles-noname");
+      writeFileSync(
+        join(cfg.userProfilesDir, "bad.yml"),
+        "label: Missing Name\nskills: [foo]\n",
+      );
+
+      registry.initialize(cfg);
+
+      const profiles = registry.getProfiles();
+      expect(profiles.has("Missing Name")).toBe(false);
+    });
+
+    it("rejects profiles missing required 'skills' field", () => {
+      const cfg = makeConfig("user-profiles-noskills");
+      writeFileSync(
+        join(cfg.userProfilesDir, "no-skills.yml"),
+        "name: no-skills-profile\nlabel: Oops\n",
+      );
+
+      registry.initialize(cfg);
+
+      expect(registry.getProfiles().has("no-skills-profile")).toBe(false);
+    });
+
+    it("rejects profiles with wrong types (skills as string instead of array)", () => {
+      const cfg = makeConfig("user-profiles-wrongtype");
+      writeFileSync(
+        join(cfg.userProfilesDir, "bad-type.yml"),
+        "name: bad-type\nskills: not-an-array\n",
+      );
+
+      registry.initialize(cfg);
+
+      expect(registry.getProfiles().has("bad-type")).toBe(false);
+    });
+
+    it("rejects profiles with unknown fields (catches typos)", () => {
+      const cfg = makeConfig("user-profiles-typo");
+      writeFileSync(
+        join(cfg.userProfilesDir, "typo.yml"),
+        "name: typo-profile\nskills: [foo]\nskill: bar\n",
+      );
+
+      registry.initialize(cfg);
+
+      // strictObject rejects unknown keys
+      expect(registry.getProfiles().has("typo-profile")).toBe(false);
+    });
+
+    it("rejects profiles with non-string items in arrays", () => {
+      const cfg = makeConfig("user-profiles-badarray");
+      writeFileSync(
+        join(cfg.userProfilesDir, "bad-array.yml"),
+        "name: bad-array\nskills:\n  - good-skill\n  - 42\n",
+      );
+
+      registry.initialize(cfg);
+
+      expect(registry.getProfiles().has("bad-array")).toBe(false);
+    });
+
+    it("user profiles override built-in profiles with same name", () => {
+      const cfg = makeConfig("user-profiles-override");
+      seedCoreProfiles(cfg.coreProfilesDir);
+      createSkill(cfg.coreSkillsDir, "custom-reading");
+      writeFileSync(
+        join(cfg.userProfilesDir, "override.yml"),
+        [
+          "name: book.reading",
+          "label: My Custom Book Reading",
+          "skills: [custom-reading]",
+          "extensions: []",
+        ].join("\n"),
+      );
+
+      registry.initialize(cfg);
+
+      const profile = registry.getProfiles().get("book.reading")!;
+      expect(profile.label).toBe("My Custom Book Reading");
+      expect(profile.skills).toEqual(["custom-reading"]);
+    });
+
+    it("defaults exclude_tools to [bash, edit] when not specified", () => {
+      const cfg = makeConfig("user-profiles-defaults");
+      writeFileSync(
+        join(cfg.userProfilesDir, "minimal.yml"),
+        "name: minimal-profile\nlabel: Minimal\nskills: []\n",
+      );
+
+      registry.initialize(cfg);
+
+      const profile = registry.getProfiles().get("minimal-profile")!;
+      expect(profile.excludeTools).toEqual(["bash", "edit"]);
+    });
+
+    it("defaults extensions to [] when not specified", () => {
+      const cfg = makeConfig("user-profiles-noext");
+      writeFileSync(
+        join(cfg.userProfilesDir, "no-ext.yml"),
+        "name: no-ext\nskills: [foo]\n",
+      );
+
+      registry.initialize(cfg);
+
+      const profile = registry.getProfiles().get("no-ext")!;
+      expect(profile.extensions).toEqual([]);
+    });
+
+    it("uses name as label fallback when label is omitted", () => {
+      const cfg = makeConfig("user-profiles-nolabel");
+      writeFileSync(
+        join(cfg.userProfilesDir, "no-label.yml"),
+        "name: my-profile\nskills: []\n",
+      );
+
+      registry.initialize(cfg);
+
+      const profile = registry.getProfiles().get("my-profile")!;
+      expect(profile.label).toBe("my-profile");
+    });
+
+    it("supports optional model override", () => {
+      const cfg = makeConfig("user-profiles-model");
+      writeFileSync(
+        join(cfg.userProfilesDir, "with-model.yml"),
+        "name: with-model\nlabel: With Model\nskills: []\nmodel: gpt-4o\n",
+      );
+
+      registry.initialize(cfg);
+
+      const profile = registry.getProfiles().get("with-model")!;
+      expect(profile.model).toBe("gpt-4o");
     });
   });
 });

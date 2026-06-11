@@ -645,3 +645,28 @@ export async function fetchNewsFeeds(): Promise<ClientFeedConfig[]> {
   if (!res.ok) throw new Error(`Failed to fetch news feeds: ${res.status}`);
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Profiles
+// ---------------------------------------------------------------------------
+
+/** Profile info as returned by GET /api/profiles */
+export interface ProfileInfo {
+  label: string;
+  description?: string;
+  sourceType?: string;
+  skills: string[];
+  extensions: string[];
+  excludeTools: string[];
+  model?: string;
+}
+
+/**
+ * Fetch all available session profiles from the server.
+ * Returns a map of profile name → profile info.
+ */
+export async function fetchProfiles(): Promise<Record<string, ProfileInfo>> {
+  const res = await fetch(`${API}/profiles`);
+  if (!res.ok) throw new Error(`Failed to fetch profiles: ${res.status}`);
+  return res.json();
+}

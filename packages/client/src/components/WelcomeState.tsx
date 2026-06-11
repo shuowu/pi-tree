@@ -4,7 +4,7 @@ import { BookOpen, MessageCircle } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
 import "./WelcomeState.css";
 
-export type SessionMode = "reading" | "qa" | "news";
+export type SessionMode = string;
 
 interface WelcomeStateProps {
   source: Source;

@@ -22,7 +22,7 @@ function modeIcon(mode: string) {
     case "custom":
       return "⚙️";
     default:
-      return "📖";
+      return "✨";
   }
 }
 
@@ -34,10 +34,12 @@ interface SessionPickerProps {
   source: Source;
   sessions: SourceSession[];
   onSelectSession: (session: SourceSession) => void;
-  onNewSession: (mode: SessionMode, customTitle?: string, initialQuery?: string) => void;
+  onNewSession: (mode: SessionMode, customTitle?: string, initialQuery?: string, profile?: string) => void;
   onDeleteSession: (sessionId: number) => void;
   onRenameSession: (sessionId: number, newTitle: string) => void;
   isLoading: boolean;
+  /** Custom profiles available for this source type (fetched from server) */
+  customProfiles?: Array<{ name: string; label: string; description?: string }>;
 }
 
 export function SessionPicker({
@@ -48,6 +50,7 @@ export function SessionPicker({
   onDeleteSession,
   onRenameSession,
   isLoading,
+  customProfiles = [],
 }: SessionPickerProps) {
   const [showNewSessionOptions, setShowNewSessionOptions] = useState(false);
   const [scanKeyword, setScanKeyword] = useState("");
@@ -342,6 +345,26 @@ export function SessionPicker({
                       </span>
                     </div>
                   </button>
+
+                  {/* Custom profiles */}
+                  {customProfiles.map((p) => (
+                    <button
+                      key={p.name}
+                      className="session-picker-mode-option"
+                      onClick={() => onNewSession(p.name, p.label, undefined, p.name)}
+                      disabled={isLoading}
+                    >
+                      <div className="session-picker-mode-icon">
+                        <Sparkles size={24} strokeWidth={1.5} />
+                      </div>
+                      <div className="session-picker-mode-text">
+                        <span className="session-picker-mode-label">{p.label}</span>
+                        <span className="session-picker-mode-desc">
+                          {p.description || 'Custom session profile'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </>
               </div>
             </>
@@ -396,6 +419,26 @@ export function SessionPicker({
                           </span>
                         </div>
                       </button>
+
+                      {/* Custom profiles */}
+                      {customProfiles.map((p) => (
+                        <button
+                          key={p.name}
+                          className="session-picker-mode-option"
+                          onClick={() => { setShowNewSessionOptions(false); onNewSession(p.name, p.label, undefined, p.name); }}
+                          disabled={isLoading}
+                        >
+                          <div className="session-picker-mode-icon">
+                            <Sparkles size={20} strokeWidth={1.5} />
+                          </div>
+                          <div className="session-picker-mode-text">
+                            <span className="session-picker-mode-label">{p.label}</span>
+                            <span className="session-picker-mode-desc">
+                              {p.description || 'Custom session profile'}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
                     </>
                   </div>
                   <button

@@ -109,7 +109,7 @@ The server can connect to external MCP servers and expose their tools to the AI 
 
 The agent registry discovers, validates, and resolves capabilities at startup:
 
-1. **Discovery**: Scans `agents/skills/` + `agents/extensions/` for core capabilities, then `$DATA_PATH/skills/` + `$DATA_PATH/extensions/` for user overrides
+1. **Discovery**: Scans `agents/skills/` + `agents/extensions/` for core capabilities, then `$DATA_PATH/skills/` + `$DATA_PATH/extensions/` for user overrides. User-defined profiles from `$DATA_PATH/profiles/*.yml` are also discovered and merged (user wins on name collision).
 2. **Validation**: Checks that all session profiles reference existing skills/extensions
 3. **Resolution**: `resolveProfile(sourceType, mode, sessionContext)` → concrete paths for PiSession
 
@@ -123,6 +123,8 @@ Declarative mapping of `(sourceType, mode)` → skills, extensions, excludeTools
 - `router` → `[session-router]` skill, `[library]` extension
 
 Resolution order: `${sourceType}.${mode}` → `${sourceType}` → `_default`. `SessionContext.skills` and `SessionContext.model` from the DB override the profile.
+
+Custom profiles (`$DATA_PATH/profiles/*.yml`) support an optional `source_type` field (e.g. `book`, `news`). When set, the profile appears as an additional session mode in the SessionPicker only for sources of that type.
 
 ### Skill Override Mechanism
 
@@ -226,6 +228,7 @@ All mutable state (sessions, DB, library, news) lives under `DATA_PATH` (default
 | Outlines | `<DATA_PATH>/library/<sourceId>/analysis/` | Shared |
 | News reports | `<DATA_PATH>/news/analyses/`, `summaries/` | Shared (mutable) |
 | User skills | `<DATA_PATH>/skills/` (or `$SKILLS_PATH`) | Shared (mutable) |
+| User profiles | `<DATA_PATH>/profiles/` | Shared (mutable) |
 | Default feeds | `packages/server/config/default-feeds.yml` | Repo (read-only) |
 
 ## Session Management

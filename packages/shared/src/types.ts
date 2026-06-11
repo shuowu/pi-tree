@@ -52,7 +52,9 @@ export interface NewsMetadata {
  */
 export interface SessionContext {
   /** Which mode the user picked — extensible to future modes */
-  mode: 'reading' | 'qa' | 'custom' | 'news';
+  mode: string;
+  /** Optional profile name — directly references a registered profile (bypasses sourceType.mode resolution) */
+  profile?: string;
   /** Optional custom system prompt override */
   systemPrompt?: string;
   /** Optional skill filter — which skills to enable for this session */

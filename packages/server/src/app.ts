@@ -11,6 +11,7 @@ import { dictionaryRoutes } from "./routes/dictionary.js";
 import { newsRoutes } from "./routes/news.js";
 import { routerRoutes } from "./routes/router.js";
 import { getServerConfig, saveServerConfig } from "./config.js";
+import { getAgentRegistry } from "./services/agent-registry.js";
 
 export const app = new Hono();
 
@@ -62,6 +63,25 @@ app.route("/api/users", userRoutes);
 app.route("/api/dict", dictionaryRoutes);
 app.route("/api/news", newsRoutes);
 app.route("/api/router", routerRoutes);
+
+// Profiles introspection — list all available session profiles
+app.get("/api/profiles", (c) => {
+  const registry = getAgentRegistry();
+  const profiles = registry.getProfiles();
+  const result: Record<string, object> = {};
+  for (const [key, profile] of profiles) {
+    result[key] = {
+      label: profile.label,
+      ...(profile.description ? { description: profile.description } : {}),
+      ...(profile.sourceType ? { sourceType: profile.sourceType } : {}),
+      skills: profile.skills,
+      extensions: profile.extensions,
+      excludeTools: profile.excludeTools,
+      ...(profile.model ? { model: profile.model } : {}),
+    };
+  }
+  return c.json(result);
+});
 
 // Test-only routes — seed data for e2e tests (only when PI_MOCK=true)
 if (process.env.PI_MOCK === "true") {

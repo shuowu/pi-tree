@@ -1,0 +1,5 @@
+name: book.analysis
+label: Book Analysis
+skills: [book-analysis, book-outline]
+extensions: [mcp]
+exclude_tools: [bash, edit]

@@ -48,9 +48,8 @@ setExtensionServices({
 // Initialize the agent registry — discovers skills, extensions, and validates profiles.
 // Must happen after extension services are set.
 initAgentRegistry({
-  coreAgentsDir: join(import.meta.dirname, "agents"),
-  userSkillsDir: process.env.SKILLS_PATH || join(dataPath, "skills"),
-  userExtensionsDir: process.env.EXTENSIONS_PATH || join(dataPath, "extensions"),
+  coreDir: import.meta.dirname,
+  dataDir: dataPath,
 });
 
 console.log(`🚀 pi-tree server starting on http://${hostname}:${port}`);

@@ -32,6 +32,10 @@ export interface ExtensionEntry {
 export interface SessionProfile {
   /** Human-readable label */
   label: string;
+  /** One-line description */
+  description?: string;
+  /** Source type this profile applies to (e.g. "book", "news") */
+  sourceType?: string;
   /** Which skills to load (by registered name) */
   skills: string[];
   /** Which extensions to load (by registered name) */
@@ -56,13 +60,22 @@ export interface ResolvedProfile extends SessionProfile {
 // Registry initialization config
 // ---------------------------------------------------------------------------
 
+/**
+ * Two-root configuration for the agent registry.
+ *
+ * All subdirectory conventions are handled inside the registry:
+ *   coreDir/agents/skills/      — core skill directories
+ *   coreDir/agents/extensions/  — core extension directories
+ *   coreDir/profiles/           — core session profiles (YAML)
+ *   dataDir/skills/             — user skill overrides
+ *   dataDir/extensions/         — user extension overrides
+ *   dataDir/profiles/           — user-defined session profiles (YAML)
+ */
 export interface AgentRegistryConfig {
-  /** Path to core agents dir (packages/server/agents/) */
-  coreAgentsDir: string;
-  /** Path to user skills override dir ($DATA_PATH/skills/) */
-  userSkillsDir: string;
-  /** Path to user extensions override dir ($DATA_PATH/extensions/) */
-  userExtensionsDir: string;
+  /** Root for core assets (import.meta.dirname in server entry, e.g. src/ or dist/) */
+  coreDir: string;
+  /** Root for user overrides ($DATA_PATH, e.g. ~/.local/share/pi-tree/) */
+  dataDir: string;
 }
 
 /** Result of registry validation */

@@ -177,6 +177,44 @@ Extensions are loaded at runtime via [jiti](https://github.com/unjs/jiti) — no
 
 > **Note**: Extensions run with the server's permissions. Only load extensions you trust.
 
+## Custom Session Profiles
+
+Session profiles define the "recipe" for an AI session — which skills, extensions, and model to use. Pi-tree ships with built-in profiles for books and news, but you can define your own to add custom session modes for existing source types.
+
+### Creating a profile
+
+Create a YAML file in `<DATA_PATH>/profiles/` (one file per profile):
+
+```yaml
+# ~/.local/share/pi-tree/profiles/socratic-discussion.yml
+name: socratic-discussion
+label: Socratic Discussion
+description: Explore ideas through dialectical questioning
+source_type: book
+
+skills:
+  - socratic-reading
+```
+
+### Profile format
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Unique identifier (used as profile key, e.g. `socratic-discussion`) |
+| `label` | Yes | Human-readable name shown in the UI |
+| `description` | No | One-line summary of what this profile does |
+| `source_type` | No | Source type this profile applies to (e.g. `book`, `news`). Shown only for matching sources. |
+| `skills` | Yes | List of skill names to load (must exist in skills dirs) |
+| `extensions` | No | List of extension names to load (default: `[]`) |
+| `exclude_tools` | No | Pi SDK tools to block (default: `["bash", "edit"]`) |
+| `model` | No | Model override (falls back to server default) |
+
+### How profiles are used
+
+User profiles appear as additional session modes in the SessionPicker for matching source types. They are discovered at startup and merged with built-in profiles.
+
+User profiles override built-in profiles with the same name.
+
 ## MCP Bridge (External Tools)
 
 Pi-tree can connect to external [MCP servers](https://modelcontextprotocol.io) and expose their tools to the AI agent. This lets you add web search, academic databases, translation APIs, or any MCP-compatible tool without writing code.

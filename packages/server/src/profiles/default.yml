@@ -1,0 +1,5 @@
+name: _default
+label: Default
+skills: [interactive-reading]
+extensions: [mcp]
+exclude_tools: [bash, edit]

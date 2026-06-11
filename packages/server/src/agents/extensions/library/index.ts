@@ -2,6 +2,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Type } from "typebox";
 import { eq, not, like, and, or, desc } from "drizzle-orm";
 import { getExtensionServices } from "../../context.js";
+import { getAgentRegistry } from "../../../services/agent-registry.js";
+
 
 /**
  * Resolve the correct userId for tool operations.
@@ -179,7 +181,8 @@ export default function (pi: ExtensionAPI) {
       source_id: Type.String({ description: "The source to create a session on." }),
       user_id: Type.Optional(Type.String({ description: "The user who owns the session. Auto-detected if omitted." })),
       title: Type.String({ description: "Display title for the session." }),
-      mode: Type.Optional(Type.String({ description: "Session mode: 'reading', 'qa', 'custom', 'news'. Default: 'reading'." })),
+      mode: Type.Optional(Type.String({ description: "Session mode: 'reading', 'qa', 'custom', 'news', or a custom profile name. Default: 'reading'." })),
+      profile: Type.Optional(Type.String({ description: "Custom profile name (e.g. 'socratic-discussion'). When set, the server uses this profile's skills/extensions instead of the default mode resolution." })),
       prompt: Type.Optional(Type.String({ description: "Optional system prompt override for this session." }))
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -200,6 +203,9 @@ export default function (pi: ExtensionAPI) {
         }
 
         const context: Record<string, any> = { mode: params.mode ?? "reading" };
+        if (params.profile) {
+          context.profile = params.profile;
+        }
         if (params.prompt) {
           context.systemPrompt = params.prompt;
         }
@@ -305,4 +311,45 @@ export default function (pi: ExtensionAPI) {
       }
     }
   });
+
+  // 5. List Profiles — for router to discover custom session modes
+  pi.registerTool({
+    name: "list_profiles",
+    label: "List Session Profiles",
+    description: "List available custom session profiles. Each profile defines a specialized AI behavior (skills, model) for sessions on a specific source type. Use this when the user's intent doesn't match standard modes (reading/qa/news).",
+    parameters: Type.Object({
+      source_type: Type.Optional(Type.String({ description: "Filter by source type (e.g. 'book', 'news'). Omit to see all." })),
+    }),
+    async execute(_toolCallId, params) {
+      const registry = getAgentRegistry();
+      const profiles = registry.getProfiles();
+      // Filter out built-in profiles and optionally by source type
+      const builtinKeys = new Set([
+        "book.reading", "book.qa", "book.analysis", "book",
+        "news.news", "news", "router", "_default",
+      ]);
+      const result: Array<Record<string, unknown>> = [];
+      for (const [name, profile] of profiles) {
+        if (builtinKeys.has(name)) continue;
+        if (params.source_type && profile.sourceType && profile.sourceType !== params.source_type) continue;
+        result.push({
+          name,
+          label: profile.label,
+          ...(profile.description ? { description: profile.description } : {}),
+          ...(profile.sourceType ? { source_type: profile.sourceType } : {}),
+        });
+      }
+      if (result.length === 0) {
+        return {
+          content: [{ type: "text", text: "No custom profiles available." }],
+          details: undefined,
+        };
+      }
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        details: undefined,
+      };
+    }
+  });
+
 }
