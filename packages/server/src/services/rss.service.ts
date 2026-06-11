@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import yaml from "js-yaml";
@@ -178,7 +178,8 @@ export class RssService {
 
   /**
    * Seed default feeds into the database if no feeds exist yet.
-   * Called once on startup. Reads from the shipped default-feeds.yml.
+   * Called once on startup. Reads from feeds.local.yml (user override)
+   * or the shipped default-feeds.yml.
    */
   public seedDefaultFeeds(): void {
     const db = getDb();
@@ -190,11 +191,13 @@ export class RssService {
     const existing = db.select({ id: rssFeeds.id }).from(rssFeeds).limit(1).all();
     if (existing.length > 0) return;
 
-    // Load defaults from the shipped config file
-    const raw = readFileSync(
-      join(import.meta.dirname, "../../config/default-feeds.yml"),
-      "utf-8",
-    );
+    // Load defaults — prefer local override over shipped config
+    const configDir = join(import.meta.dirname, "../../config");
+    const localPath = join(configDir, "feeds.local.yml");
+    const defaultPath = join(configDir, "default-feeds.yml");
+    const feedsPath = existsSync(localPath) ? localPath : defaultPath;
+
+    const raw = readFileSync(feedsPath, "utf-8");
     const defaultFeeds = yaml.load(raw) as FeedConfig[];
 
     const now = new Date().toISOString();
@@ -214,7 +217,8 @@ export class RssService {
         .run();
     }
 
-    console.log(`[rss-service] Seeded ${defaultFeeds.length} default feeds from default-feeds.yml`);
+    const source = feedsPath === localPath ? "feeds.local.yml" : "default-feeds.yml";
+    console.log(`[rss-service] Seeded ${defaultFeeds.length} default feeds from ${source}`);
   }
 
   /** List all active feeds from DB */

@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "brave-search": {
+      "disabled": true,
+      "command": "npx",
+      "args": ["-y", "@brave/brave-search-mcp-server@latest"],
+      "env": { "BRAVE_API_KEY": "your-key-here" }
+    },
+    "youtube-transcript": {
+      "disabled": true,
+      "command": "npx",
+      "args": ["-y", "@kimtaeyoon83/mcp-server-youtube-transcript"]
+    },
+    "fetch": {
+      "disabled": true,
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-fetch"]
+    }
+  }
+}

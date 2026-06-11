@@ -201,6 +201,12 @@ Create `<DATA_PATH>/mcp.json` (same format as Claude Desktop / Cursor):
 }
 ```
 
+> [!TIP]
+> A ready-made template with popular servers lives at `packages/server/config/mcp.example.json`. Copy it to your data path and enable what you need:
+> ```bash
+> cp packages/server/config/mcp.example.json ~/.local/share/pi-tree/mcp.json
+> ```
+
 Each server entry can have:
 
 - **`command`** + **`args`**: Spawn a stdio-based MCP server (most common)
