@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router";
 import { UserProvider, useUser } from "./UserContext";
 import { StreamProvider } from "./StreamContext";
+import { ThemeProvider } from "./ThemeContext";
 import { UserPicker } from "./components/UserPicker";
 import { HomePage } from "./components/HomePage";
 import { Library } from "./components/Library";
@@ -78,10 +79,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <UserProvider>
-      <StreamProvider>
-        <AppRoutes />
-      </StreamProvider>
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <StreamProvider>
+          <AppRoutes />
+        </StreamProvider>
+      </UserProvider>
+    </ThemeProvider>
   );
 }

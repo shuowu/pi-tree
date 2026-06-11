@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, Loader2, Save, AlertCircle, Check, Info } from "lucide-react";
 import { fetchServerConfig, saveServerConfig } from "../api";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import "./SettingsModal.css";
 
 interface SettingsModalProps {
@@ -99,9 +100,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         </button>
 
         <div className="settings-header">
-          <h2>Global AI Settings</h2>
-          <p>Configure dynamic model parameters, API credentials, and endpoint targets.</p>
+          <h2>Settings</h2>
+          <p>Appearance and AI model configuration.</p>
         </div>
+
+        {/* ── Appearance section (client-only, no loading gate) ── */}
+        <div className="settings-section">
+          <h3 className="settings-section-title">Theme</h3>
+          <ThemeSwitcher variant="grid" />
+        </div>
+
+        <div className="settings-divider" />
+
+        <h3 className="settings-section-title">AI Configuration</h3>
 
         {loading ? (
           <div className="settings-loading">

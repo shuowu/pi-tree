@@ -1,0 +1,108 @@
+/* ── Theme Switcher ── */
+
+.theme-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.theme-switcher--grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.theme-switcher--inline {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.theme-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.theme-swatch:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+
+.theme-swatch--active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.theme-swatch-preview {
+  position: relative;
+  width: 40px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 3px;
+  transition: box-shadow 0.2s ease;
+}
+
+.theme-swatch-accent {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.theme-swatch-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+}
+
+.theme-swatch-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Inline variant — more compact */
+.theme-switcher--inline .theme-swatch {
+  flex-direction: row;
+  padding: 4px var(--space-2);
+  gap: var(--space-1);
+}
+
+.theme-switcher--inline .theme-swatch-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-switcher--inline .theme-swatch-accent {
+  width: 6px;
+  height: 6px;
+}
+
+.theme-switcher--inline .theme-swatch-label {
+  display: none;
+}
