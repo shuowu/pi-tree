@@ -165,8 +165,8 @@ export function SpotlightSearch({
 
         if (scope.kind === "category") {
           // Category scope: filter by source type across all sources
-          fetchOpts.sourceType = scope.type;
-          sourcesPromise = fetchSources({ type: scope.type, ...(searchQuery ? { search: searchQuery } : {}) });
+          fetchOpts.sourceType = scope.type as SourceType;
+          sourcesPromise = fetchSources({ type: scope.type as SourceType, ...(searchQuery ? { search: searchQuery } : {}) });
         } else {
           // Source/feed/tag scope: filter by specific source ID
           const sourceId = resolveSourceId(scope);

@@ -5,14 +5,15 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
-COPY packages/extension/package.json ./packages/extension/
+COPY packages/core/package.json ./packages/core/
+COPY packages/ui/package.json ./packages/ui/
 COPY packages/server/package.json ./packages/server/
 COPY packages/mcp/package.json ./packages/mcp/
 COPY packages/client/package.json ./packages/client/
 
 RUN npm ci
 
-# ── Stage 2: Build all packages (shared → server → client) ───────────
+# ── Stage 2: Build all packages (shared → core → server → client) ────
 FROM deps AS build
 
 COPY . .
@@ -36,18 +37,18 @@ COPY package.json package-lock.json ./
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 
-# Copy server dist + production node_modules
+# Copy core package (runtime dependency for server)
+COPY --from=build /app/packages/core/package.json ./packages/core/
+COPY --from=build /app/packages/core/dist ./packages/core/dist
+
+# Copy server dist + config + production node_modules
 COPY --from=build /app/packages/server/package.json ./packages/server/
 COPY --from=build /app/packages/server/dist ./packages/server/dist
+COPY --from=build /app/packages/server/config ./packages/server/config
 COPY --from=build /app/node_modules ./node_modules
 
 # Copy client build output (served by Hono serveStatic in production mode)
 COPY --from=build /app/packages/client/dist ./packages/client/dist
-
-# Copy extension package (parsers + skills for the AI)
-COPY --from=build /app/packages/extension/package.json ./packages/extension/
-COPY --from=build /app/packages/extension/dist ./packages/extension/dist
-COPY --from=build /app/packages/extension/skills ./packages/extension/skills
 
 ENV NODE_ENV=production
 ENV PORT=3847

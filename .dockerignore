@@ -3,7 +3,8 @@ dist
 .git
 .gitignore
 *.md
-!packages/extension/skills/**/*.md
+!packages/server/src/agents/skills/**/*.md
+!packages/server/src/agents/prompts/**/*.md
 .env
 .env.*
 .vscode

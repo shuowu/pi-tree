@@ -47,7 +47,7 @@ export function useSourceMentions() {
 
       // Sources (filter out the internal "router" source)
       for (const s of sources) {
-        if (s.type === "router") continue;
+        if ((s.type as string) === "router") continue;
         items.push({
           id: `source-${s.id}`,
           label: s.title,
@@ -91,7 +91,7 @@ export function useSourceMentions() {
       // Type-level categories — "All Books", "All News", etc.
       const typeCounts = new Map<string, number>();
       for (const s of sources) {
-        if (s.type === "router") continue;
+        if ((s.type as string) === "router") continue;
         typeCounts.set(s.type, (typeCounts.get(s.type) ?? 0) + 1);
       }
 
