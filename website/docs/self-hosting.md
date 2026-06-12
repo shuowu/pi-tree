@@ -21,6 +21,7 @@ This guide covers everything you need to configure, customize, and extend your s
 | `EXTENSIONS_PATH` | `<DATA_PATH>/extensions` | Custom extensions directory |
 | `PORT` | `3847` | Server port |
 | `RSS_CRAWL_INTERVAL_MIN` | `30` | How often to crawl RSS feeds (in minutes) |
+| `JINA_API_KEY` | — | Optional [Jina Reader](https://jina.ai/reader/) API key for article extraction. Without it, the anonymous tier (20 RPM) is used. With a key, you get 100 RPM and token tracking. |
 
 :::tip
 Env vars are the simplest way to configure a single provider. For multiple providers, use `models.json` — see [Multi-Provider Models](/docs/models).

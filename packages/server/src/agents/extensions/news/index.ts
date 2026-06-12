@@ -168,10 +168,15 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params) {
       try {
+        const headers: Record<string, string> = {
+          "Accept": "text/markdown"
+        };
+        const jinaKey = process.env.JINA_API_KEY;
+        if (jinaKey) {
+          headers["Authorization"] = `Bearer ${jinaKey}`;
+        }
         const response = await fetch(`https://r.jina.ai/${params.url}`, {
-          headers: {
-            "Accept": "text/markdown"
-          }
+          headers
         });
         if (!response.ok) {
           throw new Error(`Jina Reader returned status ${response.status}`);
