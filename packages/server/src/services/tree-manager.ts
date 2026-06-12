@@ -84,10 +84,7 @@ export class TreeManager {
 
     const db = getDb();
     const sourceRow = db.select().from(sources).where(eq(sources.id, sourceId)).get();
-    const isUpload = sourceRow && sourceRow.source !== "library";
-    const resolvedLibraryPath = isUpload
-      ? join(dataPath, "books")
-      : library.getLibraryPath();
+    const resolvedLibraryPath = library.getSourcesPath();
     // Build PiSessionConfig — all env var resolution happens here in the app layer.
     // Core (PiSession) never reads process.env directly.
     const serverCfg = getServerConfig();

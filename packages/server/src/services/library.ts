@@ -1,8 +1,8 @@
 import type { Source, SourceOutline, OutlineEntry } from "@pi-tree/shared";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { getDb, sources as sourcesTable, tags as tagsTable, sourceTags } from "../db/index.js";
 import { BookIngestionService } from "./book-ingestion.js";
 
@@ -13,149 +13,149 @@ import { BookIngestionService } from "./book-ingestion.js";
  * Reads the existing folder structure: book/, markdown/, analysis/, notes/.
  */
 export class LibraryService {
-  private libraryPath: string;
   private sourcesPath: string;
   private ingestion: BookIngestionService;
-  private synced = false;
 
   constructor(dataPath?: string) {
     const dp =
       dataPath ??
       process.env.DATA_PATH ??
       join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
-    this.libraryPath = join(dp, "library");
     this.sourcesPath = join(dp, "sources");
     
-    // Ensure the directories exist
-    mkdirSync(this.libraryPath, { recursive: true });
     mkdirSync(this.sourcesPath, { recursive: true });
 
-    // One-time migration: move books/* → sources/
-    this.migrateBooksToSources(join(dp, "books"));
+    // One-time migration: move books/ and library/ into sources/
+    this.migrateLegacyDirs(dp);
     
     this.ingestion = new BookIngestionService();
   }
 
-  /** Migrate legacy books/ entries to sources/. Runs once at startup. */
-  private migrateBooksToSources(booksPath: string): void {
-    try {
-      const { readdirSync, renameSync, existsSync, rmSync } = require("node:fs");
-      if (!existsSync(booksPath)) return;
-      const entries = readdirSync(booksPath, { withFileTypes: true });
-      let moved = 0;
-      for (const entry of entries) {
-        if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-        const src = join(booksPath, entry.name);
-        const dest = join(this.sourcesPath, entry.name);
-        if (existsSync(dest)) continue; // already migrated or collision
-        renameSync(src, dest);
-        moved++;
-      }
-      if (moved > 0) {
-        console.log(`[library] Migrated ${moved} source(s) from books/ → sources/`);
-      }
-      // Remove empty books/ dir
-      const remaining = readdirSync(booksPath);
-      if (remaining.length === 0) {
-        rmSync(booksPath, { recursive: true, force: true });
-      }
-    } catch {
-      // Non-fatal — old data stays in books/ until next restart
+  /**
+   * Migrate legacy directories into sources/.
+   * - books/: move directories as-is (already have DB rows)
+   * - library/: parse folder names for metadata, insert DB rows, then move
+   */
+  private migrateLegacyDirs(dataPath: string): void {
+    // --- Migrate books/ ---
+    const booksPath = join(dataPath, "books");
+    if (existsSync(booksPath)) {
+      try {
+        const entries = readdirSync(booksPath, { withFileTypes: true });
+        let moved = 0;
+        for (const entry of entries) {
+          if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+          const src = join(booksPath, entry.name);
+          const dest = join(this.sourcesPath, entry.name);
+          if (existsSync(dest)) continue;
+          renameSync(src, dest);
+          moved++;
+        }
+        if (moved > 0) console.log(`[library] Migrated ${moved} source(s) from books/ → sources/`);
+        if (readdirSync(booksPath).length === 0) rmSync(booksPath, { recursive: true, force: true });
+      } catch { /* non-fatal */ }
+    }
+
+    // --- Migrate library/ ---
+    const libraryPath = join(dataPath, "library");
+    if (existsSync(libraryPath)) {
+      try {
+        const entries = readdirSync(libraryPath, { withFileTypes: true });
+        const db = getDb();
+        const now = new Date().toISOString();
+        let moved = 0;
+        for (const entry of entries) {
+          if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+          const folderName = entry.name;
+          const parsed = this.parseFolderName(folderName);
+          if (!parsed) continue;
+
+          // Ensure DB row exists
+          db.insert(sourcesTable)
+            .values({
+              id: folderName,
+              type: "book",
+              title: parsed.title,
+              author: parsed.author,
+              year: parsed.year,
+              source: "library",
+              status: "ready",
+              createdAt: now,
+              updatedAt: now,
+            })
+            .onConflictDoNothing()
+            .run();
+
+          // Move directory
+          const src = join(libraryPath, folderName);
+          const dest = join(this.sourcesPath, folderName);
+          if (existsSync(dest)) continue;
+          renameSync(src, dest);
+          moved++;
+        }
+        if (moved > 0) console.log(`[library] Migrated ${moved} source(s) from library/ → sources/`);
+        if (readdirSync(libraryPath).length === 0) rmSync(libraryPath, { recursive: true, force: true });
+      } catch { /* non-fatal */ }
     }
   }
 
-  /** Candidate directories for a source: sources/ (primary) → library/ (pre-placed) */
-  private candidateDirs(sourceId: string): string[] {
-    return [
-      join(this.sourcesPath, sourceId),
-      join(this.libraryPath, sourceId),
-    ];
+  /** Source directory path */
+  private sourceDir(sourceId: string): string {
+    return join(this.sourcesPath, sourceId);
   }
 
   getSourcesPath(): string {
     return this.sourcesPath;
   }
 
-  getLibraryPath(): string {
-    return this.libraryPath;
-  }
-
   async listSources(): Promise<Source[]> {
-    const entries = await readdir(this.libraryPath, { withFileTypes: true });
-    const librarySources: Source[] = [];
+    const db = getDb();
 
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    // All sources live in DB — uploaded, user-created, system, migrated
+    const rows = db.select().from(sourcesTable).all();
+    const result: Source[] = [];
 
-      const folderName = entry.name;
-      const parsed = this.parseFolderName(folderName);
-      if (!parsed) continue;
+    for (const row of rows) {
+      const dir = this.sourceDir(row.id);
 
-      const bookPath = join(this.libraryPath, folderName);
+      const hasMarkdown = await this.exists(join(dir, "markdown"));
+      const hasOutline =
+        (await this.exists(join(dir, "analysis", "outline.md"))) ||
+        (await this.exists(join(dir, "analysis", "toc.json")));
 
-      const hasMarkdown = await this.exists(join(bookPath, "markdown"));
-      const hasOutline = await this.exists(
-        join(bookPath, "analysis", "outline.md"),
-      );
-      const hasCover = (
-        await this.exists(join(bookPath, "cover.jpg")) ||
-        await this.exists(join(bookPath, "cover.jpeg")) ||
-        await this.exists(join(bookPath, "cover.png")) ||
-        await this.exists(join(bookPath, "cover.webp")) ||
-        await this.exists(join(bookPath, "cover.gif"))
-      );
+      let hasCover = false;
+      for (const ext of ["jpg", "jpeg", "png", "webp", "gif"]) {
+        if (await this.exists(join(dir, `cover.${ext}`))) {
+          hasCover = true;
+          break;
+        }
+      }
 
-      librarySources.push({
-        id: folderName,
-        type: "book" as const,
-        title: parsed.title,
-        author: parsed.author,
-        year: parsed.year,
-        folderName,
-        progress: 0, // TODO: Read from bookmark.md
+      result.push({
+        id: row.id,
+        type: (row.type ?? "book") as Source["type"],
+        title: row.title,
+        author: row.author,
+        year: row.year ?? 0,
+        folderName: row.id,
+        progress: 0,
         hasMarkdown,
         hasOutline,
         hasCover,
-        source: "library",
+        source: row.source ?? "upload",
+        status: (row.status ?? "ready") as Source["status"],
+        error: row.error ?? undefined,
       });
     }
 
-    // Sync library sources to DB (idempotent) so they can be tagged
-    if (!this.synced) {
-      this.syncSourcesToDb(librarySources);
-      this.synced = true;
-    }
-
-    const uploadedBooks = await this.ingestion.listUploadedBooks();
-    
-    // Fetch system-defined sources (like news feeds)
-    const db = getDb();
-    const systemSources = db.select().from(sourcesTable).where(eq(sourcesTable.source, "system")).all();
-    const systemSourcesList: Source[] = systemSources.map(s => ({
-      id: s.id,
-      type: (s.type ?? "news") as Source["type"],
-      title: s.title,
-      author: s.author,
-      year: s.year ?? new Date().getFullYear(),
-      folderName: s.id,
-      progress: 0,
-      hasMarkdown: false,
-      hasOutline: false,
-      hasCover: false,
-      source: "library",
-      status: "ready"
-    }));
-
-    const allSources = [...librarySources, ...uploadedBooks, ...systemSourcesList];
-
     // Attach tags from DB
-    const sourceIds = allSources.map((s) => s.id);
+    const sourceIds = result.map((s) => s.id);
     const tagMap = this.getSourceTags(sourceIds);
-    for (const src of allSources) {
+    for (const src of result) {
       src.tags = tagMap.get(src.id) ?? [];
     }
 
-    return allSources;
+    return result;
   }
 
   /**
@@ -181,32 +181,6 @@ export class LibraryService {
     }
 
     return results;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Source sync — upsert library sources into DB for tagging
-  // ---------------------------------------------------------------------------
-
-  private syncSourcesToDb(librarySources: Source[]): void {
-    const db = getDb();
-    const now = new Date().toISOString();
-
-    for (const src of librarySources) {
-      db.insert(sourcesTable)
-        .values({
-          id: src.id,
-          type: "book",
-          title: src.title,
-          author: src.author,
-          year: src.year,
-          source: "library",
-          status: "ready",
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing()
-        .run();
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -325,14 +299,12 @@ export class LibraryService {
   }
 
   async getCoverPath(sourceId: string): Promise<string | null> {
-    const searchPaths = this.candidateDirs(sourceId);
+    const basePath = this.sourceDir(sourceId);
     const extensions = ["jpg", "jpeg", "png", "webp", "gif"];
-    for (const basePath of searchPaths) {
-      for (const ext of extensions) {
-        const coverPath = join(basePath, `cover.${ext}`);
-        if (await this.exists(coverPath)) {
-          return coverPath;
-        }
+    for (const ext of extensions) {
+      const coverPath = join(basePath, `cover.${ext}`);
+      if (await this.exists(coverPath)) {
+        return coverPath;
       }
     }
     return null;
@@ -344,17 +316,14 @@ export class LibraryService {
     if (tocJson) return tocJson;
 
     // 2. Fallback: parse outline.md (Navigation Map or heading extraction)
-    const candidatePaths = this.candidateDirs(sourceId).map(d => join(d, "analysis", "outline.md"));
+    const outlinePath = join(this.sourceDir(sourceId), "analysis", "outline.md");
 
-    for (const outlinePath of candidatePaths) {
-      try {
-        const content = await readFile(outlinePath, "utf-8");
-        return this.parseOutline(sourceId, content);
-      } catch {
-        // Try next path
-      }
+    try {
+      const content = await readFile(outlinePath, "utf-8");
+      return this.parseOutline(sourceId, content);
+    } catch {
+      return null;
     }
-    return null;
   }
 
   /**
@@ -362,47 +331,41 @@ export class LibraryService {
    * This is the preferred source — emitted by the book-outline skill as clean JSON.
    */
   private async loadTocJson(sourceId: string): Promise<SourceOutline | null> {
-    const candidatePaths = this.candidateDirs(sourceId).map(d => join(d, "analysis", "toc.json"));
+    const tocPath = join(this.sourceDir(sourceId), "analysis", "toc.json");
 
-    for (const tocPath of candidatePaths) {
+    try {
+      const raw = await readFile(tocPath, "utf-8");
+      const data = JSON.parse(raw) as Array<{
+        line: number;
+        level: number;
+        title: string;
+      }>;
+
+      if (!Array.isArray(data) || data.length === 0) return null;
+
+      const entries: OutlineEntry[] = data.map((d) => ({
+        line: d.line,
+        level: d.level,
+        title: d.title,
+        children: [],
+      }));
+
+      const root = this.buildOutlineTree(entries);
+
+      // Try to get summary from outline.md if it exists
+      let summary = "";
+      const outlinePath2 = join(this.sourceDir(sourceId), "analysis", "outline.md");
       try {
-        const raw = await readFile(tocPath, "utf-8");
-        const data = JSON.parse(raw) as Array<{
-          line: number;
-          level: number;
-          title: string;
-        }>;
-
-        if (!Array.isArray(data) || data.length === 0) continue;
-
-        const entries: OutlineEntry[] = data.map((d) => ({
-          line: d.line,
-          level: d.level,
-          title: d.title,
-          children: [],
-        }));
-
-        const root = this.buildOutlineTree(entries);
-
-        // Try to get summary from outline.md if it exists
-        let summary = "";
-        const outlineCandidates = this.candidateDirs(sourceId).map(d => join(d, "analysis", "outline.md"));
-        for (const outlinePath of outlineCandidates) {
-          try {
-            const outlineContent = await readFile(outlinePath, "utf-8");
-            summary = this.extractSummary(outlineContent.split("\n"));
-            break;
-          } catch {
-            // Try next
-          }
-        }
-
-        return { sourceId, summary, entries: root };
+        const outlineContent = await readFile(outlinePath2, "utf-8");
+        summary = this.extractSummary(outlineContent.split("\n"));
       } catch {
-        // Try next path
+        // No outline.md
       }
+
+      return { sourceId, summary, entries: root };
+    } catch {
+      return null;
     }
-    return null;
   }
 
   async readContent(
@@ -410,22 +373,19 @@ export class LibraryService {
     startLine: number,
     endLine: number,
   ): Promise<string | null> {
-    const candidateDirs = this.candidateDirs(sourceId).map(d => join(d, "markdown"));
+    const mdDir = join(this.sourceDir(sourceId), "markdown");
 
-    for (const mdDir of candidateDirs) {
-      try {
-        const files = await readdir(mdDir);
-        const mdFile = files.find((f) => f.endsWith(".md"));
-        if (!mdFile) continue;
+    try {
+      const files = await readdir(mdDir);
+      const mdFile = files.find((f) => f.endsWith(".md"));
+      if (!mdFile) return null;
 
-        const content = await readFile(join(mdDir, mdFile), "utf-8");
-        const lines = content.split("\n");
-        return lines.slice(startLine - 1, endLine).join("\n");
-      } catch {
-        // Try next path
-      }
+      const content = await readFile(join(mdDir, mdFile), "utf-8");
+      const lines = content.split("\n");
+      return lines.slice(startLine - 1, endLine).join("\n");
+    } catch {
+      return null;
     }
-    return null;
   }
 
   /**
@@ -477,46 +437,43 @@ export class LibraryService {
   private async extractHeadingsFromMarkdown(
     sourceId: string,
   ): Promise<Array<{ line: number; level: number; title: string }> | null> {
-    const candidateDirs = this.candidateDirs(sourceId).map(d => join(d, "markdown"));
+    const mdDir = join(this.sourceDir(sourceId), "markdown");
 
-    for (const mdDir of candidateDirs) {
-      try {
-        const files = await readdir(mdDir);
-        const mdFile = files.find((f) => f.endsWith(".md"));
-        if (!mdFile) continue;
+    try {
+      const files = await readdir(mdDir);
+      const mdFile = files.find((f) => f.endsWith(".md"));
+      if (!mdFile) return null;
 
-        const content = await readFile(join(mdDir, mdFile), "utf-8");
-        const lines = content.split("\n");
-        const headings: Array<{ line: number; level: number; title: string }> = [];
+      const content = await readFile(join(mdDir, mdFile), "utf-8");
+      const lines = content.split("\n");
+      const headings: Array<{ line: number; level: number; title: string }> = [];
 
-        let inCodeBlock = false;
-        for (let i = 0; i < lines.length; i++) {
-          // Skip lines inside fenced code blocks
-          if (/^(`{3,}|~{3,})/.test(lines[i])) {
-            inCodeBlock = !inCodeBlock;
-            continue;
-          }
-          if (inCodeBlock) continue;
+      let inCodeBlock = false;
+      for (let i = 0; i < lines.length; i++) {
+        // Skip lines inside fenced code blocks
+        if (/^(`{3,}|~{3,})/.test(lines[i])) {
+          inCodeBlock = !inCodeBlock;
+          continue;
+        }
+        if (inCodeBlock) continue;
 
-          const match = lines[i].match(/^(#{1,6})\s+(.+)/);
-          if (match) {
-            const title = this.cleanHeadingTitle(match[2]);
-            if (title.length > 0 && !this.isNoiseHeading(title)) {
-              headings.push({
-                line: i + 1,
-                level: match[1].length,
-                title,
-              });
-            }
+        const match = lines[i].match(/^(#{1,6})\s+(.+)/);
+        if (match) {
+          const title = this.cleanHeadingTitle(match[2]);
+          if (title.length > 0 && !this.isNoiseHeading(title)) {
+            headings.push({
+              line: i + 1,
+              level: match[1].length,
+              title,
+            });
           }
         }
-
-        return headings;
-      } catch {
-        // Try next path
       }
+
+      return headings;
+    } catch {
+      return null;
     }
-    return null;
   }
 
   /**
