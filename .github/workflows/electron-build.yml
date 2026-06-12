@@ -19,8 +19,12 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
-          - os: macos-latest
+          - os: macos-latest         # Apple Silicon
             platform: mac
+            arch: arm64
+          - os: macos-13             # Intel
+            platform: mac
+            arch: x64
           - os: windows-latest
             platform: win
 
@@ -29,9 +33,9 @@ jobs:
       contents: write  # needed to upload release assets
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -40,12 +44,14 @@ jobs:
         run: npm ci
 
       - name: Build all packages + Electron dist
-        run: npm run electron:dist:${{ matrix.platform }}
+        run: |
+          npm run build
+          cd packages/electron && npx electron-builder --${{ matrix.platform }} ${{ matrix.arch && format('--{0}', matrix.arch) || '' }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: electron-${{ matrix.platform }}
+          name: electron-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
           path: |
             packages/electron/release/*.dmg
             packages/electron/release/*.AppImage
