@@ -49,12 +49,13 @@ export const SOURCE_TYPE_CONFIGS: Record<SourceType, SourceTypeConfig> = {
   paper: {
     label: "Paper",
     icon: FileText,
-    sessionModes: ["reading", "qa", "custom"],
+    sessionModes: ["reading", "custom"],
     defaultMode: "reading",
-    hasProcessing: true,
-    hasContentPanel: true,
+    autoStartMode: "reading",
+    hasProcessing: false,
+    hasContentPanel: false,
     searchPlaceholder: "Search papers...",
-    chatPlaceholder: "Ask about the paper, or try: summarize, key findings…",
+    chatPlaceholder: "Search arXiv, paste a paper ID, or ask about research topics…",
   },
   podcast: {
     label: "Podcast",
