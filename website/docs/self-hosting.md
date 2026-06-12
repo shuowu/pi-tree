@@ -235,6 +235,117 @@ User profiles appear as additional session modes in the SessionPicker for matchi
 User profiles override built-in profiles with the same name.
 :::
 
+## Custom Source Types {#custom-source-types}
+
+Pi-tree ships with built-in support for books, news, and papers — but you can define your own source types for any content. Custom source types combine three pieces you've already seen: **content**, **skills**, and **profiles**.
+
+### The Complete Flow
+
+Here's how to add a custom source type, end to end:
+
+#### 1. Prepare Your Content
+
+Place your content as markdown files at:
+
+```
+<DATA_PATH>/books/<source-id>/markdown/content.md
+```
+
+You can convert from any format — PDF, HTML, Notion export, Obsidian vault, etc. — using tools like Pandoc, Calibre, or any other converter. Pi-tree reads markdown.
+
+:::tip
+If you upload a `.md` file through the UI (Add Source → Book tab), this is done automatically. The manual path is for content you've already prepared.
+:::
+
+#### 2. Create a Skill (Optional)
+
+If you want custom AI behavior for your source type, create a skill:
+
+```
+<DATA_PATH>/skills/tutorial-reading/SKILL.md
+```
+
+```markdown
+---
+name: tutorial-reading
+description: Guided tutorial walkthrough with exercises and checkpoints
+---
+
+# Tutorial Reading
+
+## Workflow
+1. Read the tutorial content section by section
+2. Explain concepts with practical examples
+3. Suggest exercises at natural checkpoints
+4. Track progress through the tutorial
+```
+
+#### 3. Create a Profile
+
+Wire your skill to a source type with a profile:
+
+```yaml
+# <DATA_PATH>/profiles/tutorial-reading.yml
+name: tutorial.reading
+label: Tutorial Reading
+source_type: tutorial
+skills: [tutorial-reading]
+extensions: [mcp]
+exclude_tools: [bash, edit]
+```
+
+The `source_type: tutorial` field makes this profile appear as a session mode only for sources of type `tutorial`.
+
+#### 4. Register the Source
+
+In the UI, click **Add Source → Custom** tab:
+
+- **Title**: "React Tutorial"
+- **Source Type**: `tutorial`
+- **Author**: optional
+
+This creates a source record. The app will:
+- Look up the profile for `tutorial.reading`
+- Load your custom skill
+- Start a session with your custom flow
+
+### Example: Codebase Explorer
+
+A complete custom source type for exploring codebases:
+
+```
+<DATA_PATH>/
+  skills/
+    codebase-reading/
+      SKILL.md              ← "Walk through this codebase…"
+  extensions/
+    codebase/
+      index.ts              ← clone_repo, list_files tools
+  profiles/
+    codebase-reading.yml    ← wires skill + extension
+```
+
+```yaml
+# profiles/codebase-reading.yml
+name: codebase.reading
+label: Codebase Explorer
+source_type: codebase
+skills: [codebase-reading]
+extensions: [codebase, mcp]
+```
+
+See the [GitHub Explorer example](/docs/examples) for a working implementation.
+
+### Profile Resolution Order
+
+When starting a session for source type `T` with mode `M`:
+
+1. `T.M` — exact match (e.g., `tutorial.reading`)
+2. `T` — source type fallback (e.g., `tutorial`)
+3. `_default` — universal fallback
+
+This means **custom source types always work** — even without a custom profile, they fall back to `_default`.
+
 ## MCP Bridge (External Tools) {#mcp-bridge}
 
 Pi-tree can connect to external [MCP servers](https://modelcontextprotocol.io) and expose their tools to the AI agent. This lets you add web search, academic databases, translation APIs, or any MCP-compatible tool — without writing code.

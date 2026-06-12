@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Upload, FileText, X, Loader2, Check, BookOpen, ScrollText } from "lucide-react";
+import { Upload, FileText, X, Loader2, Check, BookOpen, ScrollText, Puzzle } from "lucide-react";
 import { uploadSource, createSource } from "../api";
 import "./AddBookModal.css";
 
@@ -8,7 +8,7 @@ interface AddBookModalProps {
   onSuccess: () => void;
 }
 
-type SourceTab = "book" | "paper";
+type SourceTab = "book" | "paper" | "custom";
 
 const ACCEPTED_EXTENSIONS = [".epub", ".mobi", ".pdf", ".md"];
 
@@ -48,6 +48,13 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
   const [paperArxivId, setPaperArxivId] = useState("");
   const [paperSubmitting, setPaperSubmitting] = useState(false);
   const [paperError, setPaperError] = useState<string | null>(null);
+
+  // Custom state
+  const [customTitle, setCustomTitle] = useState("");
+  const [customType, setCustomType] = useState("");
+  const [customAuthor, setCustomAuthor] = useState("");
+  const [customSubmitting, setCustomSubmitting] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
 
   const handleFile = useCallback((f: File) => {
     const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
@@ -127,6 +134,25 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
     }
   }, [paperTitle, paperAuthor, paperArxivId, onSuccess]);
 
+  const canSubmitCustom = customTitle.trim() && customType.trim() && !customSubmitting;
+
+  const handleSubmitCustom = useCallback(async () => {
+    if (!customTitle.trim() || !customType.trim()) return;
+    setCustomSubmitting(true);
+    setCustomError(null);
+    try {
+      await createSource({
+        title: customTitle.trim(),
+        author: customAuthor.trim() || undefined,
+        type: customType.trim().toLowerCase().replace(/\s+/g, "-"),
+      });
+      onSuccess();
+    } catch (err) {
+      setCustomError(err instanceof Error ? err.message : "Creation failed");
+      setCustomSubmitting(false);
+    }
+  }, [customTitle, customType, customAuthor, onSuccess]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -147,11 +173,15 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
         </button>
 
         <div className="add-book-header">
-          <h2>{sourceType === "book" ? "Add a Book" : "Add a Paper"}</h2>
+          <h2>
+            {sourceType === "book" ? "Add a Book" : sourceType === "paper" ? "Add a Paper" : "Add a Source"}
+          </h2>
           <p>
             {sourceType === "book"
               ? "Upload an EPUB, MOBI, PDF, or Markdown file"
-              : "Add a paper to discuss and analyze"}
+              : sourceType === "paper"
+                ? "Add a paper to discuss and analyze"
+                : "Register any content source with a custom type"}
           </p>
         </div>
 
@@ -170,6 +200,13 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
           >
             <ScrollText size={15} />
             Paper
+          </button>
+          <button
+            className={`add-book-tab ${sourceType === "custom" ? "active" : ""}`}
+            onClick={() => setSourceType("custom")}
+          >
+            <Puzzle size={15} />
+            Custom
           </button>
         </div>
 
@@ -324,6 +361,79 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
                   <>
                     <ScrollText size={18} />
                     Add Paper
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── Custom Tab ── */}
+        {sourceType === "custom" && (
+          <>
+            <div className="add-book-form">
+              <div className="add-book-field">
+                <label htmlFor="add-custom-title">Title</label>
+                <input
+                  id="add-custom-title"
+                  type="text"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  placeholder="My Research Project"
+                />
+              </div>
+              <div className="add-book-field">
+                <label htmlFor="add-custom-type">Source Type</label>
+                <input
+                  id="add-custom-type"
+                  type="text"
+                  value={customType}
+                  onChange={(e) => setCustomType(e.target.value)}
+                  placeholder="e.g. codebase, tutorial, research"
+                />
+              </div>
+              <div className="add-book-field">
+                <label htmlFor="add-custom-author">Author (optional)</label>
+                <input
+                  id="add-custom-author"
+                  type="text"
+                  value={customAuthor}
+                  onChange={(e) => setCustomAuthor(e.target.value)}
+                  placeholder="Author or creator"
+                />
+              </div>
+            </div>
+
+            <div className="add-book-hint">
+              <p>Place your content (markdown) at:</p>
+              <code>$DATA_PATH/books/&lt;source-id&gt;/markdown/content.md</code>
+              <p>Create a matching profile at <code>$DATA_PATH/profiles/</code> for a custom session flow.</p>
+            </div>
+
+            {customError && (
+              <div className="add-book-error">
+                <span className="add-book-error-text">{customError}</span>
+                <button className="add-book-error-retry" onClick={handleSubmitCustom}>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <div className="add-book-actions">
+              <button
+                className="add-book-submit"
+                disabled={!canSubmitCustom}
+                onClick={handleSubmitCustom}
+              >
+                {customSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="spinner" />
+                    Adding…
+                  </>
+                ) : (
+                  <>
+                    <Puzzle size={18} />
+                    Add Source
                   </>
                 )}
               </button>

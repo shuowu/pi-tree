@@ -10,3 +10,4 @@ test-results/
 local-docs/
 pending-*
 *.local.yml
+router-*

@@ -1,6 +1,6 @@
 import type { SourceType } from "@pi-tree/shared";
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, Newspaper, FileText, Headphones } from "lucide-react";
+import { BookOpen, Newspaper, FileText, Headphones, Puzzle } from "lucide-react";
 
 /** Configuration for how each source type renders in the UI */
 export interface SourceTypeConfig {
@@ -24,7 +24,7 @@ export interface SourceTypeConfig {
   chatPlaceholder: string;
 }
 
-export const SOURCE_TYPE_CONFIGS: Record<SourceType, SourceTypeConfig> = {
+export const SOURCE_TYPE_CONFIGS: Record<string, SourceTypeConfig> = {
   book: {
     label: "Book",
     icon: BookOpen,
@@ -69,7 +69,20 @@ export const SOURCE_TYPE_CONFIGS: Record<SourceType, SourceTypeConfig> = {
   },
 };
 
-/** Get config for a source type, with a fallback to book config */
-export function getSourceTypeConfig(type: SourceType): SourceTypeConfig {
-  return SOURCE_TYPE_CONFIGS[type] ?? SOURCE_TYPE_CONFIGS.book;
+/** Generic fallback for user-defined custom source types */
+const GENERIC_CONFIG: SourceTypeConfig = {
+  label: "Source",
+  icon: Puzzle,
+  sessionModes: ["reading", "custom"],
+  defaultMode: "reading",
+  autoStartMode: "reading",
+  hasProcessing: false,
+  hasContentPanel: true,
+  searchPlaceholder: "Search sources...",
+  chatPlaceholder: "Ask questions about this source…",
+};
+
+/** Get config for a source type, with a generic fallback for custom types */
+export function getSourceTypeConfig(type: SourceType | string): SourceTypeConfig {
+  return SOURCE_TYPE_CONFIGS[type] ?? GENERIC_CONFIG;
 }
