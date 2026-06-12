@@ -47,7 +47,7 @@ export function RouterChat({ userId }: RouterChatProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [sessionInfo, setSessionInfo] = useState<{ sessionId: number; sourceId: string } | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<{ sessionKey: string } | null>(null);
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -172,8 +172,8 @@ export function RouterChat({ userId }: RouterChatProps) {
 
       sendMessageStreaming(
         userId,
-        sessionInfo.sourceId,
-        sessionInfo.sessionId,
+        "_system_router_router",
+        0,
         trimmed,
         null,
         {
@@ -236,6 +236,8 @@ export function RouterChat({ userId }: RouterChatProps) {
             ]);
           },
         },
+        undefined,
+        { sessionKey: sessionInfo.sessionKey },
       );
     },
     [input, isStreaming, sessionInfo, userId, navigate, mentionQuery, mentionSuggestions, mentionIndex, insertMention],

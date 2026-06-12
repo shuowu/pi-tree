@@ -342,7 +342,7 @@ export async function resetSession(userId: string, sourceId: string, sessionId: 
   if (!res.ok) throw new Error(`Failed to reset session: ${res.status}`);
 }
 
-export async function fetchRouterSession(userId: string): Promise<{ sessionId: number; sourceId: string }> {
+export async function fetchRouterSession(userId: string): Promise<{ sessionKey: string }> {
   const res = await fetch(`${API}/router/session/${encodeURIComponent(userId)}`);
   if (!res.ok) throw new Error(`Failed to get router session: ${res.status}`);
   return res.json();
@@ -382,11 +382,15 @@ export async function sendMessageStreaming(
     onError: (error: Error) => void;
   },
   signal?: AbortSignal,
+  opts?: { sessionKey?: string },
 ): Promise<void> {
+  const body: Record<string, unknown> = { userId, sourceId, sessionId, message, viewNodeId };
+  if (opts?.sessionKey) body.sessionKey = opts.sessionKey;
+
   const res = await fetch(`${API}/session/message/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, sourceId, sessionId, message, viewNodeId }),
+    body: JSON.stringify(body),
     signal,
   });
 

@@ -134,6 +134,48 @@ export class TreeManager {
   }
 
   /**
+   * Create an ephemeral session that lives only in memory.
+   * Used for system sessions (e.g. the home-router) that don't need persistence.
+   */
+  static async createEphemeral(
+    userId: string,
+    sourceType: string,
+    mode: string,
+  ): Promise<TreeManager> {
+    const library = new LibraryService();
+    const dataPath =
+      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-tree");
+    const serverCfg = getServerConfig();
+    const repoRoot = join(import.meta.dirname, "../../../..");
+
+    const registry = getAgentRegistry();
+    const profile = registry.resolveProfile(sourceType, mode, { mode });
+    console.log(`[tree-manager] Ephemeral session: resolved profile "${profile.resolvedFrom}" for ${sourceType}/${mode}`);
+
+    const syntheticSourceId = `_system_${sourceType}_${mode}`;
+    const piSession = await PiSession.create(
+      userId,
+      syntheticSourceId,
+      library.getSourcesPath(),
+      dataPath,
+      {
+        config: {
+          ...serverCfg,
+          repoRoot,
+          skillPaths: profile.skillPaths,
+          extensionPaths: profile.extensionPaths,
+          excludeTools: profile.excludeTools,
+          sourceType,
+          ...(profile.model ? { readingModel: profile.model } : {}),
+        },
+      },
+    );
+
+    console.log(`[tree-manager] Ephemeral session created — user: ${userId}, type: ${sourceType}/${mode}`);
+    return new TreeManager(piSession, userId, syntheticSourceId, library);
+  }
+
+  /**
    * Read the active session file path for a user+source from the DB.
    *
    * @param sessionId — When provided, looks up that specific row by ID.

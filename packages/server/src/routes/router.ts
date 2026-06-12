@@ -1,102 +1,73 @@
 /**
- * Router routes — manages the home-router source and session.
+ * Router routes — manages ephemeral home-router sessions.
  *
- * The "router" is a special system source that powers the home page
- * chat interface, allowing users to discover sources and start sessions.
- *
- * Each visit to the home page gets a FRESH router session — the
- * concierge conversation is ephemeral, not persistent.
+ * The "router" is a system session that powers the home page chat.
+ * Sessions are purely in-memory — no DB rows, no source entry.
+ * Each visit creates a fresh session; the previous one is discarded.
  *
  * Mounted at `/api/router`.
  */
 
 import { Hono } from "hono";
-import { eq, and } from "drizzle-orm";
-import { getDb, sources, userSessions, users } from "../db/index.js";
-import { closeSession } from "../services/session-store.js";
-
-const ROUTER_SOURCE_ID = "home-router";
+import { TreeManager } from "../services/tree-manager.js";
+import {
+  registerSession,
+  closeSessionByKey,
+} from "../services/session-store.js";
 
 export const routerRoutes = new Hono();
 
+// Track the active router session key per user so we can close the old one
+const activeRouterKeys = new Map<string, string>();
+
+// One-time legacy cleanup flag
+let legacyCleaned = false;
+
+/**
+ * Remove legacy home-router source and sessions from DB.
+ * Safe to call multiple times — no-ops after the first successful run.
+ */
+async function cleanupLegacyRouterRows(): Promise<void> {
+  if (legacyCleaned) return;
+  try {
+    const { getDb, sources, userSessions } = await import("../db/index.js");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    db.delete(userSessions).where(eq(userSessions.sourceId, "home-router")).run();
+    db.delete(sources).where(eq(sources.id, "home-router")).run();
+    legacyCleaned = true;
+    console.log("[router] Cleaned up legacy home-router DB rows");
+  } catch {
+    // DB not ready yet or already clean — will retry on next request
+  }
+}
+
 // ---------------------------------------------------------------------------
-// GET /router/session/:userId — always creates a fresh router session
+// GET /router/session/:userId — creates a fresh ephemeral router session
 // ---------------------------------------------------------------------------
 
-routerRoutes.get("/session/:userId", (c) => {
+routerRoutes.get("/session/:userId", async (c) => {
   try {
     const userId = c.req.param("userId");
-    const db = getDb();
-    const now = new Date().toISOString();
 
-    // 1. Ensure the router source exists
-    db.insert(sources)
-      .values({
-        id: ROUTER_SOURCE_ID,
-        type: "router",
-        title: "Home Router",
-        author: "System",
-        source: "system",
-        status: "ready",
-        metadata: JSON.stringify({ description: "Session router for the home page" }),
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoNothing()
-      .run();
+    // One-time: remove legacy DB rows from before the ephemeral refactor
+    await cleanupLegacyRouterRows();
 
-    // 2. Ensure user exists
-    const existingUser = db.select().from(users).where(eq(users.id, userId)).get();
-    if (!existingUser) {
-      db.insert(users)
-        .values({ id: userId, displayName: userId, createdAt: now, updatedAt: now })
-        .onConflictDoNothing()
-        .run();
+    // Close any previous router session for this user
+    const oldKey = activeRouterKeys.get(userId);
+    if (oldKey) {
+      closeSessionByKey(oldKey);
     }
 
-    // 3. Deactivate all previous router sessions for this user
-    //    (the concierge chat is ephemeral — no history across page visits)
-    const oldSessions = db
-      .select()
-      .from(userSessions)
-      .where(
-        and(
-          eq(userSessions.userId, userId),
-          eq(userSessions.sourceId, ROUTER_SOURCE_ID),
-          eq(userSessions.isActive, 1),
-        ),
-      )
-      .all();
+    // Create an ephemeral session (no DB, no source row)
+    const manager = await TreeManager.createEphemeral(userId, "router", "router");
 
-    for (const old of oldSessions) {
-      // Close any in-memory session state
-      closeSession(userId, ROUTER_SOURCE_ID, old.id);
-      // Soft-delete in DB
-      db.update(userSessions)
-        .set({ isActive: 0 })
-        .where(eq(userSessions.id, old.id))
-        .run();
-    }
+    // Register in session-store under a synthetic key
+    const sessionKey = `router:${userId}:${Date.now()}`;
+    registerSession(sessionKey, manager);
+    activeRouterKeys.set(userId, sessionKey);
 
-    // 4. Create a fresh router session
-    const result = db
-      .insert(userSessions)
-      .values({
-        userId,
-        sourceId: ROUTER_SOURCE_ID,
-        title: "Home Router",
-        sessionFile: `router-${Date.now()}`,
-        isActive: 1,
-        context: JSON.stringify({ mode: "router" }),
-        lastActiveAt: now,
-        createdAt: now,
-      })
-      .run();
-
-    return c.json({
-      sessionId: Number(result.lastInsertRowid),
-      sourceId: ROUTER_SOURCE_ID,
-    });
+    return c.json({ sessionKey });
   } catch (err) {
     console.error("Router session error:", err);
     return c.json({ error: String(err) }, 500);

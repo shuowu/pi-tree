@@ -182,6 +182,56 @@ export function closeSession(userId: string, sourceId: string, sessionId?: numbe
 }
 
 /**
+ * Register an externally-created TreeManager in the session cache.
+ * Used for ephemeral system sessions (e.g. router) that bypass DB persistence.
+ */
+export function registerSession(
+  key: string,
+  manager: TreeManager,
+): void {
+  activeSessions.set(key, manager);
+}
+
+/**
+ * Close a session by its raw cache key.
+ * Used for ephemeral sessions that don't follow the userId:sourceId:sessionId pattern.
+ */
+export function closeSessionByKey(key: string): void {
+  activeSessions.delete(key);
+  sessionLocks.delete(key);
+  const ac = sessionAbortControllers.get(key);
+  if (ac) ac.abort();
+  sessionAbortControllers.delete(key);
+}
+
+/**
+ * Get a session by its raw cache key.
+ * Used for ephemeral sessions registered via registerSession().
+ */
+export function getSessionByKey(key: string): TreeManager | undefined {
+  return activeSessions.get(key);
+}
+
+/**
+ * Run `fn` exclusively on a session looked up by raw cache key.
+ * Like withSessionLock but for ephemeral sessions.
+ */
+export async function withSessionLockByKey<T>(
+  key: string,
+  fn: (manager: TreeManager) => Promise<T>,
+): Promise<T> {
+  const lock = getLock(key);
+  const release = await lock.acquire();
+  try {
+    const manager = activeSessions.get(key);
+    if (!manager) throw new Error(`No session found for key: ${key}`);
+    return await fn(manager);
+  } finally {
+    release();
+  }
+}
+
+/**
  * List all active session keys (userId:sourceId or userId:sourceId:sessionId).
  */
 export function listSessions(): string[] {

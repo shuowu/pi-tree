@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { getSession, closeSession, withSessionLock } from "../services/session-store.js";
+import { getSession, closeSession, withSessionLock, getSessionByKey, withSessionLockByKey } from "../services/session-store.js";
 
 export const sessionRoutes = new Hono();
 
@@ -34,32 +34,50 @@ function extractSessionIdFromQuery(c: { req: { query: (key: string) => string | 
 
 /** Start or resume a reading session for a source */
 sessionRoutes.post("/start", async (c) => {
-  const { sourceId, viewNodeId, userId: rawUserId, sessionId: rawSessionId } = await c.req.json<{
-    sourceId: string;
+  const body = await c.req.json<{
+    sourceId?: string;
     viewNodeId?: string | null;
     userId?: string;
     sessionId?: number;
+    sessionKey?: string;
   }>();
-  const userId = rawUserId ?? "default";
-  const sessionId = rawSessionId !== undefined && rawSessionId !== null
-    ? Number(rawSessionId)
+
+  if (body.sessionKey) {
+    const manager = getSessionByKey(body.sessionKey);
+    if (!manager) return c.json({ error: "Session not found" }, 404);
+    const state = manager.getSessionState(body.viewNodeId ?? null);
+    return c.json(state);
+  }
+
+  const userId = body.userId ?? "default";
+  const sessionId = body.sessionId !== undefined && body.sessionId !== null
+    ? Number(body.sessionId)
     : undefined;
-  const manager = await getSession(userId, sourceId, sessionId);
-  const state = manager.getSessionState(viewNodeId ?? null);
+  const manager = await getSession(userId, body.sourceId!, sessionId);
+  const state = manager.getSessionState(body.viewNodeId ?? null);
   return c.json(state);
 });
 
 /** View a specific scope in the tree (no AI call, just scoped messages) */
 sessionRoutes.post("/view", async (c) => {
   const body = await c.req.json<{
-    sourceId: string;
+    sourceId?: string;
     viewNodeId: string | null;
     userId?: string;
     sessionId?: number;
+    sessionKey?: string;
   }>();
+
+  if (body.sessionKey) {
+    const manager = getSessionByKey(body.sessionKey);
+    if (!manager) return c.json({ error: "Session not found" }, 404);
+    const state = manager.getSessionState(body.viewNodeId);
+    return c.json(state);
+  }
+
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
-  const manager = await getSession(userId, body.sourceId, sessionId);
+  const manager = await getSession(userId, body.sourceId!, sessionId);
   const state = manager.getSessionState(body.viewNodeId);
   return c.json(state);
 });
@@ -67,16 +85,24 @@ sessionRoutes.post("/view", async (c) => {
 /** Send a user message — the core interaction */
 sessionRoutes.post("/message", async (c) => {
   const body = await c.req.json<{
-    sourceId: string;
+    sourceId?: string;
     message: string;
     viewNodeId?: string | null;
     userId?: string;
     sessionId?: number;
+    sessionKey?: string;
   }>();
+
+  if (body.sessionKey) {
+    const result = await withSessionLockByKey(body.sessionKey, async (manager) => {
+      return manager.handleMessage(body.message, body.viewNodeId ?? null);
+    });
+    return c.json(result);
+  }
+
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
-
-  const result = await withSessionLock(userId, body.sourceId, sessionId, async (manager) => {
+  const result = await withSessionLock(userId, body.sourceId!, sessionId, async (manager) => {
     return manager.handleMessage(body.message, body.viewNodeId ?? null);
   });
   return c.json(result);
@@ -85,55 +111,65 @@ sessionRoutes.post("/message", async (c) => {
 /** Stream a message response via SSE (for real-time AI responses) */
 sessionRoutes.post("/message/stream", async (c) => {
   const body = await c.req.json<{
-    sourceId: string;
+    sourceId?: string;
     message: string;
     viewNodeId?: string | null;
     userId?: string;
     sessionId?: number;
+    sessionKey?: string;
   }>();
-  const userId = extractUserId(body);
-  const sessionId = extractSessionId(body);
+
+  /** Shared streaming callbacks factory */
+  const makeCallbacks = (stream: Parameters<Parameters<typeof streamSSE>[1]>[0]) => ({
+    onToken: async (token: string) => {
+      await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
+    },
+    onTurnEnd: async () => {
+      await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
+    },
+    onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
+      });
+    },
+    onToolResult: async (info: { toolName: string; result: unknown; isError: boolean }) => {
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "tool_result", toolName: info.toolName, result: info.result, isError: info.isError }),
+      });
+    },
+    onTreeUpdate: async (update: Record<string, unknown>) => {
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "tree_update", ...update }),
+      });
+    },
+    onCompaction: async (event: { type: string; reason: string }) => {
+      await stream.writeSSE({
+        data: JSON.stringify({ type: event.type, reason: event.reason }),
+      });
+    },
+    onDone: async (result: Record<string, unknown>) => {
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "done", ...result }),
+      });
+    },
+  });
 
   return streamSSE(c, async (stream) => {
     try {
       // Let the client know this request is queued behind another operation
       await stream.writeSSE({ data: JSON.stringify({ type: "queued" }) });
 
-      await withSessionLock(userId, body.sourceId, sessionId, async (manager) => {
-        await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, {
-          onToken: async (token: string) => {
-            await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
-          },
-          onTurnEnd: async () => {
-            await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
-          },
-          onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
-            await stream.writeSSE({
-              data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
-            });
-          },
-          onToolResult: async (info: { toolName: string; result: unknown; isError: boolean }) => {
-            await stream.writeSSE({
-              data: JSON.stringify({ type: "tool_result", toolName: info.toolName, result: info.result, isError: info.isError }),
-            });
-          },
-          onTreeUpdate: async (update: Record<string, unknown>) => {
-            await stream.writeSSE({
-              data: JSON.stringify({ type: "tree_update", ...update }),
-            });
-          },
-          onCompaction: async (event: { type: string; reason: string }) => {
-            await stream.writeSSE({
-              data: JSON.stringify({ type: event.type, reason: event.reason }),
-            });
-          },
-          onDone: async (result: Record<string, unknown>) => {
-            await stream.writeSSE({
-              data: JSON.stringify({ type: "done", ...result }),
-            });
-          },
+      if (body.sessionKey) {
+        await withSessionLockByKey(body.sessionKey, async (manager) => {
+          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream));
         });
-      });
+      } else {
+        const userId = extractUserId(body);
+        const sessionId = extractSessionId(body);
+        await withSessionLock(userId, body.sourceId!, sessionId, async (manager) => {
+          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream));
+        });
+      }
     } catch (err) {
       // Send error event to client before closing the stream
       const message = err instanceof Error ? err.message : "Unknown error";
