@@ -22,9 +22,6 @@ jobs:
           - os: macos-latest         # Apple Silicon
             platform: mac
             arch: arm64
-          - os: macos-13             # Intel
-            platform: mac
-            arch: x64
           - os: windows-latest
             platform: win
 
