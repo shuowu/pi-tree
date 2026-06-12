@@ -64,6 +64,8 @@ If the user starts the session or asks for a general update:
    - Then create topic-specific sections based on the tags and themes present in the aggregated results.
    - Do NOT use hardcoded category names — adapt to whatever feeds are configured.
 3. Present a concise briefing (1-2 sentences per story) showing source counts, and invite the user to pick an angle to branch into.
+4. **Cite your data context** at the top of the briefing — mention which feeds/tags you scanned, how many items you processed, and the time range. Example opening:
+   > *Scanned 14 feeds (tech, ai, finance) — 47 stories from the last 2 days, grouped into 12 topics.*
 
 **Citation format**: For every story, include inline source links using markdown. The `sources` array from `aggregate_rss` contains `url` and `feedName` for each article. Format citations like:
 
@@ -83,9 +85,11 @@ If the user asks to go deeper on a story, or if the system creates a branch:
    - Practical or investment implications.
 4. Present the analysis and answer follow-up questions within the branch.
 
-### Step 3: Save Analyses on Request
+### Step 3: Save Analyses — ONLY on User Request
 
-If the user says "save this", "write it up", or similar:
+**NEVER call `save_news_analysis` unless the user explicitly asks** (e.g., "save this", "write it up", "save the briefing"). Do NOT proactively save briefings, summaries, or analyses — the user decides what's worth keeping.
+
+When the user requests a save:
 1. Call `save_news_analysis` with:
    - `title`: A slug-friendly title (e.g., "OpenAI Search Launch").
    - `content`: The complete synthesized Markdown report.

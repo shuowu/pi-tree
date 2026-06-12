@@ -289,19 +289,27 @@ export function NewsDashboardPanel({ onDefine, onSendMessage }: NewsDashboardPan
                     
                     <div className="story-meta">
                       <span className="story-meta-sources">
-                        {group.sources.map((s, sidx) => (
-                          <a
-                            key={sidx}
-                            href={s.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="story-source-link"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {s.feedName}
-                            <ExternalLink size={10} />
-                          </a>
-                        ))}
+                        {(() => {
+                          // Deduplicate sources by feedId — show each feed only once
+                          const seen = new Set<string>();
+                          return group.sources.filter((s) => {
+                            if (seen.has(s.feedId)) return false;
+                            seen.add(s.feedId);
+                            return true;
+                          }).map((s, sidx) => (
+                            <a
+                              key={sidx}
+                              href={s.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="story-source-link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {s.feedName}
+                              <ExternalLink size={10} />
+                            </a>
+                          ));
+                        })()}
                       </span>
                       {group.latestPublishedAt && (
                         <span className="story-meta-time">

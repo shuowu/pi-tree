@@ -169,6 +169,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .story-source-link {
@@ -177,6 +180,7 @@
   gap: 2px;
   color: var(--text-tertiary, #9ca3af);
   text-decoration: none;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
