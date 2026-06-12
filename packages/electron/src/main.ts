@@ -2,22 +2,24 @@ import { app as electronApp, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
 
-// Data directory:
-//   Dev:       reuse the dev server's data (~/.local/share/pi-tree-dev)
-//   Packaged:  ~/.local/share/pi-tree on Linux (XDG data dir — shared with Docker)
-//              ~/Library/Application Support/pi-tree on macOS
-//              %APPDATA%/pi-tree on Windows
+// Data directory resolution (in priority order):
+//   1. DATA_PATH env var — explicit override, same var Docker uses.
+//      Set this to share data between Electron and Docker on any platform.
+//   2. Dev mode: ~/.local/share/pi-tree-dev
+//   3. Linux:    XDG_DATA_HOME/pi-tree (~/.local/share/pi-tree) — aligns with Docker default
+//   4. macOS:    ~/Library/Application Support/pi-tree
+//   5. Windows:  %APPDATA%/pi-tree
 import os from "node:os";
 const devDataPath = join(os.homedir(), ".local", "share", "pi-tree-dev");
 const isPackaged = electronApp.isPackaged;
 
 function resolveDataPath(): string {
+  // Explicit override — works on all platforms, same env var as Docker
+  if (process.env.DATA_PATH) return process.env.DATA_PATH;
   if (!isPackaged) return devDataPath;
   // On Linux, use XDG_DATA_HOME (~/.local/share/pi-tree) so the data directory
-  // is compatible with Docker bind mounts (docker-compose.yml can mount the
-  // same path). Electron's app.getPath("userData") would give ~/.config/Pi Tree
-  // which is the wrong XDG category for data (config vs data) and uses a
-  // space in the name.
+  // aligns with Docker's default bind mount. Electron's app.getPath("userData")
+  // would give ~/.config/Pi Tree (wrong XDG category, space in name).
   if (process.platform === "linux") {
     const xdgData = process.env.XDG_DATA_HOME ?? join(os.homedir(), ".local", "share");
     return join(xdgData, "pi-tree");
