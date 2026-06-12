@@ -1,0 +1,13 @@
+name: github.reading
+label: GitHub Explorer
+description: Clone and explore GitHub repositories through conversation
+source_type: book
+
+skills:
+  - github-reading
+
+extensions:
+  - github
+
+# Keep read/grep/find/ls for codebase exploration, block shell and edit
+exclude_tools: [bash, edit]
