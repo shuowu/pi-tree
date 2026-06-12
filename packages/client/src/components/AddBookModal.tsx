@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Upload, FileText, X, Loader2, Check } from "lucide-react";
-import { uploadSource } from "../api";
+import { Upload, FileText, X, Loader2, Check, BookOpen, ScrollText } from "lucide-react";
+import { uploadSource, createSource } from "../api";
 import "./AddBookModal.css";
 
 interface AddBookModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+type SourceTab = "book" | "paper";
 
 const ACCEPTED_EXTENSIONS = [".epub", ".mobi", ".pdf"];
 
@@ -28,6 +30,9 @@ function guessMetaFromFilename(filename: string): { title: string; author: strin
 }
 
 export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
+  const [sourceType, setSourceType] = useState<SourceTab>("book");
+
+  // Book state
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
@@ -36,6 +41,13 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Paper state
+  const [paperTitle, setPaperTitle] = useState("");
+  const [paperAuthor, setPaperAuthor] = useState("");
+  const [paperArxivId, setPaperArxivId] = useState("");
+  const [paperSubmitting, setPaperSubmitting] = useState(false);
+  const [paperError, setPaperError] = useState<string | null>(null);
 
   const handleFile = useCallback((f: File) => {
     const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
@@ -72,9 +84,9 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
     if (f) handleFile(f);
   }, [handleFile]);
 
-  const canSubmit = file && title.trim() && author.trim() && !uploading;
+  const canSubmitBook = file && title.trim() && author.trim() && !uploading;
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmitBook = useCallback(async () => {
     if (!file || !title.trim() || !author.trim()) return;
     setUploading(true);
     setError(null);
@@ -90,6 +102,30 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
       setUploading(false);
     }
   }, [file, title, author, year, onSuccess]);
+
+  const canSubmitPaper = paperTitle.trim() && !paperSubmitting;
+
+  const handleSubmitPaper = useCallback(async () => {
+    if (!paperTitle.trim()) return;
+    setPaperSubmitting(true);
+    setPaperError(null);
+    try {
+      const metadata: Record<string, unknown> = {};
+      if (paperArxivId.trim()) {
+        metadata.arxivId = paperArxivId.trim();
+      }
+      await createSource({
+        title: paperTitle.trim(),
+        author: paperAuthor.trim() || undefined,
+        type: "paper",
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+      });
+      onSuccess();
+    } catch (err) {
+      setPaperError(err instanceof Error ? err.message : "Creation failed");
+      setPaperSubmitting(false);
+    }
+  }, [paperTitle, paperAuthor, paperArxivId, onSuccess]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -111,95 +147,189 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
         </button>
 
         <div className="add-book-header">
-          <h2>Add a Book</h2>
-          <p>Upload an EPUB, MOBI, or PDF file</p>
+          <h2>{sourceType === "book" ? "Add a Book" : "Add a Paper"}</h2>
+          <p>
+            {sourceType === "book"
+              ? "Upload an EPUB, MOBI, or PDF file"
+              : "Add a paper to discuss and analyze"}
+          </p>
         </div>
 
-        <div
-          className={`add-book-dropzone ${dragOver ? "drag-over" : ""} ${file ? "has-file" : ""}`}
-          onClick={() => fileInputRef.current?.click()}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-        >
-          <div className="add-book-dropzone-icon">
-            {file ? <Check size={24} strokeWidth={2} /> : <Upload size={24} strokeWidth={1.5} />}
-          </div>
-          <span className="add-book-dropzone-text">
-            {file ? file.name : "Drop your book here or click to browse"}
-          </span>
-          {!file && (
-            <span className="add-book-dropzone-hint">.epub, .mobi, .pdf</span>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".epub,.mobi,.pdf"
-            onChange={handleFileInput}
-          />
-        </div>
-
-        <div className="add-book-form">
-          <div className="add-book-field">
-            <label htmlFor="add-book-title">Title</label>
-            <input
-              id="add-book-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Book title"
-            />
-          </div>
-          <div className="add-book-field">
-            <label htmlFor="add-book-author">Author</label>
-            <input
-              id="add-book-author"
-              type="text"
-              value={author}
-              onChange={(e) => setAuthor(e.target.value)}
-              placeholder="Author name"
-            />
-          </div>
-          <div className="add-book-field">
-            <label htmlFor="add-book-year">Year (optional)</label>
-            <input
-              id="add-book-year"
-              type="number"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              placeholder="Publication year"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="add-book-error">
-            <span className="add-book-error-text">{error}</span>
-            <button className="add-book-error-retry" onClick={handleSubmit}>
-              Retry
-            </button>
-          </div>
-        )}
-
-        <div className="add-book-actions">
+        {/* ── Type Tabs ── */}
+        <div className="add-book-tabs">
           <button
-            className="add-book-submit"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
+            className={`add-book-tab ${sourceType === "book" ? "active" : ""}`}
+            onClick={() => setSourceType("book")}
           >
-            {uploading ? (
-              <>
-                <Loader2 size={18} className="spinner" />
-                Uploading…
-              </>
-            ) : (
-              <>
-                <FileText size={18} />
-                Upload Book
-              </>
-            )}
+            <BookOpen size={15} />
+            Book
+          </button>
+          <button
+            className={`add-book-tab ${sourceType === "paper" ? "active" : ""}`}
+            onClick={() => setSourceType("paper")}
+          >
+            <ScrollText size={15} />
+            Paper
           </button>
         </div>
+
+        {/* ── Book Tab ── */}
+        {sourceType === "book" && (
+          <>
+            <div
+              className={`add-book-dropzone ${dragOver ? "drag-over" : ""} ${file ? "has-file" : ""}`}
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              <div className="add-book-dropzone-icon">
+                {file ? <Check size={24} strokeWidth={2} /> : <Upload size={24} strokeWidth={1.5} />}
+              </div>
+              <span className="add-book-dropzone-text">
+                {file ? file.name : "Drop your book here or click to browse"}
+              </span>
+              {!file && (
+                <span className="add-book-dropzone-hint">.epub, .mobi, .pdf</span>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".epub,.mobi,.pdf"
+                onChange={handleFileInput}
+              />
+            </div>
+
+            <div className="add-book-form">
+              <div className="add-book-field">
+                <label htmlFor="add-book-title">Title</label>
+                <input
+                  id="add-book-title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Book title"
+                />
+              </div>
+              <div className="add-book-field">
+                <label htmlFor="add-book-author">Author</label>
+                <input
+                  id="add-book-author"
+                  type="text"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  placeholder="Author name"
+                />
+              </div>
+              <div className="add-book-field">
+                <label htmlFor="add-book-year">Year (optional)</label>
+                <input
+                  id="add-book-year"
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  placeholder="Publication year"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="add-book-error">
+                <span className="add-book-error-text">{error}</span>
+                <button className="add-book-error-retry" onClick={handleSubmitBook}>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <div className="add-book-actions">
+              <button
+                className="add-book-submit"
+                disabled={!canSubmitBook}
+                onClick={handleSubmitBook}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 size={18} className="spinner" />
+                    Uploading…
+                  </>
+                ) : (
+                  <>
+                    <FileText size={18} />
+                    Upload Book
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── Paper Tab ── */}
+        {sourceType === "paper" && (
+          <>
+            <div className="add-book-form">
+              <div className="add-book-field">
+                <label htmlFor="add-paper-title">Title</label>
+                <input
+                  id="add-paper-title"
+                  type="text"
+                  value={paperTitle}
+                  onChange={(e) => setPaperTitle(e.target.value)}
+                  placeholder="Paper title"
+                />
+              </div>
+              <div className="add-book-field">
+                <label htmlFor="add-paper-author">Author(s) (optional)</label>
+                <input
+                  id="add-paper-author"
+                  type="text"
+                  value={paperAuthor}
+                  onChange={(e) => setPaperAuthor(e.target.value)}
+                  placeholder="Author names"
+                />
+              </div>
+              <div className="add-book-field">
+                <label htmlFor="add-paper-arxiv">arXiv ID / URL (optional)</label>
+                <input
+                  id="add-paper-arxiv"
+                  type="text"
+                  value={paperArxivId}
+                  onChange={(e) => setPaperArxivId(e.target.value)}
+                  placeholder="e.g. 2301.07041 or https://arxiv.org/abs/2301.07041"
+                />
+              </div>
+            </div>
+
+            {paperError && (
+              <div className="add-book-error">
+                <span className="add-book-error-text">{paperError}</span>
+                <button className="add-book-error-retry" onClick={handleSubmitPaper}>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <div className="add-book-actions">
+              <button
+                className="add-book-submit"
+                disabled={!canSubmitPaper}
+                onClick={handleSubmitPaper}
+              >
+                {paperSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="spinner" />
+                    Adding…
+                  </>
+                ) : (
+                  <>
+                    <ScrollText size={18} />
+                    Add Paper
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -181,6 +181,25 @@ export async function uploadSource(file: File, meta: {
   return res.json();
 }
 
+export async function createSource(data: {
+  title: string;
+  author?: string;
+  year?: number;
+  type: string;
+  metadata?: Record<string, unknown>;
+}): Promise<Source> {
+  const res = await fetch(`${API}/library/sources/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Creation failed' }));
+    throw new Error(err.error || `Creation failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function deleteSource(sourceId: string): Promise<void> {
   const res = await fetch(`${API}/library/sources/${sourceId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);

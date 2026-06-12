@@ -4,6 +4,8 @@ import { BookIngestionService } from "../services/book-ingestion.js";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { JobQueueService } from "../services/job-queue.js";
+import { getDb, sources as sourcesTable } from "../db/index.js";
+import { eq } from "drizzle-orm";
 
 export const libraryRoutes = new Hono();
 
@@ -104,6 +106,81 @@ libraryRoutes.get("/sources/:sourceId/headings", async (c) => {
   const headings = await getLibrary().getHeadings(sourceId);
   if (!headings) return c.json({ error: "Source not found" }, 404);
   return c.json({ headings });
+});
+
+/** Create a metadata-only source (no file upload — for papers, podcasts, etc.) */
+libraryRoutes.post("/sources/create", async (c) => {
+  try {
+    const body = await c.req.json<{
+      title: string;
+      author?: string;
+      year?: number;
+      type: string;
+      metadata?: Record<string, unknown>;
+    }>();
+
+    if (!body.title || typeof body.title !== "string") {
+      return c.json({ error: "title is required" }, 400);
+    }
+    if (!body.type || typeof body.type !== "string") {
+      return c.json({ error: "type is required" }, 400);
+    }
+
+    // Generate a slug ID from the title
+    const baseId = body.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const db = getDb();
+    const now = new Date().toISOString();
+
+    // Handle duplicate IDs by appending a suffix
+    let id = baseId || "untitled";
+    let suffix = 0;
+    while (true) {
+      const existing = db
+        .select({ id: sourcesTable.id })
+        .from(sourcesTable)
+        .where(eq(sourcesTable.id, id))
+        .get();
+      if (!existing) break;
+      suffix++;
+      id = `${baseId}-${suffix}`;
+    }
+
+    const values = {
+      id,
+      type: body.type,
+      title: body.title.trim(),
+      author: body.author?.trim() ?? "",
+      year: body.year ?? null,
+      source: "user" as const,
+      status: "ready" as const,
+      metadata: body.metadata ? JSON.stringify(body.metadata) : null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    db.insert(sourcesTable).values(values).run();
+
+    return c.json(
+      {
+        id: values.id,
+        type: values.type,
+        title: values.title,
+        author: values.author,
+        year: values.year,
+        source: values.source,
+        status: values.status,
+        metadata: body.metadata ?? null,
+      },
+      201,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 500);
+  }
 });
 
 /** Upload a new book */
