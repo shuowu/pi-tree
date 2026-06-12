@@ -57,7 +57,7 @@ export class BookIngestionService {
     }
 
     // Create directory structure
-    const bookDir = join(booksBasePath, bookId);
+    const bookDir = join(sourcesBasePath, bookId);
     const markdownDir = join(bookDir, "markdown");
     await mkdir(markdownDir, { recursive: true });
 
@@ -152,7 +152,7 @@ export class BookIngestionService {
       .where(eq(sources.id, bookId))
       .run();
 
-    const bookDir = join(booksBasePath, bookId);
+    const bookDir = join(sourcesBasePath, bookId);
     const originalPath = join(bookDir, `original.${row.source === "upload" ? "epub" : "epub"}`);
 
     try {
@@ -395,9 +395,11 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     // Delete DB row
     db.delete(sources).where(eq(sources.id, bookId)).run();
 
-    // Delete directory
-    const bookDir = join(booksBasePath, bookId);
-    await rm(bookDir, { recursive: true, force: true });
+    // Delete directories (sources/ primary, books/ legacy)
+    const sourceDir = join(sourcesBasePath, bookId);
+    await rm(sourceDir, { recursive: true, force: true });
+    const legacyDir = join(booksBasePath, bookId);
+    await rm(legacyDir, { recursive: true, force: true });
   }
 
   async listUploadedBooks(): Promise<Source[]> {
@@ -408,10 +410,10 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     const result: Source[] = [];
 
     for (const row of rows) {
-      // Check both books/ (uploaded files) and sources/ (custom sources)
+      // Check sources/ (primary) and books/ (legacy fallback)
       const candidateDirs = [
-        join(booksBasePath, row.id),
         join(sourcesBasePath, row.id),
+        join(booksBasePath, row.id),
       ];
 
       let hasMarkdown = false;
@@ -457,6 +459,6 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
   }
 
   getUploadedBookPath(bookId: string): string {
-    return join(booksBasePath, bookId);
+    return join(sourcesBasePath, bookId);
   }
 }

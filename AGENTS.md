@@ -230,8 +230,10 @@ All mutable state (sessions, DB, library, news) lives under `DATA_PATH` (default
 | Session metadata | SQLite `user_sessions` | Per session per user per source |
 | Config | SQLite `user_source_config` | Per user per source |
 | Glossary | SQLite `glossary_entries` | Per user per source |
-| Book content | `<DATA_PATH>/library/<sourceId>/markdown/` | Shared |
-| Outlines | `<DATA_PATH>/library/<sourceId>/analysis/` | Shared |
+| Source content | `<DATA_PATH>/sources/<sourceId>/markdown/` | Shared (primary write target) |
+| Source outlines | `<DATA_PATH>/sources/<sourceId>/analysis/` | Shared |
+| Pre-placed books | `<DATA_PATH>/library/<sourceId>/markdown/` | Shared (read-only scan) |
+| Legacy uploads | `<DATA_PATH>/books/<sourceId>/` | Shared (legacy fallback) |
 | News reports | `<DATA_PATH>/news/analyses/`, `summaries/` | Shared (mutable) |
 | User skills | `<DATA_PATH>/skills/` (or `$SKILLS_PATH`) | Shared (mutable) |
 | User profiles | `<DATA_PATH>/profiles/` | Shared (mutable) |

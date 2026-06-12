@@ -434,7 +434,7 @@ describe("Markdown Upload", () => {
     // Verify markdown file exists
     const { existsSync } = await import("node:fs");
     const { join: pathJoin } = await import("node:path");
-    const mdPath = pathJoin(TEST_DATA_PATH, "books", result.id, "markdown", "content.md");
+    const mdPath = pathJoin(TEST_DATA_PATH, "sources", result.id, "markdown", "content.md");
     expect(existsSync(mdPath)).toBe(true);
 
     // Clean up

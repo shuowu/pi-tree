@@ -36,12 +36,12 @@ export class LibraryService {
     this.ingestion = new BookIngestionService();
   }
 
-  /** Candidate directories for a source, in resolution order: library/ → books/ → sources/ */
+  /** Candidate directories for a source, in resolution order: sources/ → library/ → books/ (legacy) */
   private candidateDirs(sourceId: string): string[] {
     return [
-      join(this.libraryPath, sourceId),
-      join(this.userBooksPath, sourceId),
       join(this.sourcesPath, sourceId),
+      join(this.libraryPath, sourceId),
+      join(this.userBooksPath, sourceId),  // legacy fallback
     ];
   }
 
