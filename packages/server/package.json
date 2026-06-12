@@ -23,6 +23,16 @@
       "source": "./src/config.ts",
       "types": "./dist/config.d.ts",
       "import": "./dist/config.js"
+    },
+    "./bootstrap": {
+      "source": "./src/bootstrap.ts",
+      "types": "./dist/bootstrap.d.ts",
+      "import": "./dist/bootstrap.js"
+    },
+    "./app": {
+      "source": "./src/app.ts",
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
     }
   },
   "scripts": {

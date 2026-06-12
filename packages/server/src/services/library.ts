@@ -2,7 +2,7 @@ import type { Source, SourceOutline, OutlineEntry } from "@pi-tree/shared";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { mkdirSync, existsSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb, sources as sourcesTable, tags as tagsTable, sourceTags } from "../db/index.js";
 import { BookIngestionService } from "./book-ingestion.js";
 
@@ -142,7 +142,7 @@ export class LibraryService {
         hasMarkdown,
         hasOutline,
         hasCover,
-        source: row.source ?? "upload",
+        source: (row.source ?? "upload") as Source["source"],
         status: (row.status ?? "ready") as Source["status"],
         error: row.error ?? undefined,
       });
@@ -226,9 +226,7 @@ export class LibraryService {
     if (!name) return;
 
     // Ensure the source exists in DB (sync if needed)
-    if (!this.synced) {
-      await this.listSources();
-    }
+    await this.listSources();
 
     // Create tag if it doesn't exist
     db.insert(tagsTable)

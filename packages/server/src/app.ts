@@ -124,7 +124,7 @@ app.put("/api/config", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// Production: serve client static files (Docker / NODE_ENV=production)
+// Production: serve client static files (Docker / Electron / NODE_ENV=production)
 // ---------------------------------------------------------------------------
 
 if (process.env.NODE_ENV === "production") {
@@ -132,11 +132,18 @@ if (process.env.NODE_ENV === "production") {
   const { readFile } = await import("node:fs/promises");
   const { join } = await import("node:path");
 
+  // CLIENT_DIST_PATH: absolute path to the client build output.
+  //   Docker/CLI: defaults to packages/client/dist (relative to cwd)
+  //   Electron:   set to process.resourcesPath + "/client" by main.ts
+  const clientDistPath = process.env.CLIENT_DIST_PATH
+    ?? join(process.cwd(), "packages/client/dist");
+
   // Serve static assets (JS, CSS, images, etc.)
   app.use(
     "/*",
     serveStatic({
-      root: "packages/client/dist",
+      root: clientDistPath,
+      rewriteRequestPath: (path) => path, // serve from absolute path
       // Don't intercept API routes — they're already handled above
       onNotFound: (_path, c) => {
         // Let it fall through to the SPA fallback below
@@ -147,7 +154,7 @@ if (process.env.NODE_ENV === "production") {
   // SPA fallback: serve index.html for any non-API, non-file route
   // (supports client-side routing like /book/:id)
   app.get("*", async (c) => {
-    const indexPath = join(process.cwd(), "packages/client/dist/index.html");
+    const indexPath = join(clientDistPath, "index.html");
     try {
       const html = await readFile(indexPath, "utf-8");
       return c.html(html);

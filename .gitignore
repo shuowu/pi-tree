@@ -11,3 +11,6 @@ local-docs/
 pending-*
 *.local.yml
 router-*
+
+# Electron
+packages/electron/release/

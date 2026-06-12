@@ -1,0 +1,56 @@
+appId: com.pitree.app
+productName: Pi Tree
+executableName: pi-tree
+artifactName: "pi-tree-${version}-${arch}.${ext}"
+copyright: Copyright © 2026 Pi Tree Contributors
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,LICENSE,license}"
+  - "!**/node_modules/.cache"
+
+# The client build output must be accessible for static file serving
+extraResources:
+  - from: ../client/dist
+    to: client
+    filter:
+      - "**/*"
+  # Core agents (skills, extensions, profiles) needed at runtime
+  - from: ../server/src/agents
+    to: agents
+    filter:
+      - "**/*"
+  - from: ../server/src/profiles
+    to: profiles
+    filter:
+      - "**/*"
+
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [universal]
+
+linux:
+  category: Office
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
