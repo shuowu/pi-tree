@@ -14,7 +14,6 @@ import { BookIngestionService } from "./book-ingestion.js";
  */
 export class LibraryService {
   private libraryPath: string;
-  private userBooksPath: string;
   private sourcesPath: string;
   private ingestion: BookIngestionService;
   private synced = false;
@@ -25,23 +24,51 @@ export class LibraryService {
       process.env.DATA_PATH ??
       join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
     this.libraryPath = join(dp, "library");
-    this.userBooksPath = join(dp, "books");
     this.sourcesPath = join(dp, "sources");
     
     // Ensure the directories exist
     mkdirSync(this.libraryPath, { recursive: true });
-    mkdirSync(this.userBooksPath, { recursive: true });
     mkdirSync(this.sourcesPath, { recursive: true });
+
+    // One-time migration: move books/* → sources/
+    this.migrateBooksToSources(join(dp, "books"));
     
     this.ingestion = new BookIngestionService();
   }
 
-  /** Candidate directories for a source, in resolution order: sources/ → library/ → books/ (legacy) */
+  /** Migrate legacy books/ entries to sources/. Runs once at startup. */
+  private migrateBooksToSources(booksPath: string): void {
+    try {
+      const { readdirSync, renameSync, existsSync, rmSync } = require("node:fs");
+      if (!existsSync(booksPath)) return;
+      const entries = readdirSync(booksPath, { withFileTypes: true });
+      let moved = 0;
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+        const src = join(booksPath, entry.name);
+        const dest = join(this.sourcesPath, entry.name);
+        if (existsSync(dest)) continue; // already migrated or collision
+        renameSync(src, dest);
+        moved++;
+      }
+      if (moved > 0) {
+        console.log(`[library] Migrated ${moved} source(s) from books/ → sources/`);
+      }
+      // Remove empty books/ dir
+      const remaining = readdirSync(booksPath);
+      if (remaining.length === 0) {
+        rmSync(booksPath, { recursive: true, force: true });
+      }
+    } catch {
+      // Non-fatal — old data stays in books/ until next restart
+    }
+  }
+
+  /** Candidate directories for a source: sources/ (primary) → library/ (pre-placed) */
   private candidateDirs(sourceId: string): string[] {
     return [
       join(this.sourcesPath, sourceId),
       join(this.libraryPath, sourceId),
-      join(this.userBooksPath, sourceId),  // legacy fallback
     ];
   }
 

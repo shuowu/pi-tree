@@ -12,7 +12,6 @@ const dataPath =
   process.env.DATA_PATH ??
   join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
 
-const booksBasePath = join(dataPath, "books");
 const sourcesBasePath = join(dataPath, "sources");
 
 function slugify(text: string): string {
@@ -395,11 +394,9 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     // Delete DB row
     db.delete(sources).where(eq(sources.id, bookId)).run();
 
-    // Delete directories (sources/ primary, books/ legacy)
+    // Delete directory
     const sourceDir = join(sourcesBasePath, bookId);
     await rm(sourceDir, { recursive: true, force: true });
-    const legacyDir = join(booksBasePath, bookId);
-    await rm(legacyDir, { recursive: true, force: true });
   }
 
   async listUploadedBooks(): Promise<Source[]> {
@@ -410,10 +407,9 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     const result: Source[] = [];
 
     for (const row of rows) {
-      // Check sources/ (primary) and books/ (legacy fallback)
+      // Check sources/ for content
       const candidateDirs = [
         join(sourcesBasePath, row.id),
-        join(booksBasePath, row.id),
       ];
 
       let hasMarkdown = false;
