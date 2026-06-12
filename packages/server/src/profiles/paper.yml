@@ -1,0 +1,5 @@
+name: paper
+label: Paper (Default)
+skills: [paper-reading]
+extensions: [paper, mcp]
+exclude_tools: [bash, edit]

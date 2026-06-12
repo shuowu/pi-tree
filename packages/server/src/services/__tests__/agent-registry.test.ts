@@ -53,6 +53,8 @@ function seedCoreProfiles(profilesDir: string): void {
   createProfile(profilesDir, "book.yml", "name: book\nlabel: Book (Default)\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "news-reading.yml", "name: news.news\nlabel: News Reading\nskills: [news-reading]\nextensions: [news, mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "news.yml", "name: news\nlabel: News (Default)\nskills: [news-reading]\nextensions: [news, mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "paper-reading.yml", "name: paper.reading\nlabel: Paper Reading\nskills: [paper-reading]\nextensions: [paper, mcp]\nexclude_tools: [bash, edit]\n");
+  createProfile(profilesDir, "paper.yml", "name: paper\nlabel: Paper (Default)\nskills: [paper-reading]\nextensions: [paper, mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "router.yml", "name: router\nlabel: Session Router\nskills: [session-router]\nextensions: [library]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "default.yml", "name: _default\nlabel: Default\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
 }
@@ -241,9 +243,11 @@ describe("AgentRegistry", () => {
       createSkill(cfg.coreSkillsDir, "book-outline");
       createSkill(cfg.coreSkillsDir, "book-analysis");
       createSkill(cfg.coreSkillsDir, "news-reading");
+      createSkill(cfg.coreSkillsDir, "paper-reading");
       createSkill(cfg.coreSkillsDir, "session-router");
       createExtension(cfg.coreExtDir, "library");
       createExtension(cfg.coreExtDir, "news");
+      createExtension(cfg.coreExtDir, "paper");
       createExtension(cfg.coreExtDir, "mcp");
       registry.initialize(cfg);
       return cfg;
@@ -429,9 +433,11 @@ describe("AgentRegistry", () => {
       createSkill(cfg.coreSkillsDir, "book-analysis");
       createSkill(cfg.coreSkillsDir, "book-outline");
       createSkill(cfg.coreSkillsDir, "news-reading");
+      createSkill(cfg.coreSkillsDir, "paper-reading");
       createSkill(cfg.coreSkillsDir, "session-router");
       createExtension(cfg.coreExtDir, "library");
       createExtension(cfg.coreExtDir, "news");
+      createExtension(cfg.coreExtDir, "paper");
       createExtension(cfg.coreExtDir, "mcp");
       registry.initialize(cfg);
 
@@ -489,10 +495,12 @@ describe("AgentRegistry", () => {
       createSkill(cfg.coreSkillsDir, "book-analysis");
       createSkill(cfg.coreSkillsDir, "book-outline");
       createSkill(cfg.coreSkillsDir, "news-reading");
+      createSkill(cfg.coreSkillsDir, "paper-reading");
       createSkill(cfg.coreSkillsDir, "session-router");
       createSkill(cfg.userSkillsDir, "orphan-skill"); // not used by any profile
       createExtension(cfg.coreExtDir, "library");
       createExtension(cfg.coreExtDir, "news");
+      createExtension(cfg.coreExtDir, "paper");
       createExtension(cfg.coreExtDir, "mcp");
       registry.initialize(cfg);
 
