@@ -6,7 +6,9 @@ services:
       - "${PORT:-3847}:${PORT:-3847}"
     env_file: .env
     volumes:
-      - ~/repos/pi-tree-data:/data
-      - ./config/mcp.json:/data/mcp.json:ro
+      # Bind mount uses the same path as the Electron desktop app on Linux
+      # (~/.local/share/pi-tree), so both share the same data directory.
+      # Override PI_TREE_DATA in .env to use a different host path.
+      - ${PI_TREE_DATA:-~/.local/share/pi-tree}:/data
     environment:
       - DATA_PATH=/data

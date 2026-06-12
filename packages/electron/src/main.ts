@@ -4,13 +4,29 @@ import { serve } from "@hono/node-server";
 
 // Data directory:
 //   Dev:       reuse the dev server's data (~/.local/share/pi-tree-dev)
-//   Packaged:  platform-standard app directory (~/Library/Application Support/pi-tree, etc.)
+//   Packaged:  ~/.local/share/pi-tree on Linux (XDG data dir — shared with Docker)
+//              ~/Library/Application Support/pi-tree on macOS
+//              %APPDATA%/pi-tree on Windows
 import os from "node:os";
 const devDataPath = join(os.homedir(), ".local", "share", "pi-tree-dev");
 const isPackaged = electronApp.isPackaged;
-process.env.DATA_PATH = isPackaged
-  ? electronApp.getPath("userData")
-  : devDataPath;
+
+function resolveDataPath(): string {
+  if (!isPackaged) return devDataPath;
+  // On Linux, use XDG_DATA_HOME (~/.local/share/pi-tree) so the data directory
+  // is compatible with Docker bind mounts (docker-compose.yml can mount the
+  // same path). Electron's app.getPath("userData") would give ~/.config/Pi Tree
+  // which is the wrong XDG category for data (config vs data) and uses a
+  // space in the name.
+  if (process.platform === "linux") {
+    const xdgData = process.env.XDG_DATA_HOME ?? join(os.homedir(), ".local", "share");
+    return join(xdgData, "pi-tree");
+  }
+  // macOS and Windows: use platform-standard app data directories
+  return electronApp.getPath("userData");
+}
+
+process.env.DATA_PATH = resolveDataPath();
 process.env.NODE_ENV = "production";
 
 // In dev mode, load .env from monorepo root (same as the dev server's load-env.ts)
