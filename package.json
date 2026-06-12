@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/shuowu/pi-tree.git"
   },
-  "description": "AI-assisted book reading with tree-structured conversations",
+  "description": "AI-assisted reading and research with tree-structured conversations",
   "keywords": [
     "pi",
     "pi-tree",

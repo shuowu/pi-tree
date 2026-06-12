@@ -9,7 +9,7 @@ Pi-tree is extensible through [custom skills](/docs/self-hosting#custom-skills),
 
 ## GitHub Explorer
 
-**[`examples/github-explorer/`](https://github.com/anthropics/pi-tree/tree/master/examples/github-explorer)**
+**[`examples/github-explorer/`](https://github.com/shuowu/pi-tree/tree/master/examples/github-explorer)**
 
 Clone GitHub repositories and explore codebases conversationally. The AI clones a repo locally, then uses its built-in file tools (`read`, `grep`, `find`, `ls`) to walk through the code with you.
 

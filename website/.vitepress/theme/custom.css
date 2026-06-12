@@ -147,3 +147,73 @@
 .VPContent {
   transition: opacity 0.2s ease;
 }
+
+/* ── Comparison section (landing page) ── */
+.comparison-section {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.comparison-section h2 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  margin-bottom: 16px;
+}
+
+.comparison-section h3 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
+.comparison-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.comparison-table-wrapper table {
+  font-size: 0.9rem;
+  min-width: 600px;
+}
+
+.comparison-section pre {
+  margin-top: 16px;
+}
+
+.comparison-section p {
+  color: var(--vp-c-text-2);
+  line-height: 1.7;
+}
+
+/* ── Audience section (landing page) ── */
+.audience-section {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+
+.audience-section h2 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  margin-bottom: 16px;
+}
+
+.audience-grid ul {
+  list-style: none;
+  padding: 0;
+}
+
+.audience-grid li {
+  padding: 8px 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+

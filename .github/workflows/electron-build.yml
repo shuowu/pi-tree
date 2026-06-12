@@ -1,0 +1,69 @@
+name: Build Electron App
+
+# Builds desktop installers for macOS, Linux, and Windows.
+# Triggers on version tags (v*) and manual dispatch.
+#
+# Cost: $0 — this repo is public, so all GitHub Actions minutes are free.
+# macOS and Windows runners are free for public repos (no 10x/2x multiplier).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write  # needed to upload release assets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages + Electron dist
+        run: npm run electron:dist:${{ matrix.platform }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-${{ matrix.platform }}
+          path: |
+            packages/electron/release/*.dmg
+            packages/electron/release/*.AppImage
+            packages/electron/release/*.deb
+            packages/electron/release/*.exe
+            packages/electron/release/*.yml
+          if-no-files-found: warn
+          retention-days: 30
+
+      # On tag push, attach installers to the GitHub Release
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packages/electron/release/*.dmg
+            packages/electron/release/*.AppImage
+            packages/electron/release/*.deb
+            packages/electron/release/*.exe
+          draft: true
+          generate_release_notes: true

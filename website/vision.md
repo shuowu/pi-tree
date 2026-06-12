@@ -73,6 +73,28 @@ Tree-structured conversations solve a fundamental problem with AI chat: linear c
 
 This isn't specific to reading books. The same model works for research, learning, code review, problem-solving — any domain where human thinking naturally branches. *"Wait, what about X?"* shouldn't destroy your context on Y. It should create a branch you can explore and return from.
 
+### Why Trees Produce Better AI
+
+The tree structure isn't just a UX improvement — it fundamentally changes how context flows to the model, and the results are noticeably better.
+
+**The problem with linear chat.** Every AI conversation manages a context window — the rolling buffer of messages the model can "see." In a linear chat, every message you've ever sent is packed into that window. After 30 turns spanning three different topics, the model is tracking all of them simultaneously. It starts hallucinating details from earlier topics, losing the thread of your current question, or ignoring recent instructions in favor of patterns from 20 messages ago. The longer the conversation, the worse this gets — often well before you hit the technical context limit.
+
+**How trees fix this.** When you branch, pi-tree sends only the path from root to the current node — not every sibling, not every tangent, not every abandoned thread. This is context *pruning by design*, and it has cascading benefits:
+
+- **Focused context windows.** If you're deep in a branch about cognitive biases, the model doesn't see your earlier tangent about Nassim Taleb. It sees only the messages that led to where you are right now. Less noise means more accurate, more relevant responses.
+
+- **Significant token savings.** A 50-message linear chat sends all 50 messages on every turn. A tree with 5 branches of 10 messages each sends only ~10 messages for any given interaction. That's an 80% reduction in input tokens — which translates directly to lower cost and faster response times. With cloud APIs priced per token, trees make deep exploration economically viable in a way linear chats can't.
+
+- **Reduced hallucination.** Context pollution — irrelevant information competing for the model's attention — is one of the primary drivers of hallucination in long conversations. When the model sees a discussion about Chapter 3 mixed with a tangent about a different book mixed with a glossary question, it starts blending them. Isolated branches eliminate this class of error entirely.
+
+- **Better instruction following.** Pi-tree uses skill files — markdown instructions that shape how the AI behaves for each source type. In a short, focused branch, the model follows these instructions reliably. In a long linear chat, system instructions get progressively "forgotten" as the conversation history grows and competes for attention. Trees keep the instruction-to-conversation ratio high.
+
+- **Longer effective conversations.** Most people think the limit on AI conversation length is the context window size. In practice, quality degrades far earlier — after ~20-30 turns, linear chats become noticeably less coherent. Trees sidestep this by keeping each branch short and focused. You can explore a source across hundreds of total messages — split across many branches — while every individual interaction stays in the quality sweet spot.
+
+The net effect is that the same model, with the same parameters, produces measurably better results in a tree-structured conversation than in a linear one. This isn't a theoretical benefit — it's something you notice immediately when comparing a 40-message linear chat about a book to a tree with four focused 10-message branches covering the same material.
+
+### Architecture
+
 Pi-tree's codebase is structured around this insight:
 
 - **`@pi-tree/core`** is a pure library — PiSession, TreeManager, model setup — with no environment assumptions. It doesn't know about books, servers, or browsers. Anyone can import it and build a tree-structured AI conversation for any purpose.

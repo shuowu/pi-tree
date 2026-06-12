@@ -47,6 +47,12 @@ export default withMermaid(defineConfig({
           ],
         },
         {
+          text: 'Guides',
+          items: [
+            { text: 'Examples', link: '/docs/examples' },
+          ],
+        },
+        {
           text: 'Reference',
           items: [
             { text: 'Architecture', link: '/docs/architecture' },

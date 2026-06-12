@@ -2,13 +2,20 @@
  * Record a conversation tree demo from an existing session.
  *
  * Usage:
- *   BASE_URL=http://localhost:3847 npx playwright test --config=scripts/record-demo.config.ts
+ *   BASE_URL=http://localhost:3847 npx playwright test --config=scripts/record-demo.config.ts scripts/record-demo.ts
  *
- * Records:
- *   1. Open session directly — rich AI conversation
- *   2. Scroll through conversation content
- *   3. Navigate branches in the tree
- *   4. Send a follow-up message to show streaming
+ * The recording is designed to clearly show the tree structure and
+ * branch navigation — the core differentiator of pi-tree.
+ *
+ * Flow:
+ *   1. Open session → see tree sidebar with branches + AI conversation
+ *   2. Scroll to "2 BRANCHES" section with branch cards
+ *   3. Hover branch cards briefly
+ *   4. Click "Open →" on a branch → view CHANGES to branch content
+ *   5. Linger on branch content — shows different conversation, breadcrumb path
+ *   6. Scroll through branch conversation
+ *   7. Navigate back to parent via breadcrumb root click
+ *   8. Parent view returns with branch cards visible again
  */
 
 import { test } from "@playwright/test";
@@ -53,23 +60,21 @@ async function smoothScroll(page: any, selector: string | null, distance: number
   );
 }
 
-// Move cursor smoothly to an element (makes cursor visible in recording)
+// Move cursor smoothly to an element
 async function moveTo(page: any, locator: any) {
   const box = await locator.boundingBox();
   if (box) {
     const targetX = box.x + box.width / 2;
     const targetY = box.y + box.height / 2;
-    // Move in steps for a smooth visual
     await page.mouse.move(targetX, targetY, { steps: 15 });
     await page.waitForTimeout(200);
   }
 }
 
 test("record conversation tree demo", async ({ page }) => {
-  // Login as shuo
   await loginAs(page, "shuo", "shuo");
 
-  // Inject a visible cursor overlay — Playwright video doesn't capture the system cursor
+  // Inject visible cursor overlay (Playwright doesn't capture system cursor)
   await page.addInitScript(() => {
     document.addEventListener("DOMContentLoaded", () => {
       const cursor = document.createElement("div");
@@ -102,120 +107,106 @@ test("record conversation tree demo", async ({ page }) => {
     });
   });
 
-  // ── Scene 1: Open the news session directly ──────────────────────
+  // ────────────────────────────────────────────────────────────────────
+  // Scene 1: Open the news session — sidebar with tree visible
+  // ────────────────────────────────────────────────────────────────────
   await page.goto("/source/news?session=4");
   await page.waitForLoadState("networkidle");
 
-  // Wait for chat view to render with messages
   try {
     await page.waitForSelector(sel.assistantMessage, { timeout: 15000 });
   } catch {
-    // Fallback — wait for chat view at least
     await page.waitForSelector(sel.chatView, { timeout: 10000 });
   }
+  // Let the viewer take in the full layout: tree sidebar + conversation
   await page.waitForTimeout(3000);
 
-  // ── Scene 2: Slowly scroll through the conversation ──────────────
-  // Move cursor into the chat area first
+  // ────────────────────────────────────────────────────────────────────
+  // Scene 2: Scroll down to show the branch cards
+  // ────────────────────────────────────────────────────────────────────
   const chatArea = page.locator(sel.chatMessages);
   await moveTo(page, chatArea);
 
-  // The AI response should have structured news sections — show them
-  await smoothScroll(page, sel.chatMessages, 400, 4);
-  await page.waitForTimeout(2000);
-
-  await smoothScroll(page, sel.chatMessages, 400, 4);
-  await page.waitForTimeout(2000);
-
-  // Scroll back up to see the full picture
-  await smoothScroll(page, sel.chatMessages, -600, 6);
-  await page.waitForTimeout(1500);
-
-  // ── Scene 3: Interact with branches ──────────────────────────────
-  // Look for branch cards (inline branches)
+  // Scroll to the bottom of the conversation where branch cards live
   const branchSection = page.locator(sel.inlineBranches).first();
-  if (await branchSection.isVisible({ timeout: 3000 }).catch(() => false)) {
-    // Scroll to branches
-    await branchSection.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(1500);
+  await branchSection.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(2000);
 
-    // Hover the first branch card
-    const branchCards = page.locator(".pit-branch-card");
-    const count = await branchCards.count();
+  // ────────────────────────────────────────────────────────────────────
+  // Scene 3: Hover both branch cards
+  // ────────────────────────────────────────────────────────────────────
+  const branchCards = page.locator(".pit-inline-branch");
+  const count = await branchCards.count();
 
-    if (count > 0) {
-      // Move cursor to first branch and hover
-      await moveTo(page, branchCards.first());
-      await branchCards.first().hover();
+  if (count > 0) {
+    // Hover first branch
+    await moveTo(page, branchCards.first());
+    await branchCards.first().hover();
+    await page.waitForTimeout(1000);
+
+    // Hover second branch (the one with more content)
+    if (count > 1) {
+      await moveTo(page, branchCards.nth(1));
+      await branchCards.nth(1).hover();
       await page.waitForTimeout(1000);
-
-      // If there's a second branch, move to it and hover
-      if (count > 1) {
-        await moveTo(page, branchCards.nth(1));
-        await branchCards.nth(1).hover();
-        await page.waitForTimeout(1000);
-      }
-
-      // Move back to first branch and click
-      await moveTo(page, branchCards.first());
-      await page.waitForTimeout(300);
-      await branchCards.first().click();
-      await page.waitForTimeout(3000);
-
-      // Scroll through the branch content
-      await moveTo(page, page.locator(sel.chatMessages));
-      await smoothScroll(page, sel.chatMessages, 300, 4);
-      await page.waitForTimeout(2000);
     }
-  }
 
-  // ── Scene 4: Show the sidebar topic tree ─────────────────────────
-  // Look for sidebar toggle or the sidebar itself
-  const sidebarToggle = page.locator("[aria-label*='ree'], [aria-label*='idebar'], button:has(.lucide-git-branch-plus), button:has(.lucide-panel-left)").first();
-  if (await sidebarToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await moveTo(page, sidebarToggle);
-    await sidebarToggle.click();
+    // ──────────────────────────────────────────────────────────────────
+    // Scene 4: Click "Open →" on the second branch (DiffusionGemma, 3 msgs)
+    // This is the key moment — the view transitions to branch content
+    // ──────────────────────────────────────────────────────────────────
+    const targetBranch = count > 1 ? branchCards.nth(1) : branchCards.first();
+    const openBtn = targetBranch.locator(".pit-inline-branch-open");
+
+    if (await openBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await moveTo(page, openBtn);
+      await page.waitForTimeout(500);
+      await openBtn.click();
+    } else {
+      // Fallback: click the branch card itself
+      await targetBranch.click();
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Scene 5: Branch content loaded — hold so the viewer sees the change
+    // The conversation now shows DIFFERENT content (the branch topic).
+    // The breadcrumb updates to show the navigation path.
+    // The sidebar tree highlights the current branch node.
+    // ──────────────────────────────────────────────────────────────────
+    await page.waitForTimeout(3000);
+
+    // Scroll through the branch conversation slowly to show it's
+    // a different conversation from the parent
+    await moveTo(page, page.locator(sel.chatMessages));
+    await smoothScroll(page, sel.chatMessages, 300, 3);
     await page.waitForTimeout(2000);
-  }
 
-  // ── Scene 5: Navigate back via breadcrumb ────────────────────────
-  const breadcrumbItems = page.locator(".pit-breadcrumb-bar a, .pit-breadcrumb-item");
-  if (await breadcrumbItems.first().isVisible({ timeout: 2000 }).catch(() => false)) {
-    // Move cursor to the root breadcrumb and click
-    await moveTo(page, breadcrumbItems.first());
-    await page.waitForTimeout(300);
-    await breadcrumbItems.first().click();
-    await page.waitForTimeout(2500);
-  }
+    // Scroll a bit more to show the depth of the branch conversation
+    await smoothScroll(page, sel.chatMessages, 250, 3);
+    await page.waitForTimeout(2000);
 
-  // ── Scene 6: Send a follow-up message to show streaming ──────────
-  const chatInput = page.locator(sel.chatInput);
-  if (await chatInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-    // Move cursor to chat input
-    await moveTo(page, chatInput);
-    await chatInput.click();
-    await page.waitForTimeout(500);
-
-    // Type slowly for the demo effect
-    await page.keyboard.type("Deep dive into the OpenAI vs Anthropic price war", { delay: 40 });
-    await page.waitForTimeout(800);
-
-    // Move cursor to send button and click
-    const sendBtn = page.locator(sel.chatSend);
-    await moveTo(page, sendBtn);
-    await page.waitForTimeout(200);
-    await sendBtn.click();
-
-    // Wait for the streaming response to appear and show for a few seconds
-    try {
-      await page.waitForSelector(`${sel.chatStreaming}, ${sel.assistantMessage}:last-child`, {
-        timeout: 10000,
-      });
-      // Let streaming run for a few seconds to show the effect
-      await page.waitForTimeout(6000);
-    } catch {
-      await page.waitForTimeout(4000);
+    // ──────────────────────────────────────────────────────────────────
+    // Scene 6: Navigate back to parent via breadcrumb
+    // Click the root breadcrumb to return to the parent conversation
+    // ──────────────────────────────────────────────────────────────────
+    const rootCrumb = page.locator(".pit-breadcrumb-root").first();
+    if (await rootCrumb.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await moveTo(page, rootCrumb);
+      await page.waitForTimeout(500);
+      await rootCrumb.click();
+      // Wait for parent view to reload — branch cards should appear again
+      await page.waitForTimeout(3000);
     }
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // Scene 7: Back at parent — scroll to show branch cards are still there
+  // The branch cards should be visible, confirming we've navigated back
+  // ────────────────────────────────────────────────────────────────────
+  const branchSectionAgain = page.locator(sel.inlineBranches).first();
+  if (await branchSectionAgain.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await branchSectionAgain.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(2000);
   }
 
   // Final pause
@@ -233,11 +224,9 @@ test("record conversation tree demo", async ({ page }) => {
       const outputWebm = path.join(OUTPUT_DIR, "demo.webm");
       const outputMp4 = path.join(OUTPUT_DIR, "demo.mp4");
 
-      // Copy the webm
       fs.copyFileSync(videoPath, outputWebm);
       console.log(`✅ WebM saved: ${outputWebm}`);
 
-      // Convert to MP4 for Safari fallback (much smaller than GIF)
       try {
         const cmd = `ffmpeg -y -i "${outputWebm}" -vf "scale=960:-1" -c:v libx264 -pix_fmt yuv420p -preset slow -crf 28 -movflags +faststart "${outputMp4}"`;
         execSync(cmd, { stdio: "inherit" });

@@ -6,7 +6,7 @@
     "name": "Pi Tree Contributors",
     "email": "pi-tree@users.noreply.github.com"
   },
-  "homepage": "https://github.com/nicekid1/pi-tree",
+  "homepage": "https://github.com/shuowu/pi-tree",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
