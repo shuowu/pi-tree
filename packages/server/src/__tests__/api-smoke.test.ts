@@ -24,6 +24,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { mkdirSync, rmSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { eq } from "drizzle-orm";
 
 // Stub env vars BEFORE importing app/config so they pick up test paths.
 const TEST_ROOT = mkdtempSync(join(tmpdir(), "pi-tree-test-"));
@@ -320,5 +321,123 @@ describe("Glossary CRUD", () => {
 
   afterAll(async () => {
     await app.request(`/api/users/${userId}`, { method: "DELETE" });
+  });
+});
+
+// ── Source Creation (metadata-only) ────────────────────────────────────────
+
+describe("Source Creation", () => {
+  it("POST /api/library/sources/create → 201 (paper)", async () => {
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({ title: "Attention Is All You Need", author: "Vaswani et al.", type: "paper" }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.id).toBe("attention-is-all-you-need");
+    expect(body.type).toBe("paper");
+    expect(body.title).toBe("Attention Is All You Need");
+    expect(body.author).toBe("Vaswani et al.");
+    expect(body.status).toBe("ready");
+    expect(body.source).toBe("user");
+  });
+
+  it("POST /api/library/sources/create → 201 (duplicate gets suffix)", async () => {
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({ title: "Attention Is All You Need", type: "paper" }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.id).toBe("attention-is-all-you-need-1");
+  });
+
+  it("POST /api/library/sources/create → 201 with metadata", async () => {
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({
+        title: "BERT",
+        type: "paper",
+        metadata: { arxivId: "1810.04805" },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.id).toBe("bert");
+    expect(body.metadata).toEqual({ arxivId: "1810.04805" });
+  });
+
+  it("POST /api/library/sources/create → 400 (missing title)", async () => {
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({ type: "paper" }),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("title");
+  });
+
+  it("POST /api/library/sources/create → 400 (missing type)", async () => {
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({ title: "Some Paper" }),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("type");
+  });
+
+  it("source appears in library listing", async () => {
+    const res = await app.request("/api/library/sources?type=paper");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const paper = body.sources.find((s: any) => s.id === "attention-is-all-you-need");
+    expect(paper).toBeDefined();
+    expect(paper.type).toBe("paper");
+  });
+
+  afterAll(async () => {
+    // Clean up created sources
+    for (const id of ["attention-is-all-you-need", "attention-is-all-you-need-1", "bert"]) {
+      await app.request(`/api/library/sources/${id}`, { method: "DELETE" });
+    }
+  });
+});
+
+// ── Markdown Upload ────────────────────────────────────────────────────────
+
+describe("Markdown Upload", () => {
+  it("markdown file is saved directly and marked ready", async () => {
+    const { BookIngestionService } = await import("../services/book-ingestion.js");
+    const service = new BookIngestionService();
+
+    const mdContent = "# Test Book\n\nThis is a test markdown file.\n\n## Chapter 1\n\nSome content here.";
+    const buffer = Buffer.from(mdContent, "utf-8");
+
+    const result = await service.addBook(buffer, "test-book.md", {
+      title: "Test Markdown Book",
+      author: "Test Author",
+    });
+
+    expect(result.status).toBe("ready");
+    expect(result.hasMarkdown).toBe(true);
+    expect(result.progress).toBe(100);
+    expect(result.source).toBe("upload");
+    expect(result.title).toBe("Test Markdown Book");
+
+    // Verify the source was inserted in DB as ready
+    const db = getDb();
+    const row = db.select().from(sources).where(eq(sources.id, result.id)).get();
+    expect(row).toBeDefined();
+    expect(row!.status).toBe("ready");
+
+    // Verify markdown file exists
+    const { existsSync } = await import("node:fs");
+    const { join: pathJoin } = await import("node:path");
+    const mdPath = pathJoin(TEST_DATA_PATH, "books", result.id, "markdown", "content.md");
+    expect(existsSync(mdPath)).toBe(true);
+
+    // Clean up
+    await app.request(`/api/library/sources/${result.id}`, { method: "DELETE" });
   });
 });
