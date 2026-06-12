@@ -64,6 +64,41 @@ export class BookIngestionService {
     const originalPath = join(bookDir, `original${ext}`);
     await writeFile(originalPath, file);
 
+    // For markdown files, skip conversion — save directly and mark ready
+    if (ext === ".md") {
+      await writeFile(join(markdownDir, "content.md"), file);
+
+      const now = new Date().toISOString();
+      db.insert(sources)
+        .values({
+          id: bookId,
+          type: "book",
+          title: meta.title,
+          author: meta.author,
+          year: meta.year ?? null,
+          source: "upload",
+          status: "ready",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      return {
+        id: bookId,
+        type: "book" as const,
+        title: meta.title,
+        author: meta.author,
+        year: meta.year ?? 0,
+        folderName: bookId,
+        progress: 100,
+        hasMarkdown: true,
+        hasOutline: false,
+        hasCover: false,
+        source: "upload",
+        status: "ready",
+      };
+    }
+
     // Insert DB row
     const now = new Date().toISOString();
     db.insert(sources)

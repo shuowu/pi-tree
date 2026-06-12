@@ -10,10 +10,10 @@ interface AddBookModalProps {
 
 type SourceTab = "book" | "paper";
 
-const ACCEPTED_EXTENSIONS = [".epub", ".mobi", ".pdf"];
+const ACCEPTED_EXTENSIONS = [".epub", ".mobi", ".pdf", ".md"];
 
 function guessMetaFromFilename(filename: string): { title: string; author: string } {
-  const name = filename.replace(/\.(epub|mobi|pdf)$/i, "");
+  const name = filename.replace(/\.(epub|mobi|pdf|md)$/i, "");
 
   const separators = [" - ", " — ", " – ", "_-_", " by "];
   for (const sep of separators) {
@@ -150,7 +150,7 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
           <h2>{sourceType === "book" ? "Add a Book" : "Add a Paper"}</h2>
           <p>
             {sourceType === "book"
-              ? "Upload an EPUB, MOBI, or PDF file"
+              ? "Upload an EPUB, MOBI, PDF, or Markdown file"
               : "Add a paper to discuss and analyze"}
           </p>
         </div>
@@ -190,12 +190,12 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
                 {file ? file.name : "Drop your book here or click to browse"}
               </span>
               {!file && (
-                <span className="add-book-dropzone-hint">.epub, .mobi, .pdf</span>
+                <span className="add-book-dropzone-hint">.epub, .mobi, .pdf, .md</span>
               )}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".epub,.mobi,.pdf"
+                accept=".epub,.mobi,.pdf,.md"
                 onChange={handleFileInput}
               />
             </div>
