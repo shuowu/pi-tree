@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { LibraryService } from "../services/library.js";
 import { BookIngestionService } from "../services/book-ingestion.js";
-import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
+import { readFile, stat, mkdir, copyFile } from "node:fs/promises";
+import { extname, resolve, isAbsolute, join } from "node:path";
 import { JobQueueService } from "../services/job-queue.js";
 import { getDb, sources as sourcesTable } from "../db/index.js";
 import { eq } from "drizzle-orm";
@@ -117,6 +117,7 @@ libraryRoutes.post("/sources/create", async (c) => {
       year?: number;
       type: string;
       metadata?: Record<string, unknown>;
+      contentPath?: string;
     }>();
 
     if (!body.title || typeof body.title !== "string") {
@@ -164,6 +165,35 @@ libraryRoutes.post("/sources/create", async (c) => {
 
     db.insert(sourcesTable).values(values).run();
 
+    // If contentPath provided, copy content to sources/{id}/markdown/
+    let hasMarkdown = false;
+    if (body.contentPath) {
+      const dataPath = process.env.DATA_PATH ??
+        join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
+
+      // Resolve: absolute stays absolute, relative resolves from DATA_PATH
+      const resolvedPath = isAbsolute(body.contentPath)
+        ? resolve(body.contentPath)
+        : resolve(dataPath, body.contentPath);
+
+      // Validate file exists
+      try {
+        const st = await stat(resolvedPath);
+        if (!st.isFile()) {
+          // Still create the source, just skip the copy
+          console.warn(`[sources/create] contentPath is not a file: ${resolvedPath}`);
+        } else {
+          const targetDir = join(dataPath, "sources", id, "markdown");
+          await mkdir(targetDir, { recursive: true });
+          const targetFile = join(targetDir, "content.md");
+          await copyFile(resolvedPath, targetFile);
+          hasMarkdown = true;
+        }
+      } catch (err) {
+        console.warn(`[sources/create] contentPath not found: ${resolvedPath}`);
+      }
+    }
+
     return c.json(
       {
         id: values.id,
@@ -174,6 +204,7 @@ libraryRoutes.post("/sources/create", async (c) => {
         source: values.source,
         status: values.status,
         metadata: body.metadata ?? null,
+        hasMarkdown,
       },
       201,
     );

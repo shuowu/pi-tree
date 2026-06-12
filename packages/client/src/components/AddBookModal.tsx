@@ -53,6 +53,7 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
   const [customTitle, setCustomTitle] = useState("");
   const [customType, setCustomType] = useState("");
   const [customAuthor, setCustomAuthor] = useState("");
+  const [customContentPath, setCustomContentPath] = useState("");
   const [customSubmitting, setCustomSubmitting] = useState(false);
   const [customError, setCustomError] = useState<string | null>(null);
 
@@ -145,13 +146,14 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
         title: customTitle.trim(),
         author: customAuthor.trim() || undefined,
         type: customType.trim().toLowerCase().replace(/\s+/g, "-"),
+        contentPath: customContentPath.trim() || undefined,
       });
       onSuccess();
     } catch (err) {
       setCustomError(err instanceof Error ? err.message : "Creation failed");
       setCustomSubmitting(false);
     }
-  }, [customTitle, customType, customAuthor, onSuccess]);
+  }, [customTitle, customType, customAuthor, customContentPath, onSuccess]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -402,12 +404,20 @@ export function AddBookModal({ onClose, onSuccess }: AddBookModalProps) {
                   placeholder="Author or creator"
                 />
               </div>
+              <div className="add-book-field">
+                <label htmlFor="add-custom-path">Content Path (optional)</label>
+                <input
+                  id="add-custom-path"
+                  type="text"
+                  value={customContentPath}
+                  onChange={(e) => setCustomContentPath(e.target.value)}
+                  placeholder="/path/to/content.md or relative to DATA_PATH"
+                />
+              </div>
             </div>
 
             <div className="add-book-hint">
-              <p>Place your content (markdown) at:</p>
-              <code>$DATA_PATH/books/&lt;source-id&gt;/markdown/content.md</code>
-              <p>Create a matching profile at <code>$DATA_PATH/profiles/</code> for a custom session flow.</p>
+              <p>The server copies your file to <code>$DATA_PATH/sources/&lt;id&gt;/markdown/</code>. Relative paths resolve from <code>$DATA_PATH</code>. Create a matching profile at <code>$DATA_PATH/profiles/</code> for a custom session flow.</p>
             </div>
 
             {customError && (

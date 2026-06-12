@@ -187,6 +187,7 @@ export async function createSource(data: {
   year?: number;
   type: string;
   metadata?: Record<string, unknown>;
+  contentPath?: string;
 }): Promise<Source> {
   const res = await fetch(`${API}/library/sources/create`, {
     method: 'POST',

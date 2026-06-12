@@ -245,16 +245,20 @@ Here's how to add a custom source type, end to end:
 
 #### 1. Prepare Your Content
 
-Place your content as markdown files at:
+You have two options:
+
+**Option A — Use the UI**: In the **Add Source → Custom** tab, provide a **Content Path** (absolute or relative to `DATA_PATH`). The server copies the file to the right location automatically.
+
+**Option B — Manual placement**: Place your content as a markdown file at:
 
 ```
-<DATA_PATH>/books/<source-id>/markdown/content.md
+<DATA_PATH>/sources/<source-id>/markdown/content.md
 ```
 
 You can convert from any format — PDF, HTML, Notion export, Obsidian vault, etc. — using tools like Pandoc, Calibre, or any other converter. Pi-tree reads markdown.
 
 :::tip
-If you upload a `.md` file through the UI (Add Source → Book tab), this is done automatically. The manual path is for content you've already prepared.
+If you upload a `.md` file through the UI (Add Source → Book tab), this is done automatically. The manual path and content path field are for content you've already prepared.
 :::
 
 #### 2. Create a Skill (Optional)
@@ -302,9 +306,11 @@ In the UI, click **Add Source → Custom** tab:
 
 - **Title**: "React Tutorial"
 - **Source Type**: `tutorial`
+- **Content Path**: `/path/to/tutorial.md` (optional — server copies it to `sources/<id>/markdown/`)
 - **Author**: optional
 
 This creates a source record. The app will:
+- Copy your content file to `$DATA_PATH/sources/<id>/markdown/content.md` (if provided)
 - Look up the profile for `tutorial.reading`
 - Load your custom skill
 - Start a session with your custom flow

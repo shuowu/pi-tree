@@ -13,6 +13,7 @@ const dataPath =
   join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
 
 const booksBasePath = join(dataPath, "books");
+const sourcesBasePath = join(dataPath, "sources");
 
 function slugify(text: string): string {
   return text
@@ -407,18 +408,31 @@ Do NOT use the "read" tool to read the entire markdown file, to prevent bloating
     const result: Source[] = [];
 
     for (const row of rows) {
-      const bookDir = join(booksBasePath, row.id);
+      // Check both books/ (uploaded files) and sources/ (custom sources)
+      const candidateDirs = [
+        join(booksBasePath, row.id),
+        join(sourcesBasePath, row.id),
+      ];
 
-      const hasMarkdown = await exists(join(bookDir, "markdown"));
-      const hasOutline =
-        (await exists(join(bookDir, "analysis", "outline.md"))) ||
-        (await exists(join(bookDir, "analysis", "toc.json")));
-
+      let hasMarkdown = false;
+      let hasOutline = false;
       let hasCover = false;
-      for (const ext of ["jpg", "jpeg", "png", "webp", "gif"]) {
-        if (await exists(join(bookDir, `cover.${ext}`))) {
-          hasCover = true;
-          break;
+
+      for (const dir of candidateDirs) {
+        if (!hasMarkdown && await exists(join(dir, "markdown"))) hasMarkdown = true;
+        if (!hasOutline) {
+          if (await exists(join(dir, "analysis", "outline.md")) ||
+              await exists(join(dir, "analysis", "toc.json"))) {
+            hasOutline = true;
+          }
+        }
+        if (!hasCover) {
+          for (const ext of ["jpg", "jpeg", "png", "webp", "gif"]) {
+            if (await exists(join(dir, `cover.${ext}`))) {
+              hasCover = true;
+              break;
+            }
+          }
         }
       }
 

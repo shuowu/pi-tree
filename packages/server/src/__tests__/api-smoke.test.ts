@@ -441,3 +441,66 @@ describe("Markdown Upload", () => {
     await app.request(`/api/library/sources/${result.id}`, { method: "DELETE" });
   });
 });
+
+// ── Content Path Resolution ────────────────────────────────────────────────
+
+describe("Content Path Resolution", () => {
+  it("absolute contentPath copies file to sources/{id}/markdown/", async () => {
+    // Create a temp markdown file
+    const { writeFileSync, existsSync } = await import("node:fs");
+    const { join: pathJoin } = await import("node:path");
+
+    const tempFile = pathJoin(TEST_ROOT, "my-notes.md");
+    writeFileSync(tempFile, "# My Notes\n\nSome content here.");
+
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({ title: "Notes Test", type: "custom", contentPath: tempFile }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.hasMarkdown).toBe(true);
+
+    // Verify file was copied to sources/{id}/markdown/content.md
+    const copiedPath = pathJoin(TEST_DATA_PATH, "sources", body.id, "markdown", "content.md");
+    expect(existsSync(copiedPath)).toBe(true);
+
+    // Clean up
+    await app.request(`/api/library/sources/${body.id}`, { method: "DELETE" });
+  });
+
+  it("relative contentPath resolves from DATA_PATH", async () => {
+    const { writeFileSync, mkdirSync: mkdirS, existsSync } = await import("node:fs");
+    const { join: pathJoin } = await import("node:path");
+
+    // Write a file relative to DATA_PATH
+    const relDir = pathJoin(TEST_DATA_PATH, "my-content");
+    mkdirS(relDir, { recursive: true });
+    writeFileSync(pathJoin(relDir, "tutorial.md"), "# Tutorial\n\nLearn things.");
+
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({ title: "Relative Test", type: "tutorial", contentPath: "my-content/tutorial.md" }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.hasMarkdown).toBe(true);
+
+    const copiedPath = pathJoin(TEST_DATA_PATH, "sources", body.id, "markdown", "content.md");
+    expect(existsSync(copiedPath)).toBe(true);
+
+    await app.request(`/api/library/sources/${body.id}`, { method: "DELETE" });
+  });
+
+  it("non-existent contentPath still creates source (graceful)", async () => {
+    const res = await app.request(
+      "/api/library/sources/create",
+      json({ title: "Missing Path", type: "custom", contentPath: "/nonexistent/file.md" }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.hasMarkdown).toBe(false);
+
+    await app.request(`/api/library/sources/${body.id}`, { method: "DELETE" });
+  });
+});

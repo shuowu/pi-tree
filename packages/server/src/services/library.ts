@@ -15,6 +15,7 @@ import { BookIngestionService } from "./book-ingestion.js";
 export class LibraryService {
   private libraryPath: string;
   private userBooksPath: string;
+  private sourcesPath: string;
   private ingestion: BookIngestionService;
   private synced = false;
 
@@ -25,12 +26,27 @@ export class LibraryService {
       join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
     this.libraryPath = join(dp, "library");
     this.userBooksPath = join(dp, "books");
+    this.sourcesPath = join(dp, "sources");
     
     // Ensure the directories exist
     mkdirSync(this.libraryPath, { recursive: true });
     mkdirSync(this.userBooksPath, { recursive: true });
+    mkdirSync(this.sourcesPath, { recursive: true });
     
     this.ingestion = new BookIngestionService();
+  }
+
+  /** Candidate directories for a source, in resolution order: library/ → books/ → sources/ */
+  private candidateDirs(sourceId: string): string[] {
+    return [
+      join(this.libraryPath, sourceId),
+      join(this.userBooksPath, sourceId),
+      join(this.sourcesPath, sourceId),
+    ];
+  }
+
+  getSourcesPath(): string {
+    return this.sourcesPath;
   }
 
   getLibraryPath(): string {
@@ -282,10 +298,7 @@ export class LibraryService {
   }
 
   async getCoverPath(sourceId: string): Promise<string | null> {
-    const searchPaths = [
-      join(this.libraryPath, sourceId),
-      join(this.userBooksPath, sourceId),
-    ];
+    const searchPaths = this.candidateDirs(sourceId);
     const extensions = ["jpg", "jpeg", "png", "webp", "gif"];
     for (const basePath of searchPaths) {
       for (const ext of extensions) {
@@ -304,10 +317,7 @@ export class LibraryService {
     if (tocJson) return tocJson;
 
     // 2. Fallback: parse outline.md (Navigation Map or heading extraction)
-    const candidatePaths = [
-      join(this.libraryPath, sourceId, "analysis", "outline.md"),
-      join(this.userBooksPath, sourceId, "analysis", "outline.md"),
-    ];
+    const candidatePaths = this.candidateDirs(sourceId).map(d => join(d, "analysis", "outline.md"));
 
     for (const outlinePath of candidatePaths) {
       try {
@@ -325,10 +335,7 @@ export class LibraryService {
    * This is the preferred source — emitted by the book-outline skill as clean JSON.
    */
   private async loadTocJson(sourceId: string): Promise<SourceOutline | null> {
-    const candidatePaths = [
-      join(this.libraryPath, sourceId, "analysis", "toc.json"),
-      join(this.userBooksPath, sourceId, "analysis", "toc.json"),
-    ];
+    const candidatePaths = this.candidateDirs(sourceId).map(d => join(d, "analysis", "toc.json"));
 
     for (const tocPath of candidatePaths) {
       try {
@@ -352,10 +359,7 @@ export class LibraryService {
 
         // Try to get summary from outline.md if it exists
         let summary = "";
-        const outlineCandidates = [
-          join(this.libraryPath, sourceId, "analysis", "outline.md"),
-          join(this.userBooksPath, sourceId, "analysis", "outline.md"),
-        ];
+        const outlineCandidates = this.candidateDirs(sourceId).map(d => join(d, "analysis", "outline.md"));
         for (const outlinePath of outlineCandidates) {
           try {
             const outlineContent = await readFile(outlinePath, "utf-8");
@@ -379,10 +383,7 @@ export class LibraryService {
     startLine: number,
     endLine: number,
   ): Promise<string | null> {
-    const candidateDirs = [
-      join(this.libraryPath, sourceId, "markdown"),
-      join(this.userBooksPath, sourceId, "markdown"),
-    ];
+    const candidateDirs = this.candidateDirs(sourceId).map(d => join(d, "markdown"));
 
     for (const mdDir of candidateDirs) {
       try {
@@ -449,10 +450,7 @@ export class LibraryService {
   private async extractHeadingsFromMarkdown(
     sourceId: string,
   ): Promise<Array<{ line: number; level: number; title: string }> | null> {
-    const candidateDirs = [
-      join(this.libraryPath, sourceId, "markdown"),
-      join(this.userBooksPath, sourceId, "markdown"),
-    ];
+    const candidateDirs = this.candidateDirs(sourceId).map(d => join(d, "markdown"));
 
     for (const mdDir of candidateDirs) {
       try {
