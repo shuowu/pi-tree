@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Allow overriding the API server port via env var (e.g., for e2e tests)
+// Allow overriding ports via env vars (for worktrees with separate port ranges)
 const apiPort = process.env.VITE_API_PORT ?? '3947';
+const clientPort = Number(process.env.VITE_PORT ?? '5947');
 
 export default defineConfig({
   plugins: [react()],
@@ -10,7 +11,7 @@ export default defineConfig({
     conditions: ['source'],
   },
   server: {
-    port: 5947,
+    port: clientPort,
     host: true,
     proxy: {
       '/api': {
