@@ -1,0 +1,167 @@
+/* ── ModelPicker ── */
+
+.pit-model-picker {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Trigger badge — extends the existing model badge style */
+.pit-model-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--pit-bg-hover);
+  padding: 2px 8px;
+  border-radius: var(--pit-radius-full);
+  font-family: var(--pit-font-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  color: var(--pit-text-muted);
+  cursor: pointer;
+  transition: border-color var(--pit-transition-fast),
+              background var(--pit-transition-fast);
+  user-select: none;
+}
+
+.pit-model-picker-trigger:hover {
+  border-color: var(--pit-border);
+  background: var(--pit-bg-surface);
+}
+
+.pit-model-picker-trigger[aria-expanded="true"] {
+  border-color: var(--pit-accent);
+  background: var(--pit-bg-surface);
+}
+
+/* Static badge — no interactive affordance */
+.pit-model-picker-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--pit-bg-hover);
+  padding: 2px 8px;
+  border-radius: var(--pit-radius-full);
+  font-family: var(--pit-font-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--pit-text-muted);
+  user-select: none;
+}
+
+/* Chevron icon in the trigger */
+.pit-model-picker-chevron {
+  transition: transform var(--pit-transition-fast);
+}
+
+.pit-model-picker-trigger[aria-expanded="true"] .pit-model-picker-chevron {
+  transform: rotate(180deg);
+}
+
+/* Dropdown — opens upward from the badge */
+.pit-model-picker-dropdown {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  max-width: 340px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--pit-bg-primary);
+  border: 1px solid var(--pit-border);
+  border-radius: var(--pit-radius-md);
+  box-shadow: var(--pit-shadow-lg);
+  z-index: 100;
+  padding: var(--pit-space-1) 0;
+  animation: pit-model-picker-fade-in 0.15s ease;
+}
+
+@keyframes pit-model-picker-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Provider group header */
+.pit-model-picker-group {
+  padding: var(--pit-space-2) var(--pit-space-3) var(--pit-space-1);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pit-text-muted);
+  user-select: none;
+}
+
+.pit-model-picker-group:not(:first-child) {
+  border-top: 1px solid var(--pit-border-subtle);
+  margin-top: var(--pit-space-1);
+  padding-top: var(--pit-space-2);
+}
+
+/* Individual model row */
+.pit-model-picker-item {
+  display: flex;
+  align-items: center;
+  gap: var(--pit-space-2);
+  width: 100%;
+  padding: var(--pit-space-2) var(--pit-space-3);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--pit-font-mono, monospace);
+  font-size: var(--pit-text-xs);
+  color: var(--pit-text-primary);
+  text-align: left;
+  transition: background var(--pit-transition-fast);
+  border-radius: 0;
+}
+
+.pit-model-picker-item:hover {
+  background: var(--pit-bg-hover);
+}
+
+.pit-model-picker-item--selected {
+  background: var(--pit-accent-dim);
+}
+
+.pit-model-picker-item--selected:hover {
+  background: var(--pit-accent-dim);
+}
+
+
+
+/* Model name text */
+.pit-model-picker-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Check mark for selected model */
+.pit-model-picker-check {
+  color: var(--pit-accent);
+  flex-shrink: 0;
+}
+
+/* Scrollbar styling */
+.pit-model-picker-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pit-model-picker-dropdown::-webkit-scrollbar-thumb {
+  background: var(--pit-border);
+  border-radius: 3px;
+}
+
+.pit-model-picker-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}

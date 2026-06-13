@@ -10,6 +10,7 @@ import { userRoutes } from "./routes/users.js";
 import { dictionaryRoutes } from "./routes/dictionary.js";
 import { newsRoutes } from "./routes/news.js";
 import { routerRoutes } from "./routes/router.js";
+import { modelRoutes } from "./routes/models.js";
 import { getServerConfig, saveServerConfig } from "./config.js";
 import { getAgentRegistry } from "./services/agent-registry.js";
 
@@ -63,6 +64,7 @@ app.route("/api/users", userRoutes);
 app.route("/api/dict", dictionaryRoutes);
 app.route("/api/news", newsRoutes);
 app.route("/api/router", routerRoutes);
+app.route("/api/models", modelRoutes);
 
 // Profiles introspection — list all available session profiles
 app.get("/api/profiles", (c) => {

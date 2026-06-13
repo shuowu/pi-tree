@@ -30,6 +30,7 @@ import { eq, and } from "drizzle-orm";
 import { getDb, users, userSessions, sources } from "../db/index.js";
 import { LibraryService } from "./library.js";
 import { getAgentRegistry } from "./agent-registry.js";
+import { findProviderForModel, resolveApiKey } from "./models-json.js";
 import { join } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import os from "node:os";
@@ -101,6 +102,27 @@ export class TreeManager {
     const profile = registry.resolveProfile(sourceType, sessionContext?.mode, sessionContext);
     console.log(`[tree-manager] Resolved profile "${profile.resolvedFrom}" for ${sourceType}/${sessionContext?.mode ?? 'default'}`);
 
+    // Resolve the effective model — session context override wins over profile.
+    const effectiveModel = sessionContext?.model ?? profile.model ?? serverCfg.readingModel;
+
+    // If the effective model belongs to a provider from $DATA_PATH/models.json
+    // AND that provider is different from the env-configured one, use models.json's
+    // config (baseUrl, apiKey, api). This enables multi-provider model switching
+    // (e.g. env=zai for cloud, models.json=lmstudio for local).
+    // We skip the override when the provider matches the env config, because the
+    // env config (PI_API_KEY, PI_BASE_URL, etc.) is the source of truth for it.
+    let providerOverride: Record<string, string | undefined> = {};
+    const modelsJsonProvider = findProviderForModel(effectiveModel);
+    if (modelsJsonProvider && modelsJsonProvider.name !== serverCfg.provider) {
+      console.log(`[tree-manager] Model "${effectiveModel}" → provider "${modelsJsonProvider.name}" from models.json`);
+      providerOverride = {
+        provider: modelsJsonProvider.name,
+        apiKey: resolveApiKey(modelsJsonProvider.config.apiKey),
+        baseUrl: modelsJsonProvider.config.baseUrl,
+        api: modelsJsonProvider.config.api,
+      };
+    }
+
     const piSession = await PiSession.create(
       userId,
       sourceId,
@@ -110,12 +132,13 @@ export class TreeManager {
         ...(resumeSession ? { resumeSession } : {}),
         config: {
           ...serverCfg,
+          ...providerOverride,
           repoRoot,
           skillPaths: profile.skillPaths,
           extensionPaths: profile.extensionPaths,
           excludeTools: profile.excludeTools,
           sourceType,
-          ...(profile.model ? { readingModel: profile.model } : {}),
+          readingModel: effectiveModel,
         },
       },
     );

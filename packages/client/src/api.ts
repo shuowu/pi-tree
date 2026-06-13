@@ -54,6 +54,24 @@ export async function saveServerConfig(cfg: Partial<ClientServerConfig>): Promis
 }
 
 // ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  reasoning: boolean;
+  contextWindow: number;
+}
+
+export async function fetchModels(): Promise<{ models: ModelInfo[]; currentModel: string }> {
+  const res = await fetch(`${API}/models`);
+  if (!res.ok) return { models: [], currentModel: '' };
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
 

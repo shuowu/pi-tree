@@ -1,8 +1,9 @@
 /**
  * Model registry configuration — extracted from PiSession.create() for testability.
  *
- * Handles: auth setup, provider registration, API type overrides,
- * and provider name mismatch propagation (e.g., PI_PROVIDER=zai → model under zai-coding-cn).
+ * Handles: auth setup, provider registration, API type overrides.
+ * Strict: only selects models under the configured provider — never falls back
+ * to a random SDK provider. Custom models (from models.json) are auto-registered.
  */
 
 import {
@@ -45,24 +46,43 @@ export function configureModelRegistry(
     registerProviderWithModels(modelRegistry, config.provider, config);
   }
 
-  // Select the model by ID.
-  let selectedModel = modelRegistry.getAll().find((m) => m.id === config.readingModel);
+  // Select the model by ID — must exist under the configured provider.
+  // The SDK registry has the same model under many providers; we never
+  // fall back to a random one — that causes auth mismatches.
+  let selectedModel = config.provider
+    ? modelRegistry.getAll().find((m) => m.id === config.readingModel && m.provider === config.provider)
+    : modelRegistry.getAll().find((m) => m.id === config.readingModel);
 
-  // If the model's built-in provider differs from the configured provider,
-  // propagate auth + base URL + API type to the model's actual provider.
-  if (
-    selectedModel &&
-    config.provider &&
-    selectedModel.provider !== config.provider &&
-    config.apiKey
-  ) {
-    authStorage.setRuntimeApiKey(selectedModel.provider, config.apiKey);
-    if (config.baseUrl) {
-      registerProviderWithModels(modelRegistry, selectedModel.provider, config);
-      // Re-fetch: registerProvider replaces model objects in the registry,
-      // so our reference is stale after re-registration.
-      selectedModel = modelRegistry.getAll().find((m) => m.id === config.readingModel);
-    }
+  // If not found, the model may be a custom one from models.json that doesn't
+  // exist in the SDK's built-in registry. Register it as a minimal model
+  // under the configured provider so the session can use it.
+  if (!selectedModel && config.readingModel && config.provider && config.baseUrl) {
+    const apiType = config.api || "openai-completions";
+    modelRegistry.registerProvider(config.provider, {
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+      api: apiType as any,
+      models: [{
+        id: config.readingModel,
+        name: config.readingModel,
+        api: apiType as any,
+        reasoning: false,
+        input: ["text"] as ("text" | "image")[],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128000,
+        maxTokens: 16384,
+      }],
+    });
+    selectedModel = modelRegistry.getAll().find(
+      (m) => m.id === config.readingModel && m.provider === config.provider,
+    );
+  }
+
+  if (config.readingModel && !selectedModel) {
+    throw new Error(
+      `Model "${config.readingModel}" not found under provider "${config.provider}". ` +
+      `Check your models.json or PI_MODEL / PI_PROVIDER configuration.`,
+    );
   }
 
   return { authStorage, modelRegistry, selectedModel };

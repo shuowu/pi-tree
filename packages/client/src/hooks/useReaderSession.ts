@@ -544,6 +544,20 @@ export function useReaderSession(
   const activeSession = sessions.find((s) => s.id === sessionId);
   const sessionLabel = activeSession?.title ?? null;
 
+  const sessionContext = activeSession?.context ?? null;
+
+  /** Update the local session context (e.g. after model switch) without refetching. */
+  const updateLocalSessionContext = useCallback(
+    (newContext: import("@pi-tree/shared").SessionContext) => {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId ? { ...s, context: newContext } : s,
+        ),
+      );
+    },
+    [sessionId],
+  );
+
   return {
     sessionId,
     messages,
@@ -558,6 +572,7 @@ export function useReaderSession(
     activeToolCall,
     viewNodeId,
     sessionLabel,
+    sessionContext,
     scrollTopTrigger,
     handleSendMessage,
     handleNavigate,
@@ -568,5 +583,6 @@ export function useReaderSession(
     handleDeleteNode,
     handleRenameNode,
     handleResetSession,
+    updateLocalSessionContext,
   };
 }

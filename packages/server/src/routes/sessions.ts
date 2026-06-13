@@ -254,6 +254,11 @@ sessionCrudRoutes.put("/:userId/:sourceId/:sessionId", async (c) => {
     )
     .run();
 
+  // Evict cached session so it recreates with new config (e.g. model change)
+  if (body.context !== undefined) {
+    closeSession(userId, sourceId, sessionId);
+  }
+
   return c.json({ ok: true });
 });
 

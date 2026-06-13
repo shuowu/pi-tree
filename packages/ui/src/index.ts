@@ -5,6 +5,7 @@ export { StreamingBubble } from "./StreamingBubble.js";
 export { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
 export { Breadcrumb } from "./Breadcrumb.js";
 export { ToolCallIndicator } from "./ToolCallIndicator.js";
+export { ModelPicker, type ModelInfo } from "./ModelPicker.js";
 
 // Hooks
 export { useMermaid } from "./hooks/useMermaid.js";

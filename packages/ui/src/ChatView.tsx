@@ -4,7 +4,8 @@ import { MessageBubble } from "./MessageBubble.js";
 import { StreamingBubble } from "./StreamingBubble.js";
 import { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
 import { ToolCallIndicator } from "./ToolCallIndicator.js";
-import { BookOpen, Cpu, ChevronDown, Loader } from "lucide-react";
+import { ModelPicker, type ModelInfo } from "./ModelPicker.js";
+import { BookOpen, ChevronDown, Loader } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
 import "./styles/ChatView.css";
 
@@ -55,6 +56,10 @@ interface ChatViewProps {
   ) => Promise<BranchPreviewData>;
   /** Custom placeholder text for the input (overrides default book-centric text) */
   placeholderText?: string;
+  /** Available models for the model picker dropdown */
+  availableModels?: ModelInfo[];
+  /** Called when user selects a different model */
+  onModelChange?: (modelId: string) => void;
 }
 
 export function ChatView({
@@ -79,6 +84,8 @@ export function ChatView({
   defaultBranchesCollapsed,
   fetchBranchPreview,
   placeholderText,
+  availableModels,
+  onModelChange,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
@@ -335,7 +342,11 @@ export function ChatView({
         )}
         {modelName && (
           <div className="pit-chat-input-meta">
-            <span className="pit-chat-model-badge"><Cpu size={11} /> {modelName}</span>
+            <ModelPicker
+              currentModel={modelName}
+              models={availableModels}
+              onModelChange={onModelChange}
+            />
           </div>
         )}
         <div className="pit-chat-input-area-wrapper">

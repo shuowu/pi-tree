@@ -5,13 +5,13 @@ import { useSourceProcessing } from "../hooks/useBookProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView, Breadcrumb } from "@pi-tree/ui";
+import { ChatView, Breadcrumb, type ModelInfo } from "@pi-tree/ui";
 import { SelectionToolbar } from "./SelectionToolbar";
 import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
 import { BookSettingsModal } from "./BookSettingsModal";
-import { fetchServerConfig, viewScope } from "../api";
+import { fetchModels, updateSession, viewScope } from "../api";
 import { getBranchesCollapsed } from "../utils/preferences";
 import { PanelLeft, PanelRight, Home, Settings, Layers } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
@@ -52,11 +52,18 @@ export function Reader() {
   // Derived values
   // ---------------------------------------------------------------------------
 
-  // Model name for display badge
-  const [modelName, setModelName] = useState<string | null>(null);
+  // Model name and available models for the picker
+  const [globalModel, setGlobalModel] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   useEffect(() => {
-    fetchServerConfig().then((cfg) => setModelName(cfg.readingModel));
+    fetchModels().then(({ models, currentModel }) => {
+      setGlobalModel(currentModel);
+      setAvailableModels(models);
+    });
   }, []);
+
+  // Effective model: session override wins over global default
+  const modelName = session.sessionContext?.model ?? globalModel;
 
   const defaultBranchesCollapsed = useMemo(() => getBranchesCollapsed(), []);
 
@@ -84,6 +91,23 @@ export function Reader() {
   );
 
   const goBack = () => navigate("/");
+
+  const handleModelChange = useCallback(async (modelId: string) => {
+    if (!userId || session.sessionId === null) return;
+    const currentContext = session.sessionContext ?? { mode: 'reading' };
+    const newContext = { ...currentContext, model: modelId };
+    try {
+      await updateSession(userId, source.id, session.sessionId, {
+        context: newContext,
+      });
+      // Update local state so the badge reflects the new model immediately.
+      // The server evicts the cached session on context change, so the next
+      // message will automatically use the new model.
+      session.updateLocalSessionContext(newContext);
+    } catch (err) {
+      console.error('Failed to switch model:', err);
+    }
+  }, [userId, source.id, session.sessionId, session.sessionContext, session.updateLocalSessionContext]);
 
   const panelToggles = [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },
@@ -169,6 +193,8 @@ export function Reader() {
               defaultBranchesCollapsed={defaultBranchesCollapsed}
               fetchBranchPreview={fetchBranchPreview}
               placeholderText={getSourceTypeConfig(source.type).chatPlaceholder}
+              availableModels={availableModels}
+              onModelChange={handleModelChange}
             />
           </>
         ) : null}
