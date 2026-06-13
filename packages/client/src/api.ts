@@ -22,10 +22,6 @@ const API = "/api";
 export interface ClientServerConfig {
   readingModel: string;
   lookupModel: string;
-  provider: string;
-  apiKey: string;
-  baseUrl: string;
-  api: string;
 }
 
 let _configCache: ClientServerConfig | null = null;
@@ -33,7 +29,7 @@ let _configCache: ClientServerConfig | null = null;
 export async function fetchServerConfig(force = false): Promise<ClientServerConfig> {
   if (_configCache && !force) return _configCache;
   const res = await fetch(`${API}/config`);
-  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown", provider: "", apiKey: "", baseUrl: "", api: "" };
+  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown" };
   _configCache = await res.json();
   return _configCache!;
 }
@@ -65,9 +61,15 @@ export interface ModelInfo {
   contextWindow: number;
 }
 
-export async function fetchModels(): Promise<{ models: ModelInfo[]; currentModel: string }> {
+export interface ProviderInfo {
+  name: string;
+  source: string;
+  modelCount: number;
+}
+
+export async function fetchModels(): Promise<{ models: ModelInfo[]; currentModel: string; providers: ProviderInfo[] }> {
   const res = await fetch(`${API}/models`);
-  if (!res.ok) return { models: [], currentModel: '' };
+  if (!res.ok) return { models: [], currentModel: '', providers: [] };
   return res.json();
 }
 

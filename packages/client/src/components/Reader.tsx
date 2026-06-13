@@ -11,7 +11,7 @@ import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
 import { BookSettingsModal } from "./BookSettingsModal";
-import { fetchModels, updateSession, viewScope } from "../api";
+import { fetchModels, saveServerConfig, viewScope } from "../api";
 import { getBranchesCollapsed } from "../utils/preferences";
 import { PanelLeft, PanelRight, Home, Settings, Layers } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
@@ -62,8 +62,8 @@ export function Reader() {
     });
   }, []);
 
-  // Effective model: session override wins over global default
-  const modelName = session.sessionContext?.model ?? globalModel;
+  // Effective model: just use the global default
+  const modelName = globalModel;
 
   const defaultBranchesCollapsed = useMemo(() => getBranchesCollapsed(), []);
 
@@ -93,21 +93,14 @@ export function Reader() {
   const goBack = () => navigate("/");
 
   const handleModelChange = useCallback(async (modelId: string) => {
-    if (!userId || session.sessionId === null) return;
-    const currentContext = session.sessionContext ?? { mode: 'reading' };
-    const newContext = { ...currentContext, model: modelId };
     try {
-      await updateSession(userId, source.id, session.sessionId, {
-        context: newContext,
-      });
-      // Update local state so the badge reflects the new model immediately.
-      // The server evicts the cached session on context change, so the next
-      // message will automatically use the new model.
-      session.updateLocalSessionContext(newContext);
+      await saveServerConfig({ readingModel: modelId });
+      // Update local state so the badge reflects the new model immediately
+      setGlobalModel(modelId);
     } catch (err) {
       console.error('Failed to switch model:', err);
     }
-  }, [userId, source.id, session.sessionId, session.sessionContext, session.updateLocalSessionContext]);
+  }, []);
 
   const panelToggles = [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },

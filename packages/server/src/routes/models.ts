@@ -109,9 +109,23 @@ modelRoutes.get("/", async (c) => {
     reasoning: m.reasoning ?? false,
     contextWindow: m.contextWindow ?? 0,
   }));
+  // Build provider source info for the UI
+  const providerSources: Array<{ name: string; source: string; modelCount: number }> = [];
+  if (cfg.provider) {
+    const envModels = models.filter((m) => m.provider === cfg.provider);
+    providerSources.push({ name: cfg.provider, source: "environment", modelCount: envModels.length });
+  }
+  if (modelsJson?.providers) {
+    for (const [name] of Object.entries(modelsJson.providers)) {
+      if (name === cfg.provider) continue; // already listed from env
+      const pModels = models.filter((m) => m.provider === name);
+      providerSources.push({ name, source: "models.json", modelCount: pModels.length });
+    }
+  }
 
   return c.json({
     models,
     currentModel: cfg.readingModel,
+    providers: providerSources,
   });
 });

@@ -89,12 +89,16 @@ describe("Environment isolation", () => {
 
 
 describe("Config", () => {
-  it("GET /api/config → 200 + model fields", async () => {
+  it("GET /api/config → 200 + model fields only (no credentials)", async () => {
     const res = await app.request("/api/config");
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("readingModel");
     expect(body).toHaveProperty("lookupModel");
+    // Credentials should not be exposed in the config API
+    expect(body).not.toHaveProperty("apiKey");
+    expect(body).not.toHaveProperty("provider");
+    expect(body).not.toHaveProperty("baseUrl");
   });
 
   it("PUT /api/config → 200 + updates model", async () => {

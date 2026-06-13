@@ -98,10 +98,6 @@ app.get("/api/config", (c) => {
   return c.json({
     readingModel: cfg.readingModel,
     lookupModel: cfg.lookupModel,
-    provider: cfg.provider ?? "",
-    apiKey: cfg.apiKey ? "••••••••" : "",
-    baseUrl: cfg.baseUrl ?? "",
-    api: cfg.api ?? "",
   });
 });
 
@@ -114,10 +110,6 @@ app.put("/api/config", async (c) => {
       config: {
         readingModel: updated.readingModel,
         lookupModel: updated.lookupModel,
-        provider: updated.provider ?? "",
-        apiKey: updated.apiKey ? "••••••••" : "",
-        baseUrl: updated.baseUrl ?? "",
-        api: updated.api ?? "",
       },
     });
   } catch (err: any) {

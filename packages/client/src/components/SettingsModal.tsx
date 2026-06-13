@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { X, Loader2, Save, AlertCircle, Check, Info } from "lucide-react";
-import { fetchServerConfig, saveServerConfig } from "../api";
+import { X, Loader2, Save, Check, Info, Server } from "lucide-react";
+import { fetchModels, saveServerConfig, fetchServerConfig } from "../api";
+import type { ModelInfo, ProviderInfo } from "../api";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import "./SettingsModal.css";
 
@@ -14,34 +15,32 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Config fields state
-  const [provider, setProvider] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [api, setApi] = useState("");
+  // Model selection state
   const [readingModel, setReadingModel] = useState("");
   const [lookupModel, setLookupModel] = useState("");
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
 
   useEffect(() => {
-    async function loadConfig() {
+    async function load() {
       try {
         setLoading(true);
         setError(null);
-        const cfg = await fetchServerConfig(true); // force reload
-
-        setProvider(cfg.provider || "");
-        setApiKey(cfg.apiKey || "");
-        setBaseUrl(cfg.baseUrl || "");
-        setApi(cfg.api || "");
-        setReadingModel(cfg.readingModel || "");
-        setLookupModel(cfg.lookupModel || "");
+        const [modelsData, configData] = await Promise.all([
+          fetchModels(),
+          fetchServerConfig(true),
+        ]);
+        setModels(modelsData.models);
+        setProviders(modelsData.providers ?? []);
+        setReadingModel(configData.readingModel || modelsData.currentModel || "");
+        setLookupModel(configData.lookupModel || "");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load configuration");
       } finally {
         setLoading(false);
       }
     }
-    loadConfig();
+    load();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -50,33 +49,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setError(null);
     setSuccess(false);
 
-    const activeProvider = provider.trim();
-
-    if (!activeProvider) {
-      setError("Please specify a provider name");
-      setSaving(false);
-      return;
-    }
-
-    if (!readingModel.trim()) {
-      setError("Reading model name is required");
+    if (!readingModel) {
+      setError("Please select a reading model");
       setSaving(false);
       return;
     }
 
     try {
       await saveServerConfig({
-        provider: activeProvider,
-        apiKey: apiKey.trim(),
-        baseUrl: baseUrl.trim() || undefined,
-        api: api.trim() || undefined,
-        readingModel: readingModel.trim(),
-        lookupModel: lookupModel.trim() || readingModel.trim(),
+        readingModel,
+        lookupModel: lookupModel || readingModel,
       });
       setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-      }, 3000);
+      setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save configuration");
     } finally {
@@ -92,6 +77,37 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  // Group models by provider for the dropdown
+  const modelsByProvider = models.reduce<Record<string, ModelInfo[]>>((acc, m) => {
+    (acc[m.provider] ??= []).push(m);
+    return acc;
+  }, {});
+
+  const renderModelSelect = (
+    id: string,
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    helpText: string,
+  ) => (
+    <div className="form-group">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+        {!value && <option value="">Select a model…</option>}
+        {Object.entries(modelsByProvider).map(([provider, pModels]) => (
+          <optgroup key={provider} label={provider}>
+            {pModels.map((m) => (
+              <option key={`${m.provider}-${m.id}`} value={m.id}>
+                {m.name}{m.reasoning ? " ✦" : ""}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <p className="form-help">{helpText}</p>
+    </div>
+  );
+
   return (
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
@@ -101,7 +117,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
         <div className="settings-header">
           <h2>Settings</h2>
-          <p>Appearance and AI model configuration.</p>
+          <p>Appearance and default AI model.</p>
         </div>
 
         {/* ── Appearance section (client-only, no loading gate) ── */}
@@ -112,18 +128,29 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
         <div className="settings-divider" />
 
-        <h3 className="settings-section-title">AI Configuration</h3>
+        <h3 className="settings-section-title">Default Model</h3>
 
         {loading ? (
           <div className="settings-loading">
             <Loader2 size={32} className="spinner" />
-            <p>Retrieving server configuration...</p>
+            <p>Loading available models…</p>
+          </div>
+        ) : models.length === 0 ? (
+          <div className="settings-info-box">
+            <Info size={16} />
+            <div>
+              <p><strong>No models available.</strong></p>
+              <p style={{ marginTop: 8 }}>
+                Configure a provider via environment variables (<code>PI_PROVIDER</code>, <code>PI_API_KEY</code>, <code>PI_MODEL</code>)
+                or create a <code>models.json</code> file in your data directory.
+              </p>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSave} className="settings-form">
             {error && (
               <div className="settings-error-alert">
-                <AlertCircle size={16} />
+                <Info size={16} />
                 <span>{error}</span>
               </div>
             )}
@@ -131,97 +158,50 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             {success && (
               <div className="settings-success-alert">
                 <Check size={16} />
-                <span>Configuration saved successfully! Changes applied immediately.</span>
+                <span>Default model updated. New sessions will use this model.</span>
               </div>
             )}
 
-            <div className="form-group">
-              <label htmlFor="settings-provider">LLM Provider</label>
-              <input
-                id="settings-provider"
-                type="text"
-                placeholder="e.g. zai, openai, anthropic, zhipu"
-                value={provider}
-                onChange={(e) => setProvider(e.target.value)}
-                required
-              />
-            </div>
+            {renderModelSelect(
+              "settings-reading-model",
+              "Reading Model",
+              readingModel,
+              setReadingModel,
+              "Used for conversations, reading sessions, and analysis.",
+            )}
 
-            <div className="form-group">
-              <label htmlFor="settings-api-key">API Key</label>
-              <input
-                id="settings-api-key"
-                type="password"
-                placeholder={apiKey ? "•••••••• (Saved)" : "Enter API credential token"}
-                value={apiKey.includes("•") ? "" : apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
-              <p className="form-help">
-                {apiKey
-                  ? "A credential token is saved. Enter a new one to replace it, or leave empty to keep existing."
-                  : "Required for authenticated cloud providers (OpenAI, Anthropic, Z.ai, Zhipu, etc.)."}
-              </p>
-            </div>
+            {renderModelSelect(
+              "settings-lookup-model",
+              "Lookup Model",
+              lookupModel,
+              setLookupModel,
+              "Used for quick dictionary lookups. Defaults to the reading model if not set.",
+            )}
 
-            <div className="form-group">
-              <label htmlFor="settings-base-url">Base URL (Optional)</label>
-              <input
-                id="settings-base-url"
-                type="text"
-                placeholder="e.g. https://api.openai.com/v1"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-              />
-              <p className="form-help">
-                Optional custom endpoint target. Leave blank for provider defaults.
-              </p>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="settings-api-type">API Type (Optional)</label>
-              <select
-                id="settings-api-type"
-                value={api}
-                onChange={(e) => setApi(e.target.value)}
-              >
-                <option value="">Default / Auto-detect</option>
-                <option value="openai-completions">openai-completions</option>
-                <option value="anthropic-messages">anthropic-messages</option>
-              </select>
-              <p className="form-help">
-                Specifies the request format protocol for custom base URLs.
-              </p>
-            </div>
-
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="settings-reading-model">Reading Model</label>
-                <input
-                  id="settings-reading-model"
-                  type="text"
-                  placeholder="e.g. gpt-4o"
-                  value={readingModel}
-                  onChange={(e) => setReadingModel(e.target.value)}
-                  required
-                />
+            {/* Provider info */}
+            {providers.length > 0 && (
+              <div className="settings-provider-info">
+                <Server size={14} />
+                <div>
+                  <span className="settings-provider-label">Providers</span>
+                  <div className="settings-provider-list">
+                    {providers.map((p) => (
+                      <span key={p.name} className="settings-provider-chip">
+                        {p.name}
+                        <span className="settings-provider-source">{p.source}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
-
-              <div className="form-group">
-                <label htmlFor="settings-lookup-model">Lookup Model</label>
-                <input
-                  id="settings-lookup-model"
-                  type="text"
-                  placeholder="e.g. gpt-4o-mini"
-                  value={lookupModel}
-                  onChange={(e) => setLookupModel(e.target.value)}
-                />
-              </div>
-            </div>
+            )}
 
             <div className="settings-info-box">
               <Info size={16} />
               <p>
-                Dynamic models configure how Pi Reader interacts with the AI. The <strong>Reading Model</strong> is used for core book chats and outlines. The <strong>Lookup Model</strong> handles fast dictionary operations.
+                This sets the default model for new sessions. Individual sessions can override the model
+                via the model picker in the chat input.
+                To add providers or models, edit <code>models.json</code> in your data directory or set environment variables.
               </p>
             </div>
 
@@ -238,12 +218,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 {saving ? (
                   <>
                     <Loader2 size={16} className="spinner" />
-                    Saving...
+                    Saving…
                   </>
                 ) : (
                   <>
                     <Save size={16} />
-                    Save Configuration
+                    Save
                   </>
                 )}
               </button>

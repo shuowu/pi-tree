@@ -124,14 +124,31 @@ export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerCo
     }
   }
 
-  // 3. Prepare the new configuration to save (non-empty fields only)
-  const toSave: Record<string, string> = {};
-  if (newConfig.provider?.trim()) toSave.provider = newConfig.provider.trim();
-  if (newConfig.readingModel?.trim()) toSave.readingModel = newConfig.readingModel.trim();
-  if (newConfig.lookupModel?.trim()) toSave.lookupModel = newConfig.lookupModel.trim();
-  if (newConfig.baseUrl?.trim()) toSave.baseUrl = newConfig.baseUrl.trim();
-  if (newConfig.api?.trim()) toSave.api = newConfig.api.trim();
+  // 3. Merge: start from existing file config, overlay new non-empty fields.
+  //    This preserves credential fields when only model preferences are sent.
+  const toSave: Record<string, string> = { ...existingFileConfig };
+  if (newConfig.provider !== undefined) {
+    if (newConfig.provider.trim()) toSave.provider = newConfig.provider.trim();
+    else delete toSave.provider;
+  }
+  if (newConfig.readingModel !== undefined) {
+    if (newConfig.readingModel.trim()) toSave.readingModel = newConfig.readingModel.trim();
+    else delete toSave.readingModel;
+  }
+  if (newConfig.lookupModel !== undefined) {
+    if (newConfig.lookupModel.trim()) toSave.lookupModel = newConfig.lookupModel.trim();
+    else delete toSave.lookupModel;
+  }
+  if (newConfig.baseUrl !== undefined) {
+    if (newConfig.baseUrl.trim()) toSave.baseUrl = newConfig.baseUrl.trim();
+    else delete toSave.baseUrl;
+  }
+  if (newConfig.api !== undefined) {
+    if (newConfig.api.trim()) toSave.api = newConfig.api.trim();
+    else delete toSave.api;
+  }
   if (finalFileApiKey) toSave.apiKey = finalFileApiKey;
+  else if (newConfig.apiKey !== undefined) delete toSave.apiKey;
 
   // 4. Save to disk
   try {
