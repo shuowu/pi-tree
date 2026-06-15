@@ -33,6 +33,7 @@
     "@earendil-works/pi-coding-agent": "^0.78.0"
   },
   "devDependencies": {
+    "@copilotkit/aimock": "^1.31.0",
     "vitest": "^4.1.8"
   }
 }

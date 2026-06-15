@@ -95,38 +95,7 @@ export class PiSession {
   /** Deferred system context — prepended to the first user message */
   private pendingContext: string | null = null;
 
-  // ---------------------------------------------------------------------------
-  // Test hook: override agent creation for e2e testing
-  // ---------------------------------------------------------------------------
 
-  /**
-   * Optional factory that replaces `createAgentSession` during `PiSession.create()`.
-   * When set, the factory receives the SessionManager and server config and returns
-   * a mock AgentSession. The real SessionManager is still used for tree storage.
-   *
-   * Set by the server when `PI_MOCK=true`. Lives here (in core) so it doesn't
-   * require `vi.mock` or module-level patching — just a runtime swap.
-   */
-  private static agentFactory:
-    | ((sm: SessionManager, config: PiSessionConfig) => Promise<AgentSession>)
-    | null = null;
-
-  /**
-   * For testing: override the agent creation with a custom factory.
-   * Call with `null` to restore normal behavior.
-   *
-   * @example
-   * ```ts
-   * PiSession.setAgentFactory(async (sm, config) => createMockAgent(sm, config));
-   * // ... run e2e tests ...
-   * PiSession.setAgentFactory(null); // restore
-   * ```
-   */
-  static setAgentFactory(
-    factory: ((sm: SessionManager, config: PiSessionConfig) => Promise<AgentSession>) | null,
-  ): void {
-    PiSession.agentFactory = factory;
-  }
 
   private constructor(
     private sm: SessionManager,
@@ -169,87 +138,78 @@ export class PiSession {
     try {
       const serverConfig = options?.config ?? { readingModel: "" };
 
-      // -----------------------------------------------------------------------
-      // Test hook: if an agentFactory is registered, use it instead of the SDK.
-      // The factory receives the real SessionManager so tree storage still works.
-      // -----------------------------------------------------------------------
-      if (PiSession.agentFactory) {
-        agent = await PiSession.agentFactory(sm, serverConfig);
-        console.log(`[pi-session] Using injected agent factory (mock mode)`);
-      } else {
-        // Normal path: configure auth, model registry, and provider overrides.
-        // All the complexity (API key propagation, provider mismatch handling,
-        // API type override on models) lives in model-setup.ts.
-        const { authStorage, modelRegistry, selectedModel } =
-          configureModelRegistry(serverConfig);
+      // Normal path: configure auth, model registry, and provider overrides.
+      // All the complexity (API key propagation, provider mismatch handling,
+      // API type override on models) lives in model-setup.ts.
+      const { authStorage, modelRegistry, selectedModel } =
+        configureModelRegistry(serverConfig);
 
-        if (serverConfig.provider && serverConfig.apiKey) {
-          console.log(`[pi-session] Auth: API key layered for provider "${serverConfig.provider}"`);
-        }
-        if (serverConfig.provider && serverConfig.baseUrl) {
-          console.log(
-            `[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}${serverConfig.api ? ` (API: ${serverConfig.api})` : ""}`,
-          );
-        }
-        if (selectedModel) {
-          console.log(`[pi-session] Using reading model: ${selectedModel.provider}/${selectedModel.id}`);
-          if (serverConfig.provider && selectedModel.provider !== serverConfig.provider) {
-            console.log(`[pi-session] Also layered API key for model's built-in provider "${selectedModel.provider}"`);
-          }
-        } else {
-          const allModels = modelRegistry.getAll();
-          console.log(`[pi-session] Model "${serverConfig.readingModel}" not found, using SDK default. Available: ${allModels.map((m) => `${m.provider}/${m.id}`).join(", ")}`);
-        }
-
-        // ResourceLoader: only load skills/extensions specified by the session profile.
-        // noSkills: true prevents loading ALL discovered skills from agentDir/.pi/skills/
-        //   — we only want the profile-resolved additionalSkillPaths (e.g., session-router, not interactive-reading).
-        // noContextFiles: true prevents loading AGENTS.md from the repo root
-        //   — that file describes the codebase for developers, not reading sessions.
-        const agentDir = getAgentDir();
-        const additionalSkillPaths = serverConfig.skillPaths ?? [join(dataPath, "skills")];
-        const additionalExtensionPaths = serverConfig.extensionPaths ?? [join(dataPath, "extensions")];
-
-        const resourceLoader = new DefaultResourceLoader({
-          cwd: repoRoot,
-          agentDir,
-          additionalSkillPaths,
-          additionalExtensionPaths,
-          noSkills: true,
-          noContextFiles: true,
-          noPromptTemplates: true,
-        });
-        await resourceLoader.reload();
-
-        // Log extension loading summary
-        const extResult = (resourceLoader as any).extensionsResult;
-        if (extResult?.extensions?.length || extResult?.errors?.length) {
-          console.log(`[pi-session] Extensions: ${extResult.extensions?.length ?? 0} loaded, ${extResult.errors?.length ?? 0} errors`);
-          for (const err of extResult.errors ?? []) {
-            console.warn(`[pi-session]   Extension error: ${err.path}: ${err.error}`);
-          }
-        }
-
-        const { session } = await createAgentSession({
-          cwd: libraryPath,
-          // Configurable tool exclusions — defaults to blocking shell + in-place edits
-          excludeTools: serverConfig.excludeTools ?? ["bash", "edit"],
-          resourceLoader,
-          sessionManager: sm,
-          settingsManager: SettingsManager.create(repoRoot),
-          authStorage,
-          modelRegistry,
-          ...(selectedModel ? { model: selectedModel } : {}),
-        });
-
-        agent = session;
-
-        // Enable auto-compaction — Pi SDK monitors context tokens after each turn
-        // and triggers LLM-powered summarization when nearing the context window.
-        // This is append-only: old messages stay in the JSONL, only the LLM's
-        // context view is compacted. Tree/chat UI reads raw entries, unaffected.
-        agent.setAutoCompactionEnabled(true);
+      if (serverConfig.provider && serverConfig.apiKey) {
+        console.log(`[pi-session] Auth: API key layered for provider "${serverConfig.provider}"`);
       }
+      if (serverConfig.provider && serverConfig.baseUrl) {
+        console.log(
+          `[pi-session] Provider "${serverConfig.provider}" base URL: ${serverConfig.baseUrl}${serverConfig.api ? ` (API: ${serverConfig.api})` : ""}`,
+        );
+      }
+      if (selectedModel) {
+        console.log(`[pi-session] Using reading model: ${selectedModel.provider}/${selectedModel.id}`);
+        if (serverConfig.provider && selectedModel.provider !== serverConfig.provider) {
+          console.log(`[pi-session] Also layered API key for model's built-in provider "${selectedModel.provider}"`);
+        }
+      } else {
+        const allModels = modelRegistry.getAll();
+        console.log(`[pi-session] Model "${serverConfig.readingModel}" not found, using SDK default. Available: ${allModels.map((m) => `${m.provider}/${m.id}`).join(", ")}`);
+      }
+
+      // ResourceLoader: only load skills/extensions specified by the session profile.
+      // noSkills: true prevents loading ALL discovered skills from agentDir/.pi/skills/
+      //   — we only want the profile-resolved additionalSkillPaths (e.g., session-router, not interactive-reading).
+      // noContextFiles: true prevents loading AGENTS.md from the repo root
+      //   — that file describes the codebase for developers, not reading sessions.
+      const agentDir = getAgentDir();
+      const additionalSkillPaths = serverConfig.skillPaths ?? [join(dataPath, "skills")];
+      const additionalExtensionPaths = serverConfig.extensionPaths ?? [join(dataPath, "extensions")];
+
+      const resourceLoader = new DefaultResourceLoader({
+        cwd: repoRoot,
+        agentDir,
+        additionalSkillPaths,
+        additionalExtensionPaths,
+        noSkills: true,
+        noContextFiles: true,
+        noPromptTemplates: true,
+      });
+      await resourceLoader.reload();
+
+      // Log extension loading summary
+      const extResult = (resourceLoader as any).extensionsResult;
+      if (extResult?.extensions?.length || extResult?.errors?.length) {
+        console.log(`[pi-session] Extensions: ${extResult.extensions?.length ?? 0} loaded, ${extResult.errors?.length ?? 0} errors`);
+        for (const err of extResult.errors ?? []) {
+          console.warn(`[pi-session]   Extension error: ${err.path}: ${err.error}`);
+        }
+      }
+
+      const { session } = await createAgentSession({
+        cwd: libraryPath,
+        // Configurable tool exclusions — defaults to blocking shell + in-place edits
+        excludeTools: serverConfig.excludeTools ?? ["bash", "edit"],
+        resourceLoader,
+        sessionManager: sm,
+        settingsManager: SettingsManager.create(repoRoot),
+        authStorage,
+        modelRegistry,
+        ...(selectedModel ? { model: selectedModel } : {}),
+      });
+
+      agent = session;
+
+      // Enable auto-compaction — Pi SDK monitors context tokens after each turn
+      // and triggers LLM-powered summarization when nearing the context window.
+      // This is append-only: old messages stay in the JSONL, only the LLM's
+      // context view is compacted. Tree/chat UI reads raw entries, unaffected.
+      agent.setAutoCompactionEnabled(true);
     } catch (err) {
       console.warn(
         `[pi-tree] Could not create agent session (missing API key?): ${err}`,
@@ -415,16 +375,17 @@ export class PiSession {
 
     let fullResponse = "";
     let responseEntryId = "";
+    let chain = Promise.resolve();
 
     const unsubscribe = this.agent.subscribe(
-      async (event: AgentSessionEvent) => {
+      (event: AgentSessionEvent) => {
         if (
           event.type === "message_update" &&
           event.assistantMessageEvent?.type === "text_delta"
         ) {
           const delta = event.assistantMessageEvent.delta ?? "";
           fullResponse += delta;
-          await onToken(delta);
+          chain = chain.then(() => onToken(delta));
         }
         if (event.type === "message_end") {
           const leaf = this.sm.getLeafEntry();
@@ -433,28 +394,32 @@ export class PiSession {
           // This clears preamble like "Let me look that up…" before a tool
           // call so the client only shows the real answer.
           fullResponse = "";
-          if (onTurnEnd) await onTurnEnd();
+          if (onTurnEnd) {
+            chain = chain.then(() => onTurnEnd());
+          }
         }
         // Forward tool execution start so the client can show progress
         if (event.type === "tool_execution_start" && onToolCall) {
-          await onToolCall({ toolName: event.toolName, args: event.args ?? {} });
+          chain = chain.then(() => onToolCall({ toolName: event.toolName, args: event.args ?? {} }));
         }
         // Forward tool execution results so the client can act on structured data
         if (event.type === "tool_execution_end" && onToolResult) {
-          await onToolResult({ toolName: event.toolName, result: event.result, isError: event.isError });
+          chain = chain.then(() => onToolResult({ toolName: event.toolName, result: event.result, isError: event.isError }));
         }
         // Forward compaction events so the client can show a status indicator
         if (event.type === "compaction_start" && onCompaction) {
-          await onCompaction({ type: "compaction_start", reason: event.reason });
+          chain = chain.then(() => onCompaction({ type: "compaction_start", reason: event.reason }));
         }
         if (event.type === "compaction_end" && onCompaction) {
-          await onCompaction({ type: "compaction_end", reason: event.reason });
+          chain = chain.then(() => onCompaction({ type: "compaction_end", reason: event.reason }));
         }
       },
     );
 
     try {
       await this.agent.prompt(fullMessage);
+      // Wait for any queued async callbacks to finish executing
+      await chain;
     } finally {
       unsubscribe();
     }

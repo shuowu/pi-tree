@@ -41,15 +41,26 @@ export default defineConfig({
     ? {
         webServer: [
           {
-            // Start the API server with PI_MOCK
-            command: `PI_MOCK=true PORT=${SERVER_PORT} DATA_PATH=/tmp/pi-tree-e2e npx tsx packages/server/src/index.ts`,
+            // Start the aimock server
+            command: "npx -p @copilotkit/aimock llmock -p 4010 -f ./e2e/fixtures --strict",
+            port: 4010,
+            reuseExistingServer: true,
+            timeout: 30_000,
+          },
+          {
+            // Start the API server
+            command: `PORT=${SERVER_PORT} DATA_PATH=/tmp/pi-tree-e2e npx tsx packages/server/src/index.ts`,
             port: SERVER_PORT,
             reuseExistingServer: true,
             timeout: 30_000,
             env: {
-              PI_MOCK: "true",
               PORT: String(SERVER_PORT),
               DATA_PATH: "/tmp/pi-tree-e2e",
+              PI_MODEL: "mock-model",
+              PI_PROVIDER: "openai",
+              PI_API_KEY: "mock",
+              PI_API_TYPE: "openai-completions",
+              PI_BASE_URL: "http://127.0.0.1:4010/v1",
             },
           },
           {
