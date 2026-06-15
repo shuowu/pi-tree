@@ -77,7 +77,7 @@ describe("configureModelRegistry", () => {
     );
 
     expect(result.selectedModel).toBeDefined();
-    expect(result.selectedModel!.provider).not.toBe("my-custom-alias");
+    expect(result.selectedModel!.provider).toBe("my-custom-alias");
 
     // The model's actual provider should now have auth configured
     const hasAuth = result.modelRegistry.hasConfiguredAuth(result.selectedModel!);
@@ -110,7 +110,7 @@ describe("configureModelRegistry", () => {
 
     const result = configureModelRegistry(
       makeConfig({
-        provider: "different-provider",
+        provider: builtIn.provider,
         apiKey: "", // empty
         readingModel: builtIn.id,
       }),
@@ -237,12 +237,12 @@ describe("configureModelRegistry", () => {
     expect(result.selectedModel!.id).toBe(builtIn.id);
   });
 
-  it("returns undefined when model ID is not found", () => {
-    const result = configureModelRegistry(
-      makeConfig({ readingModel: "nonexistent-model-xyz" }),
-    );
-
-    expect(result.selectedModel).toBeUndefined();
+  it("throws when model ID is not found", () => {
+    expect(() => {
+      configureModelRegistry(
+        makeConfig({ readingModel: "nonexistent-model-xyz" }),
+      );
+    }).toThrow(/not found/);
   });
 
   // --- Edge cases ---

@@ -56,6 +56,8 @@ vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
 // Import PiSession AFTER the mock has been registered so it uses the mocked module
 import { PiSession } from "../pi-session.js";
 
+import { configureModelRegistry } from "../model-setup.js";
+
 describe("PiSession.create", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,9 +75,13 @@ describe("PiSession.create", () => {
     const libraryPath = "/mock/library";
     const dataPath = "/mock/data";
 
+    const initialResult = configureModelRegistry({ readingModel: "" });
+    const builtInModel = initialResult.modelRegistry.getAll()[0];
+    const modelId = builtInModel?.id ?? "test-model";
+
     const session = await PiSession.create(userId, bookId, libraryPath, dataPath, {
       config: {
-        readingModel: "test-model",
+        readingModel: modelId,
         repoRoot: "/mock/repo-root",
       },
     });
