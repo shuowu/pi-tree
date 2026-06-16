@@ -1,6 +1,18 @@
 {
   "fixtures": [
     {
+      "match": { "model": "mock-model", "userMessage": "Hello, this is a test message" },
+      "response": { "content": "I am a mock AI assistant for testing." }
+    },
+    {
+      "match": { "model": "mock-model", "userMessage": "Tell me more about this book" },
+      "response": { "content": "Here is more detail about the book and its themes." }
+    },
+    {
+      "match": { "model": "mock-model", "userMessage": "Enter key test" },
+      "response": { "content": "Response to the enter key test message." }
+    },
+    {
       "match": { "model": "mock-model", "userMessage": "Alpha question one" },
       "response": { "content": "Here is the Alpha One response about the opening chapter." }
     },
@@ -13,16 +25,12 @@
       "response": { "content": "Here is the Beta response exploring a different direction." }
     },
     {
-      "match": { "model": "mock-model", "userMessage": "Tell me more about this book" },
-      "response": { "content": "Here is more detail about the book and its themes." }
+      "match": { "model": "mock-model", "userMessage": "Tell me about the library" },
+      "response": { "content": "Here is an overview of your library and available sources." }
     },
     {
-      "match": { "model": "mock-model", "userMessage": "Enter key test" },
-      "response": { "content": "Response to the enter key test message." }
-    },
-    {
-      "match": { "model": "mock-model" },
-      "response": { "content": "I am a mock AI assistant for testing." }
+      "match": { "model": "mock-model", "userMessage": "top stories" },
+      "response": { "content": "Here are the top stories from your news feeds today." }
     }
   ]
 }
