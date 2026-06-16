@@ -56,6 +56,7 @@ export default defineConfig({
             env: {
               PORT: String(SERVER_PORT),
               DATA_PATH: "/tmp/pi-tree-e2e",
+              PI_MOCK: "true",
               PI_MODEL: "mock-model",
               PI_PROVIDER: "openai",
               PI_API_KEY: "mock",

@@ -68,7 +68,7 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
   // RSS crawl scheduling
   let crawlInterval: ReturnType<typeof setInterval> | undefined;
 
-  if (!skipRssCron) {
+  if (!skipRssCron && process.env.PI_MOCK !== "true") {
     // Crawl interval in minutes (default: 30 — fast enough for HN's rolling window)
     const crawlIntervalMin = Number(process.env.RSS_CRAWL_INTERVAL_MIN ?? 30);
     const crawlIntervalMs = crawlIntervalMin * 60 * 1000;

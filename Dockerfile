@@ -18,7 +18,11 @@ FROM deps AS build
 
 COPY . .
 
-RUN npm run build
+# Build only server-relevant packages (skip electron — needs native binaries)
+RUN npm run build -w @pi-tree/shared \
+ && npm run build -w @pi-tree/core \
+ && npm run build -w @pi-tree/server \
+ && npm run build -w @pi-tree/client
 
 # ── Stage 3: Production runtime ──────────────────────────────────────
 FROM node:22-slim AS runtime
