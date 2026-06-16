@@ -111,8 +111,10 @@ test.describe("Session management", () => {
 
     await expect(page.locator(".session-picker")).toBeVisible({ timeout: 10_000 });
 
-    // Count sessions before
+    // Wait for cards to load before counting
+    await expect(page.locator(".session-card").first()).toBeVisible({ timeout: 5_000 });
     const cardsBefore = await page.locator(".session-card").count();
+    expect(cardsBefore).toBeGreaterThanOrEqual(1);
 
     // Hover to reveal delete button
     const lastCard = page.locator(".session-card").last();
