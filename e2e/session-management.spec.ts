@@ -20,6 +20,8 @@ const TEST_USER = `e2e-sessions-${RUN_ID}`;
 const TEST_SOURCE = "e2e-sessions-book";
 
 test.describe("Session management", () => {
+  // Tests build on each other's state — create then rename then delete
+  test.describe.configure({ mode: "serial" });
   test.beforeAll(async ({ request }) => {
     const a = api(request);
     await a.createUser(TEST_USER, "E2E Sessions");
