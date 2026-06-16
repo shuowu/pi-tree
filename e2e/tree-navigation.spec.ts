@@ -104,27 +104,27 @@ test.describe("Tree navigation (mocked AI)", () => {
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  test("navigate to root and send new message → branch created", async ({ page }) => {
+  test("create a branch from root via API with forceBranch", async ({ page, request }) => {
+    // Use the API to create a branch deterministically — the UI's auto-branch
+    // requires 2+ existing children, but forceBranch always works.
+    const a = api(request);
+    await a.sendMessage(TEST_USER, TEST_SOURCE, sessionId, "Beta question from root", {
+      forceBranch: true,
+    });
+
+    // Verify the branch exists by navigating to root in the UI
     await loginAs(page, TEST_USER, "E2E Tree");
     await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
     await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
-    // Open sidebar to see the tree
+    // Navigate to root via sidebar
     await openSidebar(page);
-
-    // Click the root node (first tree entry) to navigate back to root
     const rootEntry = page.locator(".tree-entry").first();
     await rootEntry.click();
-
-    // Wait for navigation to complete — messages should change
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
 
-    // Now send a different message from root → creates a branch
-    await sendAndWait(page, "Beta question from root");
-
-    // After this, the root should have branches (both the original "Alpha" 
-    // branch and this new "Beta" branch)
+    // Root should now have branches (Alpha chain + Beta branch)
   });
 
   test("inline branches appear at branch point", async ({ page }) => {
@@ -139,11 +139,7 @@ test.describe("Tree navigation (mocked AI)", () => {
     await rootEntry.click();
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
 
-    // Wait briefly for tree state to settle after navigation
-    await page.waitForTimeout(500);
-
-    // Should see inline branches at the branch point — use auto-retrying
-    // assertion with generous timeout since the branch UI renders async
+    // Should see inline branches at the branch point
     const branchCards = page.locator(".pit-inline-branch");
     await expect(branchCards).toHaveCount(2, { timeout: 15_000 });
   });

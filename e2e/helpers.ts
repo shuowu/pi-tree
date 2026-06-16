@@ -61,6 +61,33 @@ function api(request: APIRequestContext) {
       return (await res.json()) as { id: number; title: string };
     },
 
+    /**
+     * Send a message via the API (bypasses UI).
+     * Use for deterministic tree operations like forceBranch.
+     */
+    async sendMessage(
+      userId: string,
+      sourceId: string,
+      sessionId: number,
+      message: string,
+      opts?: { viewNodeId?: string | null; forceBranch?: boolean },
+    ) {
+      const res = await request.post("/api/session/message", {
+        data: {
+          userId,
+          sourceId,
+          sessionId,
+          message,
+          viewNodeId: opts?.viewNodeId ?? null,
+          forceBranch: opts?.forceBranch,
+        },
+      });
+      if (res.status() !== 200) {
+        throw new Error(`Failed to send message: ${res.status()} ${await res.text()}`);
+      }
+      return await res.json();
+    },
+
     async health() {
       const res = await request.get("/health");
       return res.json();
