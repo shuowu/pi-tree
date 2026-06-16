@@ -12,5 +12,8 @@ pending-*
 *.local.yml
 router-*
 
+# Default Docker data directory
+/data
+
 # Electron
 packages/electron/release/

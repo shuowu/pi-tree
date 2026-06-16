@@ -6,9 +6,8 @@ services:
       - "${PORT:-3847}:${PORT:-3847}"
     env_file: .env
     volumes:
-      # Bind mount uses the same path as the Electron desktop app on Linux
-      # (~/.local/share/pi-tree), so both share the same data directory.
-      # Override PI_TREE_DATA in .env to use a different host path.
-      - ${PI_TREE_DATA:-~/.local/share/pi-tree}:/data
+      # Bind mount — data persists across rebuilds on the host filesystem.
+      # Set PI_TREE_DATA in .env to your data directory (default: ./data).
+      - ${PI_TREE_DATA:-./data}:/data
     environment:
       - DATA_PATH=/data
