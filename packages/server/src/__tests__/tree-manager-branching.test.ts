@@ -726,7 +726,7 @@ describe("TreeManager — Phase 1: Branching Pipeline", () => {
         "fork streaming",
         "c1",
         {
-          onToken: async (t) => tokens.push(t),
+          onToken: async (t) => { tokens.push(t); },
           onTreeUpdate: async () => {},
           onDone: async (r) => {
             doneResult = r;

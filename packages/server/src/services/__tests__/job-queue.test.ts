@@ -28,7 +28,7 @@ afterAll(() => {
   } catch {}
 });
 
-function freshService(): InstanceType<typeof JobQueueService> {
+function freshService() {
   // Reset the singleton so each test gets a clean instance
   (JobQueueService as any).instance = null;
   return JobQueueService.getInstance();
@@ -118,7 +118,7 @@ describe("JobQueueService", () => {
 
       const all = svc.getAllJobs();
       expect(all).toHaveLength(2);
-      const sourceIds = all.map((j) => j.sourceId).sort();
+      const sourceIds = all.map((j: any) => j.sourceId).sort();
       expect(sourceIds).toEqual(["src-a", "src-b"]);
     });
 
