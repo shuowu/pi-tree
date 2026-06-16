@@ -340,17 +340,19 @@ describe("collectScopeMessages — deeper levels", () => {
     ["AI_3b", "assistant", "Rebellion story content"],
   ]);
 
-  it("child scope shows user→AI pair and branches at fork", () => {
+  it("child scope includes fork parent context and branches", () => {
     const { messages, branches } = collectScopeMessages(
       deepTree,
       "user_2a",
       deepContentMap,
     );
 
-    // user_2a → AI_2a → fork (user_3a, user_3b)
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({ id: "user_2a", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_2a", role: "assistant" });
+    // user_1 → AI_1 (fork parent) + user_2a → AI_2a → fork
+    expect(messages).toHaveLength(4);
+    expect(messages[0]).toMatchObject({ id: "user_1", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_1", role: "assistant" });
+    expect(messages[2]).toMatchObject({ id: "user_2a", role: "user" });
+    expect(messages[3]).toMatchObject({ id: "AI_2a", role: "assistant" });
     expect(branches).toHaveLength(2);
     expect(branches[0].nodeId).toBe("user_3a");
     expect(branches[1].nodeId).toBe("user_3b");
@@ -369,16 +371,19 @@ describe("collectScopeMessages — deeper levels", () => {
     expect(branches).toHaveLength(2);
   });
 
-  it("grandchild scope shows user→AI leaf pair, no branches", () => {
+  it("grandchild scope includes fork parent context", () => {
     const { messages, branches } = collectScopeMessages(
       deepTree,
       "user_3a",
       deepContentMap,
     );
 
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({ id: "user_3a", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_3a", role: "assistant" });
+    // user_2a → AI_2a (fork parent) + user_3a → AI_3a
+    expect(messages).toHaveLength(4);
+    expect(messages[0]).toMatchObject({ id: "user_2a", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_2a", role: "assistant" });
+    expect(messages[2]).toMatchObject({ id: "user_3a", role: "user" });
+    expect(messages[3]).toMatchObject({ id: "AI_3a", role: "assistant" });
     expect(branches).toHaveLength(0);
   });
 
@@ -443,16 +448,19 @@ describe("collectScopeMessages", () => {
     expect(branches).toHaveLength(2);
   });
 
-  it("collects full chain for a child scope (no fork)", () => {
+  it("collects chain for a child scope (with fork parent context)", () => {
     const { messages, branches } = collectScopeMessages(
       testTree,
       "user_2b",
       testContentMap,
     );
 
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({ id: "user_2b", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_2b", role: "assistant" });
+    // user_1 → AI_1 (fork parent) + user_2b → AI_2b
+    expect(messages).toHaveLength(4);
+    expect(messages[0]).toMatchObject({ id: "user_1", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_1", role: "assistant" });
+    expect(messages[2]).toMatchObject({ id: "user_2b", role: "user" });
+    expect(messages[3]).toMatchObject({ id: "AI_2b", role: "assistant" });
     expect(branches).toHaveLength(0); // leaf
   });
 

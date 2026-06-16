@@ -13,6 +13,7 @@ import {
   startSession,
   resetSession,
   viewScope,
+  forkAtNode,
   fetchGlossary,
   deleteNode,
   renameNode,
@@ -52,6 +53,7 @@ export function useReaderSession(
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
   const [tree, setTree] = useState<TreeNodeView | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [parentContext, setParentContext] = useState<ChatMessage[]>([]);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
@@ -69,6 +71,13 @@ export function useReaderSession(
   const sessionIdRef = useRef<number | null>(sessionId);
 
   const { streams, startMessageStream, clearStream } = useStream();
+
+  // Fork scope — set by handleFork, consumed by the next handleSendMessage.
+  // When set, the next message is routed to the fork scope (parent level)
+  // instead of the current viewNodeId, so branching happens at the right level.
+  const pendingForkScopeRef = useRef<string | null>(null);
+
+
 
   // Keep ref in sync
   useEffect(() => {
@@ -113,11 +122,13 @@ export function useReaderSession(
       breadcrumb: BreadcrumbItem[];
       tree: TreeNodeView;
       branches: BranchOption[];
+      parentContext?: ChatMessage[];
     }) => {
       setMessages(state.messages);
       setBreadcrumb(state.breadcrumb);
       setTree(state.tree);
       setBranches(state.branches);
+      setParentContext(state.parentContext ?? []);
     },
     [],
   );
@@ -199,8 +210,15 @@ export function useReaderSession(
       const sid = sessionIdRef.current;
       if (sid === null) return;
 
+      // Use fork scope if set (routes message to the fork level, not the viewed scope)
+      const forkScope = pendingForkScopeRef.current;
+      pendingForkScopeRef.current = null;
+      const sendingNodeId = forkScope ?? lastViewNodeIdRef.current;
+
+      // Force branch only when the ⑂ button was explicitly clicked
+      const forceBranch = forkScope != null;
+
       // Track which node is generating (for tree panel spinner).
-      const sendingNodeId = lastViewNodeIdRef.current;
       if (sendingNodeId) {
         setGeneratingNodeIds((prev) => new Set(prev).add(sendingNodeId));
       }
@@ -217,7 +235,7 @@ export function useReaderSession(
 
       startMessageStream(userId, source.id, sid, message, sendingNodeId, (updatedTree) => {
         setTree(updatedTree);
-      }).catch((err) => {
+      }, forceBranch ? { forceBranch: true } : undefined).catch((err) => {
         console.error("Stream start failed:", err);
       });
     },
@@ -238,6 +256,11 @@ export function useReaderSession(
       setIsCompacting(false);
       setIsQueued(false);
       setActiveToolCall(null);
+
+      // Navigation cancels any pending fork — if the user forked but then
+      // navigated elsewhere, the fork scope is stale and shouldn't affect
+      // the next message.
+      pendingForkScopeRef.current = null;
 
       // Auto-close sidebar on mobile after navigating
       if (isMobile()) {
@@ -325,10 +348,12 @@ export function useReaderSession(
               const scopedState = await viewScope(userId, source.id, sid, initialNodeId);
               applySessionData(scopedState);
               updateUrl(scopedState.viewNodeId, sid, true);
+
             } catch {
               // Node not found — fall back to server default
               applySessionData(state);
               updateUrl(state.viewNodeId, sid, true);
+
             }
           } else {
             applySessionData(state);
@@ -338,6 +363,7 @@ export function useReaderSession(
         } else {
           // Fresh session (just created) — no messages yet, URL already updated
           updateUrl(null, sid, true);
+
         }
       } catch (err) {
         console.error("Load session failed:", err);
@@ -567,6 +593,7 @@ export function useReaderSession(
     breadcrumb,
     tree,
     branches,
+    parentContext,
     streamingContent,
     isCompacting,
     activeToolCall,
@@ -584,5 +611,28 @@ export function useReaderSession(
     handleRenameNode,
     handleResetSession,
     updateLocalSessionContext,
+    handleFork: useCallback(
+      async (nodeId: string) => {
+        if (!userId) return;
+        const sid = sessionIdRef.current;
+        if (sid === null) return;
+
+        setIsLoading(true);
+        try {
+          // Immediately fork on the server (moves SDK pointer)
+          const { state, forkScopeId } = await forkAtNode(userId, source.id, sid, nodeId);
+          applySessionData(state);
+          updateUrl(state.viewNodeId, sid, false);
+          setScrollTopTrigger((c) => c + 1);
+          // Store the fork scope so the next message routes to the correct level
+          pendingForkScopeRef.current = forkScopeId;
+        } catch (err) {
+          console.error("Fork failed:", err);
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      [userId, source.id, applySessionData, updateUrl],
+    ),
   };
 }

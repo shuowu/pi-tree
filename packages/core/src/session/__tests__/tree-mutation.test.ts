@@ -133,18 +133,24 @@ describe("rename a branch in a forked tree", () => {
     ["AI_2b", "assistant", "Battle of Poyang..."],
   ]);
 
-  it("renamed branch messages are still accessible", () => {
+  it("renamed branch messages include fork parent context", () => {
     const { messages } = collectScopeMessages(tree, "user_2a", contentMap);
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({ id: "user_2a", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_2a", role: "assistant" });
+    // user_1 → AI_1 (fork parent) + user_2a → AI_2a
+    expect(messages).toHaveLength(4);
+    expect(messages[0]).toMatchObject({ id: "user_1", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_1", role: "assistant" });
+    expect(messages[2]).toMatchObject({ id: "user_2a", role: "user" });
+    expect(messages[3]).toMatchObject({ id: "AI_2a", role: "assistant" });
   });
 
-  it("sibling branch messages are unaffected", () => {
+  it("sibling branch messages include fork parent context", () => {
     const { messages } = collectScopeMessages(tree, "user_2b", contentMap);
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({ id: "user_2b", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_2b", role: "assistant" });
+    // user_1 → AI_1 (fork parent) + user_2b → AI_2b
+    expect(messages).toHaveLength(4);
+    expect(messages[0]).toMatchObject({ id: "user_1", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_1", role: "assistant" });
+    expect(messages[2]).toMatchObject({ id: "user_2b", role: "user" });
+    expect(messages[3]).toMatchObject({ id: "AI_2b", role: "assistant" });
   });
 
   it("parent scope still shows both branches", () => {

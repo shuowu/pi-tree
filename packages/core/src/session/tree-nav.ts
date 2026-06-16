@@ -94,6 +94,159 @@ export function findBranchPoint(
   return current.id;
 }
 
+/**
+ * Find the correct fork point for the ⑂ button.
+ *
+ * When the user clicks ⑂ on an AI message (e.g., AI_c2), the intent is
+ * "branch BEFORE this conversation turn".  The fork point is the
+ * **grandparent AI node**: parent(user_node) → parent(AI_clicked).
+ *
+ *   AI_c2 clicked → parent = c2_user → parent = AI_c1 → fork at AI_c1
+ *
+ * Returns `{ forkId, scopeId }` where:
+ *  - `forkId` is the AI node to pass to `simpleBranch`
+ *  - `scopeId` is the parent user node to use as viewNodeId for the client
+ *
+ * Falls back to the node itself when no grandparent AI exists (root level).
+ */
+export function findForkPoint(
+  tree: TreeNodeView,
+  clickedNodeId: string,
+): { forkId: string; scopeId: string | null } | null {
+  const node = findNode(tree, clickedNodeId);
+  if (!node) return null;
+
+  // Walk up: clicked AI → parent (user node) → grandparent (AI node)
+  const parentUser = findParent(tree, clickedNodeId);
+  if (!parentUser) {
+    // No parent — fall back to the node itself
+    return { forkId: node.id, scopeId: null };
+  }
+
+  const grandparentAI = findParent(tree, parentUser.id);
+  if (grandparentAI && isAINode(grandparentAI)) {
+    // Found the grandparent AI — this is the fork point
+    // Scope to the parent user node (the conversation turn the user clicked on)
+    return {
+      forkId: grandparentAI.id,
+      scopeId: parentUser.id,
+    };
+  }
+
+  // No grandparent AI (root level) — fall back to the node itself
+  return { forkId: node.id, scopeId: parentUser.id };
+}
+
+// ─── Linear-First Branching ────────────────────────────────────────────────────
+
+/**
+ * Find the deepest node marked as current (active leaf) in the tree.
+ *
+ * `isCurrent` is set on ALL nodes along the path from root to the
+ * active leaf (via `isOnCurrentPath`).  A naive DFS would return the
+ * root — we need the deepest match, which is the actual leaf.
+ */
+export function findCurrentNode(
+  tree: TreeNodeView,
+): TreeNodeView | null {
+  // Try to find a deeper current node among children first
+  for (const child of tree.children ?? []) {
+    const found = findCurrentNode(child);
+    if (found) return found;
+  }
+  // No deeper current node — if this node is current, it's the leaf
+  if (tree.isCurrent) return tree;
+  return null;
+}
+
+/**
+ * Check if `nodeId` is the same as or a descendant of `ancestorId`.
+ * Uses findNode to search the ancestor's subtree for nodeId.
+ */
+export function isDescendantOf(
+  tree: TreeNodeView,
+  nodeId: string,
+  ancestorId: string,
+): boolean {
+  const ancestor = findNode(tree, ancestorId);
+  if (!ancestor) return false;
+  return findNode(ancestor, nodeId) !== null;
+}
+
+/**
+ * Find an **unused** placeholder child (status="placeholder", no children)
+ * at the given node. Placeholders are created by `branchAt` during fork
+ * operations. Once a placeholder acquires children it has been consumed
+ * and should not be reused — a new branch sibling should be created instead.
+ */
+export function findPlaceholderChild(
+  tree: TreeNodeView,
+  parentId: string,
+): TreeNodeView | null {
+  const parent = findNode(tree, parentId);
+  if (!parent) return null;
+  return parent.children?.find(
+    (c) => c.status === "placeholder" && (!c.children || c.children.length === 0),
+  ) ?? null;
+}
+
+/**
+ * Find the deepest leaf reachable from `viewNodeId` by following
+ * the first child at each level. Used to position the SDK's leaf
+ * pointer at the correct branch tip before sending a message.
+ */
+export function findDeepestLeaf(
+  tree: TreeNodeView,
+  viewNodeId: string,
+): string {
+  let current = findNode(tree, viewNodeId);
+  if (!current) return viewNodeId;
+
+  while (current.children && current.children.length > 0) {
+    current = current.children[0];
+  }
+  return current.id;
+}
+
+/**
+ * Check whether sending from `viewNodeId` should auto-branch because
+ * the scope's subtree already contains a fork (2+ children at some AI node).
+ *
+ * Walks deeper through single-child chains (user→AI→user→AI…) to find
+ * the actual fork, even when viewNodeId is a grandparent.
+ *
+ * Returns the fork's AI node ID + optional unused placeholder ID.
+ * Returns null branchId when the subtree is purely linear.
+ */
+export function needsAutoBranch(
+  tree: TreeNodeView,
+  viewNodeId: string,
+): { branchId: string | null; placeholderId?: string } {
+  const startId = findBranchPoint(tree, viewNodeId);
+  if (!startId) return { branchId: null };
+
+  // Walk deeper through single-child chains to find the actual fork.
+  let current = findNode(tree, startId);
+  while (current) {
+    const childCount = current.children?.length ?? 0;
+    if (childCount >= 2) {
+      const placeholder = findPlaceholderChild(tree, current.id);
+      return { branchId: current.id, placeholderId: placeholder?.id };
+    }
+    if (childCount === 0) break;
+    // Exactly 1 child — walk deeper
+    const child = current.children![0];
+    if (isAINode(child)) {
+      current = child;
+    } else {
+      const aiChild = child.children?.find((c) => isAINode(c));
+      current = aiChild ?? null;
+    }
+  }
+
+  return { branchId: null };
+}
+
 // ─── Scope Message Collection ──────────────────────────────────────────────────
 
 export type ContentMap = Map<
@@ -104,12 +257,17 @@ export type ContentMap = Map<
 export interface ScopeResult {
   messages: ChatMessage[];
   branches: BranchOption[];
+  /** Full ancestor chain from root to current scope (exclusive). */
+  parentContext: ChatMessage[];
 }
 
 /**
  * Collect messages and branches for a scoped view.
  *
  * Walks the linear chain from `viewNodeId` until a fork or leaf.
+ * When the view starts inside a fork (user node whose parent AI has
+ * multiple children), prepends the grandparent user→AI pair so the
+ * user sees what question led to this branch.
  * If viewNodeId is an AI node, the parent user message is prepended
  * so the full user→AI pair is always visible.
  */
@@ -119,7 +277,7 @@ export function collectScopeMessages(
   contentMap: ContentMap,
 ): ScopeResult {
   const startNode = viewNodeId ? findNode(tree, viewNodeId) : tree;
-  if (!startNode) return { messages: [], branches: [] };
+  if (!startNode) return { messages: [], branches: [], parentContext: [] };
 
   const messages: ChatMessage[] = [];
   const branches: BranchOption[] = [];
@@ -130,12 +288,65 @@ export function collectScopeMessages(
     if (parent) {
       pushMessage(parent.id, contentMap, messages);
     }
+  } else if (viewNodeId) {
+    // User node — check if it's inside a fork (parent AI has 2+ children).
+    // If so, prepend grandparent user→AI pair for branch context.
+    const parentAI = findParent(tree, startNode.id);
+    if (parentAI && isAINode(parentAI)) {
+      const realChildren = (parentAI.children ?? []).filter(
+        (c) => !(c.status === "placeholder" && (c.messageCount ?? 0) === 0),
+      );
+      if (realChildren.length >= 2) {
+        // This is a fork — prepend the grandparent user → parent AI pair
+        const grandparentUser = findParent(tree, parentAI.id);
+        if (grandparentUser) {
+          pushMessage(grandparentUser.id, contentMap, messages);
+        }
+        pushMessage(parentAI.id, contentMap, messages);
+      }
+    }
   }
 
   // Walk the linear chain
   walkChain(startNode, messages, branches, contentMap);
 
-  return { messages, branches };
+  // Build ancestor chain — messages from root to the scope's parent.
+  // Excludes messages already in `messages` (which start from the view node).
+  const parentContext: ChatMessage[] = [];
+  if (viewNodeId) {
+    const messageIds = new Set(messages.map((m) => m.id));
+    const ancestors = collectAncestors(tree, startNode.id);
+    for (const id of ancestors) {
+      if (!messageIds.has(id)) {
+        pushMessage(id, contentMap, parentContext);
+      }
+    }
+  }
+
+  return { messages, branches, parentContext };
+}
+
+/**
+ * Collect all ancestor node IDs from root down to (but NOT including) `nodeId`.
+ * Returns IDs in root→leaf order.
+ */
+function collectAncestors(
+  tree: TreeNodeView,
+  nodeId: string,
+): string[] {
+  const path: string[] = [];
+  function dfs(node: TreeNodeView): boolean {
+    if (node.id === nodeId) return true;
+    for (const child of node.children ?? []) {
+      if (dfs(child)) {
+        path.unshift(node.id);
+        return true;
+      }
+    }
+    return false;
+  }
+  dfs(tree);
+  return path;
 }
 
 /**
@@ -157,7 +368,8 @@ function walkChain(
   if (node.children.length === 1) {
     walkChain(node.children[0], messages, branches, contentMap);
   } else {
-    // Fork — report branches
+    // Fork — 2+ children. Report all as branch cards.
+    // Placeholder filtering is a UI concern (handled client-side).
     for (const child of node.children) {
       branches.push({
         nodeId: child.id,
@@ -212,3 +424,6 @@ export function buildBreadcrumb(
   walk(tree);
   return path;
 }
+
+
+

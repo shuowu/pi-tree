@@ -60,13 +60,15 @@ describe("configureModelRegistry", () => {
     // (AuthStorage.inMemory doesn't expose keys directly, but hasConfiguredAuth checks)
   });
 
-  it("propagates API key to model's built-in provider when names differ", () => {
+  it("registers model under custom alias when provider name differs from built-in", () => {
     // Find a built-in model to test with
     const initial = configureModelRegistry(makeConfig());
     const builtIn = getBuiltInModel(initial);
     if (!builtIn) return; // skip if no built-in models
 
-    // Use a different provider name than the model's built-in provider
+    // Use a different provider name + baseUrl — the model gets re-registered
+    // under the custom alias (strict provider matching won't find it under
+    // the built-in provider name).
     const result = configureModelRegistry(
       makeConfig({
         provider: "my-custom-alias",
@@ -79,7 +81,7 @@ describe("configureModelRegistry", () => {
     expect(result.selectedModel).toBeDefined();
     expect(result.selectedModel!.provider).toBe("my-custom-alias");
 
-    // The model's actual provider should now have auth configured
+    // Auth should be configured for the custom alias provider
     const hasAuth = result.modelRegistry.hasConfiguredAuth(result.selectedModel!);
     expect(hasAuth).toBe(true);
   });
@@ -103,7 +105,7 @@ describe("configureModelRegistry", () => {
     // No mismatch, so no extra propagation needed — just direct setup
   });
 
-  it("does NOT propagate when apiKey is empty", () => {
+  it("throws when apiKey is empty (cannot register provider without auth)", () => {
     const initial = configureModelRegistry(makeConfig());
     const builtIn = getBuiltInModel(initial);
     if (!builtIn) return;

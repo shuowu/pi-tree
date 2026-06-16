@@ -150,21 +150,27 @@ export function InlineBranches({
                 )}
 
                 {/* Sub-branches indicator */}
-                {data?.branches && data.branches.length > 0 && (
-                  <div className="pit-inline-branch-sub">
-                    {data.branches.map((sub) => (
-                      <button
-                        key={sub.nodeId}
-                        className="pit-inline-branch-sub-item"
-                        onClick={() => onDrillDown(sub.nodeId)}
-                      >
-                        <span className={`pit-branch-dot pit-status-${sub.status}`} />
-                        {sub.label}
-                        <span className="pit-inline-branch-arrow">→</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {data?.branches && data.branches.length > 0 && (() => {
+                  const visibleSubs = data.branches.filter(
+                    (sub) => !(sub.status === "placeholder" && (sub.messageCount ?? 0) === 0),
+                  );
+                  if (visibleSubs.length === 0) return null;
+                  return (
+                    <div className="pit-inline-branch-sub">
+                      {visibleSubs.map((sub) => (
+                        <button
+                          key={sub.nodeId}
+                          className="pit-inline-branch-sub-item"
+                          onClick={() => onDrillDown(sub.nodeId)}
+                        >
+                          <span className={`pit-branch-dot pit-status-${sub.status}`} />
+                          {sub.label}
+                          <span className="pit-inline-branch-arrow">→</span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

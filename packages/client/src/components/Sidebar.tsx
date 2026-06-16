@@ -230,9 +230,11 @@ function TreeNode({
 }) {
   const isAssistant = node.label.startsWith("✦");
   const isViewing = node.id === viewNodeId;
-  const hasBranches = (node.children?.length ?? 0) > 1;
+  const allChildren = node.children ?? [];
+  // First child = main continuation. Additional children = manually created branches.
+  const branchCount = allChildren.length - 1;
+  const hasBranches = branchCount > 0;
   const isCollapsed = collapsed.has(node.id);
-  const childCount = node.children?.length ?? 0;
   const isEditing = editingNodeId === node.id;
   const isGenerating = generatingNodeIds.has(node.id);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -293,29 +295,34 @@ function TreeNode({
           <span className="tree-label" title={buildTooltip(node)}>{node.label}</span>
         )}
         {hasBranches && !isEditing && (
-          <span className="tree-branch-count">⑂{childCount}</span>
+          <span className="tree-branch-count">⑂{branchCount}</span>
         )}
       </div>
 
       {!isCollapsed &&
-        node.children?.map((child) => (
-          <TreeNode
-            key={child.id}
-            node={child}
-            depth={childCount > 1 ? depth + 1 : depth}
-            viewNodeId={viewNodeId}
-            generatingNodeIds={generatingNodeIds}
-            collapsed={collapsed}
-            onToggleCollapse={onToggleCollapse}
-            onNavigate={onNavigate}
-            onContextMenu={onContextMenu}
-            editingNodeId={editingNodeId}
-            editValue={editValue}
-            onEditChange={onEditChange}
-            onEditFinish={onEditFinish}
-            onEditCancel={onEditCancel}
-          />
-        ))}
+        node.children
+          ?.filter((child) =>
+            // Hide unused placeholder nodes (pending ⑂ forks with no content yet)
+            !(child.status === "placeholder" && (child.messageCount ?? 0) === 0),
+          )
+          .map((child) => (
+            <TreeNode
+              key={child.id}
+              node={child}
+              depth={allChildren.length > 1 ? depth + 1 : depth}
+              viewNodeId={viewNodeId}
+              generatingNodeIds={generatingNodeIds}
+              collapsed={collapsed}
+              onToggleCollapse={onToggleCollapse}
+              onNavigate={onNavigate}
+              onContextMenu={onContextMenu}
+              editingNodeId={editingNodeId}
+              editValue={editValue}
+              onEditChange={onEditChange}
+              onEditFinish={onEditFinish}
+              onEditCancel={onEditCancel}
+            />
+          ))}
     </>
   );
 }

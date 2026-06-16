@@ -22,6 +22,12 @@ import {
   PiSession,
   type AnnotatedTreeNode,
   findBranchPoint,
+  findDeepestLeaf,
+  findPlaceholderChild,
+  needsAutoBranch,
+  findForkPoint,
+  findCurrentNode,
+  findParent,
   collectScopeMessages,
   buildBreadcrumb,
   wrapTokenWithEarlyTreeUpdate,
@@ -51,6 +57,26 @@ export class TreeManager {
   /** Get the DB row ID of the active session */
   getSessionId(): number {
     return this.sessionDbId;
+  }
+
+  /**
+   * Test-only factory — create a TreeManager with a mock PiSession,
+   * bypassing `loadOrCreate` and all DB/env dependencies.
+   *
+   * @internal Only for unit tests. Not part of the public API.
+   */
+  static _createForTest(
+    piSession: PiSession,
+    opts?: { userId?: string; sourceId?: string; sessionDbId?: number },
+  ): TreeManager {
+    const tm = new TreeManager(
+      piSession,
+      opts?.userId ?? "test-user",
+      opts?.sourceId ?? "test-source",
+      null as unknown as LibraryService,
+    );
+    tm.sessionDbId = opts?.sessionDbId ?? 1;
+    return tm;
   }
 
   // ---------------------------------------------------------------------------
@@ -486,22 +512,55 @@ export class TreeManager {
   async handleMessage(
     message: string,
     viewNodeId?: string | null,
+    opts?: { forceBranch?: boolean },
   ): Promise<SessionState & { response: string }> {
-    // Branch from the scope's AI node (findBranchPoint stops at the first
-    // AI response, so multiple messages from the same scope are siblings).
-    if (viewNodeId) {
-      const tree = this.buildTreeView();
-      const branchId = findBranchPoint(tree, viewNodeId);
-      if (branchId) {
-        this.piSession.simpleBranch(branchId);
+    const tree = this.buildTreeView();
+    const effectiveViewNodeId = viewNodeId ?? tree.id ?? null;
+
+    let didExplicitBranch = false;
+
+    if (effectiveViewNodeId) {
+      if (opts?.forceBranch) {
+        // Explicit fork from ⑂ button
+        const branchId = findBranchPoint(tree, effectiveViewNodeId);
+        if (branchId) {
+          const placeholder = findPlaceholderChild(tree, branchId);
+          this.piSession.simpleBranch(placeholder?.id ?? branchId);
+          didExplicitBranch = true;
+        }
+      } else {
+        // Auto-branch only when the scope already has a fork (2+ children).
+        // The message goes into the new branch, but the user's view stays
+        // at the current scope so they see updated branch cards.
+        const { branchId, placeholderId } = needsAutoBranch(tree, effectiveViewNodeId);
+        if (branchId) {
+          this.piSession.simpleBranch(placeholderId ?? branchId);
+        } else {
+          // No branching needed — ensure the SDK pointer is at the deepest
+          // leaf of the user's current view. Without this, the pointer may
+          // be stranded on a different branch from a prior ⑂ click.
+          const leafId = findDeepestLeaf(tree, effectiveViewNodeId);
+          this.piSession.simpleBranch(leafId);
+        }
       }
     }
 
-    // Send message to Pi for AI response
     const { response } = await this.piSession.sendMessage(message);
 
+    // Only redirect scope for explicit ⑂ branching.
+    // Auto-branch stays at the user's current view (branch cards update).
+    let scopeNodeId = viewNodeId;
+    if (didExplicitBranch || !scopeNodeId) {
+      const postTree = this.buildTreeView();
+      const current = findCurrentNode(postTree);
+      if (current) {
+        const parent = findParent(postTree, current.id);
+        scopeNodeId = parent ? parent.id : current.id;
+      }
+    }
+
     return {
-      ...this.getSessionState(viewNodeId ?? null),
+      ...this.getSessionState(scopeNodeId ?? null),
       response,
     };
   }
@@ -518,27 +577,39 @@ export class TreeManager {
       onCompaction?: (event: { type: string; reason: string }) => Promise<void>;
       onDone: (result: Record<string, unknown>) => Promise<void>;
     },
+    opts?: { forceBranch?: boolean },
   ): Promise<void> {
-    // Branch from the scope's AI node (findBranchPoint stops at the first
-    // AI response, so multiple messages from the same scope are siblings).
-    if (viewNodeId) {
-      const tree = this.buildTreeView();
-      const branchId = findBranchPoint(tree, viewNodeId);
-      if (branchId) {
-        this.piSession.simpleBranch(branchId);
+    const tree = this.buildTreeView();
+    const effectiveViewNodeId = viewNodeId ?? tree.id ?? null;
+
+    let didExplicitBranch = false;
+
+    if (effectiveViewNodeId) {
+      if (opts?.forceBranch) {
+        const branchId = findBranchPoint(tree, effectiveViewNodeId);
+        if (branchId) {
+          const placeholder = findPlaceholderChild(tree, branchId);
+          this.piSession.simpleBranch(placeholder?.id ?? branchId);
+          didExplicitBranch = true;
+        }
+      } else {
+        // Auto-branch: message goes to new branch, view stays put.
+        const { branchId, placeholderId } = needsAutoBranch(tree, effectiveViewNodeId);
+        if (branchId) {
+          this.piSession.simpleBranch(placeholderId ?? branchId);
+        } else {
+          // No branching needed — ensure SDK pointer is at the correct leaf.
+          const leafId = findDeepestLeaf(tree, effectiveViewNodeId);
+          this.piSession.simpleBranch(leafId);
+        }
       }
     }
 
-    // Emit a tree snapshot on the first AI token — by that point the user
-    // message has been appended, so the tree accurately reflects the new
-    // branch.  This lets the sidebar update immediately instead of waiting
-    // for the full AI response to finish.
     const wrappedOnToken = wrapTokenWithEarlyTreeUpdate(
       callbacks.onToken,
       async () => callbacks.onTreeUpdate({ tree: this.buildTreeView() }),
     );
 
-    // Stream the response from Pi
     const { response } = await this.piSession.sendMessageStreaming(
       message,
       wrappedOnToken,
@@ -548,8 +619,19 @@ export class TreeManager {
       callbacks.onToolResult,
     );
 
+    // Only redirect scope for explicit ⑂ branching.
+    let scopeNodeId = viewNodeId;
+    if (didExplicitBranch || !scopeNodeId) {
+      const postTree = this.buildTreeView();
+      const current = findCurrentNode(postTree);
+      if (current) {
+        const parent = findParent(postTree, current.id);
+        scopeNodeId = parent ? parent.id : current.id;
+      }
+    }
+
     await callbacks.onDone({
-      ...this.getSessionState(viewNodeId),
+      ...this.getSessionState(scopeNodeId),
       response,
     });
   }
@@ -623,6 +705,50 @@ export class TreeManager {
   }
 
   // ---------------------------------------------------------------------------
+  // Immediate fork — move the Pi SDK pointer without sending a message
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Immediately fork the conversation at the given node.
+   *
+   * Resolves the **grandparent AI node** via `findForkPoint` — when the
+   * user clicks ⑂ on AI_c2, the fork happens at AI_c1 (one level up),
+   * so that c2 and its continuation become one branch, and the next
+   * message creates another.
+   *
+   * Uses `branchAt` to create a structural fork with a placeholder node.
+   * The placeholder has messageCount=0 so it's hidden from branch cards
+   * in the UI (filtered by collectScopeMessages). Once the user sends a
+   * message, the branch becomes visible.
+   *
+   * Returns `{ state, forkScopeId }` where:
+   *  - `state` is scoped to the clicked conversation turn (c2_user)
+   *  - `forkScopeId` is the scope the client should use when sending
+   *     the next message (so it branches at the correct level)
+   */
+  forkAtNode(viewNodeId: string): { state: SessionState; forkScopeId: string | null } {
+    const tree = this.buildTreeView();
+    const forkResult = findForkPoint(tree, viewNodeId);
+
+    if (forkResult) {
+      this.piSession.branchAt(forkResult.forkId, {
+        label: "New branch",
+        source: "fork",
+        status: "placeholder",
+      });
+      // Find the parent user node of the fork point for message routing
+      const forkParent = findParent(tree, forkResult.forkId);
+      return {
+        state: this.getSessionState(forkResult.scopeId),
+        forkScopeId: forkParent?.id ?? null,
+      };
+    }
+
+    // Fallback: node not found, return current state
+    return { state: this.getSessionState(viewNodeId), forkScopeId: null };
+  }
+
+  // ---------------------------------------------------------------------------
   // State getters — transform Pi's tree into our API format
   // ---------------------------------------------------------------------------
 
@@ -643,7 +769,7 @@ export class TreeManager {
     viewNodeId: string | null,
   ): SessionState {
     const contentMap = this.piSession.getMessageContentMap();
-    const { messages, branches } = collectScopeMessages(
+    const { messages, branches, parentContext } = collectScopeMessages(
       tree,
       viewNodeId,
       contentMap,
@@ -664,6 +790,7 @@ export class TreeManager {
       messages,
       tree,
       branches,
+      parentContext: parentContext.length > 0 ? parentContext : undefined,
     };
   }
 

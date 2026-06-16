@@ -30,6 +30,7 @@ interface StreamContextValue {
     message: string,
     viewNodeId: string | null,
     onTreeUpdate: (tree: TreeNodeView) => void,
+    opts?: { forceBranch?: boolean },
   ) => Promise<void>;
   clearStream: (sourceId: string, sessionId: number) => void;
 }
@@ -54,6 +55,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
       message: string,
       viewNodeId: string | null,
       onTreeUpdate: (tree: TreeNodeView) => void,
+      opts?: { forceBranch?: boolean },
     ) => {
       const key = getStreamKey(sourceId, sessionId);
       const nextGen = (streamGensRef.current[key] ?? 0) + 1;
@@ -195,7 +197,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
               };
             });
           },
-        });
+        }, undefined, opts);
       } catch (err) {
         const currentGen = streamGensRef.current[key];
         if (nextGen !== currentGen) return;

@@ -11,9 +11,9 @@ import type { ContentAnchor } from "./tree.js";
 export interface TopicMeta {
   kind: "topic_node";
   label: string;
-  source: "outline" | "user" | "auto";
+  source: "outline" | "user" | "auto" | "fork";
   contentAnchor?: ContentAnchor;
-  status: "active" | "completed" | "abandoned";
+  status: "active" | "completed" | "abandoned" | "placeholder";
 }
 
 export interface SectionStatusMeta {
@@ -38,8 +38,8 @@ export interface AnnotatedTreeNode {
   entryId: string;
   parentId: string;
   label: string;
-  source: "outline" | "user" | "auto";
-  status: "active" | "completed" | "abandoned";
+  source: "outline" | "user" | "auto" | "fork";
+  status: "active" | "completed" | "abandoned" | "placeholder";
   contentAnchor?: ContentAnchor;
   messageCount: number;
   isCurrent: boolean;

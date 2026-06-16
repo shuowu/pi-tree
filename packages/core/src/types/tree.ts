@@ -13,7 +13,7 @@ export interface TreeNodeView {
   id: string;
   parentId: string | null;
   label: string;
-  status: "active" | "completed" | "abandoned";
+  status: "active" | "completed" | "abandoned" | "placeholder";
   messageCount: number;
   summary?: string;
   children: TreeNodeView[];
@@ -43,7 +43,7 @@ export interface BranchOption {
   nodeId: string;
   label: string;
   messageCount: number;
-  status: "active" | "completed" | "abandoned";
+  status: "active" | "completed" | "abandoned" | "placeholder";
 }
 
 export interface BreadcrumbItem {
@@ -80,4 +80,6 @@ export interface SessionState {
   tree: TreeNodeView;
   /** Branches available at the end of the current chain (fork indicator) */
   branches: BranchOption[];
+  /** Ancestor messages from root to the current scope (for 'Show full path' toggle) */
+  parentContext?: ChatMessage[];
 }

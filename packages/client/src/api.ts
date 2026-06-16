@@ -402,10 +402,11 @@ export async function sendMessageStreaming(
     onError: (error: Error) => void;
   },
   signal?: AbortSignal,
-  opts?: { sessionKey?: string },
+  opts?: { sessionKey?: string; forceBranch?: boolean },
 ): Promise<void> {
   const body: Record<string, unknown> = { userId, sourceId, sessionId, message, viewNodeId };
   if (opts?.sessionKey) body.sessionKey = opts.sessionKey;
+  if (opts?.forceBranch) body.forceBranch = true;
 
   const res = await fetch(`${API}/session/message/stream`, {
     method: "POST",
@@ -516,6 +517,29 @@ export async function navigateTo(
     body: JSON.stringify({ userId, sourceId, sessionId, targetNodeId: nodeId, ...options }),
   });
   if (!res.ok) throw new Error(`Navigate failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Immediately fork the conversation at a specific node.
+ * Moves the Pi SDK pointer so the next message creates a new branch.
+ * Returns:
+ *  - `state`: scoped to the clicked conversation turn
+ *  - `forkScopeId`: the scope to use when sending the next message
+ *     (ensures branching at the correct level)
+ */
+export async function forkAtNode(
+  userId: string,
+  sourceId: string,
+  sessionId: number,
+  viewNodeId: string,
+): Promise<{ state: SessionState; forkScopeId: string | null }> {
+  const res = await fetch(`${API}/session/fork`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, sourceId, sessionId, viewNodeId }),
+  });
+  if (!res.ok) throw new Error(`Fork failed: ${res.status}`);
   return res.json();
 }
 

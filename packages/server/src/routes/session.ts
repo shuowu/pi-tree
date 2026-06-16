@@ -91,11 +91,14 @@ sessionRoutes.post("/message", async (c) => {
     userId?: string;
     sessionId?: number;
     sessionKey?: string;
+    forceBranch?: boolean;
   }>();
+
+  const opts = { forceBranch: body.forceBranch };
 
   if (body.sessionKey) {
     const result = await withSessionLockByKey(body.sessionKey, async (manager) => {
-      return manager.handleMessage(body.message, body.viewNodeId ?? null);
+      return manager.handleMessage(body.message, body.viewNodeId ?? null, opts);
     });
     return c.json(result);
   }
@@ -103,7 +106,7 @@ sessionRoutes.post("/message", async (c) => {
   const userId = extractUserId(body);
   const sessionId = extractSessionId(body);
   const result = await withSessionLock(userId, body.sourceId!, sessionId, async (manager) => {
-    return manager.handleMessage(body.message, body.viewNodeId ?? null);
+    return manager.handleMessage(body.message, body.viewNodeId ?? null, opts);
   });
   return c.json(result);
 });
@@ -117,6 +120,7 @@ sessionRoutes.post("/message/stream", async (c) => {
     userId?: string;
     sessionId?: number;
     sessionKey?: string;
+    forceBranch?: boolean;
   }>();
 
   /** Shared streaming callbacks factory */
@@ -159,15 +163,17 @@ sessionRoutes.post("/message/stream", async (c) => {
       // Let the client know this request is queued behind another operation
       await stream.writeSSE({ data: JSON.stringify({ type: "queued" }) });
 
+      const opts = { forceBranch: body.forceBranch };
+
       if (body.sessionKey) {
         await withSessionLockByKey(body.sessionKey, async (manager) => {
-          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream));
+          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream), opts);
         });
       } else {
         const userId = extractUserId(body);
         const sessionId = extractSessionId(body);
         await withSessionLock(userId, body.sourceId!, sessionId, async (manager) => {
-          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream));
+          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream), opts);
         });
       }
     } catch (err) {
@@ -199,6 +205,22 @@ sessionRoutes.post("/navigate", async (c) => {
   // After navigation, scope the view to the target node
   const scopedState = manager.getSessionState(body.targetNodeId);
   return c.json(scopedState);
+});
+
+/** Immediately fork the conversation at a specific node (no message required) */
+sessionRoutes.post("/fork", async (c) => {
+  const body = await c.req.json<{
+    sourceId: string;
+    viewNodeId: string;
+    userId?: string;
+    sessionId?: number;
+  }>();
+  const userId = extractUserId(body);
+  const sessionId = extractSessionId(body);
+
+  const manager = await getSession(userId, body.sourceId, sessionId);
+  const state = manager.forkAtNode(body.viewNodeId);
+  return c.json(state);
 });
 
 /** Navigate from a TOC entry (creates node if needed) */

@@ -907,3 +907,91 @@
   }
 }
 
+/* ── Fork button ── */
+
+.pit-chat-message-assistant .pit-chat-bubble {
+  position: relative;
+}
+
+.pit-fork-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--pit-bg-secondary, #f0f0f0);
+  border: 1px solid var(--pit-border, #ddd);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.pit-chat-message-assistant:hover .pit-fork-btn {
+  opacity: 0.6;
+}
+.pit-fork-btn:hover {
+  opacity: 1 !important;
+  background: var(--pit-accent, #4a9eff);
+  color: white;
+}
+
+/* ── Ancestor Context Toggle ── */
+
+.pit-ancestor-toggle {
+  margin-bottom: var(--pit-space-2);
+}
+
+.pit-ancestor-toggle-btn {
+  background: none;
+  border: 1px solid var(--pit-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--pit-radius, 6px);
+  color: var(--pit-text-secondary, #aaa);
+  font-size: 0.8rem;
+  padding: var(--pit-space-1) var(--pit-space-3);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.pit-ancestor-toggle-btn:hover {
+  color: var(--pit-text-primary, #fff);
+  border-color: var(--pit-text-secondary, #aaa);
+}
+
+.pit-ancestor-messages {
+  border-left: 2px solid var(--pit-border, rgba(255, 255, 255, 0.08));
+  padding-left: var(--pit-space-3);
+  margin: var(--pit-space-2) 0 0;
+}
+
+/* Readable but clearly de-emphasized — no opacity */
+.pit-ancestor-messages .pit-chat-message {
+  font-size: 0.92em;
+}
+.pit-ancestor-messages .pit-chat-message-assistant .pit-chat-bubble {
+  color: var(--pit-text-secondary, #aaa);
+}
+.pit-ancestor-messages .pit-chat-message-user .pit-chat-bubble {
+  background: var(--pit-user-bg-muted, rgba(74, 158, 255, 0.08));
+  color: var(--pit-text-secondary, #aaa);
+}
+
+/* ── Separator between parent context and current branch ── */
+.pit-scope-separator {
+  display: flex;
+  align-items: center;
+  gap: var(--pit-space-3);
+  margin: var(--pit-space-3) 0;
+  color: var(--pit-text-muted, #666);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.pit-scope-separator::before,
+.pit-scope-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--pit-border, rgba(255, 255, 255, 0.08));
+}

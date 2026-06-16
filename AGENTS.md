@@ -335,6 +335,8 @@ npm run dev:server   # server only
 npm run dev:client   # client only
 ```
 
+The dev server imports `@pi-tree/core` source directly via `--conditions=source` (no build needed) and watches `packages/core/src/` for changes via `--include`. Editing any core file auto-restarts the server. **Do not run `npm run build` in core during development.**
+
 ## Docker
 
 ```bash

@@ -60,6 +60,10 @@ interface ChatViewProps {
   availableModels?: ModelInfo[];
   /** Called when user selects a different model */
   onModelChange?: (modelId: string) => void;
+  /** Called when user clicks fork on an assistant message */
+  onFork?: (nodeId: string) => void;
+  /** Ancestor messages from root to current scope for 'Show full path' */
+  parentContext?: ChatMessage[];
 }
 
 export function ChatView({
@@ -86,15 +90,25 @@ export function ChatView({
   placeholderText,
   availableModels,
   onModelChange,
+  onFork,
+  parentContext,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
+  const [showAncestors, setShowAncestors] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const streamingBubbleRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wasStreamingRef = useRef(false);
   const userJustSentRef = useRef(false);
+
+  // Client-side filter: hide unused placeholder branches from the user.
+  // An unused placeholder has status="placeholder" and messageCount=0.
+  const visibleBranches = useMemo(
+    () => branches.filter((b) => !(b.status === "placeholder" && (b.messageCount ?? 0) === 0)),
+    [branches],
+  );
 
   // Scroll direction tracking for shy-header UX
   const scrollDir = useScrollDirection({ scrollRef: messagesContainerRef, threshold: 50 });
@@ -137,6 +151,7 @@ export function ChatView({
     if (scrollTopTrigger !== scrollTopTriggerRef.current) {
       scrollTopTriggerRef.current = scrollTopTrigger;
       messagesContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      setShowAncestors(false); // Collapse ancestors on navigation
     }
   }, [scrollTopTrigger]);
 
@@ -260,8 +275,29 @@ export function ChatView({
           </div>
         )}
 
+        {parentContext && parentContext.length > 0 && (
+          <div className="pit-ancestor-toggle">
+            <button
+              className="pit-ancestor-toggle-btn"
+              onClick={() => setShowAncestors((v) => !v)}
+            >
+              {showAncestors ? "▾ Hide parent context" : `▸ Show parent context (${parentContext.length} messages)`}
+            </button>
+            {showAncestors && (
+              <>
+                <div className="pit-ancestor-messages">
+                  {parentContext.map((msg) => (
+                    <MessageBubble key={`ancestor-${msg.id}`} message={msg} />
+                  ))}
+                </div>
+                <div className="pit-scope-separator">Current branch</div>
+              </>
+            )}
+          </div>
+        )}
+
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble key={msg.id} message={msg} onFork={onFork ?? onDrillDown} />
         ))}
 
         {isLoading && streamingContent !== null && streamingContent.length > 0 && (
@@ -292,9 +328,9 @@ export function ChatView({
           </div>
         )}
 
-        {branches.length > 0 && !isLoading && (
+        {visibleBranches.length > 0 && !isLoading && (
           <InlineBranches
-            branches={branches}
+            branches={visibleBranches}
             onDrillDown={onDrillDown}
             bookId={bookId}
             sessionId={sessionId}
