@@ -1,12 +1,28 @@
 {
   "fixtures": [
     {
-      "match": {
-        "model": "mock-model"
-      },
-      "response": {
-        "content": "I am a mock AI assistant for testing."
-      }
+      "match": { "model": "mock-model", "userMessage": "Alpha question one" },
+      "response": { "content": "Here is the Alpha One response about the opening chapter." }
+    },
+    {
+      "match": { "model": "mock-model", "userMessage": "Alpha question two" },
+      "response": { "content": "Here is the Alpha Two response continuing the discussion." }
+    },
+    {
+      "match": { "model": "mock-model", "userMessage": "Beta question from root" },
+      "response": { "content": "Here is the Beta response exploring a different direction." }
+    },
+    {
+      "match": { "model": "mock-model", "userMessage": "Tell me more about this book" },
+      "response": { "content": "Here is more detail about the book and its themes." }
+    },
+    {
+      "match": { "model": "mock-model", "userMessage": "Enter key test" },
+      "response": { "content": "Response to the enter key test message." }
+    },
+    {
+      "match": { "model": "mock-model" },
+      "response": { "content": "I am a mock AI assistant for testing." }
     }
   ]
 }

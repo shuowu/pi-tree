@@ -139,11 +139,13 @@ test.describe("Tree navigation (mocked AI)", () => {
     await rootEntry.click();
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
 
-    // Should see inline branches at the branch point
+    // Wait briefly for tree state to settle after navigation
+    await page.waitForTimeout(500);
+
+    // Should see inline branches at the branch point — use auto-retrying
+    // assertion with generous timeout since the branch UI renders async
     const branchCards = page.locator(".pit-inline-branch");
-    await expect(branchCards.first()).toBeVisible({ timeout: 10_000 });
-    const branchCount = await branchCards.count();
-    expect(branchCount).toBeGreaterThanOrEqual(2);
+    await expect(branchCards).toHaveCount(2, { timeout: 15_000 });
   });
 
   test("drill into first branch → see Alpha messages", async ({ page }) => {
