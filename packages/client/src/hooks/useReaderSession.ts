@@ -518,8 +518,9 @@ export function useReaderSession(
             );
           }
         }
-      } catch {
-        // Session load failed — go to sessions page
+      } catch (err) {
+        // Session load failed — log for observability, then redirect to sessions page
+        console.error("[useReaderSession] Session load failed, redirecting to sessions page:", err);
         navigate(`/source/${source.id}/sessions`, { replace: true });
       }
     })();

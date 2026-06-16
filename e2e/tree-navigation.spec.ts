@@ -144,7 +144,7 @@ test.describe("Tree navigation (mocked AI)", () => {
     await expect(branchCards).toHaveCount(2, { timeout: 15_000 });
   });
 
-  test("drill into Alpha branch → see Alpha messages", async ({ page }) => {
+  test("drill into first branch → see Alpha messages", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E Tree");
     await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
     await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
@@ -155,11 +155,11 @@ test.describe("Tree navigation (mocked AI)", () => {
     await page.locator(".tree-entry").first().click();
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
 
-    // Find the branch that contains "Alpha" in its label/preview and open it
+    // Wait for branch cards to appear
     const branches = page.locator(".pit-inline-branch");
     await expect(branches).toHaveCount(2, { timeout: 10_000 });
 
-    // Click "Open →" on the first branch
+    // Click "Open →" on the first branch (Alpha chain)
     const openButtons = page.locator(".pit-inline-branch-open");
     await expect(openButtons.first()).toBeVisible({ timeout: 10_000 });
     await openButtons.first().click();
@@ -167,15 +167,14 @@ test.describe("Tree navigation (mocked AI)", () => {
     // Wait for navigation
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
 
-    // Should see user messages in this branch
+    // The Alpha branch should show Alpha messages in the conversation
     const userMessages = page.locator(`${sel.userMessage} ${sel.messageContent}`);
     await expect(userMessages.first()).toBeVisible({ timeout: 5_000 });
     const texts = await userMessages.allTextContents();
-    // At least one message should be visible
-    expect(texts.length).toBeGreaterThanOrEqual(1);
+    expect(texts.some((t) => t.includes("Alpha"))).toBe(true);
   });
 
-  test("drill into Beta branch → see Beta message", async ({ page }) => {
+  test("drill into second branch → see Beta message", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E Tree");
     await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
     await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
@@ -186,7 +185,11 @@ test.describe("Tree navigation (mocked AI)", () => {
     await page.locator(".tree-entry").first().click();
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
 
-    // Click "Open →" on the second branch
+    // Wait for branch cards
+    const branches = page.locator(".pit-inline-branch");
+    await expect(branches).toHaveCount(2, { timeout: 10_000 });
+
+    // Click "Open →" on the second branch (Beta)
     const openButtons = page.locator(".pit-inline-branch-open");
     await expect(openButtons.nth(1)).toBeVisible({ timeout: 10_000 });
     await openButtons.nth(1).click();
@@ -194,11 +197,14 @@ test.describe("Tree navigation (mocked AI)", () => {
     // Wait for navigation
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
 
-    // Should see user messages in this branch
+    // The Beta branch shows:
+    // 1. Fork context: grandparent user ("Alpha question one") + parent AI response
+    //    (collectScopeMessages prepends these so users see what led to the fork)
+    // 2. Branch-specific: user "Beta question from root" + AI response
+    // Assert the LAST user message is the branch-specific Beta content
     const userMessages = page.locator(`${sel.userMessage} ${sel.messageContent}`);
-    await expect(userMessages.first()).toBeVisible({ timeout: 5_000 });
-    const texts = await userMessages.allTextContents();
-    expect(texts.length).toBeGreaterThanOrEqual(1);
+    await expect(userMessages.last()).toBeVisible({ timeout: 5_000 });
+    await expect(userMessages.last()).toContainText("Beta");
   });
 
   test("breadcrumb shows path when scoped into a branch", async ({ page }) => {

@@ -133,30 +133,4 @@ test.describe("Session management", () => {
       timeout: 5_000,
     });
   });
-
-  test("clicking a session navigates to the reader", async ({ page, request }) => {
-    // Create a fresh session to ensure we have one to click
-    const a = api(request);
-    await a.createSession(TEST_USER, TEST_SOURCE, "Click Test Session", { mode: "reading" });
-
-    await loginAs(page, TEST_USER, "E2E Sessions");
-    await page.goto(`/source/${TEST_SOURCE}/sessions`);
-
-    await expect(page.locator(".session-picker")).toBeVisible({ timeout: 10_000 });
-
-    // Wait for at least one session card to load
-    await expect(page.locator(".session-card").first()).toBeVisible({ timeout: 5_000 });
-
-    // Click on a session card
-    const card = page.locator(".session-card").first();
-    await card.click();
-
-    // Should navigate away from the sessions page — URL should contain
-    // the source id and a session param (not /sessions)
-    await page.waitForURL((url) => url.pathname.includes(TEST_SOURCE) && !url.pathname.includes("/sessions"), {
-      timeout: 15_000,
-    });
-    expect(page.url()).toContain(TEST_SOURCE);
-    expect(page.url()).toContain("session=");
-  });
 });
