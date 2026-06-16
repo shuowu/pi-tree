@@ -11,7 +11,7 @@ import { BookSetupState } from "./BookSetupState";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
 import { BookSettingsModal } from "./BookSettingsModal";
-import { fetchModels, saveServerConfig, updateSession, viewScope } from "../api";
+import { fetchModels, updateSession, viewScope } from "../api";
 import { getBranchesCollapsed } from "../utils/preferences";
 import { PanelLeft, PanelRight, Home, Settings, Layers } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
