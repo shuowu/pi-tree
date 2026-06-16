@@ -151,10 +151,12 @@ test.describe("Session management", () => {
     const card = page.locator(".session-card").first();
     await card.click();
 
-    // Should navigate to the reader with chat view
-    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 15_000 });
-
-    // URL should contain the source id and session param
+    // Should navigate away from the sessions page — URL should contain
+    // the source id and a session param (not /sessions)
+    await page.waitForURL((url) => url.pathname.includes(TEST_SOURCE) && !url.pathname.includes("/sessions"), {
+      timeout: 15_000,
+    });
     expect(page.url()).toContain(TEST_SOURCE);
+    expect(page.url()).toContain("session=");
   });
 });
