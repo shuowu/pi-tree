@@ -70,7 +70,7 @@ export function useReaderSession(
   const lastViewNodeIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<number | null>(sessionId);
 
-  const { streams, startMessageStream, clearStream } = useStream();
+  const { streams, startMessageStream, clearStream, stopStream } = useStream();
 
   // Fork scope — set by handleFork, consumed by the next handleSendMessage.
   // When set, the next message is routed to the fork scope (parent level)
@@ -173,6 +173,16 @@ export function useReaderSession(
         if (activeStream.result) {
           applySessionData(activeStream.result);
           updateUrl(activeStream.result.viewNodeId, sessionId, true);
+        } else if (activeStream.accumulatedText?.trim()) {
+          // Abort / stop: no server result, but we have locally accumulated text.
+          // Keep it as a regular message so the partial response isn't lost.
+          const stoppedMsg: ChatMessage = {
+            id: `stopped-${Date.now()}`,
+            role: "assistant",
+            content: activeStream.accumulatedText,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, stoppedMsg]);
         }
       }
       clearStream(source.id, sessionId!);
@@ -202,7 +212,7 @@ export function useReaderSession(
       }
       clearStream(source.id, sessionId!);
     }
-  }, [streams, viewNodeId, source.id, sessionId, applySessionData, updateUrl, clearStream]);
+  }, [streams, viewNodeId, source.id, sessionId, userId, applySessionData, updateUrl, clearStream]);
 
   const handleSendMessage = useCallback(
     async (message: string) => {
@@ -603,6 +613,11 @@ export function useReaderSession(
     sessionContext,
     scrollTopTrigger,
     handleSendMessage,
+    handleStopGeneration: useCallback(() => {
+      const sid = sessionIdRef.current;
+      if (sid === null) return;
+      stopStream(source.id, sid);
+    }, [source.id, stopStream]),
     handleNavigate,
     handleBackToRoot,
     handleDeleteSession,

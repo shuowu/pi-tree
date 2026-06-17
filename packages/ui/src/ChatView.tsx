@@ -5,7 +5,7 @@ import { StreamingBubble } from "./StreamingBubble.js";
 import { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
 import { ToolCallIndicator } from "./ToolCallIndicator.js";
 import { ModelPicker, type ModelInfo } from "./ModelPicker.js";
-import { BookOpen, ChevronDown, Loader } from "lucide-react";
+import { BookOpen, ChevronDown, Loader, Square } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
 import "./styles/ChatView.css";
 
@@ -62,6 +62,8 @@ interface ChatViewProps {
   onModelChange?: (modelId: string) => void;
   /** Called when user clicks fork on an assistant message */
   onFork?: (nodeId: string) => void;
+  /** Called when the user wants to stop the current AI generation */
+  onStop?: () => void;
   /** Ancestor messages from root to current scope for 'Show full path' */
   parentContext?: ChatMessage[];
 }
@@ -91,6 +93,7 @@ export function ChatView({
   availableModels,
   onModelChange,
   onFork,
+  onStop,
   parentContext,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
@@ -412,14 +415,24 @@ export function ChatView({
               rows={1}
               disabled={isLoading}
             />
-            <button
-              className="pit-chat-send"
-              onClick={handleSubmit}
-              disabled={!input.trim() || isLoading}
-              aria-label="Send message"
-            >
-              ↑
-            </button>
+            {isLoading && onStop ? (
+              <button
+                className="pit-chat-stop"
+                onClick={onStop}
+                aria-label="Stop generation"
+              >
+                <Square size={14} />
+              </button>
+            ) : (
+              <button
+                className="pit-chat-send"
+                onClick={handleSubmit}
+                disabled={!input.trim() || isLoading}
+                aria-label="Send message"
+              >
+                ↑
+              </button>
+            )}
           </div>
         </div>
       </div>

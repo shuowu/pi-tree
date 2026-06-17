@@ -300,6 +300,30 @@
   cursor: not-allowed;
 }
 
+/* ── Stop Generation Button ── */
+
+.pit-chat-stop {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--pit-radius-full);
+  background: var(--pit-red, #ef4444);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: flex-end;
+  transition: background var(--pit-transition-fast), transform var(--pit-transition-fast);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.pit-chat-stop:hover {
+  background: color-mix(in srgb, var(--pit-red, #ef4444), black 15%);
+  transform: scale(1.05);
+}
+
 /* ── Input Meta (model) ── */
 
 .pit-chat-input-meta {

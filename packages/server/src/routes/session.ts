@@ -159,11 +159,15 @@ sessionRoutes.post("/message/stream", async (c) => {
   });
 
   return streamSSE(c, async (stream) => {
+    // Abort in-flight LLM generation when the client disconnects
+    const abortController = new AbortController();
+    stream.onAbort(() => abortController.abort());
+
     try {
       // Let the client know this request is queued behind another operation
       await stream.writeSSE({ data: JSON.stringify({ type: "queued" }) });
 
-      const opts = { forceBranch: body.forceBranch };
+      const opts = { forceBranch: body.forceBranch, signal: abortController.signal };
 
       if (body.sessionKey) {
         await withSessionLockByKey(body.sessionKey, async (manager) => {

@@ -33,6 +33,7 @@ interface StreamContextValue {
     opts?: { forceBranch?: boolean },
   ) => Promise<void>;
   clearStream: (sourceId: string, sessionId: number) => void;
+  stopStream: (sourceId: string, sessionId: number) => void;
 }
 
 const StreamContext = createContext<StreamContextValue | null>(null);
@@ -46,6 +47,7 @@ function getStreamKey(sourceId: string, sessionId: number): string {
 export function StreamProvider({ children }: { children: ReactNode }) {
   const [streams, setStreams] = useState<Record<string, ActiveStreamState>>({});
   const streamGensRef = useRef<Record<string, number>>({});
+  const abortControllersRef = useRef<Record<string, AbortController>>({});
 
   const startMessageStream = useCallback(
     async (
@@ -60,6 +62,11 @@ export function StreamProvider({ children }: { children: ReactNode }) {
       const key = getStreamKey(sourceId, sessionId);
       const nextGen = (streamGensRef.current[key] ?? 0) + 1;
       streamGensRef.current[key] = nextGen;
+
+      // Abort any in-flight stream for this key before starting a new one
+      abortControllersRef.current[key]?.abort();
+      const controller = new AbortController();
+      abortControllersRef.current[key] = controller;
 
       setStreams((prev) => ({
         ...prev,
@@ -197,8 +204,27 @@ export function StreamProvider({ children }: { children: ReactNode }) {
               };
             });
           },
-        }, undefined, opts);
+        }, controller.signal, opts);
       } catch (err) {
+        // Treat abort as a graceful stop, not an error
+        if (err instanceof DOMException && err.name === "AbortError") {
+          const currentGen = streamGensRef.current[key];
+          if (nextGen !== currentGen) return;
+
+          setStreams((prev) => {
+            const stream = prev[key];
+            if (!stream || stream.gen !== nextGen) return prev;
+            return {
+              ...prev,
+              [key]: {
+                ...stream,
+                status: "done",
+              },
+            };
+          });
+          return;
+        }
+
         const currentGen = streamGensRef.current[key];
         if (nextGen !== currentGen) return;
 
@@ -214,6 +240,8 @@ export function StreamProvider({ children }: { children: ReactNode }) {
             },
           };
         });
+      } finally {
+        delete abortControllersRef.current[key];
       }
     },
     [],
@@ -228,8 +256,13 @@ export function StreamProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const stopStream = useCallback((sourceId: string, sessionId: number) => {
+    const key = getStreamKey(sourceId, sessionId);
+    abortControllersRef.current[key]?.abort();
+  }, []);
+
   return (
-    <StreamContext.Provider value={{ streams, startMessageStream, clearStream }}>
+    <StreamContext.Provider value={{ streams, startMessageStream, clearStream, stopStream }}>
       {children}
     </StreamContext.Provider>
   );

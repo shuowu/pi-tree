@@ -107,6 +107,7 @@ export function Reader() {
     } catch (err) {
       console.error('Failed to switch model:', err);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, source.id, session.sessionId, session.sessionContext, session.updateLocalSessionContext]);
 
   const panelToggles = [
@@ -196,6 +197,7 @@ export function Reader() {
               availableModels={availableModels}
               onModelChange={handleModelChange}
               onFork={session.handleFork}
+              onStop={session.handleStopGeneration}
               parentContext={session.parentContext}
             />
           </>

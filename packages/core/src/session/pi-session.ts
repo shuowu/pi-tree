@@ -82,6 +82,8 @@ export interface PiSessionConfig {
   excludeTools?: string[];
   /** Source type (book, news, paper, podcast) — drives context injection */
   sourceType?: string;
+  /** Provider compatibility flags (e.g., supportsDeveloperRole for OpenAI-compat providers) */
+  compat?: Record<string, boolean>;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,6 +96,8 @@ export class PiSession {
   private labelOverrides: Map<string, string> = new Map();
   /** Deferred system context — prepended to the first user message */
   private pendingContext: string | null = null;
+  /** If agent creation failed, stores the reason for error reporting */
+  private agentCreationError: string | null = null;
 
 
 
@@ -135,6 +139,7 @@ export class PiSession {
     // Try to create a full agent session. Falls back to session-only mode
     // if auth is not configured (no API keys).
     let agent: AgentSession | null = null;
+    let creationError: string | null = null;
     try {
       const serverConfig = options?.config ?? { readingModel: "" };
 
@@ -211,13 +216,17 @@ export class PiSession {
       // context view is compacted. Tree/chat UI reads raw entries, unaffected.
       agent.setAutoCompactionEnabled(true);
     } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
       console.warn(
-        `[pi-tree] Could not create agent session (missing API key?): ${err}`,
+        `[pi-tree] Could not create agent session: ${reason}`,
       );
       console.warn(`[pi-tree] Running in session-only mode (no AI responses)`);
+      // Store the reason so sendMessage* can report it to the client
+      creationError = reason;
     }
 
     const piSession = new PiSession(sm, agent, bookId, libraryPath);
+    piSession.agentCreationError = creationError;
 
     // If this is a fresh session, set up book context
     if (!options?.resumeSession) {
@@ -321,6 +330,9 @@ export class PiSession {
     entryId: string;
   }> {
     if (!this.agent) {
+      if (this.agentCreationError) {
+        throw new Error(`AI session failed to initialize: ${this.agentCreationError}`);
+      }
       // Session-only mode: no AI, just record the message
       return this.sendMessageNoAgent(message);
     }
@@ -365,9 +377,18 @@ export class PiSession {
     onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => Promise<void>,
     onCompaction?: (event: { type: "compaction_start" | "compaction_end"; reason: string }) => Promise<void>,
     onToolResult?: (info: { toolName: string; result: unknown; isError: boolean }) => Promise<void>,
+    signal?: AbortSignal,
   ): Promise<{ response: string; entryId: string }> {
     if (!this.agent) {
+      if (this.agentCreationError) {
+        throw new Error(`AI session failed to initialize: ${this.agentCreationError}`);
+      }
       return this.sendMessageNoAgent(message);
+    }
+
+    // If already aborted before we start, return immediately
+    if (signal?.aborted) {
+      return { response: "", entryId: "" };
     }
 
     // Prepend deferred context to the first message
@@ -376,6 +397,17 @@ export class PiSession {
     let fullResponse = "";
     let responseEntryId = "";
     let chain = Promise.resolve();
+
+    // Wire up abort signal to stop the Pi SDK agent
+    let onAbort: (() => void) | undefined;
+    if (signal) {
+      onAbort = () => {
+        this.agent!.abort().catch(() => {
+          // Ignore abort errors — agent may already be stopped
+        });
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
 
     const unsubscribe = this.agent.subscribe(
       (event: AgentSessionEvent) => {
@@ -420,8 +452,19 @@ export class PiSession {
       await this.agent.prompt(fullMessage);
       // Wait for any queued async callbacks to finish executing
       await chain;
+    } catch (err) {
+      // On abort, return the partial response instead of throwing
+      if (signal?.aborted) {
+        await chain.catch(() => {});
+        return { response: fullResponse, entryId: responseEntryId };
+      }
+      throw err;
     } finally {
       unsubscribe();
+      // Clean up the abort listener to prevent leaks
+      if (signal && onAbort) {
+        signal.removeEventListener("abort", onAbort);
+      }
     }
 
     return { response: fullResponse, entryId: responseEntryId };

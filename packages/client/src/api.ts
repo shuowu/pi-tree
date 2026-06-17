@@ -429,74 +429,66 @@ export async function sendMessageStreaming(
   let buffer = "";
   let receivedDone = false;
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n\n");
-      buffer = lines.pop() ?? "";
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() ?? "";
 
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6);
-        if (data === "[DONE]") continue;
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (data === "[DONE]") continue;
 
-        try {
-          const event = JSON.parse(data);
-          switch (event.type) {
-            case "token":
-              callbacks.onToken(event.token);
-              break;
-            case "queued":
-              callbacks.onQueued?.();
-              break;
-            case "turn_end":
-              callbacks.onTurnEnd?.();
-              break;
-            case "tool_call":
-              callbacks.onToolCall?.({
-                toolName: event.toolName,
-                args: event.args ?? {},
-              });
-              break;
-            case "tool_result":
-              callbacks.onToolResult?.({
-                toolName: event.toolName,
-                result: event.result,
-                isError: event.isError ?? false,
-              });
-              break;
-            case "compaction_start":
-              callbacks.onCompaction?.(true);
-              break;
-            case "compaction_end":
-              callbacks.onCompaction?.(false);
-              break;
-            case "tree_update":
-              callbacks.onTreeUpdate?.(event.tree);
-              break;
-            case "error":
-              callbacks.onError(new Error(event.error || "Unknown streaming error"));
-              return;
-            case "done":
-              // The server sends the full state + response in the done event
-              receivedDone = true;
-              callbacks.onDone(event as SessionState & { response: string });
-              break;
-          }
-        } catch {
-          // Skip malformed events
+      try {
+        const event = JSON.parse(data);
+        switch (event.type) {
+          case "token":
+            callbacks.onToken(event.token);
+            break;
+          case "queued":
+            callbacks.onQueued?.();
+            break;
+          case "turn_end":
+            callbacks.onTurnEnd?.();
+            break;
+          case "tool_call":
+            callbacks.onToolCall?.({
+              toolName: event.toolName,
+              args: event.args ?? {},
+            });
+            break;
+          case "tool_result":
+            callbacks.onToolResult?.({
+              toolName: event.toolName,
+              result: event.result,
+              isError: event.isError ?? false,
+            });
+            break;
+          case "compaction_start":
+            callbacks.onCompaction?.(true);
+            break;
+          case "compaction_end":
+            callbacks.onCompaction?.(false);
+            break;
+          case "tree_update":
+            callbacks.onTreeUpdate?.(event.tree);
+            break;
+          case "error":
+            callbacks.onError(new Error(event.error || "Unknown streaming error"));
+            return;
+          case "done":
+            // The server sends the full state + response in the done event
+            receivedDone = true;
+            callbacks.onDone(event as SessionState & { response: string });
+            break;
         }
+      } catch {
+        // Skip malformed events
       }
     }
-  } catch (err) {
-    // Aborted by caller (e.g. new message sent) — not an error
-    if (err instanceof DOMException && err.name === "AbortError") {
-      return;
-    }
-    throw err;
   }
 
   if (!receivedDone) {
