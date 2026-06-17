@@ -1,13 +1,14 @@
 {
   "name": "pi-tree",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "https://github.com/shuowu/pi-tree.git"
   },
   "description": "AI-assisted reading and research with tree-structured conversations",
+  "homepage": "https://shuowu.github.io/pi-tree/",
   "keywords": [
     "pi",
     "pi-tree",

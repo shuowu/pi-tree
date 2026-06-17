@@ -1,5 +1,10 @@
 # pi-tree
 
+[![CI](https://github.com/shuowu/pi-tree/actions/workflows/ci.yml/badge.svg)](https://github.com/shuowu/pi-tree/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/shuowu/pi-tree/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/shuowu/pi-tree)](https://github.com/shuowu/pi-tree/releases)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-shuowu%2Fpi--tree-blue?logo=docker)](https://ghcr.io/shuowu/pi-tree)
+
 **AI made everyone a faster producer. Nobody's becoming a better reader.**
 
 Pi-tree is for the input side of knowledge work. Load your books, news feeds, or research papers — an AI reads them *with* you, not as a flat Q&A, but as branching conversations that capture how you actually think about the material. Go deep on a concept, branch into a tangent, zoom back out. Your reading path is a navigable tree, not a disposable chat log.
@@ -11,7 +16,7 @@ Pi-tree is for the input side of knowledge work. Load your books, news feeds, or
     <img src="docs/images/demo.gif" alt="Pi-tree in action — scrolling through an AI-generated news summary, tree sidebar with branching topics, inline branch cards for deep-dive" width="720" />
   </a>
   <br />
-  <sub><a href="https://shuowu.github.io/pi-tree/">📖 Documentation</a> · <a href="https://shuowu.github.io/pi-tree/vision">Vision</a> · <a href="https://shuowu.github.io/pi-tree/">▶ Watch Demo</a></sub>
+  <sub><a href="https://shuowu.github.io/pi-tree/">📖 Documentation</a> · <a href="https://shuowu.github.io/pi-tree/vision">Vision</a> · <a href="https://shuowu.github.io/pi-tree/">▶ Watch Demo</a> · <a href="CONTRIBUTING.md">Contributing</a></sub>
 </p>
 
 ## Why Pi-tree?
