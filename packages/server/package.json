@@ -63,7 +63,7 @@
     "rss-parser": "^3.13.0",
     "turndown": "^7.2.4",
     "typebox": "^1.2.6",
-    "zod": "^3.24.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@copilotkit/aimock": "^1.31.0",
