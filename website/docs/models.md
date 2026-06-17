@@ -64,9 +64,37 @@ PI_BASE_URL=http://localhost:1234/v1             # LM Studio default
 PI_MODEL=your-model-name
 ```
 
-:::info Docker users
-When running pi-tree in Docker with a local model server on the host, use `http://host.docker.internal:11434/v1` instead of `localhost`. See [Docker Deployment](/docs/docker#using-a-local-llm) for details.
+:::warning Docker users
+When running pi-tree in Docker, two extra steps are needed:
+
+1. **Bind to all interfaces** — LM Studio defaults to `127.0.0.1` (localhost only). Docker containers can't reach it. Run `lms server start --bind 0.0.0.0` or set `"networkInterface": "0.0.0.0"` in `~/.lmstudio/.internal/http-server-config.json`.
+
+2. **Use `host.docker.internal`** — Replace `localhost` with `host.docker.internal` in your base URL. On Linux, add `extra_hosts: ["host.docker.internal:host-gateway"]` to your Compose file.
+
+See [Docker Deployment — Local LLM](/docs/docker#using-a-local-llm) for a complete walkthrough.
 :::
+
+### Compatibility flags
+
+When using `models.json` with local providers, add `compat` flags to avoid silent failures:
+
+```json
+{
+  "providers": {
+    "lmstudio": {
+      "baseUrl": "http://localhost:1234/v1",
+      "api": "openai-completions",
+      "apiKey": "not-needed",
+      "compat": { "supportsDeveloperRole": false },
+      "models": [
+        { "id": "qwen/qwen3.6-27b" }
+      ]
+    }
+  }
+}
+```
+
+Most local servers (LM Studio, Ollama, llama.cpp) only support `system` and `user` message roles. Setting `"supportsDeveloperRole": false` prevents the AI framework from sending unsupported `developer` role messages, which would cause empty responses.
 
 ## Multi-Provider Setup
 

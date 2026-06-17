@@ -73,19 +73,114 @@ See [MCP Bridge](/docs/self-hosting#mcp-bridge) for setup and available servers.
 
 ### Using a Local LLM
 
-If you're running [Ollama](https://ollama.com/download), [LM Studio](https://lmstudio.ai/), or another local model server on the host:
+If you're running [Ollama](https://ollama.com/download), [LM Studio](https://lmstudio.ai/), or another local model server on the host machine, there are a few networking and compatibility details to get right.
+
+#### 1. Enable Docker-to-host networking
+
+Docker containers can't reach `localhost` on the host. You need `host.docker.internal` to resolve to the host machine:
+
+```yaml
+services:
+  pi-tree:
+    # ... your other config ...
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
+
+:::info
+`extra_hosts` is required on **Linux**. On Docker Desktop (macOS/Windows), `host.docker.internal` works out of the box — but adding it explicitly doesn't hurt.
+:::
+
+#### 2. Bind your model server to all interfaces
+
+Local model servers typically bind to `127.0.0.1` (localhost only) by default. Docker containers connect via the host's bridge IP, so the server must listen on `0.0.0.0`:
+
+**Ollama** — listens on `0.0.0.0` by default. No changes needed.
+
+**LM Studio** — binds to `127.0.0.1` by default. Change it:
+
+```bash
+# Via CLI (preferred)
+lms server stop
+lms server start --bind 0.0.0.0
+
+# Or edit ~/.lmstudio/.internal/http-server-config.json
+# Change "networkInterface": "127.0.0.1" → "networkInterface": "0.0.0.0"
+```
+
+#### 3. Configure the provider
+
+**Simple setup** (single local provider via env vars):
 
 ```yaml
 environment:
-  - PI_PROVIDER=openai           # Ollama exposes an OpenAI-compatible API
+  - PI_PROVIDER=ollama
   - PI_API_KEY=not-needed
   - PI_BASE_URL=http://host.docker.internal:11434/v1
-  - PI_MODEL=llama3.1:70b
+  - PI_MODEL=gemma4:12b
 ```
 
-:::warning
-`host.docker.internal` works on Docker Desktop (macOS/Windows) and Docker Engine 20.10+ on Linux with `--add-host=host.docker.internal:host-gateway`. On older Linux setups, use the host's LAN IP instead.
+**Multi-provider setup** (local + cloud via `models.json`):
+
+```json
+{
+  "providers": {
+    "lmstudio": {
+      "baseUrl": "http://host.docker.internal:1234/v1",
+      "api": "openai-completions",
+      "apiKey": "not-needed",
+      "compat": { "supportsDeveloperRole": false },
+      "models": [
+        { "id": "qwen/qwen3.6-27b" }
+      ]
+    },
+    "deepseek": {
+      "apiKey": "$DEEPSEEK_API_KEY",
+      "models": [
+        { "id": "deepseek-v4-flash" }
+      ]
+    }
+  }
+}
+```
+
+Mount the file into the container:
+
+```yaml
+volumes:
+  - ~/.pi/agent/models.json:/root/.pi/agent/models.json:ro
+```
+
+:::tip Compatibility flags
+Local model servers don't always support all OpenAI API features. The `compat` field tells pi-tree how to adapt:
+
+| Flag | Default | When to set `false` |
+|------|---------|-------------------|
+| `supportsDeveloperRole` | `true` | LM Studio, Ollama, and most local servers only support `system` and `user` roles — not the `developer` role. Set this to `false` to avoid silent failures. |
+
+If your local model returns empty responses or hangs, missing `compat` flags are usually the cause.
 :::
+
+#### Complete Docker Compose example
+
+A full working setup with a local LM Studio provider and a cloud fallback:
+
+```yaml
+services:
+  pi-tree:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3847:3847"
+    env_file: .env
+    volumes:
+      - ${PI_TREE_DATA:-./data}:/data
+      - ~/.pi/agent/models.json:/root/.pi/agent/models.json:ro
+    environment:
+      - DATA_PATH=/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
 
 ### Multi-Provider
 
