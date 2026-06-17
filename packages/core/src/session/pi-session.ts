@@ -856,7 +856,9 @@ export class PiSession {
 
   registerTopicNode(entryId: string, meta: TopicMeta): void {
     this.topicCache.set(entryId, meta);
-    this.sm.appendCustomEntry(CUSTOM_TYPE, meta);
+    // Store the targetEntryId so rebuildTopicCache can map back to the right node.
+    // Without this, the custom entry's own ID is used, which doesn't match entryId.
+    this.sm.appendCustomEntry(CUSTOM_TYPE, { ...meta, targetEntryId: entryId });
   }
 
   updateStatus(entryId: string, status: "active" | "completed" | "abandoned"): void {
@@ -916,7 +918,10 @@ export class PiSession {
 
       const data = custom.data as PiTreeData;
       if (data.kind === "topic_node") {
-        this.topicCache.set(entry.id, data);
+        // registerTopicNode stores targetEntryId to map back to the original entry.
+        // branchAt creates the custom entry AS the topic node (no targetEntryId needed).
+        const cacheKey = (data as any).targetEntryId ?? entry.id;
+        this.topicCache.set(cacheKey, data);
       } else if (data.kind === "section_status") {
         this.statusOverrides.set(data.targetEntryId, data.newStatus);
       } else if (data.kind === "section_label") {
