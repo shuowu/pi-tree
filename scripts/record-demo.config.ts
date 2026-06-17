@@ -10,14 +10,10 @@ export default defineConfig({
   timeout: 120_000,
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:5947",
-    channel: "chrome",
   },
   projects: [
     {
       name: "demo",
-      use: {
-        channel: "chrome",
-      },
     },
   ],
 });

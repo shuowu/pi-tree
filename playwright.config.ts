@@ -29,8 +29,6 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Use system Chrome — Playwright's bundled chromium doesn't support this OS
-        channel: "chrome",
       },
     },
   ],
