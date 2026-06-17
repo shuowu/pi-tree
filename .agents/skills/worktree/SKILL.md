@@ -2,13 +2,17 @@
 name: worktree
 description: >
   Create a git worktree for a feature branch with isolated dev ports and data directory.
-  Invoke when the user asks to "create a worktree", "start a worktree", "new worktree",
-  "work on a branch", or similar. Also handles listing and removing worktrees.
+  Invoke ONLY when the user explicitly asks for a git worktree — e.g., "create a worktree",
+  "start a worktree", "new worktree", "git worktree". Do NOT invoke for general branch work;
+  use invoke_subagent with Workspace: "branch" for that instead.
+  Also handles listing and removing worktrees.
 ---
 
 # Worktree Skill
 
 Create and manage git worktrees with isolated dev environments (unique ports, separate data directories) so multiple branches can run dev servers simultaneously without conflicts.
+
+Worktrees are placed **inside** the repo at `.worktrees/` (gitignored) so that Antigravity subagents inherit the workspace's file permissions automatically — no re-prompting for access.
 
 ## Port Allocation Scheme
 
@@ -33,13 +37,13 @@ Ask the user for:
 
 ### 2. Compute worktree path
 
-Worktrees are placed as siblings of the main repo:
+Worktrees are placed inside the repo's `.worktrees/` directory (which is gitignored):
 ```
-~/repos/pi-tree                       ← main
-~/repos/pi-tree--<branch-suffix>      ← worktree
+~/repos/pi-tree/                              ← main repo
+~/repos/pi-tree/.worktrees/<branch-suffix>/   ← worktree
 ```
 
-Where `<branch-suffix>` is the branch name with `/` replaced by `-` (e.g., `feat/new-feature` → `pi-tree--feat-new-feature`).
+Where `<branch-suffix>` is the branch name with `/` replaced by `-` (e.g., `feat/new-feature` → `feat-new-feature`).
 
 ### 3. Find next available port offset
 
@@ -58,21 +62,25 @@ If the script doesn't exist yet, compute manually:
 
 ### 4. Create the worktree
 
+Ensure the `.worktrees/` directory exists, then create the worktree:
+
 ```bash
-git worktree add ../pi-tree--<branch-suffix> -b <branch-name> <base-ref>
+mkdir -p .worktrees
+git worktree add .worktrees/<branch-suffix> -b <branch-name> <base-ref>
 ```
 
 ### 5. Generate `.envrc` for the worktree
 
-Create a `.envrc` file in the new worktree directory:
+Create a `.envrc` file in the new worktree directory. The `dotenv` directive needs
+to reference the main repo's `.env` since the worktree is a subdirectory:
 
 ```bash
-cat > ../pi-tree--<branch-suffix>/.envrc << 'EOF'
+cat > .worktrees/<branch-suffix>/.envrc << 'EOF'
 # Pi-Tree worktree dev environment
 # Auto-generated — ports offset to avoid conflicts with main dev and Docker.
 
-# Load shared secrets from .env (API keys, models, paths)
-dotenv
+# Load shared secrets from main repo's .env (API keys, models, paths)
+dotenv ../../.env
 
 # Worktree-specific overrides
 export PORT=<server-port>
@@ -84,24 +92,24 @@ EOF
 
 Then allow it:
 ```bash
-cd ../pi-tree--<branch-suffix> && direnv allow
+cd .worktrees/<branch-suffix> && direnv allow
 ```
 
 ### 6. Install dependencies
 
 ```bash
-cd ../pi-tree--<branch-suffix> && npm install
+cd .worktrees/<branch-suffix> && npm install
 ```
 
 ### 7. Report to user
 
 Tell the user:
-- Worktree path
+- Worktree path (relative to repo root: `.worktrees/<branch-suffix>`)
 - Branch name
 - Server port and client port
 - Data path
-- How to start dev: `cd <path> && npm run dev`
-- How to remove: `git worktree remove <path>`
+- How to start dev: `cd .worktrees/<branch-suffix> && npm run dev`
+- How to remove: `git worktree remove .worktrees/<branch-suffix>`
 
 ## Listing Worktrees
 
@@ -122,10 +130,28 @@ When the user asks to "remove a worktree" or "clean up worktree":
 
 1. Remove the worktree:
    ```bash
-   git worktree remove <path>
+   git worktree remove .worktrees/<branch-suffix>
    ```
 2. Optionally delete the branch:
    ```bash
    git branch -d <branch-name>
    ```
 3. The data directory (`~/.local/share/pi-tree-wt-<branch>`) is left intact unless the user explicitly asks to delete it.
+
+## Migrating Existing Sibling Worktrees
+
+If there are legacy worktrees placed as siblings (e.g., `~/repos/pi-tree--feat-*`), migrate them:
+
+```bash
+# 1. Note the branch and current state
+git worktree list
+
+# 2. Remove the old worktree (keeps the branch)
+git worktree remove ../pi-tree--<branch-suffix>
+
+# 3. Re-create inside .worktrees/
+mkdir -p .worktrees
+git worktree add .worktrees/<branch-suffix> <branch-name>
+
+# 4. Generate new .envrc (see step 5 above) and npm install
+```

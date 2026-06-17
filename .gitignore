@@ -15,5 +15,8 @@ router-*
 # Default Docker data directory
 /data
 
+# Git worktrees (in-repo, for Antigravity subagent compatibility)
+.worktrees/
+
 # Electron
 packages/electron/release/
