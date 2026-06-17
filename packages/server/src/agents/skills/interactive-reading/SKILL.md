@@ -9,11 +9,12 @@ AI-assisted interactive reading with ebooks that have been converted to markdown
 
 ## Workflow
 
-1. **Find the book** — scan `library/` for `<Title>_<Author>_<Year>/`, then check `markdown/` for the converted file.
-2. **Convert only if missing** — use `ebook_convert` on `library/<folder>/book/` if no markdown exists.
-3. **Load the outline** — check `library/<folder>/analysis/outline.md`. If it exists, use it as the navigation map (chapter line numbers, thematic map, reading recommendations). If not, offer to generate one with `book-outline`.
-4. **Read the book** — use `read` with offset/limit, using outline line numbers for precise navigation.
-5. **Engage interactively** — discuss, summarize, analyze, or quiz.
+Your working directory (`cwd`) is set to the `sources/` directory. Each source lives at `<sourceId>/` relative to cwd.
+
+1. **Find the book** — the system context tells you the book directory (`<sourceId>/`). Check `<sourceId>/markdown/` for the converted `.md` file.
+2. **Load the outline** — check `<sourceId>/analysis/outline.md`. If it exists, use it as the navigation map (chapter line numbers, thematic map, reading recommendations). If not, offer to generate one with `book-outline`.
+3. **Read the book** — use `read` with offset/limit, using outline line numbers for precise navigation.
+4. **Engage interactively** — discuss, summarize, analyze, or quiz.
 
 ## Reading Strategies
 
@@ -68,13 +69,13 @@ The outline (`analysis/outline.md`) is the **navigation backbone**. Always check
 
 ## Bookmarks
 
-Save reading progress at `library/<folder>/notes/bookmark.md` so the user can resume across sessions.
+Save reading progress at `<sourceId>/notes/bookmark.md` so the user can resume across sessions.
 
 ```markdown
 # Bookmark: <Book Title>
 
-- **File**: library/<Title>_<Author>_<Year>/markdown/<filename>.md
-- **Outline**: library/<Title>_<Author>_<Year>/analysis/outline.md
+- **File**: <sourceId>/markdown/<filename>.md
+- **Outline**: <sourceId>/analysis/outline.md
 - **Last Section**: Part II, Chapter 1: Embrace Reality and Deal with It
 - **Offset**: 1500
 - **Updated**: 2025-05-28T10:30:00Z
@@ -90,7 +91,7 @@ Save reading progress at `library/<folder>/notes/bookmark.md` so the user can re
 - Read existing bookmark first, then update
 
 **Resuming:**
-- On "resume" / "continue reading", check `library/*/notes/bookmark.md` (and legacy `analysis/*/bookmark.md`)
+- On "resume" / "continue reading", check `<sourceId>/notes/bookmark.md` (and legacy `<sourceId>/analysis/bookmark.md`)
 - Show: "You left off at **Part II, Ch 1** (line 1500). Resume?"
 - After resuming, show the outline entry for the current chapter, then give the **detailed chapter briefing** (covering the whole chapter but flagging where the reader left off if mid-chapter)
 
@@ -98,7 +99,7 @@ Save reading progress at `library/<folder>/notes/bookmark.md` so the user can re
 
 ## Notes & Analysis
 
-For personal notes, save to `library/<folder>/notes/` (e.g., `session-<date>.md`, `chapter-NN.md`).
+For personal notes, save to `<sourceId>/notes/` (e.g., `session-<date>.md`, `chapter-NN.md`).
 
 For structured analysis (summary, key ideas, quotes, comparisons), use the **`book-analysis`** skill — it handles templates and naming conventions.
 
@@ -124,5 +125,4 @@ Pi's `/tree` navigation is a natural fit for interactive reading. The session is
 
 ## Commands
 
-- `/convert <path>` — Convert an ebook to markdown
-- `/books` — List all ebooks and their conversion status
+- `/books` — List all sources and their status

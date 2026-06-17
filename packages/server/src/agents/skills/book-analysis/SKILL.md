@@ -17,8 +17,7 @@ This skill handles generating structured analysis from converted ebooks and pers
 
 ## Output Directory
 
-All analysis goes to `library/<Title>_<Author>_<Year>/analysis/`. One subfolder per book.
-Legacy path: `analysis/<Title>_<Author>_<Year>/`.
+All analysis goes to `<sourceId>/analysis/`. One subfolder per book.
 
 ### Naming Convention
 
@@ -35,8 +34,8 @@ Legacy path: `analysis/<Title>_<Author>_<Year>/`.
 
 ### 1. Identify the Source
 
-- Check `library/<Title>_<Author>_<Year>/markdown/` for the converted book, then `markdown/` (legacy)
-- If not converted yet, check `library/<Title>_<Author>_<Year>/book/` or `books/` for the source and suggest converting
+- Check `<sourceId>/markdown/` for the converted book
+- If no markdown file exists, tell the user the book hasn't been ingested yet and suggest uploading it
 - Confirm the book title with the user if ambiguous
 
 ### 2. Read the Content
@@ -79,8 +78,8 @@ Choose the appropriate analysis type based on the user's request:
 
 ### 4. Save to File
 
-- Use the book's analysis folder: `library/<Title>_<Author>_<Year>/analysis/`
-- Create if it doesn't exist: `mkdir -p "library/<Title>_<Author>_<Year>/analysis"`
+- Use the book's analysis folder: `<sourceId>/analysis/`
+- Create if it doesn't exist: `mkdir -p "<sourceId>/analysis"`
 - Write the file using the `write` tool
 - Tell the user what was saved and where
 

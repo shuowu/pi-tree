@@ -26,8 +26,8 @@ The Navigation Map (line-numbered heading tree) is the most important section fo
 
 ### 1. Identify the Book
 
-- Check `markdown/` for converted files, or `library/*/markdown/`
-- If not found, check `books/` or `library/*/book/` and suggest converting first
+- Check `<sourceId>/markdown/` for converted files
+- If no markdown file exists, tell the user the book hasn't been ingested yet and suggest uploading it
 - Confirm with the user if ambiguous
 
 ### 2. Scan the Structure
@@ -93,8 +93,8 @@ For each major part or section:
 Save to the book's analysis folder:
 
 ```
-library/<Title>_<Author>_<Year>/analysis/outline.md
-library/<Title>_<Author>_<Year>/analysis/toc.json
+<sourceId>/analysis/outline.md
+<sourceId>/analysis/toc.json
 ```
 
 **Always generate both files:**
@@ -108,7 +108,7 @@ library/<Title>_<Author>_<Year>/analysis/toc.json
 
 **Author:** <Author>
 **Date Generated:** YYYY-MM-DD
-**Source File:** library/<Title>_<Author>_<Year>/markdown/<filename>.md
+**Source File:** <sourceId>/markdown/<filename>.md
 
 ## One-Line Summary
 <one sentence capturing the whole book>
