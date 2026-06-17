@@ -351,3 +351,20 @@ Volumes:
 - `pi-tree-data` named volume → `/data` (all state: library, sessions, SQLite DB)
 
 Env vars: `DATA_PATH`, `PORT`, `PI_MODEL`.
+
+## Releasing
+
+All packages in the monorepo share a single version. **Never edit version numbers in individual `package.json` files** — use the bump script:
+
+```bash
+./scripts/bump-version.sh 0.3.0    # updates all package.json + README badge + commit + tag
+git push && git push --tags
+```
+
+The script:
+1. Updates `version` in root `package.json` and all 7 workspace `package.json` files
+2. Updates the static release badge in `README.md`
+3. Creates a commit: `chore: bump version to v0.3.0`
+4. Creates an annotated git tag: `v0.3.0`
+
+**Important**: The Electron build (`packages/electron/electron-builder.yml`) reads `${version}` from `packages/electron/package.json` for artifact naming. If versions drift, release artifacts will have wrong version numbers.
