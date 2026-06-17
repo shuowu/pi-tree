@@ -1402,6 +1402,24 @@ describe("TreeManager — Phase 2: State Composition", () => {
       expect(state.viewNodeId).toBe("p1");
     });
 
+    it("returns explicit root view when viewNodeId is empty string", () => {
+      const tree = [
+        aUserNode("p1", "msg 1", [], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [["p1", "user", "msg 1"]],
+      });
+      const tm = createTreeManager(mock);
+
+      const state = tm.getSessionState("");
+
+      // Empty string means "explicit root" — no auto-resolve, breadcrumb empty
+      expect(state.breadcrumb).toEqual([]);
+      expect(state.viewNodeId).toBeNull();
+    });
+
     it("builds breadcrumb path from root to viewNodeId", () => {
       const tree = [
         aUserNode("p1", "msg 1", [

@@ -279,9 +279,9 @@ export function useReaderSession(
 
       setIsLoading(true);
       try {
-        const targetId = nodeId || null;
-        // Empty nodeId = navigate to root
-        const state = await viewScope(userId, source.id, sid, targetId);
+        // Pass nodeId as-is: "" means "explicit root" (no server auto-resolve),
+        // a real ID scopes into that node.
+        const state = await viewScope(userId, source.id, sid, nodeId || "");
         applySessionData(state);
         updateUrl(state.viewNodeId, sid, false); // push history entry
         setScrollTopTrigger((c) => c + 1);
@@ -306,7 +306,7 @@ export function useReaderSession(
 
     setIsLoading(true);
     try {
-      const state = await viewScope(userId, source.id, sid, null);
+      const state = await viewScope(userId, source.id, sid, "");
       applySessionData(state);
       updateUrl(state.viewNodeId, sid, false); // push history entry
       setScrollTopTrigger((c) => c + 1);

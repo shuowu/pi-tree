@@ -765,16 +765,20 @@ export class TreeManager {
   getSessionState(viewNodeId?: string | null): SessionState {
     const tree = this.buildTreeView();
 
-    // When no explicit viewNodeId, auto-resolve to the most recent branch scope.
-    // Without this, the root node (which is often a fork) would return 0 messages.
+    // Auto-resolve when viewNodeId is null/undefined (omitted — e.g. initial load).
+    // Empty string "" means "explicitly root" (breadcrumb root click) and skips
+    // auto-resolve so the user actually lands at root.
     let effectiveViewNodeId = viewNodeId ?? null;
-    if (!effectiveViewNodeId) {
+    if (effectiveViewNodeId === null) {
       const currentNode = findCurrentNode(tree);
       if (currentNode) {
         const parent = findParent(tree, currentNode.id);
         effectiveViewNodeId = parent ? parent.id : currentNode.id;
       }
     }
+
+    // Normalize "" → null so downstream (breadcrumb, URL) treats it as root.
+    if (effectiveViewNodeId === "") effectiveViewNodeId = null;
 
     return this.buildScopedState(tree, effectiveViewNodeId);
   }
