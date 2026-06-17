@@ -11,3 +11,7 @@ services:
       - ${PI_TREE_DATA:-./data}:/data
     environment:
       - DATA_PATH=/data
+    extra_hosts:
+      # Enables host.docker.internal on Linux (built-in on macOS/Windows).
+      # Required for local model servers (e.g., LM Studio) running on the host.
+      - "host.docker.internal:host-gateway"

@@ -71,6 +71,7 @@ export function configureModelRegistry(
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 128000,
         maxTokens: 16384,
+        ...(config.compat ? { compat: config.compat } : {}),
       }],
     });
     selectedModel = modelRegistry.getAll().find(
@@ -123,6 +124,7 @@ function registerProviderWithModels(
         cost: m.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: m.contextWindow ?? 200000,
         maxTokens: m.maxTokens ?? 16384,
+        ...(config.compat ? { compat: config.compat } : {}),
       }),
     );
 

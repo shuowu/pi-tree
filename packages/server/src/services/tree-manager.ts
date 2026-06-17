@@ -109,6 +109,14 @@ export class TreeManager {
       resumeSession = TreeManager.readActiveSession(userId, sourceId, options?.sessionId);
     }
 
+    // pending-* placeholders are created by create_session / session CRUD
+    // before the session is actually used. They don't correspond to real JSONL
+    // files, so treat them as fresh sessions to ensure context injection.
+    if (resumeSession?.startsWith("pending-")) {
+      console.log(`[tree-manager] Session file is a placeholder (${resumeSession}), treating as new session`);
+      resumeSession = undefined;
+    }
+
     const db = getDb();
     const sourceRow = db.select().from(sources).where(eq(sources.id, sourceId)).get();
     const resolvedLibraryPath = library.getSourcesPath();
@@ -137,7 +145,7 @@ export class TreeManager {
     // (e.g. env=zai for cloud, models.json=lmstudio for local).
     // We skip the override when the provider matches the env config, because the
     // env config (PI_API_KEY, PI_BASE_URL, etc.) is the source of truth for it.
-    let providerOverride: Record<string, string | undefined> = {};
+    let providerOverride: Record<string, unknown> = {};
     const modelsJsonProvider = findProviderForModel(effectiveModel);
     if (modelsJsonProvider && modelsJsonProvider.name !== serverCfg.provider) {
       console.log(`[tree-manager] Model "${effectiveModel}" → provider "${modelsJsonProvider.name}" from models.json`);
@@ -146,6 +154,7 @@ export class TreeManager {
         apiKey: resolveApiKey(modelsJsonProvider.config.apiKey),
         baseUrl: modelsJsonProvider.config.baseUrl,
         api: modelsJsonProvider.config.api,
+        ...(modelsJsonProvider.config.compat ? { compat: modelsJsonProvider.config.compat } : {}),
       };
     }
 
@@ -577,7 +586,7 @@ export class TreeManager {
       onCompaction?: (event: { type: string; reason: string }) => Promise<void>;
       onDone: (result: Record<string, unknown>) => Promise<void>;
     },
-    opts?: { forceBranch?: boolean },
+    opts?: { forceBranch?: boolean; signal?: AbortSignal },
   ): Promise<void> {
     const tree = this.buildTreeView();
     const effectiveViewNodeId = viewNodeId ?? tree.id ?? null;
@@ -617,6 +626,7 @@ export class TreeManager {
       callbacks.onToolCall,
       callbacks.onCompaction,
       callbacks.onToolResult,
+      opts?.signal,
     );
 
     // Only redirect scope for explicit ⑂ branching.
@@ -754,7 +764,19 @@ export class TreeManager {
 
   getSessionState(viewNodeId?: string | null): SessionState {
     const tree = this.buildTreeView();
-    return this.buildScopedState(tree, viewNodeId ?? null);
+
+    // When no explicit viewNodeId, auto-resolve to the most recent branch scope.
+    // Without this, the root node (which is often a fork) would return 0 messages.
+    let effectiveViewNodeId = viewNodeId ?? null;
+    if (!effectiveViewNodeId) {
+      const currentNode = findCurrentNode(tree);
+      if (currentNode) {
+        const parent = findParent(tree, currentNode.id);
+        effectiveViewNodeId = parent ? parent.id : currentNode.id;
+      }
+    }
+
+    return this.buildScopedState(tree, effectiveViewNodeId);
   }
 
   /**
