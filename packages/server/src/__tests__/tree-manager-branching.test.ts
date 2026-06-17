@@ -1384,7 +1384,7 @@ describe("TreeManager — Phase 2: State Composition", () => {
       expect(state.branches[1].label).toBe("branch B");
     });
 
-    it("returns empty breadcrumb when viewNodeId is null", () => {
+    it("auto-resolves to current node when viewNodeId is null", () => {
       const tree = [
         aUserNode("p1", "msg 1", [], { isCurrent: true }),
       ];
@@ -1397,8 +1397,9 @@ describe("TreeManager — Phase 2: State Composition", () => {
 
       const state = tm.getSessionState(null);
 
-      expect(state.breadcrumb).toEqual([]);
-      expect(state.viewNodeId).toBeNull();
+      // Auto-scope resolves to the current node so sessions aren't empty on load
+      expect(state.breadcrumb).toEqual([{ nodeId: "p1", label: "msg 1" }]);
+      expect(state.viewNodeId).toBe("p1");
     });
 
     it("builds breadcrumb path from root to viewNodeId", () => {
