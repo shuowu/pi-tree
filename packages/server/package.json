@@ -62,7 +62,7 @@
     "pdf-parse": "^2.4.5",
     "rss-parser": "^3.13.0",
     "turndown": "^7.2.4",
-    "typebox": "^1.2.6",
+    "typebox": "^1.2.14",
     "zod": "^3.24.0"
   },
   "devDependencies": {
