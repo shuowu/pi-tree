@@ -191,14 +191,14 @@ export function SelectionToolbar({
       }}
     >
       <div className="selection-toolbar-buttons">
-        <button className="selection-btn" onClick={handleDefine} title="Look up in dictionary">
-          <BookA size={14} /> Define
-        </button>
         {onAsk && (
           <button className="selection-btn" onClick={handleAsk} title="Quote and Ask in chat">
             <Quote size={14} /> Quote & Ask
           </button>
         )}
+        <button className="selection-btn" onClick={handleDefine} title="Look up in dictionary">
+          <BookA size={14} /> Define
+        </button>
       </div>
     </div>
   );
