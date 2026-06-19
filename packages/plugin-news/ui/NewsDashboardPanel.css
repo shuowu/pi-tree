@@ -1,0 +1,124 @@
+/* ── News Feeds Panel ── */
+
+.news-feeds-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+/* Status bar */
+.nfp-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  font-size: 0.7rem;
+  color: var(--text-tertiary, #888);
+}
+
+.nfp-status-count,
+.nfp-status-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Loading */
+.nfp-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted, #aaa);
+  font-size: 0.8rem;
+}
+
+/* Groups */
+.nfp-groups {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.nfp-group {
+  margin-bottom: 4px;
+}
+
+.nfp-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast, 0.15s);
+}
+
+.nfp-group-header:hover {
+  background: var(--accent-dim, rgba(122, 90, 56, 0.06));
+}
+
+.nfp-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent, #7a5a38);
+  text-transform: lowercase;
+}
+
+.nfp-group-count {
+  font-size: 0.6rem;
+  color: var(--text-muted, #aaa);
+  background: var(--bg-surface, #f5f5f5);
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+/* Feed items */
+.nfp-feed-list {
+  padding-left: 12px;
+}
+
+.nfp-feed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 12px 5px 8px;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast, 0.15s);
+}
+
+.nfp-feed:hover {
+  background: var(--accent-dim, rgba(122, 90, 56, 0.06));
+  border-left-color: var(--accent, #7a5a38);
+}
+
+.nfp-feed-name {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #555);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nfp-feed:hover .nfp-feed-name {
+  color: var(--text-primary, #222);
+}
+
+.nfp-feed-link {
+  flex-shrink: 0;
+  color: var(--text-muted, #ccc);
+  opacity: 0;
+  transition: opacity var(--transition-fast, 0.15s);
+}
+
+.nfp-feed:hover .nfp-feed-link {
+  opacity: 1;
+}

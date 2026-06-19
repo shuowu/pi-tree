@@ -16,7 +16,7 @@ import { api, loginAs, sel } from "./helpers";
 
 const RUN_ID = Date.now();
 const TEST_USER = `e2e-news-${RUN_ID}`;
-const NEWS_SOURCE_ID = "news"; // canonical ID from rss.service.ts
+const NEWS_SOURCE_ID = "news"; // canonical ID from plugins/news/rss-service.ts
 
 test.describe("News domain", () => {
   let sessionId: number;

@@ -6,11 +6,10 @@
  * Sessions, tags, config, and progress reference sources generically.
  *
  * Type-specific scalar metadata lives in the `metadata` JSON column.
- * Type-specific collections (rss_feeds, rss_items) get dedicated tables
- * with a `source_id` FK.
+ * Domain-specific collections (e.g. rss_feeds) live in plugin-owned databases.
  */
 
-import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
 // Users — simple identity, no auth
@@ -30,7 +29,7 @@ export const users = sqliteTable("users", {
 
 export const sources = sqliteTable("sources", {
   id: text("id").primaryKey(), // slug: "principles_dalio_2017", "news"
-  type: text("type").notNull().default("book"), // 'book' | 'news' | 'paper' | 'podcast' | ...
+  type: text("type").notNull().default("book"), // source type discriminator — plugins define types
   title: text("title").notNull(),
   subtitle: text("subtitle"),
   author: text("author").notNull().default(""),
@@ -57,7 +56,7 @@ export const userSessions = sqliteTable("user_sessions", {
     .notNull()
     .references(() => sources.id),
   title: text("title").notNull().default("Session"),
-  context: text("context").notNull().default('{"mode":"reading"}'), // JSON blob of SessionContext
+  context: text("context").notNull().default('{"mode":"reading"}'), // JSON SessionContext — mode resolved via profile chain
   sessionFile: text("session_file").notNull(), // absolute path to JSONL
   isActive: integer("is_active").notNull().default(1), // boolean: 1 = active
   createdAt: text("created_at").notNull(),
@@ -130,56 +129,3 @@ export const sourceTags = sqliteTable("source_tags", {
   tagId: integer("tag_id").notNull().references(() => tags.id, { onDelete: "cascade" }),
 }, () => []);
 
-// ---------------------------------------------------------------------------
-// Background Jobs — tracks async background processing
-// ---------------------------------------------------------------------------
-
-export const backgroundJobs = sqliteTable("background_jobs", {
-  id: text("id").primaryKey(), // job ID (uuid or slug)
-  sourceId: text("source_id").notNull(),
-  status: text("status").notNull().default("pending"), // 'pending' | 'processing' | 'completed' | 'failed'
-  progress: integer("progress").notNull().default(0), // 0 to 100
-  step: text("step").notNull().default("queued"), // e.g. 'parsing', 'outline', 'summary'
-  error: text("error"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
-
-// ---------------------------------------------------------------------------
-// RSS Feeds — linked to a source of type='news'
-// ---------------------------------------------------------------------------
-
-export const rssFeeds = sqliteTable("rss_feeds", {
-  id: text("id").primaryKey(),                         // e.g. "hacker-news"
-  sourceId: text("source_id")                          // FK to sources.id (news collection)
-    .notNull()
-    .references(() => sources.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),                        // display name e.g. "Hacker News"
-  url: text("url").notNull(),                          // RSS feed URL
-  tags: text("tags").notNull().default("[]"),           // JSON array of tag strings e.g. '["tech","ai"]'
-  isActive: integer("is_active").notNull().default(1), // 1 = active, 0 = disabled
-  lastFetchTime: text("last_fetch_time"),              // ISO timestamp
-  lastFetchStatus: text("last_fetch_status"),          // "success" | "failed"
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
-
-// ---------------------------------------------------------------------------
-// RSS cached feed entries
-// ---------------------------------------------------------------------------
-
-export const rssItems = sqliteTable("rss_items", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  title: text("title").notNull(),
-  feedId: text("feed_id").notNull().references(() => rssFeeds.id, { onDelete: "cascade" }),
-  url: text("url").notNull(),
-  guid: text("guid").notNull().default(""),
-  publishedAt: text("published_at"),                   // ISO timestamp
-  summary: text("summary"),                            // Snippet
-  author: text("author"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-}, (table) => ({
-  // Prevent duplicate items per feed — the crawler relies on this constraint
-  feedUrlIdx: uniqueIndex("rss_items_feed_url_idx").on(table.feedId, table.url),
-}));

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@pi-tree/core": "*",
+    "@pi-tree/shared": "*",
     "lucide-react": "^1.17.0",
     "marked": "^18.0.4",
     "mermaid": "^11.15.0"

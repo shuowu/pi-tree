@@ -113,7 +113,7 @@
   }
 }
 
-.book-card {
+.source-card {
   display: flex;
   gap: var(--space-3);
   align-items: stretch;
@@ -127,7 +127,7 @@
   overflow: hidden;
 }
 
-.book-card::before {
+.source-card::before {
   content: '';
   position: absolute;
   top: 0;
@@ -139,22 +139,22 @@
   transition: opacity var(--transition-base);
 }
 
-.book-card:hover {
+.source-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg), var(--shadow-glow);
   border-color: rgba(99, 102, 241, 0.3);
 }
 
-.book-card:hover::before {
+.source-card:hover::before {
   opacity: 1;
 }
 
-.book-card:hover .book-cover-container {
+.source-card:hover .source-cover-container {
   transform: translateY(-3px) rotate(-1deg);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
 }
 
-.book-card-info {
+.source-card-info {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -162,7 +162,7 @@
   padding: var(--space-1) 0;
 }
 
-.book-card-title {
+.source-card-title {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary);
@@ -173,13 +173,13 @@
   overflow: hidden;
 }
 
-.book-card-author {
+.source-card-author {
   font-size: var(--text-xs);
   color: var(--text-secondary);
   margin-bottom: var(--space-2);
 }
 
-.book-card-badges {
+.source-card-badges {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
@@ -213,7 +213,7 @@
   color: var(--red);
 }
 
-.add-book-card {
+.add-source-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -228,11 +228,11 @@
   transition: color var(--transition-base), border-color var(--transition-base), background var(--transition-base);
 }
 
-.add-book-card::before {
+.add-source-card::before {
   display: none;
 }
 
-.add-book-card:hover {
+.add-source-card:hover {
   color: var(--accent);
   border-color: var(--accent);
   background: var(--accent-dim);
@@ -444,7 +444,7 @@
    Tag management button
    ----------------------------------------------------------------------- */
 
-.book-card-tag-btn {
+.source-card-tag-btn {
   position: absolute;
   bottom: var(--space-2);
   right: var(--space-2);
@@ -461,11 +461,11 @@
   z-index: 2;
 }
 
-.book-card:hover .book-card-tag-btn {
+.source-card:hover .source-card-tag-btn {
   opacity: 1;
 }
 
-.book-card-tag-btn:hover {
+.source-card-tag-btn:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -716,7 +716,7 @@
   min-width: 0;
 }
 
-.job-book-title {
+.job-source-title {
   font-weight: 600;
   font-size: var(--text-sm);
   color: var(--text-primary);
@@ -725,7 +725,7 @@
   text-overflow: ellipsis;
 }
 
-.job-book-author {
+.job-source-author {
   font-size: var(--text-xs);
   color: var(--text-muted);
   white-space: nowrap;
@@ -801,45 +801,74 @@
   margin-top: 2px;
 }
 
-/* -----------------------------------------------------------------------
-   Source type filter chips
-   ----------------------------------------------------------------------- */
+/* ── Source Type Tabs ──────────────────────────────────────────── */
 
-
-
-/* ── Source Type Filter Chips ──────────────────────────────────── */
-
-.type-filter-chips {
+.library-tabs {
   display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.type-chip {
+.library-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.library-tab {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 14px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
+  gap: 6px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
   font-size: var(--text-sm);
+  font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: var(--font-sans);
-  font-weight: 500;
+  white-space: nowrap;
+  position: relative;
 }
 
-.type-chip:hover {
-  border-color: var(--accent);
+.library-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.library-tab.active {
   color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
-.type-chip.active {
+.library-tab.active .library-tab-count {
   background: var(--accent-dim);
-  border-color: var(--accent);
   color: var(--accent);
+}
+
+.library-tab svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.library-tab.active svg {
+  opacity: 1;
+}
+
+.library-tab-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  min-width: 20px;
+  text-align: center;
+  line-height: 1.4;
+  transition: all 0.15s ease;
 }
 
 /* ── Empty State ───────────────────────────────────────────────── */
@@ -854,6 +883,11 @@
   text-align: center;
   width: 100%;
   max-width: 860px;
+}
+
+.library-empty-state > svg {
+  color: var(--text-muted);
+  opacity: 0.5;
 }
 
 .library-empty-state p {
@@ -900,7 +934,7 @@
 
 /* ── Source Type Icon in Grid Cards ────────────────────────────── */
 
-.book-card-type-icon {
+.source-card-type-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;

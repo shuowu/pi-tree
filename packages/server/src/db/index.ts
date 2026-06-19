@@ -21,9 +21,6 @@ export {
   glossaryEntries,
   tags,
   sourceTags,
-  backgroundJobs,
-  rssFeeds,
-  rssItems,
 } from "./schema.js";
 
 // ---------------------------------------------------------------------------
@@ -161,43 +158,6 @@ function ensureTables(sqlite: Database.Database): void {
       tag_id     INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
       PRIMARY KEY (source_id, tag_id)
     );
-
-    CREATE TABLE IF NOT EXISTS background_jobs (
-      id          TEXT PRIMARY KEY,
-      source_id   TEXT NOT NULL,
-      status      TEXT NOT NULL DEFAULT 'pending',
-      progress    INTEGER NOT NULL DEFAULT 0,
-      step        TEXT NOT NULL DEFAULT 'queued',
-      error       TEXT,
-      created_at  TEXT NOT NULL,
-      updated_at  TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS rss_feeds (
-      id                 TEXT PRIMARY KEY,
-      source_id          TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
-      name               TEXT NOT NULL,
-      url                TEXT NOT NULL,
-      tags               TEXT NOT NULL DEFAULT '[]',
-      is_active          INTEGER NOT NULL DEFAULT 1,
-      last_fetch_time    TEXT,
-      last_fetch_status  TEXT,
-      created_at         TEXT NOT NULL,
-      updated_at         TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS rss_items (
-      id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      title        TEXT NOT NULL,
-      feed_id      TEXT NOT NULL REFERENCES rss_feeds(id) ON DELETE CASCADE,
-      url          TEXT NOT NULL,
-      guid         TEXT NOT NULL DEFAULT '',
-      published_at TEXT,
-      summary      TEXT,
-      author       TEXT,
-      created_at   TEXT NOT NULL,
-      updated_at   TEXT NOT NULL
-    );
   `);
 
   // Migrations for existing databases
@@ -208,10 +168,7 @@ function ensureTables(sqlite: Database.Database): void {
  * Run incremental migrations for schema changes on existing databases.
  * Each migration checks if the change has already been applied before executing.
  */
-function applyMigrations(sqlite: Database.Database): void {
-  // Migration: add tags column to rss_feeds
-  const rssFeedsCols = sqlite.pragma("table_info(rss_feeds)") as { name: string }[];
-  if (rssFeedsCols.length > 0 && !rssFeedsCols.some(c => c.name === "tags")) {
-    sqlite.exec(`ALTER TABLE rss_feeds ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`);
-  }
+function applyMigrations(_sqlite: Database.Database): void {
+  // Migrations for existing databases go here.
+  // Each migration should check if the change has already been applied before executing.
 }

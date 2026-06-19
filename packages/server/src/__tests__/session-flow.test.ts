@@ -58,19 +58,26 @@ describe("Session flow — full lifecycle", () => {
     const { initAgentRegistry } = await import(
       "../services/agent-registry.js"
     );
+    const { createRequire } = await import("node:module");
+    const { dirname } = await import("node:path");
+    const req = createRequire(import.meta.url);
+    const corePluginDirs = ["pi-tree-book", "pi-tree-news", "pi-tree-paper", "pi-tree-youtube", "pi-tree-mcp"].flatMap(pkg => {
+      try { return [dirname(req.resolve(`${pkg}/package.json`))]; }
+      catch { return []; }
+    });
     initAgentRegistry({
       coreDir: join(import.meta.dirname, ".."),
       dataDir: TEST_DATA_PATH,
+      corePluginDirs,
     });
 
     const { setExtensionServices } = await import("../agents/context.js");
-    const { RssService } = await import("../services/rss.service.js");
     const { userSessions, users } = await import("../db/index.js");
     setExtensionServices({
       db: getDb,
       schema: { sources, userSessions, users },
-      rssService: new RssService(),
-    });
+      getPluginDataDir: () => join(TEST_DATA_PATH, "plugins"),
+    } as any);
 
     mkdirSync(TEST_DATA_PATH, { recursive: true });
 
@@ -105,6 +112,13 @@ describe("Session flow — full lifecycle", () => {
       match: { model: "mock-model" },
       response: { content: "Mock AI response." },
     });
+
+    // Create a session so resolveProfile gets mode: "reading" → "book.reading"
+    const sessRes = await app.request(
+      `/api/sessions/${userId}/${sourceId}`,
+      json({ title: "Flow Test Session", context: { mode: "reading" } }),
+    );
+    sessionId = (await sessRes.json()).id;
   });
 
   afterAll(() => {
@@ -121,11 +135,12 @@ describe("Session flow — full lifecycle", () => {
   // ── 1. Start session ──────────────────────────────────────────────────
 
   let viewNodeId: string;
+  let sessionId: number;
 
   it("POST /session/start → 200 with session state", async () => {
     const res = await app.request(
       "/api/session/start",
-      json({ userId, sourceId }),
+      json({ userId, sourceId, sessionId }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -142,7 +157,7 @@ describe("Session flow — full lifecycle", () => {
   it("POST /session/message → 200 with AI response + updated tree", async () => {
     const res = await app.request(
       "/api/session/message",
-      json({ userId, sourceId, message: "hello", viewNodeId }),
+      json({ userId, sourceId, sessionId, message: "hello", viewNodeId }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -159,7 +174,7 @@ describe("Session flow — full lifecycle", () => {
 
   it("GET /session/tree/:userId/:sourceId → 200 with tree nodes", async () => {
     const res = await app.request(
-      `/api/session/tree/${userId}/${sourceId}`,
+      `/api/session/tree/${userId}/${sourceId}?sessionId=${sessionId}`,
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -173,7 +188,7 @@ describe("Session flow — full lifecycle", () => {
 
   it("GET /session/breadcrumb/:userId/:sourceId → 200 with breadcrumb", async () => {
     const res = await app.request(
-      `/api/session/breadcrumb/${userId}/${sourceId}`,
+      `/api/session/breadcrumb/${userId}/${sourceId}?sessionId=${sessionId}`,
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -186,7 +201,7 @@ describe("Session flow — full lifecycle", () => {
   it("POST /session/view → 200 with scoped messages", async () => {
     const res = await app.request(
       "/api/session/view",
-      json({ userId, sourceId, viewNodeId: afterMsgNodeId }),
+      json({ userId, sourceId, sessionId, viewNodeId: afterMsgNodeId }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -205,6 +220,7 @@ describe("Session flow — full lifecycle", () => {
       json({
         userId,
         sourceId,
+        sessionId,
         message: "tell me more",
         viewNodeId: afterMsgNodeId,
       }),
@@ -223,7 +239,7 @@ describe("Session flow — full lifecycle", () => {
   it("POST /session/fork → 200 creates a branch", async () => {
     const res = await app.request(
       "/api/session/fork",
-      json({ userId, sourceId, viewNodeId: afterMsgNodeId }),
+      json({ userId, sourceId, sessionId, viewNodeId: afterMsgNodeId }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -242,6 +258,7 @@ describe("Session flow — full lifecycle", () => {
       json({
         userId,
         sourceId,
+        sessionId,
         nodeId: afterMsgNodeId,
         newLabel: "Renamed Node",
         viewNodeId: afterMsgNodeId,
@@ -260,6 +277,7 @@ describe("Session flow — full lifecycle", () => {
       json({
         userId,
         sourceId,
+        sessionId,
         nodeId: secondMsgNodeId,
         viewNodeId: afterMsgNodeId,
       }),
@@ -274,7 +292,7 @@ describe("Session flow — full lifecycle", () => {
   it("POST /session/close → 200", async () => {
     const res = await app.request(
       "/api/session/close",
-      json({ userId, sourceId }),
+      json({ userId, sourceId, sessionId }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -285,11 +303,11 @@ describe("Session flow — full lifecycle", () => {
 
   it("POST /session/reset → 200 clears session", async () => {
     // Re-start so there's a session to reset
-    await app.request("/api/session/start", json({ userId, sourceId }));
+    await app.request("/api/session/start", json({ userId, sourceId, sessionId }));
 
     const res = await app.request(
       "/api/session/reset",
-      json({ userId, sourceId }),
+      json({ userId, sourceId, sessionId }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();

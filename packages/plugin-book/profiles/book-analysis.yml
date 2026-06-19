@@ -1,0 +1,7 @@
+name: book.analysis
+label: Book Analysis
+icon: telescope
+description: Deep structural analysis — outlines, themes, and argumentation patterns
+skills: [book-analysis, book-outline]
+extensions: [mcp]
+exclude_tools: [bash, edit]

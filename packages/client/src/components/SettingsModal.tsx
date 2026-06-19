@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { X, Loader2, Save, Check, Info, Server } from "lucide-react";
+import { X, Loader2, Save, Check, Info, Server, GitBranch } from "lucide-react";
 import { fetchModels, saveServerConfig, fetchServerConfig } from "../api";
 import type { ModelInfo, ProviderInfo } from "../api";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { getBranchesCollapsed, setBranchesCollapsed as saveBranchesCollapsed } from "../utils/preferences";
 import "./SettingsModal.css";
 
 interface SettingsModalProps {
@@ -14,6 +15,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [branchesCollapsed, setBranchesCollapsed] = useState(getBranchesCollapsed);
 
   // Model selection state
   const [readingModel, setReadingModel] = useState("");
@@ -124,6 +126,34 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="settings-section">
           <h3 className="settings-section-title">Theme</h3>
           <ThemeSwitcher variant="grid" />
+        </div>
+
+        <div className="settings-divider" />
+
+        {/* ── Chat section ── */}
+        <div className="settings-section">
+          <h3 className="settings-section-title">
+            <GitBranch size={16} />
+            Branch Previews
+          </h3>
+          <div className="settings-toggle-row">
+            <div className="settings-toggle-info">
+              <p>When collapsed, branch previews show only the header. When expanded, a preview of the conversation is shown inline.</p>
+            </div>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={!branchesCollapsed}
+                onChange={() => {
+                  const next = !branchesCollapsed;
+                  setBranchesCollapsed(next);
+                  saveBranchesCollapsed(next);
+                }}
+              />
+              <span className="toggle-slider" />
+              <span className="toggle-label">{branchesCollapsed ? "Collapsed" : "Expanded"}</span>
+            </label>
+          </div>
         </div>
 
         <div className="settings-divider" />

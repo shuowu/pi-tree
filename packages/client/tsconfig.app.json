@@ -19,7 +19,16 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Plugin UI resolution */
+    "baseUrl": ".",
+    "paths": {
+      "pi-tree-book/*": ["../plugins/book/*"],
+      "pi-tree-news/*": ["../plugins/news/*"],
+      "pi-tree-paper/*": ["../plugins/paper/*"],
+      "pi-tree-youtube/*": ["../plugins/youtube/*"]
+    }
   },
   "include": ["src"]
 }

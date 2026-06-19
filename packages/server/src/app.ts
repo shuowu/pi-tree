@@ -8,9 +8,9 @@ import { sessionRoutes } from "./routes/session.js";
 import { sessionCrudRoutes } from "./routes/sessions.js";
 import { userRoutes } from "./routes/users.js";
 import { dictionaryRoutes } from "./routes/dictionary.js";
-import { newsRoutes } from "./routes/news.js";
 import { routerRoutes } from "./routes/router.js";
 import { modelRoutes } from "./routes/models.js";
+import { configRoutes } from "./routes/config.js";
 import { getServerConfig, saveServerConfig } from "./config.js";
 import { getAgentRegistry } from "./services/agent-registry.js";
 
@@ -62,9 +62,9 @@ app.route("/api/session", sessionRoutes);
 app.route("/api/sessions", sessionCrudRoutes);
 app.route("/api/users", userRoutes);
 app.route("/api/dict", dictionaryRoutes);
-app.route("/api/news", newsRoutes);
 app.route("/api/router", routerRoutes);
 app.route("/api/models", modelRoutes);
+app.route("/api/config", configRoutes);
 
 // Profiles introspection — list all available session profiles
 app.get("/api/profiles", (c) => {
@@ -72,6 +72,8 @@ app.get("/api/profiles", (c) => {
   const profiles = registry.getProfiles();
   const result: Record<string, object> = {};
   for (const [key, profile] of profiles) {
+    // Skip internal profiles — not user-facing session modes
+    if (key === "_default" || key === "router") continue;
     result[key] = {
       label: profile.label,
       ...(profile.description ? { description: profile.description } : {}),
@@ -80,6 +82,9 @@ app.get("/api/profiles", (c) => {
       extensions: profile.extensions,
       excludeTools: profile.excludeTools,
       ...(profile.model ? { model: profile.model } : {}),
+      ...(profile.icon ? { icon: profile.icon } : {}),
+      ...(profile.defaultPrompt ? { defaultPrompt: profile.defaultPrompt } : {}),
+      ...(profile.quickActions ? { quickActions: profile.quickActions } : {}),
     };
   }
   return c.json(result);

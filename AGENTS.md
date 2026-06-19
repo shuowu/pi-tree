@@ -4,23 +4,37 @@ AI-assisted reading and research app with tree-structured conversations. Support
 
 ## Architecture
 
-Monorepo with four packages:
+Monorepo with multiple packages:
 
 ```
 packages/
-  core/        — Pure library: PiSession, TreeManager, model-setup, types (no env vars, no fs)
-  ui/          — React component library: ChatView, Breadcrumb, InlineBranches (pit-* namespaced)
-  server/      — Hono API server (routes, config, DB, parsers, core skills, env resolution — app layer)
-  client/      — React + Vite frontend (pages, app-specific panels, wiring to @pi-tree/ui)
+  core/           — Pure library: PiSession, TreeManager, model-setup, types (no env vars, no fs)
+  shared/         — Shared types (Source, SessionContext, ReaderConfig, ServerConfig, etc.)
+  plugin-sdk/     — Plugin authoring SDK: definePiTreeExtension(), typed services, route/manifest types
+  plugin-book/    — skills, tools (process_book), parsers (epub, mobi, pdf)
+  plugin-news/    — RSS tools, own SQLite DB, routes, crawling service, skills
+  plugin-paper/   — search_papers, get_paper_info, read_paper, skills
+  plugin-youtube/ — get_youtube_info, transcript, skills, embedded video player
+  plugin-mcp/     — MCP client bridge — registers tools from external MCP servers
+  ui/             — React component library: ChatView, Breadcrumb, InlineBranches (pit-* namespaced)
+  server/         — Hono API server (routes, config, DB, env resolution — app layer)
+  client/         — React + Vite frontend (pages, app-specific panels, wiring to @pi-tree/ui)
+  electron/       — Electron desktop app shell
+  mcp/            — MCP server exposing pi-tree tools
 ```
+
+Each plugin package (`packages/plugin-*`) is an independent workspace with its own `package.json` and dependencies.
 
 ### Package boundaries
 
 | Package | May import | Must NOT do |
 |---------|-----------|-------------|
 | `@pi-tree/core` | `@earendil-works/pi-coding-agent` | `process.env`, `import.meta.dirname`, file I/O |
+| `@pi-tree/plugin-sdk` | `@earendil-works/pi-coding-agent` (types only) | Server internals, DB, env vars |
+| `@pi-tree/shared` | (none — standalone types) | Server internals, DB, env vars |
+| `pi-tree-*` plugins | `@pi-tree/plugin-sdk`, typebox | Server internals, direct DB, env vars |
 | `@pi-tree/ui` | `@pi-tree/core/types`, React, lucide, marked, mermaid | App-specific API calls, env vars |
-| `@pi-tree/server` | `@pi-tree/core`, node:fs | Client components |
+| `@pi-tree/server` | `@pi-tree/core`, `pi-tree-*` plugins, `@pi-tree/plugin-sdk`, node:fs | Client components |
 | `@pi-tree/client` | `@pi-tree/ui`, `@pi-tree/core/types` | Direct Pi SDK imports |
 
 **Key rule**: `@pi-tree/core` is a pure library. All environment resolution (API keys, model names, paths) happens in the server's app layer and is injected via `PiSessionConfig`.
@@ -46,7 +60,7 @@ Internal design docs (not published):
 ## Key Concepts
 
 - **Conversation-first**: The AI conversation IS the reading/research experience
-- **Generic sources model**: Books, news feeds, papers, podcasts — all stored as `sources` with a `type` discriminator
+- **Generic sources model**: Books, news feeds, papers — all stored as `sources` with a `type` discriminator
 - **Multi-session per source**: Each user+source can have multiple independent sessions (reading, Q&A, custom, news) — each with its own conversation tree and optional context configuration
 - **Tree-structured sessions**: Each session has a topic tree; branches on semantic shifts only
 - **Free-form depth**: Every node is a TopicNode — no rigid hierarchy
@@ -61,36 +75,85 @@ Pure library — no `process.env`, no `import.meta.dirname`, no file system acce
 - `PiSession`: wraps Pi SDK, manages conversation lifecycle
 - `configureModelRegistry()`: extracted, testable model/provider setup (in `session/model-setup.ts`)
 - `TreeManager`: intent classification → tree operations → PiSession
-- Types: TopicNode, Source, SourceType, SessionState, ChatMessage, BranchOption, ContentAnchor, etc.
+- Types: TopicNode, Source, SourceType (`string` with well-known values `'book'`, `'news'`, `'paper'`), SessionState, ChatMessage, BranchOption, ContentAnchor, etc.
 
 All config is injected via `PiSessionConfig` — the server resolves env vars and passes them in.
 
+## Plugin SDK (`@pi-tree/plugin-sdk`)
+
+SDK package for building pi-tree plugins. Standalone — no server internals, importable by user plugins.
+
+### Exports
+
+- `definePiTreeExtension(factory)` — wraps a Pi SDK extension to inject typed `PiTreeServices`. Gracefully no-ops when loaded outside pi-tree (e.g., in pi CLI).
+- `getPiTreeServices()` — returns `PiTreeServices | null` for hybrid extensions that optionally enhance inside pi-tree.
+- Type exports: `PiTreeServices`, `SourceService`, `SessionService`, `UserService`, `RegistryService`, `ExtensionConfig`, `ProfileInfo`, `PluginRouteContext`, `PluginSetupResult`, `PluginManifest`.
+
+### Usage
+
+```typescript
+import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
+
+export default definePiTreeExtension((pi, services) => {
+  pi.registerTool({ /* use services.sources, services.sessions, etc. */ });
+});
+```
+
+### Service interfaces
+
+| Service | Methods |
+|---------|---------|
+| `sources` | `list(filter?)`, `get(id)` |
+| `sessions` | `listForSource(userId, sourceId)`, `create(userId, sourceId, opts)`, `resolveUserId(sessionFile)`, `getById(id)` |
+| `users` | `get(id)`, `ensureExists(id)` |
+| `registry` | `getProfiles()` |
+| `config` | `jinaApiKey?` |
+
+Also available: `getPluginDataDir(name)`, `mcpBridge`, `dataPath`, `db()` (raw Drizzle), `schema`.
+
+### Plugin routes
+
+Plugins can declare HTTP routes via their `package.json`:
+
+```json
+{
+  "piTree": {
+    "routes": "./routes.ts",
+    "routePrefix": "/api/news"
+  }
+}
+```
+
+The routes module exports a `setup(ctx: PluginRouteContext): PluginSetupResult` function. The server mounts the returned Hono sub-app at the declared prefix and calls `cleanup()` on shutdown.
+
 ## Server Core Skills, Extensions & Agent Registry
 
-The core skills, extensions, and ebook parsers live inside the `@pi-tree/server` package.
+The core skills, extensions, and ebook parsers are split across packages.
 
-### Agent Directory (`packages/server/src/agents/`)
+### Agent Directory
 
-All agent capabilities live under `src/agents/` — a browsable directory of what the AI can do:
+Agent capabilities are organized across two locations:
 
 ```
-packages/server/src/agents/
-  context.ts                 ← service locator for extension DI
-  skills/                    ← markdown instruction bundles
-    interactive-reading/     ← book reading flow
-    book-outline/            ← structural overview
-    book-analysis/           ← structured analysis
-    news-reading/            ← news feed flow
-    session-router/          ← routes users to sessions
-  extensions/                ← tool bundles (TypeScript, runtime-loaded by Pi SDK)
-    library/                 ← list_sources, get_source_info, create_session, open_session
-    news/                    ← get_latest_rss, search_rss, aggregate_rss, etc.
-    mcp/                     ← MCP client bridge — dynamically registers tools from external MCP servers
+packages/plugin-book/              ← skills (interactive-reading, book-outline, book-analysis)
+                                     tools (process_book), parsers (epub, mobi, pdf)
+packages/plugin-news/              ← tools (get_latest_rss, search_rss, etc.), own SQLite DB,
+                                     routes (/api/news/*), RSS crawling service, skills (news-reading)
+packages/plugin-mcp/               ← MCP client bridge — dynamically registers tools from external MCP servers
+packages/plugin-paper/             ← search_papers, get_paper_info, read_paper, skills (paper-reading)
+packages/plugin-youtube/           ← get_youtube_info, get_youtube_transcript, skills (youtube-watching),
+                                     embedded video player content panel
+
+packages/server/src/agents/       ← server-bundled capabilities
+  context.ts                       ← service locator for plugin DI
+  extensions/router/               ← list_sources, create_session, open_session, create_youtube_source (core navigation)
+  skills/session-router/           ← session routing flow
 ```
 
-Extensions are decoupled from server internals via `context.ts` — a service locator
-that the server populates at startup. Extensions import `getExtensionServices()` from
-`../../context.js` instead of reaching into `../../db/` or `../../services/`.
+Plugins depend only on `@pi-tree/plugin-sdk` and use `definePiTreeExtension()` —
+they have no imports from server internals. Services are injected at runtime via `globalThis.__piTreeServices`.
+
+Plugins declare `badges` in `piTree.sourceType` manifest — each badge checks a source field for truthiness or equality and renders on the library card.
 
 ### MCP Client Bridge (`src/services/mcp-bridge.ts`)
 
@@ -115,29 +178,32 @@ The server can connect to external MCP servers and expose their tools to the AI 
 
 The agent registry discovers, validates, and resolves capabilities at startup:
 
-1. **Discovery**: Scans `agents/skills/` + `agents/extensions/` for core capabilities, then `$DATA_PATH/skills/` + `$DATA_PATH/extensions/` for user overrides. User-defined profiles from `$DATA_PATH/profiles/*.yml` are also discovered and merged (user wins on name collision).
+1. **Discovery**: Scans individual plugin packages (`packages/plugin-*`) for core extensions + `agents/skills/` for core skills, then `$DATA_PATH/extensions/` + `$DATA_PATH/skills/` for user overrides. User-defined profiles from `$DATA_PATH/profiles/*.yml` are also discovered and merged (user wins on name collision).
 2. **Validation**: Checks that all session profiles reference existing skills/extensions
 3. **Resolution**: `resolveProfile(sourceType, mode, sessionContext)` → concrete paths for PiSession
 
-### Session Profiles (`src/config/session-profiles.ts`)
+### Session Profiles
 
-Declarative mapping of `(sourceType, mode)` → skills, extensions, excludeTools, model:
+Declarative YAML files mapping `(sourceType, mode)` → skills, extensions, excludeTools, model. Profiles are bundled inside plugins (`packages/plugin-*/profiles/*.yml`) and the server (`packages/server/src/profiles/*.yml`).
 
-- `book.reading` → `[interactive-reading]` skills, no extensions
+Examples:
+- `book.reading` → `[interactive-reading]` skills
 - `book.analysis` → `[book-analysis, book-outline]` skills
 - `news.news` → `[news-reading]` skill, `[news]` extension
-- `router` → `[session-router]` skill, `[library]` extension
+- `router` → `[session-router]` skill, `extensions: ["*"]` (wildcard — auto-includes all registered extensions)
 
 Resolution order: `${sourceType}.${mode}` → `${sourceType}` → `_default`. `SessionContext.skills` and `SessionContext.model` from the DB override the profile.
+
+The wildcard `"*"` in `extensions` expands to all registered extension names at resolution time. This means the router's home chat automatically gains new plugin tools when a new plugin is installed.
 
 Custom profiles (`$DATA_PATH/profiles/*.yml`) support an optional `source_type` field (e.g. `book`, `news`). When set, the profile appears as an additional session mode in the SessionPicker only for sources of that type.
 
 ### Skill Override Mechanism
 
-User skills live at `$DATA_PATH/skills/` (or `$SKILLS_PATH` if set). The loading order:
+Skills are discovered from multiple locations. The loading order:
 
-1. **Core skills discovered** from `packages/server/agents/skills/`
-2. **User skills discovered** from `$DATA_PATH/skills/` — **user wins on name collision**
+1. **Plugin-bundled skills** from `packages/plugin-*/skills/` (and `packages/server/src/agents/skills/`)
+2. **User skills** from `$DATA_PATH/skills/` (or `$SKILLS_PATH`) — **user wins on name collision**
 
 This means users can:
 - **Override core skills** by creating a skill directory with the same name (e.g., `$DATA_PATH/skills/interactive-reading/`)
@@ -181,9 +247,11 @@ App layer — owns environment resolution, config, database, and HTTP routes.
 - Hono framework (lightweight, Electron-compatible)
 - Resolves all env vars (`PI_MODEL`, `PI_API_KEY`, `DATA_PATH`, etc.) and injects into core via config
 - LibraryService: reads from user-configured source library on disk + manages uploaded sources
-- RssService: RSS feed crawling, deduplication, and aggregation for news sources
+- DictionaryService: AI-powered term lookup + glossary management
 - SSE streaming for real-time AI responses
 - SQLite + Drizzle ORM for user/session/config/glossary metadata
+- Mounts plugin-declared routes at startup via AgentRegistry discovery
+- Router extension: core navigation tools (list_sources, create_session, etc.)
 
 ## Client (`@pi-tree/client`)
 
@@ -191,9 +259,8 @@ Thin app shell — wires `@pi-tree/ui` components with app-specific context.
 
 - React + Vite (future: Electron desktop app)
 - **Pages**: Library, Reader, SessionsPage, UserPicker
-- **App panels**: Sidebar, RightPanel, DictionaryPanel, BookContentPanel, NewsDashboardPanel
-- **News UX**: NewsQuickActions (skill command buttons), NewsDashboardPanel (interactive feed viewer with deep-dive)
-- **Modals**: AddBookModal, BookSettingsModal, SettingsModal
+- **App panels**: Sidebar, RightPanel, DictionaryPanel
+- **Modals**: AddSourceModal, SourceSettingsModal, SettingsModal
 - **Wiring**: Reader.tsx injects app dependencies into `@pi-tree/ui` via props
 - **Context**: UserContext + UserPicker (localStorage-based identity)
 - **Source type config**: `source-types.ts` exports `SOURCE_TYPE_CONFIGS` map — drives per-type UI behavior (icon, session modes, processing, content panel). Adding a new source type = one config entry.
@@ -204,16 +271,16 @@ SQLite via Drizzle ORM (`better-sqlite3`). DB file: `<DATA_PATH>/pi-tree.db` (de
 
 Tables:
 - `users` — simple identity (slug id, displayName, avatarUrl)
-- `sources` — universal "thing you have conversations about" with `type` discriminator ('book' | 'news' | 'paper' | 'podcast'), `metadata` JSON column for type-specific fields
+- `sources` — universal "thing you have conversations about" with `type` discriminator (`string`, well-known: `'book'`, `'news'`, `'paper'`), `metadata` JSON column for type-specific fields
 - `user_sessions` — tracks Pi SDK JSONL session files per user+source. Supports multiple sessions per user+source with `title`, `context` (JSON blob of SessionContext), and `is_active` flag
 - `user_source_config` — per-user per-source ReaderConfig JSON blob
 - `user_source_progress` — reading position tracking
 - `glossary_entries` — per-user per-source term definitions
 - `source_tags` — source↔tag junction (replaces both book_tags and feed_tags)
-- `rss_feeds` — RSS feed configurations, linked to sources via `source_id` FK
-- `rss_items` — cached RSS feed entries
 
 Tables auto-created on startup (CREATE TABLE IF NOT EXISTS). Schema: `packages/server/src/db/schema.ts`.
+
+Plugins may own their own SQLite databases at `$DATA_PATH/plugins/<name>/`. For example, the news plugin stores `rss_feeds` and `rss_items` in `$DATA_PATH/plugins/news/news.db`.
 
 ## Data Source
 
@@ -232,12 +299,13 @@ All mutable state (sessions, DB, library, news) lives under `DATA_PATH` (default
 | Glossary | SQLite `glossary_entries` | Per user per source |
 | Source content | `<DATA_PATH>/sources/<sourceId>/markdown/` | Shared (primary write target) |
 | Source outlines | `<DATA_PATH>/sources/<sourceId>/analysis/` | Shared |
-| Pre-placed books | `<DATA_PATH>/library/<sourceId>/markdown/` | Shared (read-only scan) |
-| Legacy uploads | `<DATA_PATH>/books/<sourceId>/` | Shared (legacy fallback) |
-| News reports | `<DATA_PATH>/news/analyses/`, `summaries/` | Shared (mutable) |
+| News reports | `<DATA_PATH>/sources/news/analyses/`, `summaries/` | Shared (mutable) |
+| News routing context | `<DATA_PATH>/sources/news/feeds.json` | Shared (mutable) |
+| Plugin data | `<DATA_PATH>/plugins/<name>/` | Per plugin (infrastructure: DBs, caches) |
 | User skills | `<DATA_PATH>/skills/` (or `$SKILLS_PATH`) | Shared (mutable) |
+| User extensions | `<DATA_PATH>/extensions/` (or `$EXTENSIONS_PATH`) | Shared (mutable) |
 | User profiles | `<DATA_PATH>/profiles/` | Shared (mutable) |
-| Default feeds | `packages/server/config/default-feeds.yml` | Repo (read-only) |
+| Default feeds | `packages/plugin-news/config/default-feeds.yml` | Repo (read-only) |
 
 ## Session Management
 
@@ -362,9 +430,56 @@ git push && git push --tags
 ```
 
 The script:
-1. Updates `version` in root `package.json` and all 7 workspace `package.json` files
+1. Updates `version` in root `package.json` and all workspace `package.json` files
 2. Updates the static release badge in `README.md`
 3. Creates a commit: `chore: bump version to v0.3.0`
 4. Creates an annotated git tag: `v0.3.0`
 
 **Important**: The Electron build (`packages/electron/electron-builder.yml`) reads `${version}` from `packages/electron/package.json` for artifact naming. If versions drift, release artifacts will have wrong version numbers.
+
+## Theme & Input Styling Pattern
+
+When adding forms, modals, or user input fields, avoid hardcoding dark or light mode background and text colors (e.g., `#1a1a1e`, `#eee`). Instead, follow the host application's design tokens to support all reading themes (sepia, dark-ink, light, etc.):
+
+- **Shared Classes**: Wherever possible, reuse `.add-source-form` and `.add-source-field` from the parent modal for input containers.
+- **Theme Variables**: If custom components/styles are required, always bind to standard CSS variables:
+  - Input Background: `var(--bg-primary, #fff)`
+  - Text Color: `var(--text-primary, #333)`
+  - Secondary Text: `var(--text-secondary, #666)`
+  - Borders: `var(--border-primary, #ddd)` or `var(--border)`
+  - Accents/Focus: `var(--accent, #6c5ce7)`
+
+## Dynamic System Context for Source Types
+
+Plugins can define a custom welcome/system context prompt template inside their `package.json` manifest under `piTree.sourceType`. This prompt is injected as the initial instructions for the AI session.
+
+### Configuration
+
+Add the `systemContext` property (an array of strings) under `piTree.sourceType` inside the plugin's `package.json`:
+
+```json
+{
+  "piTree": {
+    "sourceType": {
+      "key": "my-source-type",
+      "label": "My Plugin Source",
+      "systemContext": [
+        "[SYSTEM CONTEXT — My Session]",
+        "You are now in a dedicated session for my custom source.",
+        "Source ID: {sourceId}",
+        "User ID: {userId}",
+        "",
+        "IMPORTANT: Focus only on custom tools and do not read filesystem books."
+      ]
+    }
+  }
+}
+```
+
+### Placeholders
+
+The following placeholders are supported and will be automatically interpolated at runtime before launching the session:
+- `{sourceId}`: The unique ID of the loaded source.
+- `{userId}`: The slug of the active user.
+
+

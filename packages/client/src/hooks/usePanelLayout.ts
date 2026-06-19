@@ -5,9 +5,9 @@ export function usePanelLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [rightTab, setRightTab] = useState<"dict" | "book">("dict");
+  const [rightTab, setRightTab] = useState<"dict" | "content">("content");
   const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
-  const [showBookSettings, setShowBookSettings] = useState(false);
+
   const [scrollDirection, setScrollDirection] = useState<ScrollDirection>(null);
 
   const isMobile = useCallback(() => window.innerWidth <= 768, []);
@@ -114,17 +114,16 @@ export function usePanelLayout() {
     });
   }, []);
 
-  const toggleDict = useCallback(() => {
-    if (rightPanelOpen && rightTab === "dict") {
+  const toggleRightPanel = useCallback(() => {
+    if (rightPanelOpen) {
       setRightPanelOpen(false);
     } else {
       setRightPanelOpen(true);
-      setRightTab("dict");
       if (window.innerWidth <= 1024) {
         setSidebarOpen(false);
       }
     }
-  }, [rightPanelOpen, rightTab]);
+  }, [rightPanelOpen]);
 
   const cssVars = {
     "--sidebar-width": `${sidebarWidth}px`,
@@ -140,15 +139,14 @@ export function usePanelLayout() {
     rightTab,
     setRightTab,
     rightSidebarWidth,
-    showBookSettings,
-    setShowBookSettings,
+
     scrollDirection,
     setScrollDirection,
     isMobile,
     handleResizeStart,
     handleRightResizeStart,
     toggleNavigator,
-    toggleDict,
+    toggleRightPanel,
     cssVars,
   };
 }

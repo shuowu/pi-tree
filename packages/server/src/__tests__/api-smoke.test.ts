@@ -213,12 +213,6 @@ describe("Library", () => {
     expect(Array.isArray(body.tags)).toBe(true);
   });
 
-  it("GET /api/library/jobs → 200 + jobs array", async () => {
-    const res = await app.request("/api/library/jobs");
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toHaveProperty("jobs");
-  });
 });
 
 // ── Sessions CRUD (metadata, no Pi SDK) ─────────────────────────────────────
@@ -412,17 +406,22 @@ describe("Source Creation", () => {
 
 describe("Markdown Upload", () => {
   it("markdown file is saved directly and marked ready", async () => {
-    const { BookIngestionService } = await import("../services/book-ingestion.js");
-    const service = new BookIngestionService();
-
     const mdContent = "# Test Book\n\nThis is a test markdown file.\n\n## Chapter 1\n\nSome content here.";
-    const buffer = Buffer.from(mdContent, "utf-8");
+    const blob = new Blob([mdContent], { type: "text/markdown" });
+    const file = new File([blob], "test-book.md");
 
-    const result = await service.addBook(buffer, "test-book.md", {
-      title: "Test Markdown Book",
-      author: "Test Author",
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", "Test Markdown Book");
+    formData.append("author", "Test Author");
+
+    const res = await app.request("/api/library/sources", {
+      method: "POST",
+      body: formData,
     });
+    expect(res.status).toBe(201);
 
+    const result = await res.json();
     expect(result.status).toBe("ready");
     expect(result.hasMarkdown).toBe(true);
     expect(result.progress).toBe(100);

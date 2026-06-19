@@ -1,0 +1,13 @@
+{
+  "name": "pi-tree-mcp",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "dependencies": {
+    "@pi-tree/plugin-sdk": "*",
+    "typebox": "^1.2.6"
+  }
+}

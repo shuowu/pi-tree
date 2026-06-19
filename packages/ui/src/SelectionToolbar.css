@@ -1,0 +1,60 @@
+/* ── Selection Toolbar ── */
+
+.pit-selection-toolbar {
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: pitToolbarFadeIn 0.15s ease;
+}
+
+@keyframes pitToolbarFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.pit-selection-toolbar-buttons {
+  display: flex;
+  gap: 2px;
+  background: var(--pit-bg-tertiary, var(--bg-tertiary));
+  border: 1px solid var(--pit-border, var(--border));
+  border-radius: var(--pit-radius-lg, var(--radius-lg, 8px));
+  padding: 3px;
+  box-shadow: var(--pit-shadow-lg, var(--shadow-lg));
+}
+
+.pit-selection-btn {
+  background: none;
+  border: none;
+  color: var(--pit-text-secondary, var(--text-secondary));
+  font-size: var(--pit-text-xs, var(--text-xs, 0.75rem));
+  font-family: var(--pit-font-sans, var(--font-sans, system-ui, sans-serif));
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: var(--pit-radius-md, var(--radius-md, 6px));
+  white-space: nowrap;
+  transition: all var(--pit-transition-fast, var(--transition-fast, 0.15s));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pit-selection-btn:hover {
+  background: var(--pit-bg-hover, var(--bg-hover));
+  color: var(--pit-text-primary, var(--text-primary));
+}
+
+/* Hide on touch devices — conflicts with iOS/Android native selection menu */
+@media (pointer: coarse) {
+  .pit-selection-toolbar {
+    display: none;
+  }
+}

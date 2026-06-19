@@ -1,19 +1,20 @@
+
 import { useNavigate, useSearchParams } from "react-router";
-import { useSource } from "./BookLayout";
+import { useSource } from "./SourceLayout";
 import { useUser } from "../UserContext";
-import { useSourceProcessing } from "../hooks/useBookProcessing";
+import { useSourceProcessing } from "../hooks/useSourceProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView, Breadcrumb, type ModelInfo } from "@pi-tree/ui";
-import { SelectionToolbar } from "./SelectionToolbar";
-import { BookSetupState } from "./BookSetupState";
+import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo } from "@pi-tree/ui";
+import { SourceSetupState } from "./SourceSetupState";
+import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
-import { BookSettingsModal } from "./BookSettingsModal";
+
 import { fetchModels, updateSession, viewScope } from "../api";
 import { getBranchesCollapsed } from "../utils/preferences";
-import { PanelLeft, PanelRight, Home, Settings, Layers } from "lucide-react";
+import { PanelLeft, PanelRight, Home, Layers, Settings } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import "./Reader.css";
@@ -23,12 +24,13 @@ export function Reader() {
   const navigate = useNavigate();
   const { userId } = useUser();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [showSettings, setShowSettings] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Hooks
   // ---------------------------------------------------------------------------
 
-  const { currentSource, currentJob, handleProcessSource, handleReprocessSource } =
+  const { currentSource, currentJob, handleProcessSource } =
     useSourceProcessing(source);
 
   const panel = usePanelLayout();
@@ -47,6 +49,12 @@ export function Reader() {
     setDictEntries: dict.setDictEntries,
     navigate,
   });
+
+  // Clear dictionary entries when session changes — dict is session-scoped
+  useEffect(() => {
+    dict.clearEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.sessionId]);
 
   // ---------------------------------------------------------------------------
   // Derived values
@@ -95,17 +103,18 @@ export function Reader() {
   const handleModelChange = useCallback(async (modelId: string) => {
     if (!userId || session.sessionId === null) return;
     const currentContext = session.sessionContext ?? { mode: 'reading' };
+    const previousModel = currentContext.model;
     const newContext = { ...currentContext, model: modelId };
+    // Optimistic update — show the new model immediately
+    session.updateLocalSessionContext(newContext);
     try {
       await updateSession(userId, source.id, session.sessionId, {
         context: newContext,
       });
-      // Update local state so the badge reflects the new model immediately.
-      // The server evicts the cached session on context change, so the next
-      // message will automatically use the new model.
-      session.updateLocalSessionContext(newContext);
     } catch (err) {
       console.error('Failed to switch model:', err);
+      // Rollback the optimistic update so UI stays in sync with server
+      session.updateLocalSessionContext({ ...currentContext, model: previousModel });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, source.id, session.sessionId, session.sessionContext, session.updateLocalSessionContext]);
@@ -114,8 +123,8 @@ export function Reader() {
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },
     { id: "sessions", icon: <Layers size={16} />, label: "Sessions", active: false, onClick: session.handleBackToSessions },
     { id: "nav", icon: <PanelLeft size={16} />, label: "Session Tree", active: panel.sidebarOpen, onClick: panel.toggleNavigator },
-    { id: "dict", icon: <PanelRight size={16} />, label: "Dictionary", active: panel.rightPanelOpen && panel.rightTab === "dict", onClick: panel.toggleDict },
-    { id: "settings", icon: <Settings size={16} />, label: "Source Settings", active: panel.showBookSettings, onClick: () => panel.setShowBookSettings(true) },
+    { id: "right-panel", icon: <PanelRight size={16} />, label: "Right Panel", active: panel.rightPanelOpen, onClick: panel.toggleRightPanel },
+    { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettings, onClick: () => setShowSettings(true) },
   ];
 
   // Determine what to show in the main area
@@ -164,7 +173,7 @@ export function Reader() {
           sessionLabel={session.sessionLabel}
         />
         {showBookSetup ? (
-          <BookSetupState
+          <SourceSetupState
             source={currentSource}
             job={currentJob}
             onSkipToChat={() => session.handleSelectMode()}
@@ -194,6 +203,7 @@ export function Reader() {
               defaultBranchesCollapsed={defaultBranchesCollapsed}
               fetchBranchPreview={fetchBranchPreview}
               placeholderText={getSourceTypeConfig(source.type).chatPlaceholder}
+              welcomeMessage={session.profileDescription}
               availableModels={availableModels}
               onModelChange={handleModelChange}
               onFork={session.handleFork}
@@ -221,15 +231,16 @@ export function Reader() {
         onSendMessage={session.handleSendMessage}
       />
 
-      {panel.showBookSettings && (
-        <BookSettingsModal
+      {showSettings && (
+        <SourceSettingsModal
           source={currentSource}
-          onClose={() => panel.setShowBookSettings(false)}
-          onReprocess={handleReprocessSource}
-          onClearSession={session.handleResetSession}
           sessionLabel={session.sessionLabel}
+          onClose={() => setShowSettings(false)}
+          onReprocess={handleProcessSource}
+          onClearSession={session.handleResetSession}
         />
       )}
+
     </div>
   );
 }

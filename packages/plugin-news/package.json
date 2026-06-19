@@ -1,0 +1,48 @@
+{
+  "name": "pi-tree-news",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "piTree": {
+    "sourceType": {
+      "key": "news",
+      "label": "News Feed",
+      "icon": "newspaper",
+      "sessionModes": ["news"],
+      "defaultMode": "news",
+      "autoStartMode": "news",
+      "hasProcessing": false,
+      "searchPlaceholder": "Search feeds...",
+      "chatPlaceholder": "Ask about the news, or try: trends, deep dive, scan AI…",
+      "mentionKeyword": "News",
+      "fixedSourceId": "news",
+      "sessionStrategy": "time-based",
+      "askAfterHours": 4,
+      "staleAfterHours": 12,
+      "routingContextFile": "sources/news/feeds.json",
+      "routingContextLabel": "Available news feeds and topic tags",
+      "addSource": {
+        "subtitle": "Configure RSS feeds and news sources"
+      }
+    },
+    "routes": "./routes.ts",
+    "routePrefix": "/api/news",
+    "ui": {
+      "contentPanel": "./ui/NewsDashboardPanel.tsx"
+    }
+  },
+  "pi": {
+    "extensions": ["./index.ts"],
+    "skills": ["./skills"]
+  },
+  "dependencies": {
+    "@pi-tree/plugin-sdk": "*",
+    "@pi-tree/ui": "*",
+    "better-sqlite3": "^12.10.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.7.0",
+    "js-yaml": "^4.2.0",
+    "rss-parser": "^3.13.0",
+    "typebox": "^1.2.6"
+  }
+}

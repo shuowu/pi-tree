@@ -1,0 +1,8 @@
+name: youtube.watching
+label: YouTube Watching
+icon: circle-play
+description: Watch and discuss YouTube videos with AI-powered transcript analysis
+defaultPrompt: Let's explore this video. What would you like to know about it?
+skills: [youtube-watching]
+extensions: [youtube, mcp]
+exclude_tools: [bash, edit]

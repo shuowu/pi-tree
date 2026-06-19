@@ -18,6 +18,7 @@ import {
   deleteNode,
   renameNode,
   fetchSessions,
+  fetchProfiles,
   deleteSession as deleteSessionApi,
 } from "../api";
 import type { DictEntry } from "../components/DictionaryPanel";
@@ -63,6 +64,7 @@ export function useReaderSession(
   // Counter incremented on explicit navigation (not streaming completion).
   // ChatView watches this to scroll-to-top only on navigation.
   const [scrollTopTrigger, setScrollTopTrigger] = useState(0);
+  const [profileDescription, setProfileDescription] = useState<string | null>(null);
 
   const initialized = useRef(false);
   // Track the last viewNodeId we set programmatically, so we can detect
@@ -417,7 +419,7 @@ export function useReaderSession(
   }, [source.id, navigate]);
 
   // ---------------------------------------------------------------------------
-  // Handle mode selection from BookSetupState skip-to-chat
+  // Handle mode selection from SourceSetupState skip-to-chat
   // ---------------------------------------------------------------------------
 
   const handleSelectMode = useCallback(
@@ -508,24 +510,30 @@ export function useReaderSession(
         setSessionId(sid);
         await loadSession(sid, initialNodeId);
 
-        // If this is a newly created session (from SessionsPage), send the
-        // initial mode-specific message
-        if (newSessionMode || initialQuery) {
+        // If this is a newly created session, optionally send an initial message
+        if (initialQuery) {
+          // Explicit query from URL (e.g. router redirect with ?query=...)
           sessionIdRef.current = sid;
-          if (initialQuery) {
-            handleSendMessage(initialQuery);
-          } else if (newSessionMode === "reading") {
-            handleSendMessage(
-              `Let's start reading "${source.title}" by ${source.author}. Give me a chapter briefing to begin.`,
-            );
-          } else if (newSessionMode === "qa") {
-            handleSendMessage(
-              `I'd like to explore "${source.title}" by ${source.author} through Q&A. I'll ask questions about the book — its themes, arguments, key passages, and ideas. Start by briefly introducing the book's main thesis in 2-3 sentences, then let me lead with questions.`,
-            );
-          } else if (newSessionMode === "news") {
-            handleSendMessage(
-              `Let's scan today's news feeds. Give me a structured tech overview of what's happening.`,
-            );
+          handleSendMessage(initialQuery);
+        } else if (newSessionMode) {
+          // New session via mode — only auto-send if the profile has a defaultPrompt.
+          // If no defaultPrompt, the session starts empty and the user types first.
+          sessionIdRef.current = sid;
+          try {
+            const profileMap = await fetchProfiles();
+            const profileKey = `${source.type}.${newSessionMode}`;
+            const profile = profileMap[profileKey] || profileMap[newSessionMode];
+            if (profile?.description) {
+              setProfileDescription(profile.description);
+            }
+            const defaultPrompt = profile?.defaultPrompt
+              ?.replace(/\{sourceTitle\}/g, source.title)
+              ?.replace(/\{sourceAuthor\}/g, source.author || '');
+            if (defaultPrompt) {
+              handleSendMessage(defaultPrompt);
+            }
+          } catch {
+            // No auto-message on error — user can type their own
           }
         }
       } catch (err) {
@@ -612,6 +620,7 @@ export function useReaderSession(
     sessionLabel,
     sessionContext,
     scrollTopTrigger,
+    profileDescription,
     handleSendMessage,
     handleStopGeneration: useCallback(() => {
       const sid = sessionIdRef.current;

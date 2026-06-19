@@ -1,474 +1,348 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Source, SourceSession } from "@pi-tree/shared";
-import type { SessionMode } from "./WelcomeState";
-import { BookOpen, MessageCircle, Newspaper, Plus, Search, TrendingUp, Filter, Sparkles } from "lucide-react";
+import type { ProfileInfo } from "../api";
+import { Plus, Search } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
+import { resolveIcon } from "../utils/resolve-icon";
 import { SessionList } from "./SessionList";
-import { CustomTriggerModal } from "./CustomTriggerModal";
 import "./SessionPicker.css";
 
 // ---------------------------------------------------------------------------
-// Mode icon helper
+// Constants
 // ---------------------------------------------------------------------------
 
-function modeIcon(mode: string) {
-  switch (mode) {
-    case "reading":
-      return "📖";
-    case "qa":
-      return "💬";
-    case "news":
-      return "📡";
-    case "custom":
-      return "⚙️";
-    default:
-      return "✨";
-  }
-}
+const PAGE_SIZE = 20;
 
 // ---------------------------------------------------------------------------
 // SessionPicker component
 // ---------------------------------------------------------------------------
 
+export type SessionMode = string;
+
 interface SessionPickerProps {
   source: Source;
   sessions: SourceSession[];
+  profiles: Record<string, ProfileInfo>;
   onSelectSession: (session: SourceSession) => void;
   onNewSession: (mode: SessionMode, customTitle?: string, initialQuery?: string, profile?: string) => void;
   onDeleteSession: (sessionId: number) => void;
   onRenameSession: (sessionId: number, newTitle: string) => void;
   isLoading: boolean;
-  /** Custom profiles available for this source type (fetched from server) */
-  customProfiles?: Array<{ name: string; label: string; description?: string }>;
 }
 
 export function SessionPicker({
   source,
   sessions,
+  profiles,
   onSelectSession,
   onNewSession,
   onDeleteSession,
   onRenameSession,
   isLoading,
-  customProfiles = [],
 }: SessionPickerProps) {
-  const [showNewSessionOptions, setShowNewSessionOptions] = useState(false);
-  const [scanKeyword, setScanKeyword] = useState("");
-  const [customTriggers, setCustomTriggers] = useState<Array<{
-    id: string;
-    title: string;
-    type: "overview" | "trends" | "scan";
-    keyword?: string;
-    feeds: string[];
-    tags: string[];
-  }>>(() => {
-    try {
-      const saved = localStorage.getItem("pi-tree-custom-triggers-news");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
+  const [showProfilePicker, setShowProfilePicker] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [modeFilter, setModeFilter] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // -------------------------------------------------------------------------
+  // Filter profiles matching this source type
+  // -------------------------------------------------------------------------
+
+  const matchingProfiles: Array<[string, ProfileInfo]> = useMemo(() => {
+    const result: Array<[string, ProfileInfo]> = [];
+
+    for (const [key, profile] of Object.entries(profiles)) {
+      const matchesType =
+        (profile.sourceType && profile.sourceType === source.type) ||
+        (!profile.sourceType && key.startsWith(`${source.type}.`));
+
+      if (matchesType) {
+        result.push([key, profile]);
+      }
     }
-  });
-  const [showCreateTrigger, setShowCreateTrigger] = useState(false);
 
-  const handleSaveCustomTrigger = (newTrigger: typeof customTriggers[0]) => {
-    setCustomTriggers((prev) => {
-      const next = [...prev, newTrigger];
-      localStorage.setItem("pi-tree-custom-triggers-news", JSON.stringify(next));
-      return next;
-    });
+    // Also include custom profiles (no sourceType, no dot = source-agnostic)
+    for (const [key, profile] of Object.entries(profiles)) {
+      if (!profile.sourceType && !key.includes(".")) {
+        result.push([key, profile]);
+      }
+    }
+
+    return result;
+  }, [profiles, source.type]);
+
+  // -------------------------------------------------------------------------
+  // Derive available mode filter chips from sessions
+  // -------------------------------------------------------------------------
+
+  const modeChips = useMemo(() => {
+    const modeCounts = new Map<string, number>();
+    for (const s of sessions) {
+      const mode = s.context.mode ?? "reading";
+      modeCounts.set(mode, (modeCounts.get(mode) ?? 0) + 1);
+    }
+    // Only show chips if there are 2+ distinct modes
+    if (modeCounts.size < 2) return [];
+    return Array.from(modeCounts.entries())
+      .sort((a, b) => b[1] - a[1]) // most used first
+      .map(([mode, count]) => {
+        const profileKey = `${source.type}.${mode}`;
+        const profile = profiles[profileKey] || profiles[mode];
+        return { mode, label: profile?.label ?? mode, count };
+      });
+  }, [sessions, profiles, source.type]);
+
+  // -------------------------------------------------------------------------
+  // Filter and paginate sessions
+  // -------------------------------------------------------------------------
+
+  const filteredSessions = useMemo(() => {
+    let result = sessions;
+
+    // Filter by mode
+    if (modeFilter) {
+      result = result.filter(s => (s.context.mode ?? "reading") === modeFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(s => s.title.toLowerCase().includes(q));
+    }
+
+    return result;
+  }, [sessions, modeFilter, searchQuery]);
+
+  const visibleSessions = filteredSessions.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredSessions.length;
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+
+  const modeFromKey = (key: string) => {
+    const dot = key.indexOf(".");
+    return dot >= 0 ? key.slice(dot + 1) : key;
   };
 
-  const handleDeleteCustomTrigger = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCustomTriggers((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      localStorage.setItem("pi-tree-custom-triggers-news", JSON.stringify(next));
-      return next;
-    });
+  const handleNewSession = (profileKey: string) => {
+    const mode = modeFromKey(profileKey);
+    onNewSession(mode, undefined, undefined, profileKey);
+    setShowProfilePicker(false);
   };
 
-  // If no sessions exist at all, jump straight to mode selection
-  const showOnlyNewSession = sessions.length === 0;
+  const handleNewSessionClick = () => {
+    if (matchingProfiles.length === 1) {
+      handleNewSession(matchingProfiles[0][0]);
+    } else {
+      setShowProfilePicker(true);
+    }
+  };
 
-  /** Render mode icon for SessionList */
-  const renderModeIcon = (session: SourceSession) => modeIcon(session.context.mode);
+  const renderModeIcon = (session: SourceSession) => {
+    const mode = session.context.mode;
+    const profileKey = `${source.type}.${mode}`;
+    const profile = profiles[profileKey] || profiles[mode];
+    if (profile?.icon) {
+      const Icon = resolveIcon(profile.icon, Sparkles);
+      return <Icon size={14} strokeWidth={1.5} />;
+    }
+    return "✨";
+  };
 
-  return (
-    <div className={`session-picker ${source.type === 'news' ? 'news-layout' : ''}`}>
-      <div className="session-picker-content">
-        {/* Book header */}
-        <div className="session-picker-book-info">
-          <h1 className="session-picker-title">{source.title}</h1>
-          {source.author && <p className="session-picker-author">by {source.author}</p>}
-        </div>
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
-        {source.type === 'news' ? (
-          <>
-            {/* News Quick Starts (Always Visible) */}
-            <p className="session-picker-prompt">Start a news session</p>
-            <div className="session-picker-mode-options">
-              <button
-                className="session-picker-mode-option"
-                onClick={() => {
-                  const today = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                  onNewSession(
-                    "news",
-                    `News Overview - ${today}`,
-                    "Give me a comprehensive overview of today's news and trending topics."
-                  );
-                }}
-                disabled={isLoading}
-              >
-                <div className="session-picker-mode-icon">
-                  <Newspaper size={16} strokeWidth={1.5} />
-                </div>
-                <div className="session-picker-mode-text">
-                  <span className="session-picker-mode-label">News Overview</span>
-                  <span className="session-picker-mode-desc">
-                    Today's news and trending topics
-                  </span>
-                </div>
-              </button>
+  // No sessions — show profile picker directly
+  if (sessions.length === 0) {
+    return (
+      <div className="session-picker">
+        <div className="session-picker-content">
+          <div className="session-picker-source-info">
+            <h1 className="session-picker-title">{source.title}</h1>
+            {source.author && <p className="session-picker-author">by {source.author}</p>}
+          </div>
 
-              <button
-                className="session-picker-mode-option"
-                onClick={() => {
-                  const today = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                  onNewSession(
-                    "news",
-                    `Trends - ${today}`,
-                    "Analyze trends across all feeds from the past 72 hours. What topics are gaining momentum?"
-                  );
-                }}
-                disabled={isLoading}
-              >
-                <div className="session-picker-mode-icon">
-                  <TrendingUp size={16} strokeWidth={1.5} />
-                </div>
-                <div className="session-picker-mode-text">
-                  <span className="session-picker-mode-label">Analyze Trends</span>
-                  <span className="session-picker-mode-desc">
-                    Topics gaining momentum over 72 hours
-                  </span>
-                </div>
-              </button>
-
-              <div className="session-picker-mode-option scan-option-card">
-                <div className="session-picker-mode-icon">
-                  <Search size={16} strokeWidth={1.5} />
-                </div>
-                <div className="session-picker-mode-text">
-                  <span className="session-picker-mode-label">Scan Topic</span>
-                  <span className="session-picker-mode-desc">
-                    Search keywords or topics across feeds
-                  </span>
-                  <div className="session-picker-scan-input-group" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      placeholder="Enter keyword (e.g. AI, climate)..."
-                      value={scanKeyword}
-                      onChange={(e) => setScanKeyword(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && scanKeyword.trim()) {
-                          const kw = scanKeyword.trim();
-                          onNewSession("news", `Scan: ${kw}`, `scan ${kw}`);
-                          setScanKeyword("");
-                        }
-                      }}
-                    />
-                    <button
-                      className="session-picker-scan-btn"
-                      disabled={isLoading || !scanKeyword.trim()}
-                      onClick={() => {
-                        const kw = scanKeyword.trim();
-                        onNewSession("news", `Scan: ${kw}`, `scan ${kw}`);
-                        setScanKeyword("");
-                      }}
-                    >
-                      Go
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Customized Triggers */}
-            <div className="custom-triggers-section">
-              <div className="custom-triggers-header">
-                <p className="session-picker-prompt">Customized Triggers</p>
-                <button
-                  className="btn-create-trigger-pill"
-                  onClick={() => setShowCreateTrigger(true)}
-                  disabled={isLoading}
-                >
-                  <Plus size={12} />
-                  New
-                </button>
-              </div>
-
-              <div className="session-picker-mode-options custom-triggers-grid">
-                {customTriggers.map((trigger) => (
-                  <div
-                    key={trigger.id}
-                    className="session-picker-mode-option custom-trigger-card"
-                    onClick={() => {
-                      let query = "";
-                      if (trigger.type === "overview") {
-                        query = "Give me a comprehensive overview of today's news and trending topics.";
-                      } else if (trigger.type === "trends") {
-                        query = "Analyze trends across all feeds from the past 72 hours. What topics are gaining momentum?";
-                      } else if (trigger.type === "scan") {
-                        query = `scan ${trigger.keyword || ""}`;
-                      }
-
-                      const filterDescParts: string[] = [];
-                      if (trigger.feeds && trigger.feeds.length > 0) {
-                        filterDescParts.push(`feeds matching IDs [${trigger.feeds.join(", ")}]`);
-                      }
-                      if (trigger.tags && trigger.tags.length > 0) {
-                        filterDescParts.push(`feeds matching tags [${trigger.tags.join(", ")}]`);
-                      }
-
-                      if (filterDescParts.length > 0) {
-                        query += ` Please restrict your tool queries to search/aggregate only ${filterDescParts.join(" and ")}.`;
-                      }
-
-                      onNewSession("news", trigger.title, query);
-                    }}
-                  >
-                    <button
-                      className="custom-trigger-delete-btn"
-                      onClick={(e) => handleDeleteCustomTrigger(trigger.id, e)}
-                      title="Delete Trigger"
-                    >
-                      ✕
-                    </button>
-                    <div className="session-picker-mode-icon">
-                      {trigger.type === "overview" ? <Newspaper size={16} strokeWidth={1.5} /> :
-                       trigger.type === "trends" ? <TrendingUp size={16} strokeWidth={1.5} /> :
-                       <Search size={16} strokeWidth={1.5} />}
-                    </div>
-                    <div className="session-picker-mode-text">
-                      <span className="session-picker-mode-label">{trigger.title}</span>
-                      <span className="session-picker-mode-desc">
-                        {trigger.type === "scan" ? `Scan: "${trigger.keyword}"` :
-                         trigger.type === "trends" ? "Analyze trends" : "News overview"}
-                        {(trigger.tags.length > 0 || trigger.feeds.length > 0) && (
-                          <span className="custom-trigger-filters-badge">
-                            <Filter size={10} />
-                            {trigger.tags.length > 0 && trigger.tags.map(t => `#${t}`).join(", ")}
-                            {trigger.tags.length > 0 && trigger.feeds.length > 0 && " | "}
-                            {trigger.feeds.length > 0 && `${trigger.feeds.length} feeds`}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-
-                {customTriggers.length === 0 && (
-                  <div
-                    className="session-picker-mode-option create-trigger-card-placeholder"
-                    onClick={() => setShowCreateTrigger(true)}
-                  >
-                    <div className="session-picker-mode-icon">
-                      <Sparkles size={14} strokeWidth={1.5} />
-                    </div>
-                    <div className="session-picker-mode-text">
-                      <span className="session-picker-mode-label">Create a custom trigger</span>
-                      <span className="session-picker-mode-desc">
-                        Filter by feeds and tags
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Existing News Sessions */}
-            {sessions.length > 0 && (
-              <>
-                <p className="session-picker-prompt" style={{ marginTop: "var(--space-3)" }}>
-                  Recent Sessions
-                </p>
-                <SessionList
-                  sessions={sessions}
-                  renderIcon={renderModeIcon}
-                  onSelectSession={onSelectSession}
-                  onDeleteSession={onDeleteSession}
-                  onRenameSession={onRenameSession}
-                  isLoading={isLoading}
-                  className="session-picker-list"
-                />
-              </>
-            )}
-          </>
-        ) : (
-          /* Book / Other source types */
-          showOnlyNewSession ? (
+          {matchingProfiles.length === 1 ? (
             <>
-              {/* No sessions — show creation flow directly */}
+              <p className="session-picker-prompt">
+                {`Start exploring this ${getSourceTypeConfig(source.type).label.toLowerCase()}`}
+              </p>
+              <button
+                className="session-picker-new-btn"
+                onClick={() => handleNewSession(matchingProfiles[0][0])}
+                disabled={isLoading}
+              >
+                <Plus size={16} />
+                Start Session
+              </button>
+            </>
+          ) : (
+            <>
               <p className="session-picker-prompt">
                 {`How would you like to explore this ${getSourceTypeConfig(source.type).label.toLowerCase()}?`}
               </p>
               <div className="session-picker-mode-options">
-                <>
-                  <button
-                    className="session-picker-mode-option"
-                    onClick={() => onNewSession("reading")}
-                    disabled={isLoading}
-                  >
-                    <div className="session-picker-mode-icon">
-                      <BookOpen size={24} strokeWidth={1.5} />
-                    </div>
-                    <div className="session-picker-mode-text">
-                      <span className="session-picker-mode-label">Interactive Reading</span>
-                      <span className="session-picker-mode-desc">
-                        Guided chapter-by-chapter exploration with briefings, discussions, and deep dives
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    className="session-picker-mode-option"
-                    onClick={() => onNewSession("qa")}
-                    disabled={isLoading}
-                  >
-                    <div className="session-picker-mode-icon">
-                      <MessageCircle size={24} strokeWidth={1.5} />
-                    </div>
-                    <div className="session-picker-mode-text">
-                      <span className="session-picker-mode-label">Freeform Q&amp;A</span>
-                      <span className="session-picker-mode-desc">
-                        Ask anything about the book — themes, arguments, passages, or comparisons
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* Custom profiles */}
-                  {customProfiles.map((p) => (
+                {matchingProfiles.map(([key, profile]) => {
+                  const Icon = resolveIcon(profile.icon, Sparkles);
+                  return (
                     <button
-                      key={p.name}
+                      key={key}
                       className="session-picker-mode-option"
-                      onClick={() => onNewSession(p.name, p.label, undefined, p.name)}
+                      onClick={() => handleNewSession(key)}
                       disabled={isLoading}
                     >
                       <div className="session-picker-mode-icon">
-                        <Sparkles size={24} strokeWidth={1.5} />
+                        <Icon size={24} strokeWidth={1.5} />
                       </div>
                       <div className="session-picker-mode-text">
-                        <span className="session-picker-mode-label">{p.label}</span>
-                        <span className="session-picker-mode-desc">
-                          {p.description || 'Custom session profile'}
-                        </span>
+                        <span className="session-picker-mode-label">{profile.label}</span>
+                        {profile.description && (
+                          <span className="session-picker-mode-desc">{profile.description}</span>
+                        )}
                       </div>
                     </button>
-                  ))}
-                </>
+                  );
+                })}
               </div>
             </>
-          ) : (
-            <>
-              {/* Existing sessions list */}
-              <p className="session-picker-prompt">Your Reading Sessions</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-              <SessionList
-                sessions={sessions}
-                renderIcon={renderModeIcon}
-                onSelectSession={onSelectSession}
-                onDeleteSession={onDeleteSession}
-                onRenameSession={onRenameSession}
-                isLoading={isLoading}
-                className="session-picker-list"
-              />
+  // Has sessions — show new session + history
+  return (
+    <div className="session-picker">
+      <div className="session-picker-content">
+        {/* Source header */}
+        <div className="session-picker-source-info">
+          <h1 className="session-picker-title">{source.title}</h1>
+          {source.author && <p className="session-picker-author">by {source.author}</p>}
+        </div>
 
-              {/* New session button / mode picker */}
-              {showNewSessionOptions ? (
-                <div className="session-picker-new-expanded">
-                  <p className="session-picker-new-label">Choose a mode:</p>
-                  <div className="session-picker-mode-options compact">
-                    <>
-                      <button
-                        className="session-picker-mode-option"
-                        onClick={() => { setShowNewSessionOptions(false); onNewSession("reading"); }}
-                        disabled={isLoading}
-                      >
-                        <div className="session-picker-mode-icon">
-                          <BookOpen size={20} strokeWidth={1.5} />
-                        </div>
-                        <div className="session-picker-mode-text">
-                          <span className="session-picker-mode-label">Interactive Reading</span>
-                          <span className="session-picker-mode-desc">
-                            Guided chapter-by-chapter exploration
-                          </span>
-                        </div>
-                      </button>
-                      <button
-                        className="session-picker-mode-option"
-                        onClick={() => { setShowNewSessionOptions(false); onNewSession("qa"); }}
-                        disabled={isLoading}
-                      >
-                        <div className="session-picker-mode-icon">
-                          <MessageCircle size={20} strokeWidth={1.5} />
-                        </div>
-                        <div className="session-picker-mode-text">
-                          <span className="session-picker-mode-label">Freeform Q&amp;A</span>
-                          <span className="session-picker-mode-desc">
-                            Ask anything about the book
-                          </span>
-                        </div>
-                      </button>
-
-                      {/* Custom profiles */}
-                      {customProfiles.map((p) => (
-                        <button
-                          key={p.name}
-                          className="session-picker-mode-option"
-                          onClick={() => { setShowNewSessionOptions(false); onNewSession(p.name, p.label, undefined, p.name); }}
-                          disabled={isLoading}
-                        >
-                          <div className="session-picker-mode-icon">
-                            <Sparkles size={20} strokeWidth={1.5} />
-                          </div>
-                          <div className="session-picker-mode-text">
-                            <span className="session-picker-mode-label">{p.label}</span>
-                            <span className="session-picker-mode-desc">
-                              {p.description || 'Custom session profile'}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                    </>
-                  </div>
+        {/* New session — at the top */}
+        {showProfilePicker ? (
+          <div className="session-picker-new-expanded">
+            <p className="session-picker-new-label">Choose a mode:</p>
+            <div className="session-picker-mode-options compact">
+              {matchingProfiles.map(([key, profile]) => {
+                const Icon = resolveIcon(profile.icon, Sparkles);
+                return (
                   <button
-                    className="session-picker-cancel-btn"
-                    onClick={() => setShowNewSessionOptions(false)}
+                    key={key}
+                    className="session-picker-mode-option"
+                    onClick={() => handleNewSession(key)}
+                    disabled={isLoading}
                   >
-                    Cancel
+                    <div className="session-picker-mode-icon">
+                      <Icon size={20} strokeWidth={1.5} />
+                    </div>
+                    <div className="session-picker-mode-text">
+                      <span className="session-picker-mode-label">{profile.label}</span>
+                      {profile.description && (
+                        <span className="session-picker-mode-desc">{profile.description}</span>
+                      )}
+                    </div>
                   </button>
-                </div>
-              ) : (
-                <button
-                  className="session-picker-new-btn"
-                  onClick={() => {
-                    setShowNewSessionOptions(true);
-                  }}
-                  disabled={isLoading}
-                >
-                  <Plus size={16} />
-                  Start New Session
-                </button>
-              )}
-            </>
-          )
+                );
+              })}
+            </div>
+            <button
+              className="session-picker-cancel-btn"
+              onClick={() => setShowProfilePicker(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            className="session-picker-new-btn"
+            onClick={handleNewSessionClick}
+            disabled={isLoading}
+          >
+            <Plus size={16} />
+            New Session
+          </button>
         )}
-      {showCreateTrigger && (
-        <CustomTriggerModal
-          onClose={() => setShowCreateTrigger(false)}
-          onSave={handleSaveCustomTrigger}
-        />
-      )}
+
+        {/* Session history header */}
+        <div className="session-picker-history-header">
+          <p className="session-picker-prompt">
+            {filteredSessions.length === sessions.length
+              ? `${sessions.length} session${sessions.length !== 1 ? "s" : ""}`
+              : `${filteredSessions.length} of ${sessions.length} sessions`}
+          </p>
+        </div>
+
+        {/* Search + mode filter toolbar */}
+        {sessions.length > 3 && (
+          <div className="session-picker-toolbar">
+            <div className="session-picker-search">
+              <Search size={14} className="session-picker-search-icon" />
+              <input
+                type="text"
+                placeholder="Search sessions..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setVisibleCount(PAGE_SIZE); // reset pagination on search
+                }}
+                className="session-picker-search-input"
+              />
+            </div>
+
+            {modeChips.length > 0 && (
+              <div className="session-picker-mode-chips">
+                <button
+                  className={`session-picker-chip ${modeFilter === null ? "active" : ""}`}
+                  onClick={() => { setModeFilter(null); setVisibleCount(PAGE_SIZE); }}
+                >
+                  All
+                </button>
+                {modeChips.map(({ mode, label, count }) => (
+                  <button
+                    key={mode}
+                    className={`session-picker-chip ${modeFilter === mode ? "active" : ""}`}
+                    onClick={() => { setModeFilter(modeFilter === mode ? null : mode); setVisibleCount(PAGE_SIZE); }}
+                  >
+                    {label} <span className="session-picker-chip-count">{count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Session list */}
+        {filteredSessions.length > 0 ? (
+          <>
+            <SessionList
+              sessions={visibleSessions}
+              renderIcon={renderModeIcon}
+              onSelectSession={onSelectSession}
+              onDeleteSession={onDeleteSession}
+              onRenameSession={onRenameSession}
+              isLoading={isLoading}
+              className="session-picker-list"
+            />
+
+            {hasMore && (
+              <button
+                className="session-picker-load-more"
+                onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+              >
+                Show more ({filteredSessions.length - visibleCount} remaining)
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="session-picker-empty">No sessions match your search.</p>
+        )}
       </div>
     </div>
   );

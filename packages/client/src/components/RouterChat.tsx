@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { Loader2, ArrowUp, BookOpen, Newspaper, Rss, Hash, FileText, Headphones, Library } from "lucide-react";
+import { Loader2, ArrowUp, Rss, Hash } from "lucide-react";
 import { Marked } from "marked";
 import { fetchRouterSession, sendMessageStreaming } from "../api";
 import { useSourceMentions, parseMentionQuery, type MentionSuggestion } from "../hooks/useSourceMentions";
+import { getSourceTypeConfig } from "../source-types";
 import "./RouterChat.css";
 
 const marked = new Marked({
@@ -22,20 +23,14 @@ function MentionIcon({ suggestion }: { suggestion: MentionSuggestion }) {
   if (suggestion.kind === "feed") return <Rss size={14} />;
   if (suggestion.kind === "tag") return <Hash size={14} />;
   if (suggestion.kind === "category") {
-    switch (suggestion.type) {
-      case "news": return <Newspaper size={14} />;
-      case "paper": return <FileText size={14} />;
-      case "podcast": return <Headphones size={14} />;
-      default: return <Library size={14} />;
-    }
+    const config = getSourceTypeConfig(suggestion.type ?? "book");
+    const Icon = config.icon;
+    return <Icon size={14} />;
   }
   // Source kind — pick by source type
-  switch (suggestion.type) {
-    case "news": return <Newspaper size={14} />;
-    case "paper": return <FileText size={14} />;
-    case "podcast": return <Headphones size={14} />;
-    default: return <BookOpen size={14} />;
-  }
+  const config = getSourceTypeConfig(suggestion.type ?? "book");
+  const Icon = config.icon;
+  return <Icon size={14} />;
 }
 
 interface RouterChatProps {
@@ -45,7 +40,9 @@ interface RouterChatProps {
 export function RouterChat({ userId }: RouterChatProps) {
   const navigate = useNavigate();
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const msgIdCounter = useRef(0);
+  const nextMsgId = () => ++msgIdCounter.current;
+  const [messages, setMessages] = useState<Array<{ id: number; role: "user" | "assistant"; content: string }>>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<{ sessionKey: string } | null>(null);
   const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
@@ -163,7 +160,7 @@ export function RouterChat({ userId }: RouterChatProps) {
       const trimmed = input.trim();
       if (!trimmed || isStreaming || !sessionInfo) return;
 
-      const userMsg = { role: "user" as const, content: trimmed };
+      const userMsg = { id: nextMsgId(), role: "user" as const, content: trimmed };
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setIsStreaming(true);
@@ -185,7 +182,7 @@ export function RouterChat({ userId }: RouterChatProps) {
                 updated[updated.length - 1] = { ...last, content: last.content + token };
                 return updated;
               }
-              return [...prev, { role: "assistant", content: token }];
+              return [...prev, { id: nextMsgId(), role: "assistant", content: token }];
             });
           },
           onToolCall({ toolName }) {
@@ -232,7 +229,7 @@ export function RouterChat({ userId }: RouterChatProps) {
             setActiveToolCall(null);
             setMessages((prev) => [
               ...prev,
-              { role: "assistant", content: `Error: ${err.message}` },
+              { id: nextMsgId(), role: "assistant", content: `Error: ${err.message}` },
             ]);
           },
         },
@@ -279,8 +276,8 @@ export function RouterChat({ userId }: RouterChatProps) {
     <div className={`router-chat ${isExpanded ? "expanded" : ""}`}>
       {isExpanded && renderedMessages.length > 0 && (
         <div className="router-chat-messages" ref={messagesRef}>
-          {renderedMessages.map((msg, i) => (
-            <div key={i} className={`router-msg router-msg-${msg.role}`}>
+          {renderedMessages.map((msg) => (
+            <div key={msg.id} className={`router-msg router-msg-${msg.role}`}>
               {msg.role === "assistant" ? (
                 <div dangerouslySetInnerHTML={{ __html: msg.html }} />
               ) : (

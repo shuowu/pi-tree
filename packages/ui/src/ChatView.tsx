@@ -56,6 +56,8 @@ interface ChatViewProps {
   ) => Promise<BranchPreviewData>;
   /** Custom placeholder text for the input (overrides default book-centric text) */
   placeholderText?: string;
+  /** Welcome message shown when the session has no messages yet */
+  welcomeMessage?: string | React.ReactNode;
   /** Available models for the model picker dropdown */
   availableModels?: ModelInfo[];
   /** Called when user selects a different model */
@@ -90,6 +92,7 @@ export function ChatView({
   defaultBranchesCollapsed,
   fetchBranchPreview,
   placeholderText,
+  welcomeMessage,
   availableModels,
   onModelChange,
   onFork,
@@ -104,7 +107,7 @@ export function ChatView({
   const streamingBubbleRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wasStreamingRef = useRef(false);
-  const userJustSentRef = useRef(false);
+
 
   // Client-side filter: hide unused placeholder branches from the user.
   // An unused placeholder has status="placeholder" and messageCount=0.
@@ -171,12 +174,18 @@ export function ChatView({
     }
   }, [streamingContent]);
 
-  // After the user sends a message, scroll it into view so they see their
-  // question positioned at the bottom with room below for the AI response.
+  // When a new user message appears (from input OR external send like content panel),
+  // scroll it into view so the user sees their question with room below for the response.
+  const prevMessageCountRef = useRef(messages.length);
   useEffect(() => {
-    if (userJustSentRef.current) {
-      userJustSentRef.current = false;
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const prevCount = prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+
+    if (messages.length > prevCount) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === "user") {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
     }
   }, [messages]);
 
@@ -233,7 +242,7 @@ export function ChatView({
 
     onSendMessage(finalMessage);
     setInput("");
-    userJustSentRef.current = true;
+
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -273,8 +282,13 @@ export function ChatView({
       <div className="pit-chat-messages" ref={messagesContainerRef} style={{ position: "relative" }}>
         {messages.length === 0 && !isLoading && (
           <div className="pit-chat-empty">
-            <BookOpen size={32} className="pit-chat-empty-icon" strokeWidth={1.5} />
-            <p>Starting your reading session…</p>
+            {typeof welcomeMessage === "string" ? (
+              <><BookOpen size={32} className="pit-chat-empty-icon" strokeWidth={1.5} /><p>{welcomeMessage}</p></>
+            ) : welcomeMessage ? (
+              welcomeMessage
+            ) : (
+              <><BookOpen size={32} className="pit-chat-empty-icon" strokeWidth={1.5} /><p>Start a conversation…</p></>
+            )}
           </div>
         )}
 

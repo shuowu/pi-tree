@@ -4,7 +4,7 @@ import { getExtensionServices, setExtensionServices } from "../context.js";
 describe("Extension Services (context)", () => {
   beforeEach(() => {
     // Clear the global state before each test
-    delete (globalThis as any).__piTreeExtensionServices;
+    delete (globalThis as any).__piTreeServices;
   });
 
   it("throws error when getExtensionServices is called before initialization", () => {
@@ -15,16 +15,22 @@ describe("Extension Services (context)", () => {
 
   it("successfully sets and gets services", () => {
     const dummyServices = {
+      sources: { list: () => [], get: () => null },
+      sessions: { listForSource: () => [], create: () => ({}), resolveUserId: () => undefined, getById: () => null },
+      users: { get: () => null, ensureExists: () => ({}) },
+      registry: { getProfiles: () => new Map() },
+      config: {},
+      getPluginDataDir: () => "/tmp/test/plugins",
+      dataPath: "/tmp/test",
       db: () => "mock-db",
       schema: {
         sources: {},
         userSessions: {},
         users: {},
       },
-      rssService: {},
     };
 
-    setExtensionServices(dummyServices);
+    setExtensionServices(dummyServices as any);
 
     const retrieved = getExtensionServices();
     expect(retrieved).toBe(dummyServices);
@@ -33,17 +39,23 @@ describe("Extension Services (context)", () => {
 
   it("persists services via globalThis to ensure Jiti/loader compatibility", () => {
     const dummyServices = {
+      sources: { list: () => [], get: () => null },
+      sessions: { listForSource: () => [], create: () => ({}), resolveUserId: () => undefined, getById: () => null },
+      users: { get: () => null, ensureExists: () => ({}) },
+      registry: { getProfiles: () => new Map() },
+      config: {},
+      getPluginDataDir: () => "/tmp/test/plugins",
+      dataPath: "/tmp/test",
       db: () => "global-db",
       schema: {
         sources: {},
         userSessions: {},
         users: {},
       },
-      rssService: {},
     };
 
-    setExtensionServices(dummyServices);
+    setExtensionServices(dummyServices as any);
 
-    expect((globalThis as any).__piTreeExtensionServices).toBe(dummyServices);
+    expect((globalThis as any).__piTreeServices).toBe(dummyServices);
   });
 });

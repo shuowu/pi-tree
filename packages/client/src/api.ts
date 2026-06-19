@@ -10,7 +10,6 @@ import type {
   SourceSession,
   SessionContext,
   UserInfo,
-  SourceType,
 } from "@pi-tree/shared";
 
 const API = "/api";
@@ -107,7 +106,7 @@ export async function fetchUser(userId: string): Promise<UserInfo> {
 // Library
 // ---------------------------------------------------------------------------
 
-export async function fetchSources(opts?: { search?: string; tags?: string[]; type?: SourceType }): Promise<Source[]> {
+export async function fetchSources(opts?: { search?: string; tags?: string[]; type?: string }): Promise<Source[]> {
   const params = new URLSearchParams();
   if (opts?.search) params.set('search', opts.search);
   if (opts?.tags?.length) params.set('tags', opts.tags.join(','));
@@ -168,13 +167,13 @@ export async function fetchContent(
   return data.content;
 }
 
-export interface BookHeading {
+export interface ContentHeading {
   line: number;
   level: number;
   title: string;
 }
 
-export async function fetchHeadings(sourceId: string): Promise<BookHeading[]> {
+export async function fetchHeadings(sourceId: string): Promise<ContentHeading[]> {
   const res = await fetch(`${API}/library/sources/${sourceId}/headings`);
   if (!res.ok) return [];
   const data = await res.json();
@@ -221,14 +220,38 @@ export async function createSource(data: {
   return res.json();
 }
 
+export async function updateSource(
+  sourceId: string,
+  data: {
+    title?: string;
+    author?: string;
+    year?: number;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<void> {
+  const res = await fetch(`${API}/library/sources/${encodeURIComponent(sourceId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Update failed' }));
+    throw new Error(err.error || `Update failed: ${res.status}`);
+  }
+}
+
 export async function deleteSource(sourceId: string): Promise<void> {
   const res = await fetch(`${API}/library/sources/${sourceId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }
 
+/**
+ * @deprecated Processing is now handled by the AI's process_book tool.
+ * Kept as a no-op for backward compatibility with UI components.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function processSource(sourceId: string): Promise<void> {
-  const res = await fetch(`${API}/library/sources/${sourceId}/process`, { method: 'POST' });
-  if (!res.ok) throw new Error(`Processing trigger failed: ${res.status}`);
+  // No-op: processing is now handled by the AI's process_book tool
 }
 
 export interface Job {
@@ -245,18 +268,19 @@ export interface JobWithSource extends Job {
   sourceAuthor: string;
 }
 
+/**
+ * @deprecated Job queue removed. Returns null.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function fetchJobStatus(sourceId: string): Promise<Job | null> {
-  const res = await fetch(`${API}/library/sources/${sourceId}/job`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.job;
+  return null;
 }
 
+/**
+ * @deprecated Job queue removed. Returns empty array.
+ */
 export async function fetchJobs(): Promise<JobWithSource[]> {
-  const res = await fetch(`${API}/library/jobs`);
-  if (!res.ok) throw new Error(`Failed to fetch jobs: ${res.status}`);
-  const data = await res.json();
-  return data.jobs || [];
+  return [];
 }
 /**
  * Fetch sessions — unified endpoint.
@@ -711,6 +735,17 @@ export async function fetchNewsFeeds(): Promise<ClientFeedConfig[]> {
 // Profiles
 // ---------------------------------------------------------------------------
 
+/** Quick-action button defined in a session profile */
+export interface ProfileQuickAction {
+  label: string;
+  icon: string;
+  prompt: string;
+  /** If set, shows a text input before sending */
+  inputPlaceholder?: string;
+  /** Session title template — {input} and {date} interpolated */
+  titleTemplate?: string;
+}
+
 /** Profile info as returned by GET /api/profiles */
 export interface ProfileInfo {
   label: string;
@@ -720,6 +755,12 @@ export interface ProfileInfo {
   extensions: string[];
   excludeTools: string[];
   model?: string;
+  /** Lucide icon name for UI display (e.g. "book-open") */
+  icon?: string;
+  /** First message template — {sourceTitle} and {sourceAuthor} interpolated */
+  defaultPrompt?: string;
+  /** Quick-action buttons shown in the session picker */
+  quickActions?: ProfileQuickAction[];
 }
 
 /**

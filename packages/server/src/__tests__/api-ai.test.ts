@@ -38,6 +38,7 @@ function json(data: Record<string, unknown>) {
 describe("API LLM Integration via aimock", () => {
   const userId = "ai-test-user";
   const sourceId = "ai-test-source";
+  let sessionId: number;
 
   beforeAll(async () => {
     // Point PI_BASE_URL to the aimock URL
@@ -45,20 +46,27 @@ describe("API LLM Integration via aimock", () => {
 
     // Initialize agent registry for profile resolution
     const { initAgentRegistry } = await import("../services/agent-registry.js");
+    const { createRequire } = await import("node:module");
+    const { dirname } = await import("node:path");
+    const req = createRequire(import.meta.url);
+    const corePluginDirs = ["pi-tree-book", "pi-tree-news", "pi-tree-paper", "pi-tree-youtube", "pi-tree-mcp"].flatMap(pkg => {
+      try { return [dirname(req.resolve(`${pkg}/package.json`))]; }
+      catch { return []; }
+    });
     initAgentRegistry({
       coreDir: join(import.meta.dirname, ".."),
       dataDir: TEST_DATA_PATH,
+      corePluginDirs,
     });
 
     // Initialize extension services context
     const { setExtensionServices } = await import("../agents/context.js");
-    const { RssService } = await import("../services/rss.service.js");
     const { userSessions, users } = await import("../db/index.js");
     setExtensionServices({
       db: getDb,
       schema: { sources, userSessions, users },
-      rssService: new RssService(),
-    });
+      getPluginDataDir: () => join(TEST_DATA_PATH, "plugins"),
+    } as any);
 
     mkdirSync(TEST_DATA_PATH, { recursive: true });
     
@@ -87,6 +95,13 @@ describe("API LLM Integration via aimock", () => {
       })
       .onConflictDoNothing()
       .run();
+
+    // Create a session so resolveProfile gets mode: "reading" → "book.reading"
+    const sessRes = await app.request(
+      `/api/sessions/${userId}/${sourceId}`,
+      json({ title: "AI Test Session", context: { mode: "reading" } }),
+    );
+    sessionId = (await sessRes.json()).id;
   });
 
   afterAll(async () => {
@@ -115,7 +130,7 @@ describe("API LLM Integration via aimock", () => {
     // 2. Start session
     const startRes = await app.request(
       "/api/session/start",
-      json({ userId, sourceId }),
+      json({ userId, sourceId, sessionId }),
     );
     expect(startRes.status).toBe(200);
     const startBody = await startRes.json();
@@ -127,6 +142,7 @@ describe("API LLM Integration via aimock", () => {
       json({
         userId,
         sourceId,
+        sessionId,
         message: "hello",
         viewNodeId: startBody.viewNodeId,
       }),
@@ -161,7 +177,7 @@ describe("API LLM Integration via aimock", () => {
     // 2. Start session
     const startRes = await app.request(
       "/api/session/start",
-      json({ userId, sourceId }),
+      json({ userId, sourceId, sessionId }),
     );
     const startBody = await startRes.json();
 
@@ -171,6 +187,7 @@ describe("API LLM Integration via aimock", () => {
       json({
         userId,
         sourceId,
+        sessionId,
         message: "stream-me",
         viewNodeId: startBody.viewNodeId,
       }),

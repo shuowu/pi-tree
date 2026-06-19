@@ -1,5 +1,0 @@
-name: book.reading
-label: Book Reading
-skills: [interactive-reading]
-extensions: [mcp]
-exclude_tools: [bash, edit]

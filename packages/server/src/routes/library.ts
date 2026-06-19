@@ -1,16 +1,13 @@
 import { Hono } from "hono";
 import { LibraryService } from "../services/library.js";
-import { BookIngestionService } from "../services/book-ingestion.js";
-import { readFile, stat, mkdir, copyFile } from "node:fs/promises";
+import { readFile, stat, mkdir, copyFile, writeFile } from "node:fs/promises";
 import { extname, resolve, isAbsolute, join } from "node:path";
-import { JobQueueService } from "../services/job-queue.js";
 import { getDb, sources as sourcesTable } from "../db/index.js";
 import { eq } from "drizzle-orm";
 
 export const libraryRoutes = new Hono();
 
 let _library: LibraryService | null = null;
-let _bookIngestion: BookIngestionService | null = null;
 
 function getLibrary(): LibraryService {
   if (!_library) {
@@ -19,17 +16,21 @@ function getLibrary(): LibraryService {
   return _library;
 }
 
-function getBookIngestion(): BookIngestionService {
-  if (!_bookIngestion) {
-    _bookIngestion = new BookIngestionService();
-  }
-  return _bookIngestion;
-}
-
 /** @internal — used by tests to reset singletons */
 export function _resetLibraryServices(): void {
   _library = null;
-  _bookIngestion = null;
+}
+
+const dataPath =
+  process.env.DATA_PATH ??
+  join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 /** List all sources in the library (with optional search/tag/type filter) */
@@ -165,12 +166,31 @@ libraryRoutes.post("/sources/create", async (c) => {
 
     db.insert(sourcesTable).values(values).run();
 
+    // Fetch and save cover if thumbnailUrl is present in metadata
+    if (body.metadata && typeof body.metadata === "object") {
+      const thumbUrl = body.metadata.thumbnailUrl;
+      if (typeof thumbUrl === "string" && thumbUrl.startsWith("http")) {
+        try {
+          const res = await fetch(thumbUrl);
+          if (res.ok) {
+            const buffer = await res.arrayBuffer();
+            const targetDir = join(dataPath, "sources", id);
+            await mkdir(targetDir, { recursive: true });
+            const coverPath = join(targetDir, "cover.jpg");
+            await writeFile(coverPath, Buffer.from(buffer));
+            console.log(`[sources/create] Successfully cached cover image for ${id}`);
+          } else {
+            console.warn(`[sources/create] Failed to fetch cover from ${thumbUrl}: ${res.statusText}`);
+          }
+        } catch (err: any) {
+          console.warn(`[sources/create] Error caching cover image for ${id}:`, err.message);
+        }
+      }
+    }
+
     // If contentPath provided, copy content to sources/{id}/markdown/
     let hasMarkdown = false;
     if (body.contentPath) {
-      const dataPath = process.env.DATA_PATH ??
-        join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
-
       // Resolve: absolute stays absolute, relative resolves from DATA_PATH
       const resolvedPath = isAbsolute(body.contentPath)
         ? resolve(body.contentPath)
@@ -214,7 +234,16 @@ libraryRoutes.post("/sources/create", async (c) => {
   }
 });
 
-/** Upload a new book */
+/**
+ * Upload a file for a new source.
+ *
+ * Generic: stores the uploaded file at $DATA_PATH/sources/{sourceId}/original{ext},
+ * creates a DB row, and returns the source info. Does NOT trigger processing —
+ * the book plugin's `process_book` tool handles that when the AI session starts.
+ *
+ * For .md files: saves directly as markdown content and marks the source as 'ready'.
+ * For all other files: saves the original and marks the source as 'uploaded'.
+ */
 libraryRoutes.post("/sources", async (c) => {
   try {
     const body = await c.req.parseBody();
@@ -238,16 +267,156 @@ libraryRoutes.post("/sources", async (c) => {
         ? parseInt(yearStr, 10)
         : undefined;
 
+    const typeStr = body["type"];
+    // File uploads default to 'book' — the client should always send the type
+    const sourceType = typeof typeStr === "string" && typeStr.length > 0 ? typeStr : "book";
+
     const buffer = Buffer.from(await (file as File).arrayBuffer());
-    const filename = (file as File).name ?? "upload.epub";
+    const filename = (file as File).name ?? "upload";
+    const ext = extname(filename).toLowerCase();
 
-    const source = await getBookIngestion().addBook(buffer, filename, {
-      title,
-      author,
-      year: year && !isNaN(year) ? year : undefined,
-    });
+    // Generate source ID
+    const parts = [title as string, author as string];
+    if (year && !isNaN(year)) parts.push(String(year));
+    let baseId = slugify(parts.join("-"));
+    let sourceId = baseId;
+    let suffix = 1;
 
-    return c.json(source, 201);
+    const db = getDb();
+    while (true) {
+      const existing = db.select().from(sourcesTable).where(eq(sourcesTable.id, sourceId)).get();
+      if (!existing) break;
+      suffix++;
+      sourceId = `${baseId}-${suffix}`;
+    }
+
+    // Create directory structure
+    const sourceDir = join(dataPath, "sources", sourceId);
+    const markdownDir = join(sourceDir, "markdown");
+    await mkdir(markdownDir, { recursive: true });
+
+    // Save original file
+    const originalPath = join(sourceDir, `original${ext}`);
+    await writeFile(originalPath, buffer);
+
+    const now = new Date().toISOString();
+
+    // For markdown files, skip conversion — save directly and mark ready
+    if (ext === ".md") {
+      await writeFile(join(markdownDir, "content.md"), buffer);
+
+      db.insert(sourcesTable)
+        .values({
+          id: sourceId,
+          type: sourceType,
+          title: title as string,
+          author: author as string,
+          year: year && !isNaN(year) ? year : null,
+          source: "upload",
+          status: "ready",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      return c.json(
+        {
+          id: sourceId,
+          type: sourceType,
+          title,
+          author,
+          year: year && !isNaN(year) ? year : 0,
+          folderName: sourceId,
+          progress: 100,
+          hasMarkdown: true,
+          hasOutline: false,
+          hasCover: false,
+          source: "upload",
+          status: "ready",
+        },
+        201,
+      );
+    }
+
+    // For all other file types, save and mark as 'pending' (awaiting processing)
+    db.insert(sourcesTable)
+      .values({
+        id: sourceId,
+        type: sourceType,
+        title: title as string,
+        author: author as string,
+        year: year && !isNaN(year) ? year : null,
+        source: "upload",
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    return c.json(
+      {
+        id: sourceId,
+        type: sourceType,
+        title,
+        author,
+        year: year && !isNaN(year) ? year : 0,
+        folderName: sourceId,
+        progress: 0,
+        hasMarkdown: false,
+        hasOutline: false,
+        hasCover: false,
+        source: "upload",
+        status: "pending",
+      },
+      201,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ error: message }, 500);
+  }
+});
+
+/** Update source metadata */
+libraryRoutes.put("/sources/:sourceId", async (c) => {
+  const sourceId = c.req.param("sourceId");
+  try {
+    const body = await c.req.json<{
+      title?: string;
+      author?: string;
+      year?: number;
+      metadata?: Record<string, any>;
+    }>();
+
+    const db = getDb();
+    const existing = db
+      .select()
+      .from(sourcesTable)
+      .where(eq(sourcesTable.id, sourceId))
+      .get();
+
+    if (!existing) {
+      return c.json({ error: "Source not found" }, 404);
+    }
+
+    const updates: Record<string, any> = {
+      updatedAt: new Date().toISOString(),
+    };
+    if (body.title !== undefined) updates.title = body.title.trim();
+    if (body.author !== undefined) updates.author = body.author.trim();
+    if (body.year !== undefined) updates.year = body.year;
+    
+    if (body.metadata !== undefined && body.metadata !== null) {
+      const currentMeta = existing.metadata ? JSON.parse(existing.metadata) : {};
+      const mergedMeta = { ...currentMeta, ...body.metadata };
+      updates.metadata = JSON.stringify(mergedMeta);
+    }
+
+    db.update(sourcesTable)
+      .set(updates)
+      .where(eq(sourcesTable.id, sourceId))
+      .run();
+
+    return c.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return c.json({ error: message }, 500);
@@ -264,59 +433,20 @@ libraryRoutes.delete("/sources/:sourceId", async (c) => {
       return c.json({ error: "Source not found" }, 404);
     }
 
-    if (source.source === "library") {
-      return c.json({ error: "Cannot delete library sources" }, 403);
+    if (source.source === "system") {
+      return c.json({ error: "Cannot delete system sources" }, 403);
     }
 
-    await getBookIngestion().deleteBook(sourceId);
+    // Delete DB row
+    const db = getDb();
+    db.delete(sourcesTable).where(eq(sourcesTable.id, sourceId)).run();
+
+    // Delete directory
+    const { rm } = await import("node:fs/promises");
+    const sourceDir = join(dataPath, "sources", sourceId);
+    await rm(sourceDir, { recursive: true, force: true });
+
     return c.json({ success: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return c.json({ error: message }, 500);
-  }
-});
-
-/** Process an uploaded source (enqueue job to generate outline and summary) */
-libraryRoutes.post("/sources/:sourceId/process", async (c) => {
-  const sourceId = c.req.param("sourceId");
-  try {
-    const source = await getLibrary().getSource(sourceId);
-    if (!source) {
-      return c.json({ error: "Source not found" }, 404);
-    }
-
-    const job = await JobQueueService.getInstance().createJob(sourceId);
-    return c.json({ success: true, job });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return c.json({ error: message }, 500);
-  }
-});
-
-/** Get the latest background job for a source */
-libraryRoutes.get("/sources/:sourceId/job", async (c) => {
-  const sourceId = c.req.param("sourceId");
-  const job = JobQueueService.getInstance().getLatestJobForSource(sourceId);
-  return c.json({ job });
-});
-
-/** Get all background jobs */
-libraryRoutes.get("/jobs", async (c) => {
-  try {
-    const jobs = JobQueueService.getInstance().getAllJobs();
-    const sourceList = await getLibrary().listSources();
-    const sourceMap = new Map(sourceList.map((s) => [s.id, s]));
-
-    const jobsWithSources = jobs.map((job) => {
-      const source = sourceMap.get(job.sourceId);
-      return {
-        ...job,
-        bookTitle: source?.title || job.sourceId,
-        bookAuthor: source?.author || "Unknown",
-      };
-    });
-
-    return c.json({ jobs: jobsWithSources });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return c.json({ error: message }, 500);

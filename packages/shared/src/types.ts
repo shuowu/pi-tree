@@ -22,7 +22,8 @@ export interface UserInfo {
 // Source Types — discriminator for the generic sources model
 // ---------------------------------------------------------------------------
 
-export type SourceType = 'book' | 'news' | 'paper' | 'podcast';
+/** Source type discriminator. Well-known values: 'book', 'news', 'paper'. Plugins can register additional types. */
+export type SourceType = string;
 
 /** Book-specific metadata stored in `sources.metadata` JSON column */
 export interface BookMetadata {
@@ -55,10 +56,10 @@ export interface SessionContext {
   mode: string;
   /** Optional profile name — directly references a registered profile (bypasses sourceType.mode resolution) */
   profile?: string;
-  /** Optional custom system prompt override */
-  systemPrompt?: string;
   /** Optional skill filter — which skills to enable for this session */
   skills?: string[];
+  /** Optional extension filter — which extensions to enable for this session */
+  extensions?: string[];
   /** Optional model override — e.g. use a cheaper model for casual Q&A */
   model?: string;
 }

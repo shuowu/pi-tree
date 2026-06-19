@@ -10,6 +10,8 @@ import type {
   ResolvedProfile,
   AgentRegistryConfig,
   ValidationResult,
+  PluginRouteEntry,
+  SourceTypeEntry,
 } from "../types/agent.js";
 // ---------------------------------------------------------------------------
 // Profile YAML schema — validated with Zod
@@ -38,6 +40,22 @@ export const profileSchema = z.strictObject({
   exclude_tools: z.array(z.string()).default(["bash", "edit"]),
   /** Model override — falls back to server default if not set */
   model: z.string().optional(),
+  /** Lucide icon name for UI display (e.g. "book-open") */
+  icon: z.string().optional(),
+  /** First message template — {sourceTitle} is interpolated at runtime */
+  defaultPrompt: z.string().optional(),
+  /** Default title template — {sourceTitle} and {date} interpolated. Used when AI creates a session without a specific title. */
+  defaultTitle: z.string().optional(),
+  /** Quick-action buttons shown in the session UI */
+  quickActions: z.array(z.object({
+    label: z.string(),
+    icon: z.string(),
+    prompt: z.string(),
+    /** If set, shows a text input before sending */
+    inputPlaceholder: z.string().optional(),
+    /** Session title template — {input} and {date} interpolated */
+    titleTemplate: z.string().optional(),
+  })).optional(),
 });
 
 export type ProfileYaml = z.infer<typeof profileSchema>;
@@ -50,41 +68,95 @@ export class AgentRegistry {
   private skills = new Map<string, SkillEntry>();
   private extensions = new Map<string, ExtensionEntry>();
   private profiles = new Map<string, SessionProfile>();
+  private pluginRoutes = new Map<string, PluginRouteEntry>();
+  private sourceTypes = new Map<string, SourceTypeEntry>();
 
   /**
    * Initialize the registry: scan directories and populate maps.
    * Called once at server startup.
    *
-   * Derives all paths from the two-root config:
-   *   coreDir/agents/skills/      → core skills
-   *   coreDir/agents/extensions/  → core extensions
-   *   coreDir/profiles/           → core session profiles
-   *   dataDir/skills/             → user skill overrides
-   *   dataDir/extensions/         → user extension overrides
-   *   dataDir/profiles/           → user-defined session profiles
+   * Discovery order:
+   *   1. Core plugins from corePluginDirs (each dir is processed for extensions,
+   *      skills, profiles, routes, and source types)
+   *   1b. Server-bundled extensions from coreDir/agents/extensions/
+   *   2. Core skills from coreDir/agents/skills/ (legacy standalone, backward compat)
+   *   3. User extensions from dataDir/extensions/ (also scanned for bundled pi.skills)
+   *   4. User skills from dataDir/skills/
+   *   5. Core profiles from coreDir/profiles/
+   *   6. User profiles from dataDir/profiles/
    */
   initialize(config: AgentRegistryConfig): void {
     this.skills.clear();
     this.extensions.clear();
     this.profiles.clear();
+    this.sourceTypes.clear();
+
+    // --- Discover core plugins (individual plugin directories) ---
+    if (config.corePluginDirs?.length) {
+      for (const pluginDir of config.corePluginDirs) {
+        this.registerPluginDir(pluginDir, "core");
+      }
+    }
+
+    // Server-bundled extensions (e.g. router) — always scanned
+    const serverExtDir = join(config.coreDir, "agents", "extensions");
+    this.discoverExtensions(serverExtDir, "core");
+
+    // User extensions
+    this.discoverExtensions(join(config.dataDir, "extensions"), "user");
+    if (config.extensionsPath) {
+      this.discoverExtensions(config.extensionsPath, "user");
+    }
 
     // --- Discover skills ---
-    // Core skills first, then user skills override (user wins on name collision)
-    this.discoverSkills(join(config.coreDir, "agents", "skills"), "core");
-    this.discoverSkills(join(config.dataDir, "skills"), "user");
+    // Skills bundled inside server-bundled extensions
+    this.discoverSkills(serverExtDir, "core");
 
-    // --- Discover extensions ---
-    this.discoverExtensions(join(config.coreDir, "agents", "extensions"), "core");
-    this.discoverExtensions(join(config.dataDir, "extensions"), "user");
+    // Standalone core skills (legacy path — kept for backward compat, harmless no-op if empty)
+    this.discoverSkills(join(config.coreDir, "agents", "skills"), "core");
+
+    // User skills: bundled in user extensions, then standalone user skills
+    this.discoverSkills(join(config.dataDir, "extensions"), "user");
+    if (config.extensionsPath) {
+      this.discoverSkills(config.extensionsPath, "user");
+    }
+    this.discoverSkills(join(config.dataDir, "skills"), "user");
+    if (config.skillsPath) {
+      this.discoverSkills(config.skillsPath, "user");
+    }
 
     // --- Load profiles ---
-    // Core profiles first (shipped YAML), then user profiles override
+    // Server-bundled profiles
+    this.discoverPluginProfiles(serverExtDir);
+
+    // Legacy core profiles path (kept for backward compat)
     this.discoverProfiles(join(config.coreDir, "profiles"));
+
+    // User plugin profiles, then standalone user profiles
+    this.discoverPluginProfiles(join(config.dataDir, "extensions"));
+    if (config.extensionsPath) {
+      this.discoverPluginProfiles(config.extensionsPath);
+    }
     this.discoverProfiles(join(config.dataDir, "profiles"));
+
+    // --- Discover plugin routes (server-bundled + user) ---
+    this.discoverPluginRoutes(serverExtDir);
+    this.discoverPluginRoutes(join(config.dataDir, "extensions"));
+    if (config.extensionsPath) {
+      this.discoverPluginRoutes(config.extensionsPath);
+    }
+
+    // --- Discover source types (server-bundled + user) ---
+    this.discoverSourceTypes(serverExtDir);
+    this.discoverSourceTypes(join(config.dataDir, "extensions"));
+    if (config.extensionsPath) {
+      this.discoverSourceTypes(config.extensionsPath);
+    }
 
     console.log(
       `[agent-registry] Initialized: ${this.skills.size} skills, ` +
-      `${this.extensions.size} extensions, ${this.profiles.size} profiles`,
+      `${this.extensions.size} extensions, ${this.profiles.size} profiles, ` +
+      `${this.pluginRoutes.size} plugin routes, ${this.sourceTypes.size} source types`,
     );
   }
 
@@ -94,8 +166,11 @@ export class AgentRegistry {
    * Resolution order:
    *   1. `sessionContext.profile` — direct reference to a registered profile (highest priority)
    *   2. Profile for `${sourceType}.${mode}` (composite key)
-   *   3. Profile for `${sourceType}` (type-level default)
-   *   4. `_default` profile (global fallback)
+   *   3. Profile for `${sourceType}` (direct key, e.g. "router")
+   *
+   * No implicit fallback — every source type + mode combination must have an
+   * explicit profile YAML. The `_default` profile is only used when explicitly
+   * referenced via `sessionContext.profile`.
    *
    * After the base profile is found, SessionContext overrides are applied:
    *   - SessionContext.skills replaces the profile's skills list.
@@ -114,33 +189,40 @@ export class AgentRegistry {
       profile = this.profiles.get(sessionContext.profile)!;
       resolvedFrom = sessionContext.profile;
     } else {
-      // 2–4. Standard fallback chain: sourceType.mode → sourceType → _default
+      // 2–3. Strict lookup: sourceType.mode → sourceType (no fallback)
       const profileKey = mode ? `${sourceType}.${mode}` : sourceType;
-      profile =
-        this.profiles.get(profileKey) ??
-        this.profiles.get(sourceType) ??
-        this.profiles.get("_default")!;
-      resolvedFrom =
-        this.profiles.has(profileKey)
-          ? profileKey
-          : this.profiles.has(sourceType)
-            ? sourceType
-            : "_default";
+      profile = this.profiles.get(profileKey) ?? this.profiles.get(sourceType);
+      if (!profile) {
+        throw new Error(
+          `No profile found for '${profileKey}'. ` +
+          `Plugin must declare a profile YAML for each source type + mode combination.`,
+        );
+      }
+      resolvedFrom = this.profiles.has(profileKey) ? profileKey : sourceType;
     }
 
     // Apply SessionContext overrides
     const effectiveSkills = sessionContext?.skills?.length
       ? sessionContext.skills
       : profile.skills;
+    const effectiveExtensions = sessionContext?.extensions?.length
+      ? sessionContext.extensions
+      : profile.extensions;
     const effectiveModel = sessionContext?.model ?? profile.model;
+
+    // Expand wildcard: "*" → all registered extension names
+    const resolvedExtensions = effectiveExtensions.includes("*")
+      ? [...this.extensions.keys()]
+      : effectiveExtensions;
 
     // Resolve names → paths
     const skillPaths = this.resolveSkillPaths(effectiveSkills);
-    const extensionPaths = this.resolveExtensionPaths(profile.extensions);
+    const extensionPaths = this.resolveExtensionPaths(resolvedExtensions);
 
     return {
       ...profile,
       skills: effectiveSkills,
+      extensions: effectiveExtensions,
       model: effectiveModel,
       resolvedFrom,
       skillPaths,
@@ -162,6 +244,7 @@ export class AgentRegistry {
         }
       }
       for (const ext of profile.extensions) {
+        if (ext === "*") continue; // wildcard — resolved at runtime
         if (!this.extensions.has(ext)) {
           errors.push(`Profile "${key}" references unknown extension "${ext}"`);
         }
@@ -211,7 +294,217 @@ export class AgentRegistry {
     return this.extensions.get(name);
   }
 
+  getPluginRoutes(): PluginRouteEntry[] {
+    return [...this.pluginRoutes.values()];
+  }
+
+  getSourceTypes(): SourceTypeEntry[] {
+    return [...this.sourceTypes.values()];
+  }
+
+  /**
+   * Register a single plugin directory — runs all discovery phases on it.
+   * Used for individually-specified plugin directories (corePluginDirs).
+   */
+  private registerPlugin(pluginDir: string, source: "core" | "user"): void {
+    if (!existsSync(pluginDir)) return;
+    try {
+      if (!statSync(pluginDir).isDirectory()) return;
+    } catch { return; }
+
+    const name = pluginDir.split("/").pop() ?? pluginDir;
+
+    // --- Extensions ---
+    const pkgJsonPath = join(pluginDir, "package.json");
+    if (existsSync(pkgJsonPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+        if (pkg.pi?.extensions?.length) {
+          if (source === "user" || !this.extensions.has(name)) {
+            this.extensions.set(name, { name, path: pluginDir, source });
+          }
+        }
+      } catch { /* skip */ }
+    } else {
+      // Convention: index.ts or index.js
+      if (
+        existsSync(join(pluginDir, "index.ts")) ||
+        existsSync(join(pluginDir, "index.js"))
+      ) {
+        if (source === "user" || !this.extensions.has(name)) {
+          this.extensions.set(name, { name, path: pluginDir, source });
+        }
+      }
+    }
+
+    // --- Skills (bundled in package via pi.skills) ---
+    if (existsSync(pkgJsonPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+        if (pkg.pi?.skills?.length) {
+          for (const skillDir of pkg.pi.skills as string[]) {
+            const resolvedSkillDir = join(pluginDir, skillDir);
+            this.discoverSkills(resolvedSkillDir, source);
+          }
+        }
+      } catch { /* skip */ }
+    }
+
+    // --- Profiles ---
+    const profilesDir = join(pluginDir, "profiles");
+    if (existsSync(profilesDir)) {
+      this.discoverProfiles(profilesDir);
+    }
+
+    // --- Routes ---
+    if (existsSync(pkgJsonPath) && !this.pluginRoutes.has(name)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+        const routesRelPath = pkg.piTree?.routes;
+        if (routesRelPath) {
+          const routesPath = join(pluginDir, routesRelPath);
+          const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
+          this.pluginRoutes.set(name, { name, routesPath, prefix });
+          console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
+        }
+      } catch { /* skip */ }
+    }
+
+    // --- Source types ---
+    if (existsSync(pkgJsonPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+        const st = pkg.piTree?.sourceType;
+        if (st?.key && !this.sourceTypes.has(st.key)) {
+          this.sourceTypes.set(st.key, {
+            key: st.key,
+            label: st.label ?? st.key,
+            icon: st.icon ?? "puzzle",
+            sessionModes: st.sessionModes ?? ["reading", "custom"],
+            defaultMode: st.defaultMode ?? "reading",
+            autoStartMode: st.autoStartMode,
+            hasProcessing: st.hasProcessing ?? false,
+            searchPlaceholder: st.searchPlaceholder,
+            chatPlaceholder: st.chatPlaceholder,
+            mentionKeyword: st.mentionKeyword,
+            fixedSourceId: st.fixedSourceId,
+            sessionStrategy: st.sessionStrategy,
+            askAfterHours: st.askAfterHours,
+            staleAfterHours: st.staleAfterHours,
+            routingContextFile: st.routingContextFile,
+            routingContextLabel: st.routingContextLabel,
+            addSource: st.addSource,
+            cardSubtitle: st.cardSubtitle,
+            badges: st.badges,
+            systemContext: st.systemContext,
+            pluginName: name,
+            hasUI: !!pkg.piTree?.ui,
+            pluginDir,
+          });
+          console.log(`[agent-registry] Discovered source type "${st.key}" from plugin ${name}`);
+        }
+      } catch { /* skip */ }
+    }
+  }
+
   // --- Private discovery helpers ---
+
+  /**
+   * Process a single plugin directory for all discovery phases:
+   * extensions, skills, profiles, routes, and source types.
+   * Used for core plugins that live as individual directories.
+   */
+  private registerPluginDir(pluginDir: string, source: "core" | "user"): void {
+    if (!existsSync(pluginDir)) return;
+    try {
+      if (!statSync(pluginDir).isDirectory()) return;
+    } catch { return; }
+
+    // Extensions: check for Pi package format (package.json with pi.extensions)
+    const pkgJsonPath = join(pluginDir, "package.json");
+    if (existsSync(pkgJsonPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+
+        // Derive plugin name from package.json `name` field (strip "pi-tree-" prefix)
+        // to preserve backward-compatible names (e.g. "book" not "plugin-book").
+        // Falls back to directory basename if no package name.
+        const rawName: string = pkg.name ?? pluginDir.split(/[\/\\]/).pop() ?? pluginDir;
+        const name = rawName.replace(/^pi-tree-/, "");
+
+        // Register extension
+        if (pkg.pi?.extensions?.length) {
+          if (source === "user" || !this.extensions.has(name)) {
+            this.extensions.set(name, { name, path: pluginDir, source });
+          }
+        }
+
+        // Register skills from pi.skills
+        if (pkg.pi?.skills?.length) {
+          for (const skillDir of pkg.pi.skills as string[]) {
+            const resolvedSkillDir = join(pluginDir, skillDir);
+            this.discoverSkills(resolvedSkillDir, source);
+          }
+        }
+
+        // Register profiles from profiles/ subdir
+        const profilesDir = join(pluginDir, "profiles");
+        if (existsSync(profilesDir)) {
+          this.discoverProfiles(profilesDir);
+        }
+
+        // Register routes from piTree.routes
+        const routesRelPath = pkg.piTree?.routes;
+        if (routesRelPath && !this.pluginRoutes.has(name)) {
+          const routesPath = join(pluginDir, routesRelPath);
+          const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
+          this.pluginRoutes.set(name, { name, routesPath, prefix });
+          console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
+        }
+
+        // Register source type from piTree.sourceType
+        const st = pkg.piTree?.sourceType;
+        if (st?.key && !this.sourceTypes.has(st.key)) {
+          this.sourceTypes.set(st.key, {
+            key: st.key,
+            label: st.label ?? st.key,
+            icon: st.icon ?? "puzzle",
+            sessionModes: st.sessionModes ?? ["reading", "custom"],
+            defaultMode: st.defaultMode ?? "reading",
+            autoStartMode: st.autoStartMode,
+            hasProcessing: st.hasProcessing ?? false,
+            searchPlaceholder: st.searchPlaceholder,
+            chatPlaceholder: st.chatPlaceholder,
+            mentionKeyword: st.mentionKeyword,
+            fixedSourceId: st.fixedSourceId,
+            sessionStrategy: st.sessionStrategy,
+            askAfterHours: st.askAfterHours,
+            staleAfterHours: st.staleAfterHours,
+            routingContextFile: st.routingContextFile,
+            routingContextLabel: st.routingContextLabel,
+            addSource: st.addSource,
+            cardSubtitle: st.cardSubtitle,
+            badges: st.badges,
+            systemContext: st.systemContext,
+            pluginName: name,
+            hasUI: !!pkg.piTree?.ui,
+            pluginDir,
+          });
+          console.log(`[agent-registry] Discovered source type "${st.key}" from plugin ${name}`);
+        }
+      } catch {
+        // Invalid package.json — skip
+      }
+    } else {
+      // Fallback: directory with index.ts/index.js (no package.json)
+      const name = pluginDir.split(/[\/\\]/).pop() ?? pluginDir;
+      if (existsSync(join(pluginDir, "index.ts")) || existsSync(join(pluginDir, "index.js"))) {
+        if (source === "user" || !this.extensions.has(name)) {
+          this.extensions.set(name, { name, path: pluginDir, source });
+        }
+      }
+    }
+  }
 
   /**
    * Scan a directory for skill subdirectories.
@@ -224,6 +517,25 @@ export class AgentRegistry {
         const skillPath = join(dir, name);
         try {
           if (!statSync(skillPath).isDirectory()) continue;
+
+          // Pi package format: package.json with pi.skills
+          const pkgJsonPath = join(skillPath, "package.json");
+          if (existsSync(pkgJsonPath)) {
+            try {
+              const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+              if (pkg.pi?.skills?.length) {
+                // Scan each declared skill path within the package
+                for (const skillDir of pkg.pi.skills as string[]) {
+                  const resolvedSkillDir = join(skillPath, skillDir);
+                  this.discoverSkills(resolvedSkillDir, source);
+                }
+                continue;
+              }
+            } catch {
+              // Invalid package.json, fall through to regular skill check
+            }
+          }
+
           if (!existsSync(join(skillPath, "SKILL.md"))) {
             // Also accept directories without SKILL.md — Pi SDK skills
             // might use different structures. Log but still register.
@@ -243,7 +555,9 @@ export class AgentRegistry {
 
   /**
    * Scan a directory for extension subdirectories.
-   * Each subdirectory containing index.ts or index.js is registered.
+   * Recognizes two formats:
+   *   1. Pi package: directory with package.json containing pi.extensions
+   *   2. Convention: directory with index.ts or index.js
    */
   private discoverExtensions(dir: string, source: "core" | "user"): void {
     if (!existsSync(dir)) return;
@@ -252,6 +566,25 @@ export class AgentRegistry {
         const extPath = join(dir, name);
         try {
           if (!statSync(extPath).isDirectory()) continue;
+
+          // Pi package format: package.json with pi.extensions
+          const pkgJsonPath = join(extPath, "package.json");
+          if (existsSync(pkgJsonPath)) {
+            try {
+              const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+              if (pkg.pi?.extensions?.length) {
+                // Register as a Pi package — ResourceLoader handles the manifest
+                if (source === "user" || !this.extensions.has(name)) {
+                  this.extensions.set(name, { name, path: extPath, source });
+                }
+                continue; // Don't also check for index.ts
+              }
+            } catch {
+              // Invalid package.json, fall through to index.ts check
+            }
+          }
+
+          // Current format: index.ts or index.js directly
           if (
             !existsSync(join(extPath, "index.ts")) &&
             !existsSync(join(extPath, "index.js"))
@@ -339,12 +672,130 @@ export class AgentRegistry {
             ...(parsed.model ? { model: parsed.model } : {}),
             // sourceType: explicit field, or derived from name prefix (e.g. "book.reading" → "book")
             sourceType: parsed.source_type ?? (parsed.name.includes(".") ? parsed.name.split(".")[0] : undefined),
+            ...(parsed.icon ? { icon: parsed.icon } : {}),
+            ...(parsed.defaultPrompt ? { defaultPrompt: parsed.defaultPrompt } : {}),
+            ...(parsed.defaultTitle ? { defaultTitle: parsed.defaultTitle } : {}),
+            ...(parsed.quickActions ? { quickActions: parsed.quickActions } : {}),
           };
 
           this.profiles.set(parsed.name, profile);
           console.log(`[agent-registry] Loaded profile "${parsed.name}" from ${file}`);
         } catch (err) {
           console.warn(`[agent-registry] Failed to parse profile ${file}:`, err);
+        }
+      }
+    } catch {
+      // Directory unreadable
+    }
+  }
+  /**
+   * Scan a directory of plugins for bundled profiles.
+   * Each subdirectory may contain a profiles/ dir with YAML files.
+   */
+  private discoverPluginProfiles(dir: string): void {
+    if (!existsSync(dir)) return;
+    try {
+      for (const name of readdirSync(dir)) {
+        const pluginDir = join(dir, name);
+        try {
+          if (!statSync(pluginDir).isDirectory()) continue;
+          const profilesDir = join(pluginDir, "profiles");
+          if (existsSync(profilesDir)) {
+            this.discoverProfiles(profilesDir);
+          }
+        } catch {
+          // Skip unreadable entries
+        }
+      }
+    } catch {
+      // Directory unreadable
+    }
+  }
+
+  /**
+   * Scan a directory of plugins for route modules.
+   * Each subdirectory may contain a package.json with piTree.routes.
+   */
+  private discoverPluginRoutes(dir: string): void {
+    if (!existsSync(dir)) return;
+    try {
+      for (const name of readdirSync(dir)) {
+        const pluginDir = join(dir, name);
+        try {
+          if (!statSync(pluginDir).isDirectory()) continue;
+          // Already discovered
+          if (this.pluginRoutes.has(name)) continue;
+
+          const pkgJsonPath = join(pluginDir, "package.json");
+          if (!existsSync(pkgJsonPath)) continue;
+
+          const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+          const routesRelPath = pkg.piTree?.routes;
+          if (!routesRelPath) continue;
+
+          const routesPath = join(pluginDir, routesRelPath);
+          const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
+
+          this.pluginRoutes.set(name, { name, routesPath, prefix });
+          console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
+        } catch {
+          // Skip unreadable entries
+        }
+      }
+    } catch {
+      // Directory unreadable
+    }
+  }
+
+  /**
+   * Scan a directory of plugins for source type manifests.
+   * Each subdirectory may contain a package.json with piTree.sourceType.
+   */
+  private discoverSourceTypes(dir: string): void {
+    if (!existsSync(dir)) return;
+    try {
+      for (const name of readdirSync(dir)) {
+        const pluginDir = join(dir, name);
+        try {
+          if (!statSync(pluginDir).isDirectory()) continue;
+          const pkgJsonPath = join(pluginDir, "package.json");
+          if (!existsSync(pkgJsonPath)) continue;
+
+          const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+          const st = pkg.piTree?.sourceType;
+          if (!st?.key) continue;
+
+          // Don't override if already discovered (first wins = core)
+          if (this.sourceTypes.has(st.key)) continue;
+
+          this.sourceTypes.set(st.key, {
+            key: st.key,
+            label: st.label ?? st.key,
+            icon: st.icon ?? "puzzle",
+            sessionModes: st.sessionModes ?? ["reading", "custom"],
+            defaultMode: st.defaultMode ?? "reading",
+            autoStartMode: st.autoStartMode,
+            hasProcessing: st.hasProcessing ?? false,
+            searchPlaceholder: st.searchPlaceholder,
+            chatPlaceholder: st.chatPlaceholder,
+            mentionKeyword: st.mentionKeyword,
+            fixedSourceId: st.fixedSourceId,
+            sessionStrategy: st.sessionStrategy,
+            askAfterHours: st.askAfterHours,
+            staleAfterHours: st.staleAfterHours,
+            routingContextFile: st.routingContextFile,
+            routingContextLabel: st.routingContextLabel,
+            addSource: st.addSource,
+            cardSubtitle: st.cardSubtitle,
+            badges: st.badges,
+            systemContext: st.systemContext,
+            pluginName: name,
+            hasUI: !!pkg.piTree?.ui,
+            pluginDir,
+          });
+          console.log(`[agent-registry] Discovered source type "${st.key}" from plugin ${name}`);
+        } catch {
+          // Skip unreadable entries
         }
       }
     } catch {

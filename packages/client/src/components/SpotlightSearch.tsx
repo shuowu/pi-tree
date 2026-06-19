@@ -4,11 +4,10 @@ import type { Source, SourceSession } from "@pi-tree/shared";
 import { fetchSources, fetchSessions } from "../api";
 import { useSourceMentions, type MentionSuggestion } from "../hooks/useSourceMentions";
 import { getSourceTypeConfig } from "../source-types";
-import type { SourceType } from "@pi-tree/shared";
 import {
   Search, X, Clock, ArrowRight, MessageSquare,
-  BookOpen, Plus, Rss, Settings, Hash, Newspaper,
-  FileText, Headphones, CornerDownLeft, Library,
+  Plus, Rss, Settings, Hash, BookOpen,
+  CornerDownLeft,
 } from "lucide-react";
 import "./SpotlightSearch.css";
 
@@ -34,20 +33,14 @@ function MentionIcon({ suggestion }: { suggestion: MentionSuggestion }) {
   if (suggestion.kind === "feed") return <Rss size={16} />;
   if (suggestion.kind === "tag") return <Hash size={16} />;
   if (suggestion.kind === "category") {
-    switch (suggestion.type) {
-      case "news": return <Newspaper size={16} />;
-      case "paper": return <FileText size={16} />;
-      case "podcast": return <Headphones size={16} />;
-      default: return <Library size={16} />;
-    }
+    const config = getSourceTypeConfig(suggestion.type ?? "book");
+    const Icon = config.icon;
+    return <Icon size={16} />;
   }
   // source kind — pick by source type
-  switch (suggestion.type) {
-    case "news": return <Newspaper size={16} />;
-    case "paper": return <FileText size={16} />;
-    case "podcast": return <Headphones size={16} />;
-    default: return <BookOpen size={16} />;
-  }
+  const config = getSourceTypeConfig(suggestion.type ?? "book");
+  const Icon = config.icon;
+  return <Icon size={16} />;
 }
 
 interface CommandItem {
@@ -62,7 +55,6 @@ interface SpotlightSearchProps {
   isOpen: boolean;
   onClose: () => void;
   onAddSource?: () => void;
-  onManageFeeds?: () => void;
   onSettings?: () => void;
 }
 
@@ -75,7 +67,7 @@ type ResultItem =
 
 export function SpotlightSearch({
   userId, isOpen, onClose,
-  onAddSource, onManageFeeds, onSettings,
+  onAddSource, onSettings,
 }: SpotlightSearchProps) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -106,9 +98,8 @@ export function SpotlightSearch({
   const commands: CommandItem[] = useMemo(() => [
     { id: "goto-library", label: "Go to Library", icon: BookOpen, action: () => { onClose(); navigate("/library"); } },
     ...(onAddSource ? [{ id: "add-source", label: "Add Source", icon: Plus, action: () => { onClose(); onAddSource(); } }] : []),
-    ...(onManageFeeds ? [{ id: "manage-feeds", label: "Manage Feeds", icon: Rss, action: () => { onClose(); onManageFeeds(); } }] : []),
     ...(onSettings ? [{ id: "settings", label: "Settings", icon: Settings, action: () => { onClose(); onSettings(); } }] : []),
-  ], [navigate, onClose, onAddSource, onManageFeeds, onSettings]);
+  ], [navigate, onClose, onAddSource, onSettings]);
 
   // Filter commands by query — hidden in @ mode and scoped mode
   const filteredCommands: ResultItem[] = useMemo(() => {
@@ -165,8 +156,8 @@ export function SpotlightSearch({
 
         if (scope.kind === "category") {
           // Category scope: filter by source type across all sources
-          fetchOpts.sourceType = scope.type as SourceType;
-          sourcesPromise = fetchSources({ type: scope.type as SourceType, ...(searchQuery ? { search: searchQuery } : {}) });
+          fetchOpts.sourceType = scope.type;
+          sourcesPromise = fetchSources({ type: scope.type, ...(searchQuery ? { search: searchQuery } : {}) });
         } else {
           // Source/feed/tag scope: filter by specific source ID
           const sourceId = resolveSourceId(scope);
@@ -207,7 +198,7 @@ export function SpotlightSearch({
     if (!sourceId) return;
 
     // Get session modes for this source type
-    const sourceType = scope.type as SourceType;
+    const sourceType = scope.type;
     const config = getSourceTypeConfig(sourceType);
     const modes = config.sessionModes ?? ["custom"];
 

@@ -1,16 +1,22 @@
 import { useCallback, useState } from "react";
 import type { DictEntry } from "../components/DictionaryPanel";
-import { streamLookup, saveGlossary } from "../api";
+import { streamLookup } from "../api";
 
 export function useDictionary(
   userId: string | null,
   sourceId: string,
-  rightTab: "dict" | "book",
+  rightTab: "dict" | "content",
   setRightPanelOpen: (open: boolean) => void,
-  setRightTab: (tab: "dict" | "book") => void,
+  setRightTab: (tab: "dict" | "content") => void,
 ) {
   const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
   const [quickLookupId, setQuickLookupId] = useState<string | null>(null);
+
+  /** Clear all entries — call when session changes */
+  const clearEntries = useCallback(() => {
+    setDictEntries([]);
+    setQuickLookupId(null);
+  }, []);
 
   const handleDefine = useCallback(
     (term: string, context?: string) => {
@@ -28,8 +34,8 @@ export function useDictionary(
       setDictEntries((prev) => [...prev, newEntry]);
       setRightPanelOpen(true);
 
-      // If on Book tab, show floating mini-card instead of switching tabs
-      if (rightTab === "book") {
+      // If on content tab, show floating mini-card instead of switching tabs
+      if (rightTab === "content") {
         setQuickLookupId(entryId);
       } else {
         setRightTab("dict");
@@ -50,10 +56,6 @@ export function useDictionary(
                 : e,
             ),
           );
-          // Auto-save to glossary
-          if (userId) {
-            saveGlossary(userId, sourceId, term, fullDef).catch(() => {});
-          }
         })
         .catch(() => {
           setDictEntries((prev) =>
@@ -76,6 +78,7 @@ export function useDictionary(
   return {
     dictEntries,
     setDictEntries,
+    clearEntries,
     quickLookupId,
     setQuickLookupId,
     handleDefine,

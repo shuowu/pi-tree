@@ -1,15 +1,42 @@
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import { app } from "./app.js";
-import { RssService } from "./services/rss.service.js";
 import { getMcpBridge } from "./services/mcp-bridge.js";
-import { initAgentRegistry } from "./services/agent-registry.js";
+import { initAgentRegistry, getAgentRegistry } from "./services/agent-registry.js";
 import { setExtensionServices } from "./agents/context.js";
 import { getDb, sources, userSessions, users } from "./db/index.js";
+import { SourceServiceImpl } from "./services/source-service.js";
+import { SessionServiceImpl } from "./services/session-service.js";
+import { UserServiceImpl } from "./services/user-service.js";
+
+/**
+ * Resolve core plugin directories by finding their installed package locations.
+ * Each plugin is an npm workspace package — we resolve its `package.json` to get
+ * the absolute directory path.
+ */
+function resolveCorePluginDirs(): string[] {
+  const req = createRequire(import.meta.url);
+  const pluginPackages = [
+    "pi-tree-book",
+    "pi-tree-news",
+    "pi-tree-paper",
+    "pi-tree-youtube",
+    "pi-tree-mcp",
+  ];
+  return pluginPackages.flatMap((pkg) => {
+    try {
+      return [dirname(req.resolve(`${pkg}/package.json`))];
+    } catch {
+      return []; // Plugin not installed — skip silently
+    }
+  });
+}
 
 export interface BootstrapConfig {
   /** Data directory (sessions, DB, library, etc.) */
   dataPath: string;
-  /** Directory containing agents/skills/ and agents/extensions/ — defaults to import.meta.dirname equivalent */
+  /** Directory containing profiles/ (skills are now bundled in extensions) — defaults to import.meta.dirname equivalent */
   coreDir?: string;
   /** Whether to skip RSS crawl scheduling (e.g. for testing) */
   skipRssCron?: boolean;
@@ -22,25 +49,17 @@ export interface BootstrapResult {
   cleanup: () => Promise<void>;
 }
 
+
+
+
 export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResult> {
-  const { dataPath, skipRssCron } = config;
+  const { dataPath } = config;
   // Use provided coreDir or fall back — but the caller MUST provide it
   // since import.meta.dirname doesn't work across packages
   const coreDir = config.coreDir ?? import.meta.dirname;
 
   // Set DATA_PATH so other modules (config.ts, db, etc.) can read it
   process.env.DATA_PATH = dataPath;
-
-
-
-  // Initialize RSS Service and seed default feeds on first run
-  const rssService = new RssService();
-  try {
-    rssService.seedDefaultFeeds();
-    console.log("✅ RSS feeds initialized.");
-  } catch (err) {
-    console.error("❌ Failed to initialize RSS feeds:", err);
-  }
 
   // Initialize MCP bridge — connects to external MCP servers if mcp.json exists.
   // This must happen before extension services are set, so extensions can access
@@ -49,13 +68,73 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
   const mcpConfigPath = join(dataPath, "mcp.json");
   await mcpBridge.connectAll(mcpConfigPath);
 
+  // Create typed services — shared between extension DI and plugin routes
+  const sourceService = new SourceServiceImpl(getDb, sources);
+  const sessionService = new SessionServiceImpl(getDb, userSessions, users);
+  const userService = new UserServiceImpl(getDb, users);
+
   // Populate extension services — extensions access server capabilities through
   // this locator instead of importing server internals directly.
   setExtensionServices({
+    // Typed service layer (preferred for extensions)
+    sources: sourceService,
+    sessions: sessionService,
+    users: userService,
+    // Lazy getter — initAgentRegistry() hasn't been called yet at this point.
+    // Extensions only call getProfiles() at tool-execution time, not registration time,
+    // so this is safe.
+    registry: {
+      getProfiles: () => {
+        const reg = getAgentRegistry();
+        const raw = reg.getProfiles();
+        const mapped = new Map<string, { name: string; label: string; description?: string; sourceType?: string; skills: string[]; extensions: string[] }>();
+        for (const [key, profile] of raw) {
+          mapped.set(key, {
+            name: key,
+            label: profile.label,
+            ...(profile.description ? { description: profile.description } : {}),
+            ...(profile.sourceType ? { sourceType: profile.sourceType } : {}),
+            skills: profile.skills,
+            extensions: profile.extensions,
+          });
+        }
+        return mapped;
+      },
+      getSourceTypes: () => {
+        const reg = getAgentRegistry();
+        return reg.getSourceTypes().map((st) => ({
+          key: st.key,
+          label: st.label,
+          mentionKeyword: st.mentionKeyword,
+          fixedSourceId: st.fixedSourceId,
+          defaultMode: st.defaultMode,
+          sessionModes: st.sessionModes,
+          sessionStrategy: st.sessionStrategy,
+          askAfterHours: st.askAfterHours,
+          staleAfterHours: st.staleAfterHours,
+          routingContextFile: st.routingContextFile,
+          routingContextLabel: st.routingContextLabel,
+        }));
+      },
+    },
+    config: {
+      jinaApiKey: process.env.JINA_API_KEY,
+    },
+    getPluginDataDir: (pluginName: string) => {
+      const dir = join(dataPath, "plugins", pluginName);
+      mkdirSync(dir, { recursive: true });
+      return dir;
+    },
+    getSourceDataDir: (sourceId: string) => {
+      const dir = join(dataPath, "sources", sourceId);
+      mkdirSync(dir, { recursive: true });
+      return dir;
+    },
+    ...(mcpBridge.hasServers() ? { mcpBridge } : {}),
+    dataPath,
+    // Raw DB access (backward compat, power users)
     db: getDb,
     schema: { sources, userSessions, users },
-    rssService,
-    ...(mcpBridge.hasServers() ? { mcpBridge } : {}),
   });
 
   // Initialize the agent registry — discovers skills, extensions, and validates profiles.
@@ -63,61 +142,41 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
   initAgentRegistry({
     coreDir,
     dataDir: dataPath,
+    corePluginDirs: resolveCorePluginDirs(),
+    skillsPath: process.env.SKILLS_PATH,
+    extensionsPath: process.env.EXTENSIONS_PATH,
   });
 
-  // RSS crawl scheduling
-  let crawlInterval: ReturnType<typeof setInterval> | undefined;
+  // Mount plugin-registered routes
+  const registry = getAgentRegistry();
+  const pluginRoutes = registry.getPluginRoutes();
+  const pluginCleanups: (() => void)[] = [];
 
-  if (!skipRssCron && process.env.PI_MOCK !== "true") {
-    // Crawl interval in minutes (default: 30 — fast enough for HN's rolling window)
-    const crawlIntervalMin = Number(process.env.RSS_CRAWL_INTERVAL_MIN ?? 30);
-    const crawlIntervalMs = crawlIntervalMin * 60 * 1000;
-
-    // Crawl on startup if feeds are stale (no crawl in the last interval)
-    rssService.getLatestRss({ days: 0, limit: 1 }).then(async () => {
-      // Check the most recent lastFetchTime across all feeds
-      const { getDb, rssFeeds: rssTable } = await import("./db/index.js");
-      const { desc } = await import("drizzle-orm");
-      const db = getDb();
-      const latest = db.select({ lastFetch: rssTable.lastFetchTime })
-        .from(rssTable)
-        .orderBy(desc(rssTable.lastFetchTime))
-        .limit(1)
-        .all();
-
-      const lastFetch = latest[0]?.lastFetch;
-      const staleMs = lastFetch ? Date.now() - new Date(lastFetch).getTime() : Infinity;
-
-      if (staleMs > crawlIntervalMs) {
-        const reason = lastFetch ? `stale (${Math.round(staleMs / 60000)}min ago)` : "never crawled";
-        console.log(`📡 RSS feeds are ${reason}. Crawling in background...`);
-        rssService.crawlAllFeeds()
-          .then((stats) => {
-            const fetched = stats.reduce((acc, s) => acc + s.itemsFetched, 0);
-            console.log(`📡 Startup crawl completed: fetched ${fetched} new items.`);
-          })
-          .catch((err) => console.error("❌ Startup crawl failed:", err));
-      } else {
-        console.log(`📡 RSS feeds are fresh (last crawl ${Math.round(staleMs / 60000)}min ago). Skipping startup crawl.`);
+  for (const route of pluginRoutes) {
+    try {
+      const mod = await import(route.routesPath);
+      const setupFn = mod.setup ?? mod.default;
+      if (typeof setupFn === "function") {
+        const result = setupFn({
+          dataDir: join(dataPath, "plugins", route.name),
+          dataPath,
+          sources: sourceService,
+          coreDb: getDb,
+          coreSchema: { sources },
+        });
+        const routes = result.routes ?? result;
+        app.route(route.prefix, routes);
+        if (result.cleanup) pluginCleanups.push(result.cleanup);
+        console.log(`[bootstrap] Mounted plugin routes: ${route.name} → ${route.prefix}`);
       }
-    }).catch((err) => console.error("❌ Failed to check RSS staleness:", err));
-
-    // Background crawl interval
-    crawlInterval = setInterval(() => {
-      rssService.crawlAllFeeds()
-        .then((stats) => {
-          const fetched = stats.reduce((acc, s) => acc + s.itemsFetched, 0);
-          if (fetched > 0) {
-            console.log(`⏰ Scheduled crawl: fetched ${fetched} new items.`);
-          }
-        })
-        .catch((err) => console.error("❌ Scheduled crawl failed:", err));
-    }, crawlIntervalMs);
+    } catch (err) {
+      console.error(`[bootstrap] Failed to mount plugin routes for ${route.name}:`, err);
+    }
   }
 
   // Cleanup function
   async function cleanup() {
-    if (crawlInterval) clearInterval(crawlInterval);
+    for (const fn of pluginCleanups) fn();
     await mcpBridge.disconnectAll();
   }
 

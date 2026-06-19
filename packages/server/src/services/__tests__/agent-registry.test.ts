@@ -4,7 +4,7 @@
  * Critical paths tested:
  * 1. Skill/extension discovery from core + user directories
  * 2. User overrides core (first-wins dedup by name)
- * 3. Profile resolution: sourceType.mode → sourceType → _default
+ * 3. Profile resolution: sourceType.mode → sourceType → error (no fallback)
  * 4. SessionContext overrides (skills, model)
  * 5. Validation: missing skills/extensions, unused entries
  * 6. Edge cases: empty dirs, missing dirs, unknown profiles
@@ -50,13 +50,9 @@ function seedCoreProfiles(profilesDir: string): void {
   createProfile(profilesDir, "book-reading.yml", "name: book.reading\nlabel: Book Reading\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "book-qa.yml", "name: book.qa\nlabel: Book Q&A\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "book-analysis.yml", "name: book.analysis\nlabel: Book Analysis\nskills: [book-analysis, book-outline]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
-  createProfile(profilesDir, "book.yml", "name: book\nlabel: Book (Default)\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "news-reading.yml", "name: news.news\nlabel: News Reading\nskills: [news-reading]\nextensions: [news, mcp]\nexclude_tools: [bash, edit]\n");
-  createProfile(profilesDir, "news.yml", "name: news\nlabel: News (Default)\nskills: [news-reading]\nextensions: [news, mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "paper-reading.yml", "name: paper.reading\nlabel: Paper Reading\nskills: [paper-reading]\nextensions: [paper, mcp]\nexclude_tools: [bash, edit]\n");
-  createProfile(profilesDir, "paper.yml", "name: paper\nlabel: Paper (Default)\nskills: [paper-reading]\nextensions: [paper, mcp]\nexclude_tools: [bash, edit]\n");
   createProfile(profilesDir, "router.yml", "name: router\nlabel: Session Router\nskills: [session-router]\nextensions: [library]\nexclude_tools: [bash, edit]\n");
-  createProfile(profilesDir, "default.yml", "name: _default\nlabel: Default\nskills: [interactive-reading]\nextensions: [mcp]\nexclude_tools: [bash, edit]\n");
 }
 
 /**
@@ -230,6 +226,165 @@ describe("AgentRegistry", () => {
       expect(registry.getSkills()).toHaveLength(0);
       expect(registry.getExtensions()).toHaveLength(0);
     });
+
+    // --- Pi package format ---
+
+    it("discovers extension with package.json pi.extensions manifest", () => {
+      const cfg = makeConfig("disc-pi-pkg-ext");
+      // Create a Pi package extension (has package.json with pi.extensions)
+      const pkgDir = join(cfg.coreExtDir, "my-pi-ext");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(join(pkgDir, "index.ts"), "export default function() {}");
+      writeFileSync(
+        join(pkgDir, "package.json"),
+        JSON.stringify({ name: "my-pi-ext", pi: { extensions: ["./index.ts"] } }),
+      );
+      // Also create a regular extension alongside
+      createExtension(cfg.coreExtDir, "regular-ext");
+
+      registry.initialize(cfg);
+
+      const extensions = registry.getExtensions();
+      expect(extensions).toHaveLength(2);
+      const names = extensions.map((e) => e.name).sort();
+      expect(names).toEqual(["my-pi-ext", "regular-ext"]);
+      // Pi package extension should point to the package directory
+      const piExt = extensions.find((e) => e.name === "my-pi-ext")!;
+      expect(piExt.path).toBe(pkgDir);
+    });
+
+    it("skips package.json without pi.extensions (falls through to index check)", () => {
+      const cfg = makeConfig("disc-pkg-no-pi");
+      // package.json without "pi" key — but has index.ts, so should still work
+      const pkgDir = join(cfg.coreExtDir, "npm-pkg-with-index");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(join(pkgDir, "index.ts"), "export default function() {}");
+      writeFileSync(
+        join(pkgDir, "package.json"),
+        JSON.stringify({ name: "npm-pkg-with-index", version: "1.0.0" }),
+      );
+
+      registry.initialize(cfg);
+
+      const extensions = registry.getExtensions();
+      expect(extensions).toHaveLength(1);
+      expect(extensions[0].name).toBe("npm-pkg-with-index");
+    });
+
+    it("skips directory with package.json but no pi.extensions and no index file", () => {
+      const cfg = makeConfig("disc-pkg-no-pi-no-index");
+      const pkgDir = join(cfg.coreExtDir, "unrelated-pkg");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, "package.json"),
+        JSON.stringify({ name: "unrelated", version: "1.0.0" }),
+      );
+      // No index.ts, no pi.extensions → should be skipped
+
+      registry.initialize(cfg);
+
+      expect(registry.getExtensions()).toHaveLength(0);
+    });
+
+    it("discovers skills from Pi package pi.skills paths", () => {
+      const cfg = makeConfig("disc-pi-pkg-skills");
+      // Create a Pi package with pi.skills pointing to a subdirectory
+      const pkgDir = join(cfg.coreSkillsDir, "my-pi-pkg");
+      const skillsSubdir = join(pkgDir, "skills");
+      mkdirSync(skillsSubdir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, "package.json"),
+        JSON.stringify({ name: "my-pi-pkg", pi: { skills: ["./skills"] } }),
+      );
+      // Create actual skills inside the pi.skills path
+      createSkill(skillsSubdir, "pkg-skill-a");
+      createSkill(skillsSubdir, "pkg-skill-b");
+
+      registry.initialize(cfg);
+
+      const skills = registry.getSkills();
+      const names = skills.map((s) => s.name).sort();
+      expect(names).toContain("pkg-skill-a");
+      expect(names).toContain("pkg-skill-b");
+      // The package directory itself should NOT be registered as a skill
+      expect(names).not.toContain("my-pi-pkg");
+    });
+
+    it("handles malformed package.json gracefully (falls through)", () => {
+      const cfg = makeConfig("disc-bad-pkg-json");
+      const pkgDir = join(cfg.coreExtDir, "bad-pkg");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(join(pkgDir, "index.ts"), "export default function() {}");
+      writeFileSync(join(pkgDir, "package.json"), "{ invalid json");
+
+      registry.initialize(cfg);
+
+      // Should fall through to index.ts check and still discover it
+      const extensions = registry.getExtensions();
+      expect(extensions).toHaveLength(1);
+      expect(extensions[0].name).toBe("bad-pkg");
+    });
+
+    // --- $SKILLS_PATH / $EXTENSIONS_PATH ---
+
+    it("discovers extensions from extensionsPath config", () => {
+      const cfg = makeConfig("disc-ext-path");
+      const extraExtDir = join(TEST_ROOT, "disc-ext-path", "extra-extensions");
+      mkdirSync(extraExtDir, { recursive: true });
+      createExtension(cfg.coreExtDir, "core-ext");
+      createExtension(extraExtDir, "extra-ext");
+
+      registry.initialize({ ...cfg, extensionsPath: extraExtDir });
+
+      const extensions = registry.getExtensions();
+      expect(extensions).toHaveLength(2);
+      const names = extensions.map((e) => e.name).sort();
+      expect(names).toEqual(["core-ext", "extra-ext"]);
+      // The extra extension should be marked as "user" source
+      const extra = extensions.find((e) => e.name === "extra-ext")!;
+      expect(extra.source).toBe("user");
+    });
+
+    it("discovers skills from skillsPath config", () => {
+      const cfg = makeConfig("disc-skills-path");
+      const extraSkillsDir = join(TEST_ROOT, "disc-skills-path", "extra-skills");
+      mkdirSync(extraSkillsDir, { recursive: true });
+      createSkill(cfg.coreSkillsDir, "core-skill");
+      createSkill(extraSkillsDir, "extra-skill");
+
+      registry.initialize({ ...cfg, skillsPath: extraSkillsDir });
+
+      const skills = registry.getSkills();
+      expect(skills).toHaveLength(2);
+      const names = skills.map((s) => s.name).sort();
+      expect(names).toEqual(["core-skill", "extra-skill"]);
+      const extra = skills.find((s) => s.name === "extra-skill")!;
+      expect(extra.source).toBe("user");
+    });
+
+    it("extensionsPath extensions override core with same name", () => {
+      const cfg = makeConfig("disc-ext-path-override");
+      const extraExtDir = join(TEST_ROOT, "disc-ext-path-override", "extra-extensions");
+      mkdirSync(extraExtDir, { recursive: true });
+      createExtension(cfg.coreExtDir, "my-ext", "// core version");
+      createExtension(extraExtDir, "my-ext", "// override version");
+
+      registry.initialize({ ...cfg, extensionsPath: extraExtDir });
+
+      const extensions = registry.getExtensions();
+      expect(extensions).toHaveLength(1);
+      expect(extensions[0].name).toBe("my-ext");
+      expect(extensions[0].source).toBe("user");
+      expect(extensions[0].path).toContain("extra-extensions");
+    });
+
+    it("handles nonexistent extensionsPath gracefully", () => {
+      const cfg = makeConfig("disc-ext-path-missing");
+
+      registry.initialize({ ...cfg, extensionsPath: "/tmp/nonexistent-ext-path-99999" });
+
+      expect(registry.getExtensions()).toHaveLength(0);
+    });
   });
 
   // --- Profile resolution ---
@@ -287,22 +442,20 @@ describe("AgentRegistry", () => {
       expect(profile.extensions).toEqual(["library"]);
     });
 
-    it("falls back to sourceType-level profile when mode not found", () => {
+    it("throws when mode not found for sourceType", () => {
       setupRealisticRegistry();
 
-      const profile = registry.resolveProfile("book", "nonexistent-mode");
-
-      expect(profile.resolvedFrom).toBe("book");
-      expect(profile.skills).toEqual(["interactive-reading"]);
+      expect(() => registry.resolveProfile("book", "nonexistent-mode")).toThrow(
+        /No profile found for 'book\.nonexistent-mode'/,
+      );
     });
 
-    it("falls back to _default when sourceType not found", () => {
+    it("throws when sourceType not found", () => {
       setupRealisticRegistry();
 
-      const profile = registry.resolveProfile("podcast", "custom");
-
-      expect(profile.resolvedFrom).toBe("_default");
-      expect(profile.skills).toEqual(["interactive-reading"]);
+      expect(() => registry.resolveProfile("podcast", "custom")).toThrow(
+        /No profile found for 'podcast\.custom'/,
+      );
     });
 
     it("resolves book.analysis with multiple skills", () => {
@@ -553,7 +706,6 @@ describe("AgentRegistry", () => {
       expect(profiles.has("book.reading")).toBe(true);
       expect(profiles.has("news.news")).toBe(true);
       expect(profiles.has("router")).toBe(true);
-      expect(profiles.has("_default")).toBe(true);
     });
   });
 

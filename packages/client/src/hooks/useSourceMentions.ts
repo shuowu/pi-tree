@@ -11,6 +11,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { Source } from "@pi-tree/shared";
 import { fetchSources, fetchNewsFeeds, type ClientFeedConfig } from "../api";
+import { getSourceTypeConfig } from "../source-types";
 
 export interface MentionSuggestion {
   id: string;
@@ -95,19 +96,13 @@ export function useSourceMentions() {
         typeCounts.set(s.type, (typeCounts.get(s.type) ?? 0) + 1);
       }
 
-      const typeLabels: Record<string, string> = {
-        book: "All Books",
-        news: "All News",
-        paper: "All Papers",
-        podcast: "All Podcasts",
-      };
-
       const categories: MentionSuggestion[] = [];
       for (const [type, count] of typeCounts) {
         if (count < 1) continue; // skip if only 1 — direct source is enough
+        const typeConfig = getSourceTypeConfig(type);
         categories.push({
           id: `category-${type}`,
-          label: typeLabels[type] ?? `All ${type}s`,
+          label: `All ${typeConfig.label}s`,
           sublabel: `${count} source${count > 1 ? "s" : ""}`,
           type,
           kind: "category",

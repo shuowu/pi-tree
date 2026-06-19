@@ -1,28 +1,26 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import type { SourceSession, SessionContext } from "@pi-tree/shared";
-import type { SessionMode } from "./WelcomeState";
 import { fetchSessions, createSession, updateSession, deleteSession, fetchProfiles } from "../api";
+import type { ProfileInfo } from "../api";
 import { useUser } from "../UserContext";
 import { SessionPicker } from "./SessionPicker";
-import { useSource } from "./BookLayout";
+import { useSource } from "./SourceLayout";
 import { Breadcrumb } from "@pi-tree/ui";
-import { Home } from "lucide-react";
+import { Home, Settings } from "lucide-react";
+import { SourceSettingsModal } from "./SourceSettingsModal";
 import "./SessionsPage.css";
 
-const MODE_TITLES: Record<string, string> = {
-  reading: "Interactive Reading",
-  qa: "Freeform Q&A",
-  news: "News Feed",
-};
+type SessionMode = string;
 
 export function SessionsPage() {
   const source = useSource();
   const { userId } = useUser();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SourceSession[]>([]);
-  const [customProfiles, setCustomProfiles] = useState<Array<{ name: string; label: string; description?: string }>>([]);
+  const [profiles, setProfiles] = useState<Record<string, ProfileInfo>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -32,24 +30,11 @@ export function SessionsPage() {
       try {
         const [{ sessions: list }, profileMap] = await Promise.all([
           fetchSessions(userId, { source: source.id }),
-          fetchProfiles().catch(() => ({} as Record<string, { label: string; description?: string; sourceType?: string }>)),
+          fetchProfiles().catch(() => ({} as Record<string, ProfileInfo>)),
         ]);
         if (cancelled) return;
         setSessions(list);
-        // Filter: exclude built-in profiles, match by source type
-        const builtinKeys = new Set([
-          "book.reading", "book.qa", "book.analysis", "book",
-          "news.news", "news", "router", "_default",
-        ]);
-        const custom = Object.entries(profileMap)
-          .filter(([key, info]) => {
-            if (builtinKeys.has(key)) return false;
-            // Only show profiles matching the current source type (or no type = show everywhere)
-            if (info.sourceType && info.sourceType !== source.type) return false;
-            return true;
-          })
-          .map(([name, info]) => ({ name, label: info.label, description: info.description }));
-        setCustomProfiles(custom);
+        setProfiles(profileMap);
       } catch {
         // If fetch fails, start with empty list
       } finally {
@@ -67,7 +52,9 @@ export function SessionsPage() {
     if (!userId) return;
     setIsLoading(true);
     try {
-      const title = customTitle || MODE_TITLES[mode] || mode;
+      // Use profile label as title fallback, then mode name
+      const profileInfo = profile ? profiles[profile] : profiles[`${source.type}.${mode}`] || profiles[mode];
+      const title = customTitle || profileInfo?.label || mode;
       const context: SessionContext = { mode, ...(profile ? { profile } : {}) };
       const newSession = await createSession(userId, source.id, title, context);
       const queryParam = initialQuery ? `&query=${encodeURIComponent(initialQuery)}` : `&new=${mode}`;
@@ -101,7 +88,8 @@ export function SessionsPage() {
 
   const panelToggles = useMemo(() => [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: () => navigate("/") },
-  ], [navigate]);
+    { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettings, onClick: () => setShowSettings(true) },
+  ], [navigate, showSettings]);
 
   return (
     <div className="sessions-page">
@@ -116,14 +104,20 @@ export function SessionsPage() {
       <SessionPicker
         source={source}
         sessions={sessions}
+        profiles={profiles}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
         isLoading={isLoading}
-        customProfiles={customProfiles}
-
       />
+
+      {showSettings && (
+        <SourceSettingsModal
+          source={source}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }

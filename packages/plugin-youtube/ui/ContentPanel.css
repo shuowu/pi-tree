@@ -1,0 +1,203 @@
+.yt-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.yt-loading,
+.yt-error,
+.yt-no-video {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-tertiary, #888);
+  font-size: 13px;
+  padding: 20px;
+  text-align: center;
+}
+
+.yt-error {
+  color: var(--red, #e74c3c);
+}
+
+/* Pinned Video Section */
+.yt-pinned-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 12px 12px 0 12px;
+}
+
+/* Responsive 16:9 embed container */
+.yt-player-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.yt-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Video info below player */
+.yt-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.yt-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.4;
+  color: var(--text-primary, #333);
+}
+
+.yt-channel {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  margin: 0;
+}
+
+.yt-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+  flex-wrap: wrap;
+}
+
+.yt-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.yt-duration::before {
+  content: "⏱";
+}
+
+.yt-views::before {
+  content: "👁";
+}
+
+/* Scrollable Transcript Section */
+.yt-transcript-section {
+  flex: 1;
+  min-height: 0; /* Critical for nested flex scrolling */
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border, #ddd);
+  padding: 12px;
+  gap: 8px;
+}
+
+.yt-transcript-header {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary, #555);
+  margin: 0 0 4px 0;
+}
+
+.yt-transcript-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.yt-transcript-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.yt-transcript-scroll::-webkit-scrollbar-thumb {
+  background: var(--border, #ddd);
+  border-radius: 3px;
+}
+
+/* Transcript paragraph card */
+.yt-transcript-paragraph {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  align-items: flex-start;
+}
+
+.yt-transcript-paragraph:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.yt-timestamp {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent, #6c5ce7);
+  background: var(--bg-tertiary, #f5f5f5);
+  border: 1px solid var(--border, #ddd);
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-block;
+  line-height: 1.2;
+}
+
+.yt-transcript-paragraph:hover .yt-timestamp {
+  background: var(--accent, #6c5ce7);
+  color: #fff;
+  border-color: var(--accent, #6c5ce7);
+}
+
+.yt-transcript-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary, #333);
+}
+
+/* Loading/Status Messages */
+.yt-transcript-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--text-tertiary, #888);
+  font-size: 12px;
+  text-align: center;
+}
+
+.yt-transcript-error {
+  color: var(--red, #e74c3c);
+}
+
+.yt-loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border, #ddd);
+  border-top-color: var(--accent, #6c5ce7);
+  border-radius: 50%;
+  animation: yt-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}

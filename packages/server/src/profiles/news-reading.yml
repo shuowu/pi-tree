@@ -1,5 +1,0 @@
-name: news.news
-label: News Reading
-skills: [news-reading]
-extensions: [news, mcp]
-exclude_tools: [bash, edit]

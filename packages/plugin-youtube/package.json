@@ -1,0 +1,50 @@
+{
+  "name": "pi-tree-youtube",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "piTree": {
+    "sourceType": {
+      "key": "youtube",
+      "label": "YouTube",
+      "icon": "circle-play",
+      "sessionModes": ["watching", "custom"],
+      "defaultMode": "watching",
+      "autoStartMode": "watching",
+      "hasProcessing": false,
+      "searchPlaceholder": "Search videos...",
+      "chatPlaceholder": "Paste a YouTube URL, or discuss a video…",
+      "mentionKeyword": "YouTube",
+      "addSource": {
+        "subtitle": "Paste a YouTube link to add a video"
+      },
+      "cardSubtitle": "{author}",
+      "systemContext": [
+        "[SYSTEM CONTEXT — YouTube Session]",
+        "You are now in a dedicated YouTube video analysis session.",
+        "Video Source ID: {sourceId}",
+        "YouTube Video ID: {videoId}",
+        "",
+        "IMPORTANT: Use the YouTube extension tools (get_youtube_info, get_youtube_transcript) to fetch metadata and transcripts.",
+        "Always use the YouTube Video ID ({videoId}) or YouTube URL when calling these tools.",
+        "Do NOT browse the filesystem for markdown files."
+      ]
+    },
+    "routes": "./routes.ts",
+    "routePrefix": "/api/youtube",
+    "ui": {
+      "contentPanel": "./ui/ContentPanel.tsx"
+    }
+  },
+  "pi": {
+    "extensions": ["./index.ts"],
+    "skills": ["./skills"]
+  },
+  "dependencies": {
+    "@pi-tree/plugin-sdk": "*",
+    "@pi-tree/ui": "*",
+    "hono": "^4.7.0",
+    "youtube-transcript": "^1.3.1",
+    "typebox": "^1.2.6"
+  }
+}

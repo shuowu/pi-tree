@@ -1,0 +1,50 @@
+{
+  "name": "pi-tree-book",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "piTree": {
+    "sourceType": {
+      "key": "book",
+      "label": "Book",
+      "icon": "book-open",
+      "sessionModes": ["reading", "qa", "custom"],
+      "defaultMode": "reading",
+      "hasProcessing": true,
+      "searchPlaceholder": "Search books...",
+      "chatPlaceholder": "Ask about the book, or try: deep dive, next chapter, zoom out…",
+      "addSource": {
+        "subtitle": "Upload an EPUB, MOBI, PDF, or Markdown file",
+        "hasFileUpload": true,
+        "acceptedExtensions": [".epub", ".mobi", ".pdf", ".md"],
+        "fields": [
+          { "key": "title", "label": "Title", "required": true, "placeholder": "Book title" },
+          { "key": "author", "label": "Author", "required": true, "placeholder": "Author name" },
+          { "key": "year", "label": "Year", "type": "number", "placeholder": "Publication year" }
+        ]
+      },
+      "badges": [
+        { "field": "hasMarkdown", "label": "Converted", "color": "green" },
+        { "field": "hasOutline", "label": "Outline", "color": "amber" },
+        { "field": "source", "value": "upload", "label": "Uploaded", "color": "blue" }
+      ],
+      "cardSubtitle": "{author}, {year}"
+    },
+    "ui": {
+      "contentPanel": "./ui/ContentPanel.tsx"
+    }
+  },
+  "pi": {
+    "extensions": ["./index.ts"],
+    "skills": ["./skills"]
+  },
+  "dependencies": {
+    "@pi-tree/plugin-sdk": "*",
+    "@pi-tree/ui": "*",
+    "@lingo-reader/mobi-parser": "^0.4.6",
+    "epub2": "^3.0.2",
+    "pdf-parse": "^2.4.5",
+    "turndown": "^7.2.4",
+    "typebox": "^1.2.6"
+  }
+}

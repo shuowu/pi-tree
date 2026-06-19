@@ -1,0 +1,171 @@
+.youtube-source-card {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  padding: var(--space-3) !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base) !important;
+  gap: var(--space-3) !important;
+  height: 114px !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.youtube-source-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #ff0000, #cc0000);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.youtube-source-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-lg), 0 4px 12px rgba(255, 0, 0, 0.08) !important;
+  border-color: rgba(255, 0, 0, 0.3) !important;
+}
+
+.youtube-source-card:hover::before {
+  opacity: 1;
+}
+
+.youtube-cover-wrapper {
+  aspect-ratio: 16 / 9 !important;
+  width: 120px !important;
+  height: 68px !important;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+  border-radius: var(--radius-sm) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Override SourceCover aspect ratio and remove physical book effects */
+.youtube-source-card .source-cover-container {
+  aspect-ratio: 16 / 9 !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-shadow: none !important;
+  border-radius: var(--radius-sm) !important;
+  transform: none !important;
+}
+
+.youtube-source-card .source-cover-spine-effect {
+  display: none !important;
+}
+
+.youtube-source-card:hover .source-cover-img {
+  transform: scale(1.05);
+}
+
+.youtube-cover-wrapper .source-cover-img {
+  transition: transform 0.3s ease;
+}
+
+/* Play button overlay on hover */
+.youtube-play-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.youtube-source-card:hover .youtube-play-overlay {
+  opacity: 1;
+}
+
+.youtube-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ff0000;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(255, 0, 0, 0.4);
+  transform: scale(0.9);
+  transition: transform 0.2s ease;
+}
+
+.youtube-source-card:hover .youtube-play-btn {
+  transform: scale(1);
+}
+
+/* Info section layout */
+.youtube-source-card .source-card-info {
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  justify-content: space-between !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.youtube-source-card .source-card-title {
+  font-size: var(--text-sm) !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  color: var(--text-primary) !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin: 0 !important;
+}
+
+.youtube-source-card .source-card-author {
+  font-size: 11px !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.youtube-card-metadata {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  line-height: 1.2 !important;
+  margin-top: 1px;
+}
+
+.youtube-card-metadata span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.youtube-card-metadata .separator::after {
+  content: "•";
+  margin-left: 4px;
+}
+
+.youtube-source-card .source-card-badges {
+  margin-top: 0 !important;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}

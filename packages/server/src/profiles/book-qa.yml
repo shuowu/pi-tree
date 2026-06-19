@@ -1,5 +1,0 @@
-name: book.qa
-label: Book Q&A
-skills: [interactive-reading]
-extensions: [mcp]
-exclude_tools: [bash, edit]

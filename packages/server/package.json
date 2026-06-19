@@ -36,7 +36,7 @@
     }
   },
   "scripts": {
-    "dev": "PORT=3947 tsx watch --conditions=source --include ../core/src src/index.ts",
+    "dev": "PORT=3947 tsx watch --conditions=source --include ../core/src --include ../plugins src/index.ts",
     "build": "tsc && npm run postbuild",
     "postbuild": "node scripts/postbuild.cjs",
     "start": "node dist/index.js",
@@ -52,7 +52,13 @@
     "@lingo-reader/mobi-parser": "^0.4.6",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@pi-tree/core": "*",
+    "@pi-tree/plugin-sdk": "*",
     "@pi-tree/shared": "*",
+    "pi-tree-book": "*",
+    "pi-tree-mcp": "*",
+    "pi-tree-news": "*",
+    "pi-tree-paper": "*",
+    "pi-tree-youtube": "*",
     "better-sqlite3": "^12.10.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

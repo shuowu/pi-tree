@@ -1,5 +1,0 @@
-name: paper.reading
-label: Paper Reading
-skills: [paper-reading]
-extensions: [paper, mcp]
-exclude_tools: [bash, edit]

@@ -6,8 +6,7 @@ import { useUser } from "../UserContext";
 import { GitFork, LogOut, Search } from "lucide-react";
 import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
-import { FeedManagerModal } from "./FeedManagerModal";
-import { AddBookModal } from "./AddBookModal";
+import { AddSourceModal } from "./AddSourceModal";
 import { SessionList } from "./SessionList";
 import { getSourceTypeConfig } from "../source-types";
 import "./HomePage.css";
@@ -29,7 +28,6 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
   const navigate = useNavigate();
   const { userId, displayName, clearUser } = useUser();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showFeedManager, setShowFeedManager] = useState(false);
   const [showAddBook, setShowAddBook] = useState(false);
   const greeting = useMemo(() => getGreeting(), []);
 
@@ -102,10 +100,8 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
         <p className="home-greeting">{greeting}{displayName ? `, ${displayName}` : ""}</p>
         <RouterChat userId={userId!} />
         <div className="home-quick-actions">
-          <button className="home-quick-chip" onClick={() => navigate("/source/news")}>📰 News</button>
           <button className="home-quick-chip" onClick={() => navigate("/library")}>📚 Library</button>
           <button className="home-quick-chip" onClick={() => setShowAddBook(true)}>➕ Add Source</button>
-          <button className="home-quick-chip" onClick={() => setShowFeedManager(true)}>📡 Feeds</button>
           <button className="home-quick-chip" onClick={() => setShowSettingsModal(true)}>⚙️ Settings</button>
         </div>
       </div>
@@ -156,8 +152,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
       {showSettingsModal && (
         <SettingsModal onClose={() => setShowSettingsModal(false)} />
       )}
-      {showFeedManager && <FeedManagerModal onClose={() => setShowFeedManager(false)} />}
-      {showAddBook && <AddBookModal onClose={() => setShowAddBook(false)} onSuccess={() => setShowAddBook(false)} />}
+      {showAddBook && <AddSourceModal onClose={() => setShowAddBook(false)} onSuccess={() => setShowAddBook(false)} />}
     </div>
   );
 }

@@ -1,25 +1,20 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import type { Source, SourceType } from "@pi-tree/shared";
+import type { Source } from "@pi-tree/shared";
 import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, type JobWithSource } from "../api";
-import { Plus, Search, Tag, X, Cpu, GitFork, ArrowLeft } from "lucide-react";
-import { BookCover } from "./BookCover";
-import { AddBookModal } from "./AddBookModal";
+import { Plus, Search, Tag, X, Cpu, GitFork, ArrowLeft, LayoutGrid } from "lucide-react";
+import { SourceCover } from "./SourceCover";
+import { AddSourceModal } from "./AddSourceModal";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
+import { SourceCard } from "./SourceCard";
+import appConfig from "../pi-tree.config";
 import "./Library.css";
-
-
-/** Source type filter options for the chips */
-const TYPE_FILTERS: { label: string; value: SourceType | null }[] = [
-  { label: "All", value: null },
-  { label: "Books", value: "book" },
-];
 
 export function Library() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [sources, setSources] = useState<Source[]>([]);
+  const [allSources, setAllSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -30,7 +25,46 @@ export function Library() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedType, setSelectedType] = useState<SourceType | null>(null);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+
+  // Build tabs from registered source types (plugin-driven) + compute counts
+  const typeTabs = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of allSources) {
+      counts[s.type] = (counts[s.type] || 0) + 1;
+    }
+    return Object.entries(SOURCE_TYPE_CONFIGS).map(([key, cfg]) => ({
+      key,
+      label: cfg.label,
+      icon: cfg.icon,
+      count: counts[key] || 0,
+    }));
+  }, [allSources]);
+
+  // Filter sources by active tab
+  const sources = useMemo(() => {
+    if (!activeTab) return allSources;
+    return allSources.filter(s => s.type === activeTab);
+  }, [allSources, activeTab]);
+
+  // Tags relevant to the active tab (or all tags when on "All")
+  const visibleTags = useMemo(() => {
+    const pool = activeTab ? allSources.filter(s => s.type === activeTab) : allSources;
+    const tagSet = new Set<string>();
+    for (const s of pool) {
+      s.tags?.forEach(t => tagSet.add(t));
+    }
+    return allTags.filter(t => tagSet.has(t));
+  }, [allSources, allTags, activeTab]);
+
+  // Clear selected tags that become invisible when switching tabs
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedTags(prev => {
+      const filtered = prev.filter(t => visibleTags.includes(t));
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [visibleTags]);
 
 
 
@@ -44,17 +78,16 @@ export function Library() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const load = useCallback(async (query?: string, tags?: string[], type?: SourceType | null) => {
+  const load = useCallback(async (query?: string, tags?: string[]) => {
     setLoading(true);
     setError(null);
     try {
-      const opts: { search?: string; tags?: string[]; type?: SourceType } = {};
+      const opts: { search?: string; tags?: string[] } = {};
       if (query) opts.search = query;
       if (tags && tags.length > 0) opts.tags = tags;
-      if (type) opts.type = type;
       const hasOpts = Object.keys(opts).length > 0;
       const data = await fetchSources(hasOpts ? opts : undefined);
-      setSources(data);
+      setAllSources(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load sources");
     } finally {
@@ -73,11 +106,11 @@ export function Library() {
     }
   }, []);
 
-  // Load sources when search/tags/type change
+  // Load sources when search/tags change
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    load(searchQuery, selectedTags, selectedType);
-  }, [searchQuery, selectedTags, selectedType, load]);
+    load(searchQuery, selectedTags);
+  }, [searchQuery, selectedTags, load]);
 
 
 
@@ -115,12 +148,12 @@ export function Library() {
   const getStepLabel = (step?: string) => {
     switch (step) {
       case "queued": return "Queued in line";
-      case "parsing_file": return "Parsing ebook files";
-      case "writing_markdown": return "Saving formatted markdown";
+      case "parsing_file": return "Parsing source files";
+      case "writing_markdown": return "Saving formatted content";
       case "generating_outline": return "AI Analysis: Creating outline & TOC";
       case "generating_summary": return "AI Analysis: Writing summaries";
-      case "finished": return "Finalizing book contents";
-      default: return "Processing book";
+      case "finished": return "Finalizing source contents";
+      default: return "Processing source";
     }
   };
 
@@ -153,10 +186,10 @@ export function Library() {
     const newJobsAdded = jobs.length > prevJobsRef.current.length;
 
     if (statusChanged || newJobsAdded) {
-      load(searchQuery, selectedTags, selectedType);
+      load(searchQuery, selectedTags);
     }
     prevJobsRef.current = jobs;
-  }, [jobs, load, searchQuery, selectedTags, selectedType]);
+  }, [jobs, load, searchQuery, selectedTags]);
 
   // Escape key closes tag modal
   useEffect(() => {
@@ -190,17 +223,16 @@ export function Library() {
       // Refresh data
       const [updatedSources] = await Promise.all([
         fetchSources(
-          (searchQuery || selectedTags.length > 0 || selectedType)
+          (searchQuery || selectedTags.length > 0)
             ? {
                 search: searchQuery || undefined,
                 tags: selectedTags.length ? selectedTags : undefined,
-                type: selectedType || undefined,
               }
             : undefined
         ),
         loadTags(),
       ]);
-      setSources(updatedSources);
+      setAllSources(updatedSources);
       // Update the modal source reference
       const updated = updatedSources.find((s) => s.id === sourceId);
       if (updated) setTagModalSource(updated);
@@ -214,17 +246,16 @@ export function Library() {
       await removeSourceTag(sourceId, tag);
       const [updatedSources] = await Promise.all([
         fetchSources(
-          (searchQuery || selectedTags.length > 0 || selectedType)
+          (searchQuery || selectedTags.length > 0)
             ? {
                 search: searchQuery || undefined,
                 tags: selectedTags.length ? selectedTags : undefined,
-                type: selectedType || undefined,
               }
             : undefined
         ),
         loadTags(),
       ]);
-      setSources(updatedSources);
+      setAllSources(updatedSources);
       const updated = updatedSources.find((s) => s.id === sourceId);
       if (updated) setTagModalSource(updated);
     } catch (err) {
@@ -233,7 +264,7 @@ export function Library() {
   };
 
   // Determine if we're in a "no sources at all" empty state
-  const isEmptyLibrary = !loading && !error && sources.length === 0 && !searchQuery && selectedTags.length === 0 && !selectedType;
+  const isEmptyLibrary = !loading && !error && allSources.length === 0 && !searchQuery && selectedTags.length === 0;
 
   return (
     <div className="library">
@@ -248,7 +279,7 @@ export function Library() {
           <button
             className="library-add-source-btn"
             onClick={() => setShowAddModal(true)}
-            title="Add a book or news feed to your library"
+            title="Add a new source to your library"
           >
             <Plus size={16} strokeWidth={2} />
             Add Source
@@ -264,35 +295,48 @@ export function Library() {
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search sources and sessions..."
+            placeholder="Search sources..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="library-search-input"
           />
           {searchInput && (
-            <button className="library-search-clear" onClick={() => setSearchInput("")}>
+            <button className="library-search-clear" onClick={() => setSearchInput("")} aria-label="Clear search">
               <X size={14} />
             </button>
           )}
         </div>
-        <div className="type-filter-chips">
-          {TYPE_FILTERS.map((tf) => (
-            <button
-              key={tf.label}
-              className={`type-chip ${selectedType === tf.value ? "active" : ""}`}
-              onClick={() => setSelectedType(tf.value)}
-            >
-              {tf.value && (() => {
-                const Icon = SOURCE_TYPE_CONFIGS[tf.value].icon;
-                return <Icon size={14} />;
-              })()}
-              {tf.label}
-            </button>
-          ))}
+        <div className="library-tabs" role="tablist">
+          <button
+            className={`library-tab ${activeTab === null ? "active" : ""}`}
+            onClick={() => setActiveTab(null)}
+            role="tab"
+            aria-selected={activeTab === null}
+          >
+            <LayoutGrid size={15} />
+            <span>All</span>
+            <span className="library-tab-count">{allSources.length}</span>
+          </button>
+          {typeTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                className={`library-tab ${activeTab === tab.key ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+                role="tab"
+                aria-selected={activeTab === tab.key}
+              >
+                <Icon size={15} />
+                <span>{tab.label}s</span>
+                <span className="library-tab-count">{tab.count}</span>
+              </button>
+            );
+          })}
         </div>
-        {allTags.length > 0 && (
+        {visibleTags.length > 0 && (
           <div className="library-tag-filters">
-            {allTags.map((tag) => (
+            {visibleTags.map((tag) => (
               <button
                 key={tag}
                 className={`tag-filter-chip ${selectedTags.includes(tag) ? "active" : ""}`}
@@ -309,7 +353,7 @@ export function Library() {
       {/* Background jobs tracker */}
       {jobs.length > 0 && (
         <div className="library-jobs-panel">
-          <div className="jobs-panel-header" onClick={() => setShowJobs(!showJobs)}>
+          <div className="jobs-panel-header" role="button" tabIndex={0} aria-label="Toggle background tasks" onClick={() => setShowJobs(!showJobs)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowJobs(!showJobs); } }}>
             <div className="jobs-panel-title">
               <Cpu size={16} className={jobs.some(j => j.status === 'processing') ? 'animate-pulse' : ''} />
               <span>Background Tasks ({jobs.filter(j => j.status === 'pending' || j.status === 'processing').length} active)</span>
@@ -326,8 +370,8 @@ export function Library() {
                 return (
                   <div key={job.id} className={`job-item ${job.status}`}>
                     <div className="job-info">
-                      <div className="job-book-title">{job.sourceTitle}</div>
-                      <div className="job-book-author">by {job.sourceAuthor}</div>
+                      <div className="job-source-title">{job.sourceTitle}</div>
+                      <div className="job-source-author">by {job.sourceAuthor}</div>
                       <div className="job-step">{getStepLabel(job.step)}</div>
                     </div>
                     <div className="job-progress-section">
@@ -382,7 +426,7 @@ export function Library() {
       {error && (
         <div className="library-error">
           <p>{error}</p>
-          <button onClick={() => load(searchQuery, selectedTags, selectedType)}>Retry</button>
+          <button onClick={() => load(searchQuery, selectedTags)}>Retry</button>
         </div>
       )}
 
@@ -399,73 +443,67 @@ export function Library() {
         </div>
       )}
 
-      {!loading && !error && !isEmptyLibrary && (
-        <div className="library-grid">
-          {sources.filter(s => s.type !== 'news').map((source) => {
-            const typeConfig = getSourceTypeConfig(source.type);
-            const TypeIcon = typeConfig.icon;
-            return (
-              <div
-                key={source.id}
-                className="book-card"
-                onClick={() => selectSource(source)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && selectSource(source)}
+      {/* Per-type empty state when tab is selected but no matching sources */}
+      {!loading && !error && !isEmptyLibrary && sources.length === 0 && activeTab && (() => {
+        const tabConfig = getSourceTypeConfig(activeTab);
+        const TabIcon = tabConfig.icon;
+        return (
+          <div className="library-empty-state">
+            <TabIcon size={32} strokeWidth={1.5} />
+            <p>No {tabConfig.label.toLowerCase()}s yet</p>
+            {tabConfig.addSource && (
+              <button
+                className="library-empty-action-btn primary"
+                onClick={() => setShowAddModal(true)}
               >
-                <BookCover
-                  sourceId={source.id}
-                  title={source.title}
-                  author={source.author}
-                  hasCover={source.hasCover}
-                  sourceType={source.type}
-                  size="sm"
-                />
-                <div className="book-card-info">
-                  <div className="book-card-title">
-                    <span className="book-card-type-icon"><TypeIcon size={14} /></span>
-                    {source.title}
-                  </div>
-                  <div className="book-card-author">
-                    {source.author}{source.year ? `, ${source.year}` : ''}
-                  </div>
-                  <div className="book-card-badges">
+                <Plus size={16} />
+                Add {tabConfig.label}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
-                    {source.tags?.map((tag) => (
-                      <span key={tag} className="badge badge-tag">{tag}</span>
-                    ))}
-                    {source.hasMarkdown && (
-                      <span className="badge badge-green">Converted</span>
-                    )}
-                    {source.hasOutline && (
-                      <span className="badge badge-amber">Outline</span>
-                    )}
-                    {source.source === "upload" && (
-                      <span className="badge badge-blue">Uploaded</span>
-                    )}
-                    {source.status === "failed" && (
-                      <span className="badge badge-red">Failed</span>
-                    )}
-                    {(source.status === "pending" || source.status === "processing") && (
-                      <span className="badge badge-blue animate-pulse" style={{ animation: "pulse 1.5s ease-in-out infinite" }}>
-                        {source.status === "processing" ? "Processing..." : "Queued"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {/* Tag button */}
-                <button
-                  className="book-card-tag-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setTagModalSource(source);
-                    setNewTagInput("");
-                  }}
-                  title="Manage tags"
-                >
-                  <Tag size={14} />
-                </button>
-              </div>
+      {!loading && !error && !isEmptyLibrary && sources.length > 0 && (
+        <div className="library-grid">
+          {sources.map((source) => {
+            const CustomCard = appConfig.sourceCards[source.type];
+            const handleCardClick = () => selectSource(source);
+            const handleTagClick = () => {
+              setTagModalSource(source);
+              setNewTagInput("");
+            };
+            const renderCover = (size: "sm" | "md" | "lg" = "sm") => (
+              <SourceCover
+                sourceId={source.id}
+                title={source.title}
+                author={source.author}
+                hasCover={source.hasCover}
+                sourceType={source.type}
+                size={size}
+              />
+            );
+
+            if (CustomCard) {
+              return (
+                <CustomCard
+                  key={source.id}
+                  source={source}
+                  onClick={handleCardClick}
+                  onTagClick={handleTagClick}
+                  renderCover={renderCover}
+                />
+              );
+            }
+
+            return (
+              <SourceCard
+                key={source.id}
+                source={source}
+                onClick={handleCardClick}
+                onTagClick={handleTagClick}
+                renderCover={renderCover}
+              />
             );
           })}
         </div>
@@ -486,6 +524,7 @@ export function Library() {
             <button
               className="tag-modal-close"
               onClick={() => { setTagModalSource(null); setNewTagInput(""); }}
+              aria-label="Close"
             >
               <X size={16} />
             </button>
@@ -534,11 +573,11 @@ export function Library() {
       )}
 
       {showAddModal && (
-        <AddBookModal
+        <AddSourceModal
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            load(searchQuery, selectedTags, selectedType);
+            load(searchQuery, selectedTags);
             loadJobs();
             setShowJobs(true);
           }}

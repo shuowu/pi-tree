@@ -4,7 +4,6 @@ import { mkdirSync, existsSync, readdirSync, renameSync, rmSync } from "node:fs"
 import { join } from "node:path";
 import { eq, sql } from "drizzle-orm";
 import { getDb, sources as sourcesTable, tags as tagsTable, sourceTags } from "../db/index.js";
-import { BookIngestionService } from "./book-ingestion.js";
 
 /**
  * LibraryService — reads sources from DATA_PATH/library/ on disk.
@@ -14,7 +13,6 @@ import { BookIngestionService } from "./book-ingestion.js";
  */
 export class LibraryService {
   private sourcesPath: string;
-  private ingestion: BookIngestionService;
 
   constructor(dataPath?: string) {
     const dp =
@@ -27,8 +25,6 @@ export class LibraryService {
 
     // One-time migration: move books/ and library/ into sources/
     this.migrateLegacyDirs(dp);
-    
-    this.ingestion = new BookIngestionService();
   }
 
   /**
@@ -131,9 +127,18 @@ export class LibraryService {
         }
       }
 
+      let metadata: Record<string, unknown> | undefined;
+      if (row.metadata) {
+        try {
+          metadata = JSON.parse(row.metadata);
+        } catch {
+          // ignore
+        }
+      }
+
       result.push({
         id: row.id,
-        type: (row.type ?? "book") as Source["type"],
+        type: (row.type ?? "unknown") as Source["type"],
         title: row.title,
         author: row.author,
         year: row.year ?? 0,
@@ -145,6 +150,7 @@ export class LibraryService {
         source: (row.source ?? "upload") as Source["source"],
         status: (row.status ?? "ready") as Source["status"],
         error: row.error ?? undefined,
+        metadata,
       });
     }
 

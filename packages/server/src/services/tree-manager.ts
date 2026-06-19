@@ -109,11 +109,10 @@ export class TreeManager {
       resumeSession = TreeManager.readActiveSession(userId, sourceId, options?.sessionId);
     }
 
-    // pending-* placeholders are created by create_session / session CRUD
-    // before the session is actually used. They don't correspond to real JSONL
-    // files, so treat them as fresh sessions to ensure context injection.
-    if (resumeSession?.startsWith("pending-")) {
-      console.log(`[tree-manager] Session file is a placeholder (${resumeSession}), treating as new session`);
+    // Validate session file exists on disk. DB placeholders (e.g. "pending-*")
+    // and stale paths from deleted session files should start a fresh session.
+    if (resumeSession && !existsSync(resumeSession)) {
+      console.log(`[tree-manager] Session file not found (${resumeSession}), starting fresh`);
       resumeSession = undefined;
     }
 
@@ -125,7 +124,7 @@ export class TreeManager {
     const serverCfg = getServerConfig();
     const repoRoot = join(import.meta.dirname, "../../../..");
 
-    const sourceType = sourceRow?.type ?? "book";
+    const sourceType = sourceRow?.type ?? "unknown";
 
     // Read session context from DB (carries mode, optional skill/model overrides)
     const sessionContext = TreeManager.readSessionContext(userId, sourceId, options?.sessionId);
@@ -133,7 +132,7 @@ export class TreeManager {
     // Resolve the session profile via the agent registry.
     // This replaces the old hardcoded sourceType === "router" branching.
     const registry = getAgentRegistry();
-    const profile = registry.resolveProfile(sourceType, sessionContext?.mode, sessionContext);
+    const profile = registry.resolveProfile(sourceType, sessionContext?.mode ?? "reading", sessionContext);
     console.log(`[tree-manager] Resolved profile "${profile.resolvedFrom}" for ${sourceType}/${sessionContext?.mode ?? 'default'}`);
 
     // Resolve the effective model — session context override wins over profile.
@@ -158,6 +157,37 @@ export class TreeManager {
       };
     }
 
+    const stConfig = registry.getSourceTypes().find((st) => st.key === sourceType);
+    let systemContext: string | undefined;
+    if (stConfig?.systemContext) {
+      let metadata: Record<string, any> = {};
+      if (sourceRow?.metadata) {
+        try {
+          metadata = typeof sourceRow.metadata === "string"
+            ? JSON.parse(sourceRow.metadata)
+            : sourceRow.metadata;
+        } catch (err) {
+          console.warn(`[tree-manager] Failed to parse metadata for source ${sourceId}:`, err);
+        }
+      }
+
+      systemContext = stConfig.systemContext
+        .map((line) => {
+          let resolved = line
+            .split("{sourceId}").join(sourceId)
+            .split("{userId}").join(userId);
+          if (metadata && typeof metadata === "object") {
+            for (const [key, val] of Object.entries(metadata)) {
+              if (val !== null && val !== undefined) {
+                resolved = resolved.split(`{${key}}`).join(String(val));
+              }
+            }
+          }
+          return resolved;
+        })
+        .join("\n");
+    }
+
     const piSession = await PiSession.create(
       userId,
       sourceId,
@@ -174,6 +204,7 @@ export class TreeManager {
           excludeTools: profile.excludeTools,
           sourceType,
           readingModel: effectiveModel,
+          systemContext,
         },
       },
     );
@@ -211,6 +242,14 @@ export class TreeManager {
     console.log(`[tree-manager] Ephemeral session: resolved profile "${profile.resolvedFrom}" for ${sourceType}/${mode}`);
 
     const syntheticSourceId = `_system_${sourceType}_${mode}`;
+    const stConfig = registry.getSourceTypes().find((st) => st.key === sourceType);
+    let systemContext: string | undefined;
+    if (stConfig?.systemContext) {
+      systemContext = stConfig.systemContext
+        .map((line) => line.replace("{sourceId}", syntheticSourceId).replace("{userId}", userId))
+        .join("\n");
+    }
+
     const piSession = await PiSession.create(
       userId,
       syntheticSourceId,
@@ -225,6 +264,7 @@ export class TreeManager {
           excludeTools: profile.excludeTools,
           sourceType,
           ...(profile.model ? { readingModel: profile.model } : {}),
+          systemContext,
         },
       },
     );

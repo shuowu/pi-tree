@@ -84,6 +84,8 @@ export interface PiSessionConfig {
   sourceType?: string;
   /** Provider compatibility flags (e.g., supportsDeveloperRole for OpenAI-compat providers) */
   compat?: Record<string, boolean>;
+  /** Custom system context prompt template */
+  systemContext?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,8 +243,11 @@ export class PiSession {
       // This keeps startSession() fast so the client can show a welcome screen.
       if (agent) {
         const sourceType = options?.config?.sourceType ?? "book";
-        if (sourceType === "news") {
+        if (options?.config?.systemContext) {
+          piSession.pendingContext = options.config.systemContext;
+        } else if (sourceType === "news") {
           piSession.pendingContext = [
+
             `[SYSTEM CONTEXT — News Session]`,
             `You are in a news reading and analysis session.`,
             `Source ID: ${bookId}`,
@@ -258,24 +263,10 @@ export class PiSession {
             `User ID: ${userId}`,
             ``,
             `## CRITICAL RULES`,
-            `- EVERY user message is a request to find or start a session. Treat it as a search query.`,
-            `- Your FIRST action on ANY input MUST be: list_sources(search="<user input>") to find matching sources.`,
+            `- Your FIRST action on ANY input MUST be: resolve_mentions(message) to parse @mentions and routing data.`,
             `- NEVER define words, answer questions, explain concepts, or do dictionary lookups.`,
-            `- NEVER use the read, bash, grep, or ls tools. ONLY use the tools listed below.`,
+            `- NEVER use the read, bash, grep, or ls tools. ONLY use the tools listed in the skill file.`,
             `- NEVER read files from the filesystem.`,
-            ``,
-            `## Tools (ONLY use these)`,
-            `- list_sources(type?, search?) — search the library`,
-            `- get_source_info(source_id, user_id?) — check existing sessions (ALWAYS pass user_id="${userId}")`,
-            `- create_session(source_id, user_id, title, mode?, prompt?) — create NEW session`,
-            `- open_session(source_id, session_id) — resume EXISTING session`,
-            `- get_feed_tags() — list news categories`,
-            ``,
-            `## Routing Logic`,
-            `- If user mentions "news" → list_sources(type="news"), then create_session with mode="news"`,
-            `- If user mentions a book/topic → list_sources(search="<query>"), then:`,
-            `  - If source found: get_source_info(id, "${userId}") → open_session or create_session`,
-            `  - If not found: tell user the source isn't in the library`,
             `- The frontend auto-redirects when create_session/open_session returns.`,
             `- Be concise. 1-2 tool calls max.`,
           ].join("\n");
@@ -283,6 +274,7 @@ export class PiSession {
           const bookDir = join(libraryPath, bookId);
           piSession.pendingContext = [
             `[SYSTEM CONTEXT — Book Session]`,
+
             `You are now in a dedicated reading session for a specific book.`,
             `Book directory: ${bookDir}`,
             `Book ID: ${bookId}`,

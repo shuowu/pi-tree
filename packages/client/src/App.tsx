@@ -6,12 +6,11 @@ import { ThemeProvider } from "./ThemeContext";
 import { UserPicker } from "./components/UserPicker";
 import { HomePage } from "./components/HomePage";
 import { Library } from "./components/Library";
-import { BookLayout } from "./components/BookLayout";
+import { SourceLayout } from "./components/SourceLayout";
 import { Reader } from "./components/Reader";
 import { SessionsPage } from "./components/SessionsPage";
 import { SpotlightSearch } from "./components/SpotlightSearch";
-import { AddBookModal } from "./components/AddBookModal";
-import { FeedManagerModal } from "./components/FeedManagerModal";
+import { AddSourceModal } from "./components/AddSourceModal";
 import { SettingsModal } from "./components/SettingsModal";
 import "./App.css";
 
@@ -19,7 +18,7 @@ function AppRoutes() {
   const { userId } = useUser();
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [addSourceOpen, setAddSourceOpen] = useState(false);
-  const [feedManagerOpen, setFeedManagerOpen] = useState(false);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const openSpotlight = useCallback(() => setSpotlightOpen(true), []);
@@ -46,7 +45,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<HomePage onOpenSpotlight={openSpotlight} />} />
         <Route path="/library" element={<Library />} />
-        <Route path="/source/:sourceId" element={<BookLayout />}>
+        <Route path="/source/:sourceId" element={<SourceLayout />}>
           <Route index element={<Reader />} />
           <Route path="sessions" element={<SessionsPage />} />
         </Route>
@@ -58,18 +57,15 @@ function AppRoutes() {
         isOpen={spotlightOpen}
         onClose={closeSpotlight}
         onAddSource={() => setAddSourceOpen(true)}
-        onManageFeeds={() => setFeedManagerOpen(true)}
         onSettings={() => setSettingsOpen(true)}
       />
       {addSourceOpen && (
-        <AddBookModal
+        <AddSourceModal
           onClose={() => setAddSourceOpen(false)}
           onSuccess={() => setAddSourceOpen(false)}
         />
       )}
-      {feedManagerOpen && (
-        <FeedManagerModal onClose={() => setFeedManagerOpen(false)} />
-      )}
+
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} />
       )}

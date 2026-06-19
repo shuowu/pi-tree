@@ -1,15 +1,12 @@
 import type { DictEntry } from "./DictionaryPanel";
 import { DictionaryPanel, DictQuickCard } from "./DictionaryPanel";
-import { BookContentPanel } from "./BookContentPanel";
-import { NewsDashboardPanel } from "./NewsDashboardPanel";
 import { getSourceTypeConfig } from "../source-types";
-import type { SourceType } from "@pi-tree/shared";
 import { X } from "lucide-react";
 
 interface RightPanelProps {
   isOpen: boolean;
-  rightTab: "dict" | "book";
-  onTabChange: (tab: "dict" | "book") => void;
+  rightTab: "dict" | "content";
+  onTabChange: (tab: "dict" | "content") => void;
   onClose: () => void;
   dictEntries: DictEntry[];
   onDictRemove: (id: string) => void;
@@ -39,7 +36,8 @@ export function RightPanel({
   onResizeStart,
   onSendMessage,
 }: RightPanelProps) {
-  const config = getSourceTypeConfig((sourceType as SourceType) ?? "book");
+  const config = getSourceTypeConfig(sourceType ?? "book");
+  const PanelComponent = config.contentPanel;
 
   return (
     <>
@@ -57,12 +55,14 @@ export function RightPanel({
                 <span className="right-sidebar-count">{dictEntries.length}</span>
               )}
             </button>
-            <button
-              className={`right-sidebar-tab ${rightTab === "book" ? "active" : ""}`}
-              onClick={() => onTabChange("book")}
-            >
-              {config.label}
-            </button>
+            {PanelComponent && (
+              <button
+                className={`right-sidebar-tab ${rightTab === "content" ? "active" : ""}`}
+                onClick={() => onTabChange("content")}
+              >
+                {config.label}
+              </button>
+            )}
           </div>
           <button
             className="right-sidebar-close"
@@ -76,26 +76,26 @@ export function RightPanel({
           <div style={{ display: rightTab === "dict" ? "contents" : "none" }}>
             <DictionaryPanel entries={dictEntries} onRemove={onDictRemove} />
           </div>
-          <div style={{ display: rightTab === "book" ? "contents" : "none" }}>
-            {!config.hasContentPanel ? (
-              <NewsDashboardPanel onDefine={onDefine} onSendMessage={onSendMessage} />
-            ) : (
-              <>
-                <BookContentPanel bookId={sourceId} onDefine={onDefine} />
-                {quickLookupId && (() => {
-                  const entry = dictEntries.find((e) => e.id === quickLookupId);
-                  if (!entry) return null;
-                  return (
-                    <DictQuickCard
-                      entry={entry}
-                      onDismiss={onDismissQuickLookup}
-                      onGoToDict={onGoToDict}
-                    />
-                  );
-                })()}
-              </>
-            )}
-          </div>
+          {PanelComponent && (
+            <div style={{ display: rightTab === "content" ? "contents" : "none" }}>
+              <PanelComponent
+                sourceId={sourceId}
+                onDefine={onDefine}
+                onSendMessage={onSendMessage}
+              />
+              {quickLookupId && (() => {
+                const entry = dictEntries.find((e) => e.id === quickLookupId);
+                if (!entry) return null;
+                return (
+                  <DictQuickCard
+                    entry={entry}
+                    onDismiss={onDismissQuickLookup}
+                    onGoToDict={onGoToDict}
+                  />
+                );
+              })()}
+            </div>
+          )}
         </div>
       </aside>
     </>

@@ -1,0 +1,8 @@
+name: book.reading
+label: Interactive Reading
+icon: book-open
+description: Guided chapter-by-chapter exploration with briefings, discussions, and deep dives
+defaultPrompt: 'Let''s start reading "{sourceTitle}". Give me a chapter briefing to begin.'
+skills: [interactive-reading]
+extensions: [mcp]
+exclude_tools: [bash, edit]
