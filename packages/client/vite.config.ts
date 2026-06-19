@@ -6,18 +6,18 @@ import path from 'node:path'
 const apiPort = process.env.VITE_API_PORT ?? '3947';
 const clientPort = Number(process.env.VITE_PORT ?? '5947');
 
-// Plugin packages aren't npm workspace packages, so we alias them for Vite
-const pluginsDir = path.resolve(__dirname, '../plugins');
+// Plugin packages use plugin-* naming convention
+const packagesDir = path.resolve(__dirname, '..');
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     conditions: ['source'],
     alias: {
-      'pi-tree-book': path.join(pluginsDir, 'book'),
-      'pi-tree-news': path.join(pluginsDir, 'news'),
-      'pi-tree-paper': path.join(pluginsDir, 'paper'),
-      'pi-tree-youtube': path.join(pluginsDir, 'youtube'),
+      'pi-tree-book': path.join(packagesDir, 'plugin-book'),
+      'pi-tree-news': path.join(packagesDir, 'plugin-news'),
+      'pi-tree-paper': path.join(packagesDir, 'plugin-paper'),
+      'pi-tree-youtube': path.join(packagesDir, 'plugin-youtube'),
     },
   },
   server: {

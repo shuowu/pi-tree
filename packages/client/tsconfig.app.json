@@ -24,10 +24,10 @@
     /* Plugin UI resolution */
     "baseUrl": ".",
     "paths": {
-      "pi-tree-book/*": ["../plugins/book/*"],
-      "pi-tree-news/*": ["../plugins/news/*"],
-      "pi-tree-paper/*": ["../plugins/paper/*"],
-      "pi-tree-youtube/*": ["../plugins/youtube/*"]
+      "pi-tree-book/*": ["../plugin-book/*"],
+      "pi-tree-news/*": ["../plugin-news/*"],
+      "pi-tree-paper/*": ["../plugin-paper/*"],
+      "pi-tree-youtube/*": ["../plugin-youtube/*"]
     }
   },
   "include": ["src"]
