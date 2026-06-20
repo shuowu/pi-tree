@@ -88,6 +88,7 @@ export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggle
               onClick={toggle.onClick}
               title={toggle.label}
               aria-label={toggle.label}
+              data-testid={`panel-toggle-${toggle.id}`}
             >
               {toggle.icon}
             </button>

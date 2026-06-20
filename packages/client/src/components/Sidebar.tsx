@@ -29,7 +29,7 @@ interface SidebarProps {
 
 export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDeleteNode, onRenameNode, isOpen, onClose }: SidebarProps) {
   return (
-    <aside className={`sidebar ${isOpen ? "open" : ""}`}>
+    <aside className={`sidebar ${isOpen ? "open" : ""}`} data-testid="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-header-title"><GitBranch size={14} /> Session Tree</span>
         <button className="sidebar-close" onClick={onClose} aria-label="Close panel" title="Close panel">

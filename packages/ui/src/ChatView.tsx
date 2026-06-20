@@ -422,6 +422,7 @@ export function ChatView({
             <textarea
               ref={textareaRef}
               className="pit-chat-input"
+              data-testid="chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -434,6 +435,7 @@ export function ChatView({
                 className="pit-chat-stop"
                 onClick={onStop}
                 aria-label="Stop generation"
+                data-testid="chat-stop"
               >
                 <Square size={14} />
               </button>
@@ -443,6 +445,7 @@ export function ChatView({
                 onClick={handleSubmit}
                 disabled={!input.trim() || isLoading}
                 aria-label="Send message"
+                data-testid="chat-send"
               >
                 ↑
               </button>

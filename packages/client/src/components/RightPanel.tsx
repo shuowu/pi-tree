@@ -43,12 +43,13 @@ export function RightPanel({
     <>
       {/* Right sidebar: always rendered, hidden via CSS to preserve nav state */}
       <div className={`resize-handle-right ${isOpen ? "" : "hidden"}`} onMouseDown={onResizeStart} />
-      <aside className={`right-sidebar ${isOpen ? "" : "hidden"}`}>
+      <aside className={`right-sidebar ${isOpen ? "" : "hidden"}`} data-testid="right-panel">
         <div className="right-sidebar-header">
           <div className="right-sidebar-tabs">
             <button
               className={`right-sidebar-tab ${rightTab === "dict" ? "active" : ""}`}
               onClick={() => { onTabChange("dict"); onDismissQuickLookup(); }}
+              data-testid="right-tab-dict"
             >
               Dictionary
               {dictEntries.length > 0 && (
@@ -59,6 +60,7 @@ export function RightPanel({
               <button
                 className={`right-sidebar-tab ${rightTab === "content" ? "active" : ""}`}
                 onClick={() => onTabChange("content")}
+                data-testid="right-tab-content"
               >
                 {config.label}
               </button>

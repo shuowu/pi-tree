@@ -143,6 +143,7 @@ export function Reader() {
     <div
       className={`reader ${panel.sidebarOpen ? "sidebar-open" : ""} ${panel.rightPanelOpen ? "dict-open" : ""} ${panel.scrollDirection === "down" ? "scrolled-down" : ""}`}
       style={panel.cssVars}
+      data-testid="reader"
     >
       {/* Mobile overlay backdrop */}
       <div
