@@ -14,6 +14,23 @@ Your personal reading library — all sources in one place. Filter by type, sear
   <img src="/images/screenshots/library.png" alt="Pi-tree library showing books, news feeds, YouTube videos, and papers organized in a grid" />
 </div>
 
+## Home — Chat Router
+
+The home page is an AI-powered hub. Instead of clicking through menus, you just talk — *"what's in my library?"*, *"open The Coming Wave"*, *"catch me up on AI news"* — and the router navigates you there. It has access to all plugin tools and can list sources, create sessions, or open existing ones directly from the conversation.
+
+<div class="screenshot-frame">
+  <img src="/images/router-demo.gif" alt="Chat router demo — user asks about library, AI lists books, user says 'open The Coming Wave', AI navigates to reader session" />
+</div>
+
+**The flow:**
+1. Ask anything — *"what's in my library?"*, *"open The Coming Wave"*, *"find papers on attention mechanisms"*
+2. The router figures out the intent — it can list sources, open an existing session, or create a new one
+3. You're navigated directly into the reader with full context
+
+You don't need to browse first. If you already know what you want, just say it — *"continue reading Principles"* or *"check today's news"* — and the router takes you there directly.
+
+The **Continue** section below the chat shows recent sessions across all source types for quick resume.
+
 ## Book Reading
 
 Upload EPUB, MOBI, or PDF files. The AI guides you through the book with contextual reading skills. The right panel shows the **table of contents** — click any chapter to jump there in conversation.
