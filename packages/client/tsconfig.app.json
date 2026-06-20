@@ -22,7 +22,6 @@
     "noFallthroughCasesInSwitch": true,
 
     /* Plugin UI resolution */
-    "baseUrl": ".",
     "paths": {
       "pi-tree-book/*": ["../plugin-book/*"],
       "pi-tree-news/*": ["../plugin-news/*"],

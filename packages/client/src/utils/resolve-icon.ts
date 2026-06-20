@@ -15,5 +15,5 @@ export function resolveIcon(
     .split("-")
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join("");
-  return (LucideIcons as Record<string, LucideIcon>)[pascal] ?? fallback;
+  return (LucideIcons as unknown as Record<string, LucideIcon>)[pascal] ?? fallback;
 }

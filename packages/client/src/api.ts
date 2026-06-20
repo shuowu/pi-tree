@@ -250,7 +250,7 @@ export async function deleteSource(sourceId: string): Promise<void> {
  * Kept as a no-op for backward compatibility with UI components.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function processSource(sourceId: string): Promise<void> {
+export async function processSource(_sourceId: string): Promise<void> {
   // No-op: processing is now handled by the AI's process_book tool
 }
 
@@ -272,7 +272,7 @@ export interface JobWithSource extends Job {
  * @deprecated Job queue removed. Returns null.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function fetchJobStatus(sourceId: string): Promise<Job | null> {
+export async function fetchJobStatus(_sourceId: string): Promise<Job | null> {
   return null;
 }
 

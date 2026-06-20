@@ -35,7 +35,7 @@ export function SourceCard({ source, onClick, onTagClick, renderCover }: SourceC
             </span>
           ))}
           {typeConfig.badges?.map((badge) => {
-            const fieldVal = (source as Record<string, unknown>)[badge.field];
+            const fieldVal = (source as unknown as Record<string, unknown>)[badge.field];
             const show = badge.value ? fieldVal === badge.value : !!fieldVal;
             if (!show) return null;
             return (

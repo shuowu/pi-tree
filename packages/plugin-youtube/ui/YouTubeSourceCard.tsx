@@ -108,11 +108,11 @@ export function YouTubeSourceCard({ source, onClick, onTagClick, renderCover }: 
               {formatViews(meta.viewCount)}
             </span>
           )}
-          {meta?.publishDate && (
+          {meta?.publishDate ? (
             <span>
               {formatPublishDate(meta.publishDate)}
             </span>
-          )}
+          ) : null}
         </div>
 
         <div className="source-card-badges">

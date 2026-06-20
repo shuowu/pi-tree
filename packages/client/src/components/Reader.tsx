@@ -235,10 +235,7 @@ export function Reader() {
       {showSettings && (
         <SourceSettingsModal
           source={currentSource}
-          sessionLabel={session.sessionLabel}
           onClose={() => setShowSettings(false)}
-          onReprocess={handleProcessSource}
-          onClearSession={session.handleResetSession}
         />
       )}
 
