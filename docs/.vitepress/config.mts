@@ -51,7 +51,7 @@ export default withMermaid(defineConfig({
           text: 'Guides',
           items: [
             { text: 'Features', link: '/docs/features' },
-            { text: 'Examples', link: '/docs/examples' },
+            { text: 'Plugin Guide', link: '/docs/examples' },
           ],
         },
         {

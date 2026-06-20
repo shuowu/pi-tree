@@ -150,4 +150,4 @@ Once you're running, here's what to expect:
 - **[Models & Providers](/docs/models)** — Configure cloud APIs, local models, or multi-provider setups
 - **[Docker Deployment](/docs/docker)** — Advanced Docker Compose configurations, custom skills, and local LLMs
 - **[Self-Hosting](/docs/self-hosting)** — Full guide to env vars, data layout, custom skills, extensions, and MCP integration
-- **[Examples](/docs/examples)** — Ready-to-use extensions and skills you can copy into your instance
+- **[Plugin Guide](/docs/examples)** — Custom skills, session profiles, and full plugin development

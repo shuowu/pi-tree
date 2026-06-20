@@ -346,7 +346,7 @@ skills: [codebase-reading]
 extensions: [codebase, mcp]
 ```
 
-See the [GitHub Explorer example](/docs/examples) for a working implementation.
+See the [Plugin Guide](/docs/examples) for full examples and API reference.
 
 ### Profile Resolution Order
 
