@@ -87,6 +87,9 @@ All mutable state lives under `DATA_PATH` (default: `~/.local/share/pi-tree/`):
 ├── news/                             # News feature data
 │   ├── analyses/                     # AI-generated news analyses (.md)
 │   └── summaries/                    # AI-generated news summaries (.md)
+├── plugins/                          # Plugin-specific data
+│   └── news/
+│       └── news.db                   # News plugin's own database
 ├── skills/                           # ← Your custom skills go here
 │   └── my-skill/
 │       └── SKILL.md
@@ -98,7 +101,7 @@ All mutable state lives under `DATA_PATH` (default: `~/.local/share/pi-tree/`):
 
 ## Custom Skills
 
-Skills are markdown instruction files that shape how the AI behaves during reading sessions. Pi-tree ships with core skills — `interactive-reading`, `book-outline`, `book-analysis`, `news-reading`, and `session-router` — built into the server package. You can add your own or override the core ones.
+Skills are markdown instruction files that shape how the AI behaves during reading sessions. Core skills are bundled with their respective plugins: `interactive-reading`, `book-outline`, `book-analysis` (book plugin), `news-reading` (news plugin), `paper-reading` (paper plugin), `youtube-watching` (YouTube plugin), and `session-router` (server). You can add your own or override the core ones.
 
 ### Creating a Skill
 
@@ -150,13 +153,16 @@ User skills load first. The Pi SDK uses first-wins dedup, so if a user skill has
 On each new reading session, the server scans:
 
 1. `<DATA_PATH>/skills/` (or `<SKILLS_PATH>/`) — **user skills (loaded first, wins on name collision)**
-2. `packages/server/src/agents/skills/` — core skills (shipped with the app)
+2. Plugin-bundled skills (`packages/plugin-*/skills/`) — shipped with each plugin
+3. Server-bundled skills (`packages/server/src/agents/skills/`) — core routing
 
 :::tip
 No restart is needed — new skills are picked up when a reading session starts.
 :::
 
-## Custom Extensions
+## Custom Tools (Pi Extensions)
+
+Pi-tree's built-in capabilities come from plugins. For lightweight custom tools that don't need the full plugin system, you can use Pi SDK's extension mechanism directly.
 
 Extensions are TypeScript modules that register tools and commands with the Pi agent. They're more powerful than skills — they can execute code, call APIs, and provide interactive tools.
 
@@ -423,7 +429,7 @@ Pi-tree includes an RSS news feed feature. Feeds are crawled on a schedule, and 
 
 ### Default Feeds
 
-On first startup, pi-tree seeds a small set of default feeds (Hacker News, TechCrunch, Ars Technica, The Verge, MIT Tech Review, Nature, Quanta, Reuters, BBC) from `packages/server/config/default-feeds.yml`. These are only seeded if no feeds exist yet — they won't overwrite feeds you've added.
+On first startup, pi-tree seeds a small set of default feeds (Hacker News, TechCrunch, Ars Technica, The Verge, MIT Tech Review, Nature, Quanta, Reuters, BBC) from `packages/plugin-news/config/default-feeds.yml`. These are only seeded if no feeds exist yet — they won't overwrite feeds you've added.
 
 ### Managing Feeds
 
@@ -456,7 +462,7 @@ News data lives under `<DATA_PATH>/news/`:
 - `analyses/` — AI-generated news analyses (Markdown files)
 - `summaries/` — AI-generated news summaries (Markdown files)
 
-Feed metadata and cached articles are stored in the SQLite database.
+Feed metadata and cached articles are stored in the news plugin's own SQLite database at `<DATA_PATH>/plugins/news/news.db`, separate from the main `pi-tree.db`.
 
 For Docker-specific setup (Compose files, volumes, local LLM), see the [Docker guide](/docs/docker).
 

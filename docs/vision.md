@@ -99,7 +99,7 @@ Pi-tree's codebase is structured around this insight:
 
 - **`@pi-tree/core`** is a pure library — PiSession, TreeManager, model setup — with no environment assumptions. It doesn't know about books, servers, or browsers. Anyone can import it and build a tree-structured AI conversation for any purpose.
 - **`@pi-tree/ui`** is a headless-capable component library — ChatView, Breadcrumb, InlineBranches — with prop-driven design and themeable CSS. You can use the default styled components, override the theme tokens, or import only the hooks and build your own UI entirely.
-- **`@pi-tree/extension`** is a publishable skill/tool package — reading skills, book parsers — that plugs into the Pi SDK. New domains bring new skills; the infrastructure stays the same.
+- Each source type is a **self-contained plugin** (`plugin-book`, `plugin-news`, `plugin-paper`, `plugin-youtube`) with its own skills, tools, profiles, and routes — built on `@pi-tree/plugin-sdk`. New domains bring new plugins; the infrastructure stays the same.
 
 The reading app is the first instance of this architecture, not the only one. Someone could take `@pi-tree/core` and build a tree-structured study tool, a research notebook, a therapy journal, or a collaborative analysis workspace. The tree doesn't care what you're thinking about — it just preserves the shape of your thinking.
 

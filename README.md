@@ -63,62 +63,28 @@ Trees fix this at the architecture level:
 - **Less hallucination** — Context pollution is a primary cause of hallucination in long conversations. Isolated branches mean the model stays grounded in the relevant thread.
 - **Longer effective conversations** — Linear chats degrade in quality well before hitting the context window limit. Trees keep each branch short and focused, so you can explore a source across hundreds of messages without quality loss.
 
+## What You Can Read
+
+Pi-tree supports four source types, each handled by a dedicated [plugin](#plugin-architecture):
+
+📚 **Books** — Upload EPUB, MOBI, or PDF. The AI guides you chapter by chapter with reading skills, structural analysis, and branching discussions. Multiple session modes: guided reading, freeform Q&A, or deep analysis.
+
+📰 **News Feeds** — Add RSS/Atom feeds. Pi-tree crawls and deduplicates articles, then lets you scan trends, deep-dive into stories, and discuss the news with AI. Comes with its own dashboard and feed management.
+
+📄 **Research Papers** — Search arXiv directly from the chat. Fetch papers, read them with AI-provided context, and branch into methodology questions or related work.
+
+🎥 **YouTube Videos** — Paste a link. Pi-tree extracts the transcript and video metadata, then lets you discuss the content — quote specific segments, ask follow-ups, compare with other sources. Includes an embedded video player.
+
+> [!IMPORTANT]
+> Users are responsible for ensuring they have the right to use any content loaded into pi-tree. This project does not distribute, host, or provide access to any copyrighted material.
+
 ## Who Is This For?
 
 - 📚 **Serious nonfiction readers** — turn passive reading into active conversation
 - 🎓 **Researchers & graduate students** — work through papers with persistent context
 - 📰 **News followers** — RSS feeds become conversational sources, not scroll fodder
 - 🧠 **PKM enthusiasts** — tree-structured conversations as a knowledge building primitive
-- 🔧 **Developers** — explore codebases conversationally with [custom extensions](https://shuowu.github.io/pi-tree/docs/examples)
-
-## Security & Privacy
-
-Pi-tree is local-first — no cloud accounts, no telemetry, no phone-home. API keys are stored on your filesystem and sent only to your chosen provider. Pair with [Ollama](https://ollama.com) for fully air-gapped operation.
-
-But "local" isn't the interesting part. The interesting part is how the AI agent's capabilities are controlled.
-
-### Agent permission model
-
-Most AI agent tools give the model broad access — shell execution, filesystem writes, network calls — and rely on the user to supervise. Pi-tree takes the opposite approach: **each session type declares exactly which tools the agent can use**, and everything else is blocked.
-
-```yaml
-# Session profile: book.reading
-skills: [interactive-reading]     # markdown instructions — what the agent knows
-extensions: [mcp]                 # tool bundles — what the agent can do
-exclude_tools: [bash, edit]       # explicit blocklist — what the agent cannot do
-```
-
-A book reading session gets the `interactive-reading` skill (how to guide a reading conversation) and nothing else. No shell. No file editing. No database writes. A news session adds the `news` extension (RSS tools), but still no shell. The agent's tool surface is **5-8 purpose-built tools per session**, not hundreds.
-
-This is configured via [declarative session profiles](https://shuowu.github.io/pi-tree/docs/architecture) — you can audit, override, or create your own.
-
-### Built-in extensions vs MCP tools
-
-Pi-tree has two kinds of agent capabilities, with different trust levels:
-
-| | Built-in extensions | MCP tools |
-|---|---|---|
-| **Examples** | `library` (browse sources), `news` (RSS feeds) | Web search, translation, academic DBs |
-| **Code** | In the repo — auditable, PR-reviewed | External processes, user-configured |
-| **DB access** | Scoped to 3 tables via service locator | None — no access to pi-tree internals |
-| **Network** | Only explicit endpoints (arXiv, Jina Reader) | Whatever the MCP server provides |
-| **Namespace** | Flat (`list_sources`, `search_rss`) | Prefixed (`mcp_brave_web_search`) |
-| **Control** | Remove from profile YAML | Add/remove in `mcp.json`, or `disabled: true` |
-
-MCP tools are **opt-in** — they do nothing unless you configure `$DATA_PATH/mcp.json`. When configured, each tool is namespace-prefixed and can be individually excluded via `exclude_tools`.
-
-### Compared to other agentic tools
-
-| | Pi-tree | Computer-use agents | Coding agents |
-|---|---|---|---|
-| **Shell access** | Blocked by default | Unrestricted | Unrestricted |
-| **File writes** | Blocked by default | Full desktop | Full repo |
-| **Tool surface** | 5-8 tools per session | Hundreds of desktop actions | 10-15 code tools |
-| **Scope** | Per-session, per-source-type | Global desktop | Per-workspace |
-| **Philosophy** | Allowlist: only what's declared | Maximum capability | Maximum capability |
-
-Pi-tree's agent is a **reading companion**, not a general-purpose agent. The permission model reflects that — minimal surface area, scoped by purpose, auditable by design.
-
+- 🔧 **Developers** — explore codebases conversationally with [custom plugins](https://shuowu.github.io/pi-tree/docs/examples)
 
 ## Getting Started
 
@@ -159,8 +125,6 @@ Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
 
 Pi-tree doesn't need frontier-class models — reading and comprehension are more about context and conversation than raw reasoning. Smaller, faster models work well and keep costs low (or free with local inference).
 
-**Cloud APIs** (cheapest options that work well):
-
 | Provider | Model | Notes |
 |----------|-------|-------|
 | DeepSeek | `deepseek-v4-flash` | Very cheap, strong reading comprehension |
@@ -170,47 +134,50 @@ Pi-tree doesn't need frontier-class models — reading and comprehension are mor
 
 **Local models** — completely offline, no API costs. Use [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/). Gemma 4 (12B) and Qwen 3.6 are good starting points.
 
-```bash
-PI_PROVIDER=openai                              # Ollama/LM Studio expose an OpenAI-compatible API
-PI_API_KEY=not-needed
-PI_BASE_URL=http://localhost:11434/v1            # Ollama default
-PI_MODEL=gemma4:12b
-```
-
 > [!TIP]
-> Multiple providers, runtime switching, and more → [Models & Providers](https://shuowu.github.io/pi-tree/docs/models)
-
-## Content Sources
-
-Pi-tree supports multiple source types. No content is included in this repository.
-
-- **Books** — upload via the Library UI (EPUB, MOBI, PDF)
-- **News feeds** — add RSS/Atom feeds through the UI; pi-tree crawls, deduplicates, and presents them as conversational sources
-
-> [!IMPORTANT]
-> Users are responsible for ensuring they have the right to use any content loaded into pi-tree. This project does not distribute, host, or provide access to any copyrighted material.
+> Multi-provider setup, runtime switching, compatibility flags → [Models & Providers](https://shuowu.github.io/pi-tree/docs/models)
 
 ## How It Works
 
-Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) — a minimalist AI agent framework with tree-structured conversations. Pi-tree serves as a real-world reference application demonstrating local-first AI, BYOK model abstraction, MCP tool integration, and multi-provider support.
+Built on the [Pi SDK](https://pi.dev/docs/latest/sdk) — a minimalist AI agent framework with tree-structured conversations.
 
-```
-packages/
-  core/      — Pure library: PiSession, TreeManager, model setup, types
-  ui/        — React component library: ChatView, Breadcrumb, InlineBranches
-  server/    — Hono API server: routes, config, DB, agents (skills + extensions)
-  client/    — React + Vite frontend: pages, panels, app-specific wiring
-  electron/  — Desktop app: wraps server + client in Electron
-```
+### Plugin architecture
 
-Key architectural choices:
-- **Server is thin** — receives a message, passes it to a Pi SDK session with source context, streams the response back via SSE
-- **Skills shape behavior** — markdown instruction files control how the AI interacts with each source type. Change a SKILL.md, change the behavior — no code changes needed
+Each source type ships as a self-contained **plugin** — an independent package with its own tools, skills, session profiles, and (optionally) HTTP routes and UI components. The server discovers plugins at startup and wires their capabilities into the right sessions.
+
+| Plugin | Source Type | What it provides |
+|--------|------------|-----------------|
+| `plugin-book` | Books | EPUB/MOBI/PDF parsing, guided reading, analysis, outline generation |
+| `plugin-news` | News | RSS crawling, feed management, news discussion (own database) |
+| `plugin-paper` | Papers | arXiv search, paper fetching, research reading |
+| `plugin-youtube` | YouTube | Transcript extraction, video info, embedded player |
+| `plugin-mcp` | — | Bridges external [MCP servers](https://modelcontextprotocol.io) (web search, etc.) |
+
+Plugins depend only on `@pi-tree/plugin-sdk` — they can't access server internals. Each plugin declares a manifest in `package.json` that tells the server what source type it handles, which tools and skills it provides, and what routes to mount. Adding a new source type means adding a new plugin package, not modifying the server.
+
+### Skills shape behavior
+
+The AI doesn't have hardcoded reading logic. Behavior is driven by **skill files** — markdown instructions bundled in plugins that tell the AI how to interact with each source type. Change a `SKILL.md`, change the behavior. Add custom skills to `$DATA_PATH/skills/` without touching code.
+
+### Other key choices
+
+- **Session profiles** — declarative YAML files map each `(sourceType, mode)` to specific skills and tools. Audit them, override them, [create your own](https://shuowu.github.io/pi-tree/docs/self-hosting#custom-session-profiles)
 - **Data separation** — Pi SDK owns conversation content (JSONL files); pi-tree owns metadata (SQLite: users, sessions, config, glossary)
-- **MCP bridge** — connect external MCP servers (web search, academic databases, etc.) without writing code
+- **Multi-user** — each user gets isolated sessions, config, and glossary per source
 
 > [!TIP]
-> Architecture deep dive, custom skills, extensions, MCP setup → [Documentation](https://shuowu.github.io/pi-tree/docs/architecture)
+> Architecture deep dive, custom skills, plugin development → [Documentation](https://shuowu.github.io/pi-tree/docs/architecture)
+
+## Security & Privacy
+
+Pi-tree is local-first — no cloud accounts, no telemetry, no phone-home. API keys are stored on your filesystem and sent only to your chosen provider.
+
+- 🛡️ **Session-scoped permissions** — Each session type declares exactly which tools the agent can use. A book reading session gets 5-8 purpose-built tools. No shell. No file editing. No database writes.
+- 📝 **Declarative profiles** — Capabilities are configured in YAML. `exclude_tools: [bash, edit]` is the default for all user-facing sessions. Audit them, override them, create your own.
+- 📡 **Fully offline** — Pair with [Ollama](https://ollama.com) for air-gapped operation. No internet required.
+- 📖 **Open source** — AGPL-3.0. Audit the code, fork it, self-host it.
+
+Pi-tree's agent is a **reading companion**, not a general-purpose agent. The permission model reflects that — minimal surface area, scoped by purpose, auditable by design.
 
 ## Design Philosophy
 

@@ -76,7 +76,7 @@ interface SessionContext {
 The `context` column captures the **intent** of the session at creation time. This enables per-session behavior configuration.
 
 :::info Session Profiles
-Session behavior is driven by **session profiles** — declarative mappings of `(sourceType, mode)` → skills, extensions, model. The server resolves profiles via `resolveProfile(sourceType, mode, sessionContext)` in `src/config/session-profiles.ts`. `SessionContext.skills` and `SessionContext.model` stored in the DB override the profile defaults. See [Context Binding](#context-binding) for details.
+Session behavior is driven by **session profiles** — declarative mappings of `(sourceType, mode)` → skills, extensions, model. The server resolves profiles via `resolveProfile(sourceType, mode, sessionContext)` in the agent registry. `SessionContext.skills` and `SessionContext.model` stored in the DB override the profile defaults. See [Context Binding](#context-binding) for details.
 :::
 
 ## Session Lifecycle
@@ -120,7 +120,7 @@ Only one `TreeManager` exists per unique session. When a session is closed or de
 
 ## Context Binding
 
-A session's AI behavior is shaped by **session profiles** — declarative mappings resolved at session creation time. The server resolves the profile via `resolveProfile(sourceType, mode, sessionContext)` in `src/config/session-profiles.ts`.
+A session's AI behavior is shaped by **session profiles** — declarative mappings resolved at session creation time. The server resolves the profile via `resolveProfile(sourceType, mode, sessionContext)` in the agent registry.
 
 | Layer | What | How It Works |
 |-------|------|--------------|
@@ -140,6 +140,8 @@ Built-in profile examples:
 | `book.reading` | `[interactive-reading]` | — |
 | `book.analysis` | `[book-analysis, book-outline]` | — |
 | `news.news` | `[news-reading]` | `[news]` |
+| `paper.reading` | `[paper-reading]` | — |
+| `youtube.watching` | `[youtube-watching]` | — |
 | `router` | `[session-router]` | `[library]` |
 
 Custom profiles can be added at `$DATA_PATH/profiles/*.yml` with an optional `source_type` field to scope them to specific source types.
@@ -153,10 +155,11 @@ PiSession.create(config, resolvedProfile)   // @pi-tree/core
   ├── configureModelRegistry()
   │
   ├── Skills and extensions resolved by profile:
-  │   ├── Core: packages/server/agents/skills/   (built-in)
-  │   ├── Core: packages/server/agents/extensions/ (built-in)
+  │   ├── Plugin: packages/plugin-*/skills/      (plugin-bundled)
+  │   ├── Plugin: packages/plugin-*/             (plugin tools)
+  │   ├── Server: packages/server/agents/skills/ (core routing)
   │   ├── User: DATA_PATH/skills/                (overrides on name collision)
-  │   └── User: DATA_PATH/extensions/            (user-provided)
+  │   └── User: DATA_PATH/extensions/            (custom Pi extensions)
   │
   ├── createAgentSession() with:
   │   ├── model: context.model ?? profile.model ?? config.readingModel

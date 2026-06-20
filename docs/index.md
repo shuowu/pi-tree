@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: Pi-tree
-  text: AI-assisted reading with tree-structured conversations
+  text: AI-assisted reading and research with tree-structured conversations
   tagline: "AI made everyone a faster producer. Nobody's becoming a better reader. Pi-tree is for the input side — helping you understand things deeper, not produce things faster."
   actions:
     - theme: brand
@@ -22,17 +22,17 @@ features:
     details: Branches happen on semantic shifts — go deeper, follow tangents, zoom back out. Your reading path is a navigable tree, not a disposable chat log.
   - icon: 📚
     title: Multi-Source
-    details: Books (EPUB, MOBI, PDF), news feeds (RSS/Atom), research papers — all stored as sources with AI-powered conversational exploration.
+    details: Books (EPUB, MOBI, PDF), news feeds (RSS/Atom), research papers, YouTube videos — all stored as sources with AI-powered conversational exploration.
   - icon: 🏠
     title: Local-First
     details: Everything runs on your machine. No cloud account, no subscription. Works with cloud APIs or fully offline with Ollama / local models.
   - icon: 🖥️
     title: Desktop App
     details: Download and run — no Node.js, no Docker, no terminal. Available for macOS, Linux, and Windows.
-  - icon: 🧩
-    title: Extensible Skills
-    details: Behavior is shaped by markdown skill files, not hardcoded logic. Change a SKILL.md, change how the AI reads. Add custom skills without touching code.
   - icon: 🔌
+    title: Plugin Architecture
+    details: Each source type is a self-contained plugin with its own skills, tools, and session profiles. Add custom skills without touching code, or build full plugins with the SDK.
+  - icon: 🧩
     title: MCP Bridge
     details: Connect external MCP servers for web search, academic databases, or any MCP-compatible tool — no code changes needed.
 ---
@@ -111,7 +111,7 @@ In a linear chat, every message is packed into the context window. After 30 turn
 - 🎓 **Researchers & graduate students** — work through papers with persistent context
 - 📰 **News followers** — RSS feeds become conversational sources, not scroll fodder
 - 🧠 **PKM enthusiasts** — tree-structured conversations as a knowledge building primitive
-- 🔧 **Developers** — explore codebases conversationally with [custom extensions](/docs/examples)
+- 🔧 **Developers** — explore codebases conversationally with [custom plugins](/docs/examples)
 
 </div>
 
@@ -125,8 +125,8 @@ Local-first — no cloud, no telemetry, no phone-home. But "local" isn't the int
 
 Most AI agents get **broad access** — shell, filesystem, network — and rely on you to supervise. Pi-tree flips this: each session type declares exactly which tools the agent can use, and everything else is blocked.
 
-- 🛡️ **Session-scoped permissions** — A book reading session gets a reading skill and nothing else. No shell. No file editing. No database writes. The agent's tool surface is 5-8 purpose-built tools, not hundreds.
-- 🔧 **Two trust tiers** — Built-in extensions (library, RSS) are auditable code in the repo with scoped DB access. MCP tools are external, opt-in, namespace-prefixed, and have zero access to pi-tree internals.
+- 🛡️ **Session-scoped permissions** — Each session type declares exactly which tools the agent can use. A book reading session gets 5-8 purpose-built tools. No shell. No file editing. No database writes.
+- 🔌 **Plugin isolation** — Each source type is an independent plugin with scoped access. Plugins can't reach server internals — services are injected at runtime.
 - 📝 **Declarative profiles** — Capabilities are configured in YAML. Audit them, override them, create your own. `exclude_tools: [bash, edit]` is the default for all user-facing sessions.
 - 📡 **Fully offline** — pair with [Ollama](https://ollama.com) for air-gapped operation. No internet required.
 - 📖 **Open source** — AGPL-3.0. Audit the code, fork it, self-host it.
