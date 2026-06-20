@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Pi-tree
   text: AI-assisted reading and research with tree-structured conversations
-  tagline: "AI made everyone a faster producer. Nobody's becoming a better reader. Pi-tree is for the input side — helping you understand things deeper, not produce things faster."
+  tagline: "AI makes you productive where you already understand. It confuses you where you don't. Pi-tree works on the boundary — helping you cross from confusion into comprehension, not skip past it."
   actions:
     - theme: brand
       text: Download Desktop App
@@ -33,9 +33,9 @@ features:
     details: Download and run — no Node.js, no Docker, no terminal. Available for macOS, Linux, and Windows.
   - icon: 🔌
     title: Plugin Architecture
-    details: Each source type is a self-contained plugin with its own skills, tools, and session profiles. Add custom skills without touching code, or build full plugins with the SDK.
-    linkText: See plugins in action →
-    link: /docs/features#plugin-driven-design
+    details: "Three levels of customization: drop in a skill file to change AI behavior, add a YAML profile to create a new source type, or build a full plugin with its own tools, routes, and UI."
+    linkText: Plugin guide →
+    link: /docs/examples
   - icon: 🧩
     title: MCP Bridge
     details: Connect external MCP servers for web search, academic databases, or any MCP-compatible tool — no code changes needed.
@@ -55,7 +55,7 @@ features:
 
 ## Why Pi-tree?
 
-Most AI tools treat reading as a problem to skip past. Pi-tree treats it as a process worth having.
+Most AI tools help you skip past material. That works when you already understand the domain. When you don't, skipping is exactly the problem. Pi-tree treats reading as a process worth having — one that expands what you're capable of understanding.
 
 <div class="comparison-table-wrapper">
 
@@ -111,11 +111,10 @@ In a linear chat, every message is packed into the context window. After 30 turn
 
 <div class="audience-grid">
 
-- 📚 **Serious nonfiction readers** — turn passive reading into active conversation
-- 🎓 **Researchers & graduate students** — work through papers with persistent context
-- 📰 **News followers** — RSS feeds become conversational sources, not scroll fodder
-- 🧠 **PKM enthusiasts** — tree-structured conversations as a knowledge building primitive
-- 🔧 **Developers** — explore codebases conversationally with [custom plugins](/docs/examples)
+- 📚 **Nonfiction readers** — you're reading a dense chapter and AI summaries skip the part you actually don't understand. Pi-tree stays in that gap with you until you do.
+- 🎓 **Researchers & students** — you're outside your subfield and every paper assumes background you lack. Branch into what you don't know, then return to the argument.
+- 📰 **News followers** — you read the headline but can't evaluate the claim. Turn feeds into conversations where you build context over time, not scroll past it.
+- 🔧 **Developers** — you're in an unfamiliar codebase or domain. Build [custom plugins](/docs/examples) to explore anything conversationally.
 
 </div>
 
@@ -143,13 +142,13 @@ Pi-tree's agent is a **reading companion**, not a general-purpose agent. The per
 
 ## The Problem
 
-Every AI assistant can summarize a book or answer questions about an article. But they all treat understanding as a step to skip — paste text in, get the answer out, move on. There's no structure, no persistence, no sense of *journey* through the material.
+AI accelerates people inside their circle of competence and bewilders them outside it. Ask a domain expert a smart question and AI gives them a brilliant answer. Ask a beginner the same question and they get a confident-sounding paragraph they can't evaluate. Summaries, Q&A, "explain like I'm five" — they all assume you know enough to judge the output. When you don't, AI doesn't bridge the gap. It wallpapers over it.
 
 <p class="lead">
-Real comprehension isn't linear. You branch — <em>"wait, how does this connect to X?"</em> — then come back. You re-read something with new context. You accumulate a personal vocabulary of terms and ideas. Flat chat threads can't capture any of this.
+Real comprehension isn't linear. You branch — <em>"wait, how does this connect to X?"</em> — then come back. You re-read something with new context. You accumulate a personal vocabulary of terms and ideas. You push your boundary outward, one concept at a time. Flat chat threads can't capture any of this.
 </p>
 
-**Pi-tree fixes this.** Each source gets a tree-structured conversation where branches happen on semantic shifts, you can zoom in and out freely, every user gets their own path, and everything stays local on your machine.
+**Pi-tree fixes this.** Each source gets a tree-structured conversation where branches happen on semantic shifts, you can zoom in and out freely, every user gets their own path, and everything stays local on your machine. The goal isn't to give you the answer faster — it's to expand the territory where you can evaluate answers for yourself.
 
 [Learn more about the vision →](/vision)
 

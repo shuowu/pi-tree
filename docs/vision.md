@@ -5,17 +5,17 @@ description: Why pi-tree exists — building for the input side of AI, tree-stru
 
 # Vision & Philosophy
 
-## The Other Half of AI
+## The Boundary Problem
 
 Every AI product ships the same pitch: *do more, faster*. Write emails in seconds. Generate code in minutes. Summarize a 300-page report in one click. The entire industry is racing toward **output** — how quickly you can produce things.
 
-Nobody's building for the other side.
+But there's a catch nobody talks about.
 
-**Input** — how you absorb information, make sense of it, connect it to what you already know — that's the harder, quieter problem. And it's the one that actually matters for most of what we do. Before you can write the essay, you need to understand the book. Before you can form an opinion, you need to digest the reporting. Before you can decide, you need to comprehend what you're choosing between.
+AI makes you productive where you already understand. When you know a domain, AI is a force multiplier — it drafts what you'd draft, answers what you'd answer, just faster. But when you *don't* understand — when you're outside your circle of competence — AI doesn't help you across that gap. It gives you a confident-sounding answer you can't evaluate. It summarizes material you can't judge. The boundary between "I get this" and "I'm lost" doesn't shrink with better models. It becomes invisible.
 
-> AI has made everyone a prolific producer. It hasn't made anyone a better understander.
+> AI has made everyone a prolific producer. It hasn't helped anyone understand what they couldn't before.
 
-Pi-tree is built for the input side. It's not about generating content — it's about **ingesting** it. Reading a book. Following a news beat. Working through a research paper. The AI doesn't produce things on your behalf; it thinks alongside you while you absorb and process information, helping you go deeper, draw connections, and build genuine comprehension.
+Pi-tree is built for the boundary. It's not about generating content — it's about **expanding what you're capable of understanding**. Reading a book. Following a news beat. Working through a research paper. The AI doesn't produce things on your behalf; it thinks alongside you while you absorb and process information, helping you cross from confusion into comprehension — go deeper, draw connections, and build genuine understanding you can trust.
 
 This is a fundamentally different design target, and it leads to fundamentally different decisions — tree-structured conversations instead of linear chat, persistent context instead of throwaway sessions, depth over speed.
 
@@ -39,7 +39,7 @@ Pi-tree tries to avoid this trap. The UI is real — anyone can pick it up — b
 
 There's a bigger idea here about where AI tools are heading.
 
-Right now, the dominant pattern is general-purpose: one model, one interface, infinite use cases. ChatGPT, Claude, Gemini — they can all summarize a book, answer questions about it, generate quizzes. But they do it in a flat, sessionless way. Your conversation disappears. Context resets. There's no *structure* to the interaction. And they're all oriented toward the same goal: give me the answer, give me the summary, give me the takeaway. The act of *understanding* is treated as an obstacle to skip past, not an experience worth having.
+Right now, the dominant pattern is general-purpose: one model, one interface, infinite use cases. ChatGPT, Claude, Gemini — they can all summarize a book, answer questions about it, generate quizzes. But they do it in a flat, sessionless way. Your conversation disappears. Context resets. There's no *structure* to the interaction. And they all share the same blind spot: they assume you know enough to judge the output. When you do, it's magical. When you don't, you're memorizing someone else's confident summary without knowing if it's right.
 
 I think the future looks different. Not one model that does everything, but **specific tools doing specific things exceptionally well**, wrapped in purpose-built UX that respects the activity. A reading tool that understands how people actually read. A research tool that understands how people actually explore. A learning tool that helps you build genuine comprehension, not just collect AI-generated summaries.
 

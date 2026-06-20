@@ -5,9 +5,9 @@
 [![release v0.2.0](https://img.shields.io/badge/release-v0.2.1-orange)](https://github.com/shuowu/pi-tree/releases)
 [![Docker Image](https://img.shields.io/badge/ghcr.io-shuowu%2Fpi--tree-blue?logo=docker)](https://ghcr.io/shuowu/pi-tree)
 
-**AI made everyone a faster producer. Nobody's becoming a better reader.**
+**AI makes you productive where you already understand. It confuses you where you don't.**
 
-Pi-tree is for the input side of knowledge work. Load your books, news feeds, or research papers — an AI reads them *with* you, not as a flat Q&A, but as branching conversations that capture how you actually think about the material. Go deep on a concept, branch into a tangent, zoom back out. Your reading path is a navigable tree, not a disposable chat log.
+Ask an expert a smart question and AI will give them a brilliant answer. Ask a beginner the same question and they'll get a confident-sounding paragraph they can't evaluate. The gap between "I get this" and "I'm lost" doesn't shrink with better models — it widens. Pi-tree works on the boundary: load your books, news feeds, or research papers, and an AI reads them *with* you — not as flat Q&A, but as branching conversations that help you cross from confusion into comprehension. Go deep on a concept, branch into a tangent, zoom back out. Your reading path is a navigable tree, not a disposable chat log.
 
 > **Local-first, bring your own key.** Runs entirely on your machine. No cloud account, no subscription. Works with cloud APIs (DeepSeek, Gemini, Claude) or fully offline with [Ollama](https://ollama.com) / local models.
 
@@ -21,7 +21,7 @@ Pi-tree is for the input side of knowledge work. Load your books, news feeds, or
 
 ## Why Pi-tree?
 
-Most AI tools treat reading as a problem to skip past — paste the text, get the summary, move on. Pi-tree treats reading as a process worth having.
+Most AI tools help you skip past material — paste the text, get the summary, move on. That works when you already understand the domain. When you don't, skipping is exactly the problem. Pi-tree treats reading as a process worth having — one that expands what you're capable of understanding.
 
 | | Pi-tree | ChatGPT / Claude | NotebookLM | Obsidian + AI |
 |---|---|---|---|---|
@@ -67,7 +67,7 @@ Trees fix this at the architecture level:
 
 Pi-tree supports four source types, each handled by a dedicated [plugin](#plugin-architecture):
 
-📚 **Books** — Upload EPUB, MOBI, or PDF. The AI guides you chapter by chapter with reading skills, structural analysis, and branching discussions. Multiple session modes: guided reading, freeform Q&A, or deep analysis.
+📚 **Books** — Upload EPUB, MOBI, PDF, or Markdown. The AI guides you chapter by chapter with reading skills, structural analysis, and branching discussions. Multiple session modes: guided reading, freeform Q&A, or deep analysis.
 
 📰 **News Feeds** — Add RSS/Atom feeds. Pi-tree crawls and deduplicates articles, then lets you scan trends, deep-dive into stories, and discuss the news with AI. Comes with its own dashboard and feed management.
 
@@ -80,11 +80,10 @@ Pi-tree supports four source types, each handled by a dedicated [plugin](#plugin
 
 ## Who Is This For?
 
-- 📚 **Serious nonfiction readers** — turn passive reading into active conversation
-- 🎓 **Researchers & graduate students** — work through papers with persistent context
-- 📰 **News followers** — RSS feeds become conversational sources, not scroll fodder
-- 🧠 **PKM enthusiasts** — tree-structured conversations as a knowledge building primitive
-- 🔧 **Developers** — explore codebases conversationally with [custom plugins](https://shuowu.github.io/pi-tree/docs/examples)
+- 📚 **Nonfiction readers** — you're reading a dense chapter and AI summaries skip the part you actually don't understand. Pi-tree stays in that gap with you until you do.
+- 🎓 **Researchers & students** — you're outside your subfield and every paper assumes background you lack. Branch into what you don't know, then return to the argument.
+- 📰 **News followers** — you read the headline but can't evaluate the claim. Turn feeds into conversations where you build context over time, not scroll past it.
+- 🔧 **Developers** — you're in an unfamiliar codebase or domain. Build [custom plugins](https://shuowu.github.io/pi-tree/docs/examples) to explore anything conversationally.
 
 ## Getting Started
 
@@ -153,11 +152,15 @@ Each source type ships as a self-contained **plugin** — an independent package
 | `plugin-youtube` | YouTube | Transcript extraction, video info, embedded player |
 | `plugin-mcp` | — | Bridges external [MCP servers](https://modelcontextprotocol.io) (web search, etc.) |
 
-Plugins depend only on `@pi-tree/plugin-sdk` — they can't access server internals. Each plugin declares a manifest in `package.json` that tells the server what source type it handles, which tools and skills it provides, and what routes to mount. Adding a new source type means adding a new plugin package, not modifying the server.
+Plugins depend only on `@pi-tree/plugin-sdk` — they can't access server internals. Each plugin declares a manifest in `package.json` that tells the server what source type it handles, which tools and skills it provides, and what routes to mount.
 
-### Skills shape behavior
+### Three levels of customization
 
-The AI doesn't have hardcoded reading logic. Behavior is driven by **skill files** — markdown instructions bundled in plugins that tell the AI how to interact with each source type. Change a `SKILL.md`, change the behavior. Add custom skills to `$DATA_PATH/skills/` without touching code.
+You don't need to build a plugin to extend pi-tree. There are three tiers, from zero-code to full package:
+
+1. **Custom skills** (no code) — Drop a `SKILL.md` into `$DATA_PATH/skills/` to change how the AI reads, discusses, or analyzes any source type. Override built-in skills by name, or add new ones.
+2. **Custom profiles + extensions** (no plugin) — Add a YAML profile and a tool extension to `$DATA_PATH/` to create an entirely new source type. The [self-hosting guide](https://shuowu.github.io/pi-tree/docs/self-hosting#custom-source-types) walks through a complete example.
+3. **Full plugin package** — For source types that need parsers, databases, HTTP routes, or UI panels. See the [plugin guide](https://shuowu.github.io/pi-tree/docs/examples).
 
 ### Other key choices
 
@@ -183,7 +186,7 @@ Pi-tree's agent is a **reading companion**, not a general-purpose agent. The per
 
 More on why pi-tree exists → [Vision](https://shuowu.github.io/pi-tree/vision)
 
-The short version: the AI industry is focused on **output** — helping you produce things faster. Pi-tree is focused on **input** — helping you understand things deeper. Every design decision (tree-structured conversations, persistent context, branching exploration, per-source glossaries) serves that single purpose: making information ingestion a richer experience, not a faster one.
+The short version: AI accelerates people inside their circle of competence and bewilders them outside it. Pi-tree is built to push that circle outward. Every design decision — tree-structured conversations, persistent context, branching exploration, per-source glossaries — serves a single purpose: turning material you *can't yet* evaluate into material you can.
 
 ## License
 
