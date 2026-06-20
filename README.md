@@ -12,11 +12,11 @@ Pi-tree is for the input side of knowledge work. Load your books, news feeds, or
 > **Local-first, bring your own key.** Runs entirely on your machine. No cloud account, no subscription. Works with cloud APIs (DeepSeek, Gemini, Claude) or fully offline with [Ollama](https://ollama.com) / local models.
 
 <p align="center">
-  <a href="https://shuowu.github.io/pi-tree/">
-    <img src="docs/images/demo.gif" alt="Pi-tree in action — scrolling through an AI-generated news summary, tree sidebar with branching topics, inline branch cards for deep-dive" width="720" />
+  <a href="https://shuowu.github.io/pi-tree/docs/features">
+    <img src="docs/public/images/screenshots/library.png" alt="Pi-tree library — books, news feeds, YouTube videos, and papers in a unified reading library" width="720" />
   </a>
   <br />
-  <sub><a href="https://shuowu.github.io/pi-tree/">📖 Documentation</a> · <a href="https://shuowu.github.io/pi-tree/vision">Vision</a> · <a href="https://shuowu.github.io/pi-tree/">▶ Watch Demo</a> · <a href="CONTRIBUTING.md">Contributing</a></sub>
+  <sub><a href="https://shuowu.github.io/pi-tree/docs/features">📸 See all features</a> · <a href="https://shuowu.github.io/pi-tree/">📖 Documentation</a> · <a href="https://shuowu.github.io/pi-tree/vision">Vision</a> · <a href="CONTRIBUTING.md">Contributing</a></sub>
 </p>
 
 ## Why Pi-tree?

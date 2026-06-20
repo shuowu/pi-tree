@@ -32,6 +32,7 @@ export default withMermaid(defineConfig({
         link: '/docs/getting-started',
         activeMatch: '/docs/',
       },
+      { text: 'Features', link: '/docs/features' },
       { text: 'Vision', link: '/vision' },
     ],
 
@@ -49,6 +50,7 @@ export default withMermaid(defineConfig({
         {
           text: 'Guides',
           items: [
+            { text: 'Features', link: '/docs/features' },
             { text: 'Examples', link: '/docs/examples' },
           ],
         },

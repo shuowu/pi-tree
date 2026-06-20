@@ -23,6 +23,8 @@ features:
   - icon: 📚
     title: Multi-Source
     details: Books (EPUB, MOBI, PDF), news feeds (RSS/Atom), research papers, YouTube videos — all stored as sources with AI-powered conversational exploration.
+    linkText: See all source types →
+    link: /docs/features
   - icon: 🏠
     title: Local-First
     details: Everything runs on your machine. No cloud account, no subscription. Works with cloud APIs or fully offline with Ollama / local models.
@@ -32,6 +34,8 @@ features:
   - icon: 🔌
     title: Plugin Architecture
     details: Each source type is a self-contained plugin with its own skills, tools, and session profiles. Add custom skills without touching code, or build full plugins with the SDK.
+    linkText: See plugins in action →
+    link: /docs/features#plugin-driven-design
   - icon: 🧩
     title: MCP Bridge
     details: Connect external MCP servers for web search, academic databases, or any MCP-compatible tool — no code changes needed.
