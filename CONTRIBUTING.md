@@ -144,10 +144,10 @@ Pi-Tree's AI capabilities are organized into **skills** (markdown instruction bu
 
 For detailed architecture, see:
 
-- [`website/docs/architecture.md`](website/docs/architecture.md) — how the server wraps Pi SDK, agent directory, session profiles
-- [`website/docs/sessions.md`](website/docs/sessions.md) — multi-session model, context binding, session lifecycle
+- [`docs/docs/architecture.md`](docs/docs/architecture.md) — how the server wraps Pi SDK, agent directory, session profiles
+- [`docs/docs/sessions.md`](docs/docs/sessions.md) — multi-session model, context binding, session lifecycle
 
-Users can also add custom skills and profiles without modifying the repo — see [`website/docs/self-hosting.md`](website/docs/self-hosting.md).
+Users can also add custom skills and profiles without modifying the repo — see [`docs/docs/self-hosting.md`](docs/docs/self-hosting.md).
 
 ## Running Tests
 

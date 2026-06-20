@@ -45,17 +45,17 @@ Each plugin package (`packages/plugin-*`) is an independent workspace with its o
 
 ## Docs
 
-User-facing documentation lives in `website/docs/` (published to GitHub Pages):
+User-facing documentation lives in `docs/` (published to GitHub Pages via VitePress):
 
-- `website/docs/architecture.md` — How the server wraps Pi SDK, data ownership, agent directory, session profiles
-- `website/docs/sessions.md` — Multi-session model, context binding, session lifecycle, API reference
-- `website/docs/self-hosting.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
-- `website/vision.md` — Design philosophy and product direction
+- `docs/docs/architecture.md` — How the server wraps Pi SDK, data ownership, agent directory, session profiles
+- `docs/docs/sessions.md` — Multi-session model, context binding, session lifecycle, API reference
+- `docs/docs/self-hosting.md` — All env vars, data layout, custom skills/extensions for self-hosters, Docker Compose examples
+- `docs/vision.md` — Design philosophy and product direction
 
-Internal design docs (not published):
+Internal design docs (not published, gitignored in `local-docs/`):
 
-- `docs/ELECTRON.md` — Electron app design: architecture mapping, bootstrap extraction, IPC vs HTTP, packaging
-- `docs/GLOBAL-CHAT.md` — Cross-source conversation / global chat design: memory tiers, tool design, data model
+- `local-docs/ELECTRON.md` — Electron app design: architecture mapping, bootstrap extraction, IPC vs HTTP, packaging
+- `local-docs/GLOBAL-CHAT.md` — Cross-source conversation / global chat design: memory tiers, tool design, data model
 
 ## Key Concepts
 
@@ -309,7 +309,7 @@ All mutable state (sessions, DB, library, news) lives under `DATA_PATH` (default
 
 ## Session Management
 
-Multiple sessions per user+source. Each session has a `SessionContext` (mode, optional skills/prompt/model overrides) stored as JSON. See `website/docs/sessions.md` for full architecture.
+Multiple sessions per user+source. Each session has a `SessionContext` (mode, optional skills/prompt/model overrides) stored as JSON. See `docs/docs/sessions.md` for full architecture.
 
 **Session API** (CRUD):
 - `GET /api/sessions/:userId/:sourceId` — list all sessions

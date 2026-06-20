@@ -4,7 +4,7 @@ on:
   push:
     branches: [master]
     paths:
-      - 'website/**'
+      - 'docs/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Build VitePress site
-        run: npx vitepress build website
+        run: npx vitepress build docs
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
@@ -44,7 +44,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: website/.vitepress/dist
+          path: docs/.vitepress/dist
 
   deploy:
     environment:
