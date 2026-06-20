@@ -5,7 +5,21 @@ description: How to build and customize pi-tree plugins — from simple skill ov
 
 # Plugin Guide
 
-Pi-tree's plugin system has three levels of customization, from lightest to heaviest:
+Pi-tree is built on the [Pi SDK](https://pi.dev/docs/latest/sdk) — a minimalist AI agent framework. Pi-tree plugins extend Pi SDK's primitives with source-type-specific behavior:
+
+| Pi SDK concept | What it does | Pi SDK docs | Pi-tree adds |
+|---|---|---|---|
+| **Extension** | TypeScript module that registers AI tools | [Extensions](https://pi.dev/docs/latest/extensions) | `definePiTreeExtension()` for access to pi-tree services |
+| **Skill** | Markdown file with AI behavior instructions | [Skills](https://pi.dev/docs/latest/skills) | Source-type-scoped skills bundled in plugins |
+| **Tool** | Function the AI can call during a session | [Extensions → Tools](https://pi.dev/docs/latest/extensions) | Same API, registered via extensions |
+
+Pi-tree adds three concepts on top:
+
+- **Session profiles** — YAML files that wire skills + extensions together for a `(sourceType, mode)` pair
+- **Source type manifest** — `piTree` field in `package.json` that declares UI config, routes, and content panels
+- **Plugin SDK services** — typed access to pi-tree's sources, sessions, users, and registry from within extensions
+
+## Three Levels of Customization
 
 | Level | What you create | Restart needed? | Use case |
 |---|---|---|---|
@@ -15,7 +29,7 @@ Pi-tree's plugin system has three levels of customization, from lightest to heav
 
 ## Custom Skills (No Code)
 
-Skills are markdown files that shape how the AI behaves. Drop one into `$DATA_PATH/skills/` and it takes effect on the next session — no restart, no build step.
+Skills are Pi SDK's [skill files](https://pi.dev/docs/latest/skills) — markdown instructions that shape how the AI behaves. Drop one into `$DATA_PATH/skills/` and it takes effect on the next session — no restart, no build step.
 
 ### Create a new skill
 
@@ -55,7 +69,7 @@ User skills win on name collision — the original is completely replaced.
 
 ## Custom Session Profiles
 
-Profiles wire skills and extensions together for a specific `(sourceType, mode)` pair. They're YAML files in `$DATA_PATH/profiles/`.
+Profiles are a pi-tree concept (not from Pi SDK). They wire skills and extensions together for a specific `(sourceType, mode)` pair. They're YAML files in `$DATA_PATH/profiles/`.
 
 ### Create a new session mode
 
@@ -94,27 +108,29 @@ This adds a "Deep Analysis" mode to the session picker for all book sources.
 
 ## Full Plugin
 
-A full plugin is a standalone package that provides a new source type with its own tools, skills, profiles, routes, and UI components.
+A full plugin is a Pi SDK package ([Pi Packages](https://pi.dev/docs/latest/extensions)) enhanced with a pi-tree manifest. It provides a new source type with its own tools, skills, profiles, routes, and UI components.
 
 ### Plugin structure
 
 ```
 packages/plugin-example/
-├── package.json          # Manifest with piTree config
-├── index.ts              # Extension: registers AI tools
+├── package.json          # Pi package config + piTree manifest
+├── index.ts              # Pi extension: registers AI tools
 ├── skills/
 │   └── example-reading/
-│       └── SKILL.md      # AI behavior instructions
+│       └── SKILL.md      # Pi skill: AI behavior instructions
 ├── profiles/
-│   └── example.reading.yml
-├── routes.ts             # Optional: HTTP API routes
+│   └── example.reading.yml  # Pi-tree profile: wires skills + extensions
+├── routes.ts             # Pi-tree: HTTP API routes (optional)
 └── ui/
-    └── ContentPanel.tsx  # Optional: right-panel UI component
+    └── ContentPanel.tsx  # Pi-tree: right-panel UI component (optional)
 ```
 
 ### The manifest (`package.json`)
 
-The `piTree` field declares everything the server needs to discover and wire the plugin:
+A plugin's `package.json` has two sections:
+- **`pi`** — standard Pi SDK config (extensions and skills paths)
+- **`piTree`** — pi-tree-specific config (source type, routes, UI)
 
 ```json
 {
@@ -159,7 +175,18 @@ The `piTree` field declares everything the server needs to discover and wire the
 }
 ```
 
-### Manifest fields reference
+### Pi SDK fields (`pi`)
+
+These follow Pi SDK conventions — see [Pi Packages](https://pi.dev/docs/latest/extensions) for details:
+
+| Field | Description |
+|---|---|
+| `pi.extensions` | Paths to [extension modules](https://pi.dev/docs/latest/extensions) that register tools |
+| `pi.skills` | Paths to [skill directories](https://pi.dev/docs/latest/skills) |
+
+### Pi-tree fields (`piTree`)
+
+These are pi-tree additions — they tell the server how to wire the plugin into the app:
 
 | Field | Description |
 |---|---|
@@ -172,47 +199,19 @@ The `piTree` field declares everything the server needs to discover and wire the
 | `piTree.routes` | Path to HTTP routes module |
 | `piTree.routePrefix` | URL prefix for plugin routes |
 | `piTree.ui.contentPanel` | Path to right-panel React component |
-| `pi.extensions` | Paths to extension modules (registers AI tools) |
-| `pi.skills` | Paths to skill directories |
 
-### Extension (AI tools)
+### Extension with pi-tree services
 
-The extension registers tools that the AI can call during sessions:
-
-```typescript
-// index.ts
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
-
-export default function (pi: ExtensionAPI) {
-  pi.registerTool({
-    name: "search_example",
-    label: "Search Example",
-    description: "Search for example items by keyword.",
-    parameters: Type.Object({
-      query: Type.String({ description: "Search query" }),
-    }),
-    async execute(_toolCallId, params) {
-      // Your logic — fetch APIs, query databases, read files, etc.
-      const results = await fetchSomething(params.query);
-      return {
-        content: [{ type: "text", text: JSON.stringify(results) }],
-        details: undefined,
-      };
-    },
-  });
-}
-```
-
-### Using plugin SDK services
-
-If your tool needs to interact with pi-tree's core (sources, sessions, users), use `definePiTreeExtension`:
+A standard Pi extension registers tools via `pi.registerTool()` ([docs](https://pi.dev/docs/latest/extensions)). Pi-tree's `definePiTreeExtension()` wraps this to inject typed services:
 
 ```typescript
 import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
 import { Type } from "typebox";
 
 export default definePiTreeExtension((pi, services) => {
+  // pi — standard Pi SDK ExtensionAPI
+  // services — pi-tree services (sources, sessions, users, etc.)
+
   pi.registerTool({
     name: "create_example_source",
     label: "Create Example Source",
@@ -238,7 +237,20 @@ export default definePiTreeExtension((pi, services) => {
 });
 ```
 
-### Available services
+If your extension doesn't need pi-tree services, use a plain Pi extension:
+
+```typescript
+// Standard Pi SDK extension — no pi-tree dependency
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.registerTool({ /* ... */ });
+}
+```
+
+### Available pi-tree services
+
+These are injected by `definePiTreeExtension()` — they're the pi-tree layer on top of Pi SDK:
 
 | Service | Methods | Use case |
 |---|---|---|
@@ -251,7 +263,7 @@ export default definePiTreeExtension((pi, services) => {
 
 ### HTTP routes (optional)
 
-Plugins can declare HTTP routes for custom APIs:
+Plugins can declare HTTP routes — this is a pi-tree feature (not from Pi SDK):
 
 ```typescript
 // routes.ts
@@ -280,7 +292,7 @@ The server mounts these at the declared `routePrefix` (e.g. `/api/example/items`
 
 ### Right-panel UI (optional)
 
-Plugins can provide a React component for the right sidebar:
+Plugins can provide a React component for the right sidebar — another pi-tree addition:
 
 ```tsx
 // ui/ContentPanel.tsx
@@ -303,13 +315,13 @@ The panel appears as a tab in the right sidebar alongside Dictionary.
 
 ## Existing Plugins
 
-For real-world examples, see the built-in plugins:
+For real-world examples, see the built-in plugins (ordered by complexity):
 
-| Plugin | Complexity | Key patterns |
-|---|---|---|
-| [`plugin-paper`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-paper) | Simple | Tools only (arXiv search), no routes, no UI panel |
-| [`plugin-youtube`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-youtube) | Medium | Tools + routes + content panel (video player) |
-| [`plugin-news`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-news) | Full | Tools + routes + own SQLite DB + feed dashboard + crawling service |
-| [`plugin-book`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-book) | Full | File parsers + processing pipeline + multiple session modes |
+| Plugin | Complexity | Pi SDK parts | Pi-tree additions |
+|---|---|---|---|
+| [`plugin-paper`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-paper) | Simple | 1 extension (3 tools), 1 skill | Manifest only, no routes/UI |
+| [`plugin-youtube`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-youtube) | Medium | 1 extension (2 tools), 1 skill | Routes + content panel (video player) |
+| [`plugin-news`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-news) | Full | 1 extension (5 tools), 1 skill | Routes + own SQLite DB + feed dashboard |
+| [`plugin-book`](https://github.com/shuowu/pi-tree/tree/master/packages/plugin-book) | Full | 1 extension (1 tool), 3 skills | File parsers + processing pipeline |
 
 Start with `plugin-paper` as a template — it's the simplest end-to-end plugin.
