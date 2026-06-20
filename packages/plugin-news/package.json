@@ -1,6 +1,6 @@
 {
   "name": "pi-tree-news",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "piTree": {
@@ -8,7 +8,9 @@
       "key": "news",
       "label": "News Feed",
       "icon": "newspaper",
-      "sessionModes": ["news"],
+      "sessionModes": [
+        "news"
+      ],
       "defaultMode": "news",
       "autoStartMode": "news",
       "hasProcessing": false,
@@ -32,8 +34,12 @@
     }
   },
   "pi": {
-    "extensions": ["./index.ts"],
-    "skills": ["./skills"]
+    "extensions": [
+      "./index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
   },
   "dependencies": {
     "@pi-tree/plugin-sdk": "*",

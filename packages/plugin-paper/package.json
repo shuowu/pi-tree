@@ -1,6 +1,6 @@
 {
   "name": "pi-tree-paper",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "piTree": {
@@ -8,7 +8,10 @@
       "key": "paper",
       "label": "Paper",
       "icon": "file-text",
-      "sessionModes": ["reading", "custom"],
+      "sessionModes": [
+        "reading",
+        "custom"
+      ],
       "defaultMode": "reading",
       "autoStartMode": "reading",
       "hasProcessing": false,
@@ -18,17 +21,35 @@
       "addSource": {
         "subtitle": "Add a paper to discuss and analyze",
         "fields": [
-          { "key": "title", "label": "Title", "required": true, "placeholder": "Paper title" },
-          { "key": "author", "label": "Author(s)", "placeholder": "Author names" },
-          { "key": "arxivId", "label": "arXiv ID / URL", "placeholder": "e.g. 2301.07041", "metadataKey": "arxivId" }
+          {
+            "key": "title",
+            "label": "Title",
+            "required": true,
+            "placeholder": "Paper title"
+          },
+          {
+            "key": "author",
+            "label": "Author(s)",
+            "placeholder": "Author names"
+          },
+          {
+            "key": "arxivId",
+            "label": "arXiv ID / URL",
+            "placeholder": "e.g. 2301.07041",
+            "metadataKey": "arxivId"
+          }
         ]
       },
       "cardSubtitle": "{author}"
     }
   },
   "pi": {
-    "extensions": ["./index.ts"],
-    "skills": ["./skills"]
+    "extensions": [
+      "./index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "*",

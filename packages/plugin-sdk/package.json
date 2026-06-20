@@ -1,6 +1,6 @@
 {
   "name": "@pi-tree/plugin-sdk",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "description": "SDK for building pi-tree plugins. Provides typed services, route helpers, and manifest types for self-contained Pi packages.",
   "type": "module",
   "exports": {
@@ -12,7 +12,10 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build"
@@ -20,5 +23,9 @@
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },
-  "keywords": ["pi-tree", "pi-package", "extension"]
+  "keywords": [
+    "pi-tree",
+    "pi-package",
+    "extension"
+  ]
 }

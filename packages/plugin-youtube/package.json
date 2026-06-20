@@ -1,6 +1,6 @@
 {
   "name": "pi-tree-youtube",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "piTree": {
@@ -8,7 +8,10 @@
       "key": "youtube",
       "label": "YouTube",
       "icon": "circle-play",
-      "sessionModes": ["watching", "custom"],
+      "sessionModes": [
+        "watching",
+        "custom"
+      ],
       "defaultMode": "watching",
       "autoStartMode": "watching",
       "hasProcessing": false,
@@ -37,8 +40,12 @@
     }
   },
   "pi": {
-    "extensions": ["./index.ts"],
-    "skills": ["./skills"]
+    "extensions": [
+      "./index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
   },
   "dependencies": {
     "@pi-tree/plugin-sdk": "*",

@@ -1,6 +1,6 @@
 {
   "name": "pi-tree-book",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "piTree": {
@@ -8,7 +8,11 @@
       "key": "book",
       "label": "Book",
       "icon": "book-open",
-      "sessionModes": ["reading", "qa", "custom"],
+      "sessionModes": [
+        "reading",
+        "qa",
+        "custom"
+      ],
       "defaultMode": "reading",
       "hasProcessing": true,
       "searchPlaceholder": "Search books...",
@@ -16,17 +20,50 @@
       "addSource": {
         "subtitle": "Upload an EPUB, MOBI, PDF, or Markdown file",
         "hasFileUpload": true,
-        "acceptedExtensions": [".epub", ".mobi", ".pdf", ".md"],
+        "acceptedExtensions": [
+          ".epub",
+          ".mobi",
+          ".pdf",
+          ".md"
+        ],
         "fields": [
-          { "key": "title", "label": "Title", "required": true, "placeholder": "Book title" },
-          { "key": "author", "label": "Author", "required": true, "placeholder": "Author name" },
-          { "key": "year", "label": "Year", "type": "number", "placeholder": "Publication year" }
+          {
+            "key": "title",
+            "label": "Title",
+            "required": true,
+            "placeholder": "Book title"
+          },
+          {
+            "key": "author",
+            "label": "Author",
+            "required": true,
+            "placeholder": "Author name"
+          },
+          {
+            "key": "year",
+            "label": "Year",
+            "type": "number",
+            "placeholder": "Publication year"
+          }
         ]
       },
       "badges": [
-        { "field": "hasMarkdown", "label": "Converted", "color": "green" },
-        { "field": "hasOutline", "label": "Outline", "color": "amber" },
-        { "field": "source", "value": "upload", "label": "Uploaded", "color": "blue" }
+        {
+          "field": "hasMarkdown",
+          "label": "Converted",
+          "color": "green"
+        },
+        {
+          "field": "hasOutline",
+          "label": "Outline",
+          "color": "amber"
+        },
+        {
+          "field": "source",
+          "value": "upload",
+          "label": "Uploaded",
+          "color": "blue"
+        }
       ],
       "cardSubtitle": "{author}, {year}"
     },
@@ -35,8 +72,12 @@
     }
   },
   "pi": {
-    "extensions": ["./index.ts"],
-    "skills": ["./skills"]
+    "extensions": [
+      "./index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
   },
   "dependencies": {
     "@pi-tree/plugin-sdk": "*",
