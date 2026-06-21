@@ -275,9 +275,9 @@
   box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
-/* ── Mobile ── */
+/* ── Phone ── */
 
-@media (max-width: 768px) {
+@media (max-width: 480px) {
   .sidebar {
     width: 100%;
     z-index: 1000;

@@ -38,9 +38,6 @@ export function Reader() {
   const dict = useDictionary(
     userId,
     source.id,
-    panel.rightTab,
-    panel.setRightPanelOpen,
-    panel.setRightTab,
   );
 
   const session = useReaderSession(userId, source, searchParams, setSearchParams, {

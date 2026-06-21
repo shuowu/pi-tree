@@ -5,9 +5,6 @@ import { streamLookup } from "../api";
 export function useDictionary(
   userId: string | null,
   sourceId: string,
-  rightTab: "dict" | "content",
-  setRightPanelOpen: (open: boolean) => void,
-  setRightTab: (tab: "dict" | "content") => void,
 ) {
   const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
   const [quickLookupId, setQuickLookupId] = useState<string | null>(null);
@@ -32,14 +29,10 @@ export function useDictionary(
       };
 
       setDictEntries((prev) => [...prev, newEntry]);
-      setRightPanelOpen(true);
 
-      // If on content tab, show floating mini-card instead of switching tabs
-      if (rightTab === "content") {
-        setQuickLookupId(entryId);
-      } else {
-        setRightTab("dict");
-      }
+      // Always show the floating quick-card popup — don't open the right panel.
+      // Users can click "View in Dictionary →" in the popup to open the full panel.
+      setQuickLookupId(entryId);
 
       streamLookup(userId, sourceId, term, (token) => {
         setDictEntries((prev) =>
@@ -67,7 +60,7 @@ export function useDictionary(
           );
         });
     },
-    [userId, sourceId, rightTab, setRightPanelOpen, setRightTab],
+    [userId, sourceId],
   );
 
 
