@@ -193,4 +193,8 @@ export interface SourceTypeEntry {
   pluginDir: string;
   /** Optional custom system context prompt template */
   systemContext?: string[];
+  /** Prompt template for #tag mentions. `{tags}` is replaced with the tag list. E.g. "Focus on feeds tagged '{tags}'" */
+  tagPromptTemplate?: string;
+  /** Prompt template for :qualifier mentions. `{qualifier}` is replaced with the value. E.g. "Focus on the {qualifier} feed" */
+  qualifierPromptTemplate?: string;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Loader2, ArrowUp, Rss, Hash } from "lucide-react";
 import { Marked } from "marked";
-import { fetchRouterSession, sendMessageStreaming } from "../api";
+import { fetchRouterSession, sendMessageStreaming, routeDeterministic } from "../api";
 import { useSourceMentions, parseMentionQuery, type MentionSuggestion } from "../hooks/useSourceMentions";
 import { getSourceTypeConfig } from "../source-types";
 import "./RouterChat.css";
@@ -167,75 +167,95 @@ export function RouterChat({ userId }: RouterChatProps) {
       setIsExpanded(true);
       pendingNavigation.current = null;
 
-      sendMessageStreaming(
-        userId,
-        "_system_router_router",
-        0,
-        trimmed,
-        null,
-        {
-          onToken(token) {
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.role === "assistant") {
-                const updated = [...prev];
-                updated[updated.length - 1] = { ...last, content: last.content + token };
-                return updated;
-              }
-              return [...prev, { id: nextMsgId(), role: "assistant", content: token }];
-            });
-          },
-          onToolCall({ toolName }) {
-            setActiveToolCall(toolName);
-          },
-          onToolResult({ toolName, result, isError }) {
-            // When create_session or open_session completes, capture the URL
-            if ((toolName === "create_session" || toolName === "open_session") && !isError && result) {
-              try {
-                const parsed = typeof result === "string" ? JSON.parse(result) : result;
-                // The tool returns { content: [{ type: "text", text: "{...}" }] }
-                // or the result may be the parsed text directly
-                let data = parsed;
-                if (parsed?.content?.[0]?.text) {
-                  data = JSON.parse(parsed.content[0].text);
-                }
-                if (data?.url) {
-                  pendingNavigation.current = data.url;
-                }
-              } catch {
-                // Fall through
-              }
-            }
-          },
-          onTurnEnd() {
-            setActiveToolCall(null);
-          },
-          onDone() {
-            setIsStreaming(false);
-            setActiveToolCall(null);
-
-            // Auto-redirect if create_session returned a URL
-            if (pendingNavigation.current) {
-              const url = pendingNavigation.current;
-              setIsRedirecting(true);
-              setTimeout(() => {
-                navigate(url);
-              }, 1200);
-            }
-          },
-          onError(err) {
-            console.error("Router chat error:", err);
-            setIsStreaming(false);
-            setActiveToolCall(null);
+      // Try deterministic routing first (skips LLM for @mentions)
+      (async () => {
+        try {
+          const routeResult = await routeDeterministic(userId, trimmed);
+          if (routeResult.resolved && routeResult.url) {
             setMessages((prev) => [
               ...prev,
-              { id: nextMsgId(), role: "assistant", content: `Error: ${err.message}` },
+              { id: nextMsgId(), role: "assistant" as const, content: `Opening **${routeResult.sourceTitle ?? "session"}**…` },
             ]);
+            setIsStreaming(false);
+            setIsRedirecting(true);
+            setTimeout(() => navigate(routeResult.url!), 400);
+            return;
+          }
+        } catch {
+          // Deterministic routing failed — fall through to LLM
+        }
+
+        // LLM-based routing fallback
+        sendMessageStreaming(
+          userId,
+          "_system_router_router",
+          0,
+          trimmed,
+          null,
+          {
+            onToken(token) {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === "assistant") {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { ...last, content: last.content + token };
+                  return updated;
+                }
+                return [...prev, { id: nextMsgId(), role: "assistant", content: token }];
+              });
+            },
+            onToolCall({ toolName }) {
+              setActiveToolCall(toolName);
+            },
+            onToolResult({ toolName, result, isError }) {
+              // When create_session or open_session completes, capture the URL
+              if ((toolName === "create_session" || toolName === "open_session") && !isError && result) {
+                try {
+                  const parsed = typeof result === "string" ? JSON.parse(result) : result;
+                  // The tool returns { content: [{ type: "text", text: "{...}" }] }
+                  // or the result may be the parsed text directly
+                  let data = parsed;
+                  if (parsed?.content?.[0]?.text) {
+                    data = JSON.parse(parsed.content[0].text);
+                  }
+                  if (data?.url) {
+                    pendingNavigation.current = data.url;
+                  }
+                } catch {
+                  // Fall through
+                }
+              }
+            },
+            onTurnEnd() {
+              setActiveToolCall(null);
+            },
+            onDone() {
+              setIsStreaming(false);
+              setActiveToolCall(null);
+
+              // Auto-redirect if create_session returned a URL
+              if (pendingNavigation.current) {
+                const url = pendingNavigation.current;
+                setIsRedirecting(true);
+                setTimeout(() => {
+                  navigate(url);
+                }, 400);
+              }
+            },
+            onError(err) {
+              console.error("Router chat error:", err);
+              setIsStreaming(false);
+              setActiveToolCall(null);
+              setMessages((prev) => [
+                ...prev,
+                { id: nextMsgId(), role: "assistant", content: `Error: ${err.message}` },
+              ]);
+            },
           },
-        },
-        undefined,
-        { sessionKey: sessionInfo.sessionKey },
-      );
+          undefined,
+          { sessionKey: sessionInfo.sessionKey },
+        );
+      })();
     },
     [input, isStreaming, sessionInfo, userId, navigate, mentionQuery, mentionSuggestions, mentionIndex, insertMention],
   );

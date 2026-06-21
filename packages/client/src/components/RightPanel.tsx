@@ -1,5 +1,5 @@
 import type { DictEntry } from "./DictionaryPanel";
-import { DictionaryPanel, DictQuickCard } from "./DictionaryPanel";
+import { DictionaryPanel } from "./DictionaryPanel";
 import { getSourceTypeConfig } from "../source-types";
 import { X } from "lucide-react";
 
@@ -13,9 +13,7 @@ interface RightPanelProps {
   sourceId: string;
   sourceType?: string;
   onDefine: (term: string, context?: string) => void;
-  quickLookupId: string | null;
   onDismissQuickLookup: () => void;
-  onGoToDict: () => void;
   onResizeStart: (e: React.MouseEvent) => void;
   onSendMessage?: (message: string) => void;
 }
@@ -30,9 +28,7 @@ export function RightPanel({
   sourceId,
   sourceType,
   onDefine,
-  quickLookupId,
   onDismissQuickLookup,
-  onGoToDict,
   onResizeStart,
   onSendMessage,
 }: RightPanelProps) {
@@ -85,17 +81,6 @@ export function RightPanel({
                 onDefine={onDefine}
                 onSendMessage={onSendMessage}
               />
-              {quickLookupId && (() => {
-                const entry = dictEntries.find((e) => e.id === quickLookupId);
-                if (!entry) return null;
-                return (
-                  <DictQuickCard
-                    entry={entry}
-                    onDismiss={onDismissQuickLookup}
-                    onGoToDict={onGoToDict}
-                  />
-                );
-              })()}
             </div>
           )}
         </div>

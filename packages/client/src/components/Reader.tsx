@@ -11,6 +11,7 @@ import { SourceSetupState } from "./SourceSetupState";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
+import { DictQuickCard } from "./DictionaryPanel";
 
 import { fetchModels, updateSession, viewScope } from "../api";
 import { getBranchesCollapsed } from "../utils/preferences";
@@ -222,12 +223,28 @@ export function Reader() {
         sourceId={source.id}
         sourceType={source.type}
         onDefine={dict.handleDefine}
-        quickLookupId={dict.quickLookupId}
         onDismissQuickLookup={() => dict.setQuickLookupId(null)}
-        onGoToDict={() => { panel.setRightTab("dict"); dict.setQuickLookupId(null); }}
         onResizeStart={panel.handleRightResizeStart}
         onSendMessage={session.handleSendMessage}
       />
+
+      {/* Floating dictionary quick card — rendered outside the right panel so it
+          shows even when the panel is closed */}
+      {dict.quickLookupId && (() => {
+        const entry = dict.dictEntries.find((e) => e.id === dict.quickLookupId);
+        if (!entry) return null;
+        return (
+          <DictQuickCard
+            entry={entry}
+            onDismiss={() => dict.setQuickLookupId(null)}
+            onGoToDict={() => {
+              panel.setRightPanelOpen(true);
+              panel.setRightTab("dict");
+              dict.setQuickLookupId(null);
+            }}
+          />
+        );
+      })()}
 
       {showSettings && (
         <SourceSettingsModal

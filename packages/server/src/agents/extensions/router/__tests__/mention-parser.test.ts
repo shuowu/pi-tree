@@ -5,13 +5,13 @@
  * Covered:
  *  - Keyword mentions (@News, @Paper)
  *  - Keyword + tag (@News#ai)
- *  - Keyword + feed (@News:Hacker News)
+ *  - Keyword + qualifier (@News:Hacker News)
  *  - Keyword followed by unrelated text (@News hacker news)
  *  - Source-title fuzzy search (@Dune)
  *  - Unknown source (@Unknown → error)
  *  - Multiple mentions in one message
  *  - Plain text with no @mentions
- *  - Keyword + feed + trailing plain text
+ *  - Keyword + qualifier + trailing plain text
  */
 
 import { describe, it, expect } from "vitest";
@@ -86,13 +86,13 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
-  it("parses @News:Hacker News as keyword + feed", () => {
+  it("parses @News:Hacker News as keyword + qualifier", () => {
     const result = parseMentions("@News:Hacker News", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
       sourceType: "news",
-      feed: "Hacker News",
+      qualifier: "Hacker News",
     });
     expect(result.plainText).toBe("");
   });
@@ -177,19 +177,19 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("plain text with no mentions");
   });
 
-  it("parses @News:Tech — feed capture is greedy up to # or @", () => {
+  it("parses @News:Tech — qualifier capture is greedy up to # or @", () => {
     const result = parseMentions(
       "@News:Tech latest updates",
       SOURCE_TYPE_CONFIGS,
       mockSearchSources,
     );
 
-    // The feed regex [^#@\s][^#@]* captures everything after : until # or @,
-    // so "Tech latest updates" is all part of the feed.
+    // The qualifier regex [^#@\s][^#@]* captures everything after : until # or @,
+    // so "Tech latest updates" is all part of the qualifier.
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
       sourceType: "news",
-      feed: "Tech latest updates",
+      qualifier: "Tech latest updates",
     });
     expect(result.plainText).toBe("");
   });
@@ -204,13 +204,13 @@ describe("parseMentions", () => {
     });
   });
 
-  it("handles keyword + tag + feed together: @News:Tech#ai", () => {
+  it("handles keyword + tag + qualifier together: @News:Tech#ai", () => {
     const result = parseMentions("@News:Tech#ai", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
       sourceType: "news",
-      feed: "Tech",
+      qualifier: "Tech",
       tags: ["ai"],
     });
   });

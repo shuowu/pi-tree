@@ -482,4 +482,48 @@ The following placeholders are supported and will be automatically interpolated 
 - `{sourceId}`: The unique ID of the loaded source.
 - `{userId}`: The slug of the active user.
 
+## Mention Routing
 
+The home page router supports `@mention` syntax for navigating to sources. Mentions are parsed by `packages/server/src/agents/extensions/router/mention-parser.ts` and support three components:
+
+```
+@Keyword:Qualifier#tag
+```
+
+- **`@Keyword`** — matches a plugin's `mentionKeyword` (e.g. `@News`, `@Paper`) or a source title (`@Dune`)
+- **`:Qualifier`** — optional qualifier (e.g. a feed name, channel, collection)
+- **`#tag`** — optional tag filter
+
+### Deterministic routing
+
+The server exposes `POST /api/router/route` which resolves mentions without any LLM call. For unambiguous `@mention` requests, the client calls this endpoint first and navigates directly — reducing routing latency from seconds to ~100ms. Ambiguous cases (no mention, YouTube URLs, time-based "ask" zone) fall back to the LLM router.
+
+### Plugin manifest fields for routing
+
+Plugins declare routing behavior in `piTree.sourceType` inside `package.json`:
+
+```json
+{
+  "piTree": {
+    "sourceType": {
+      "mentionKeyword": "News",
+      "fixedSourceId": "news",
+      "sessionStrategy": "time-based",
+      "askAfterHours": 4,
+      "staleAfterHours": 12,
+      "tagPromptTemplate": "Focus on feeds tagged '{tags}'",
+      "qualifierPromptTemplate": "Focus on the {qualifier} feed"
+    }
+  }
+}
+```
+
+| Field | Purpose | Default |
+|-------|---------|---------|
+| `mentionKeyword` | Keyword matched in `@mentions` (e.g. "News"). If omitted, source titles are fuzzy-matched. | — |
+| `fixedSourceId` | Singleton source ID (e.g. "news"). If omitted, resolved via title search. | — |
+| `sessionStrategy` | `"reuse-same-mode"` or `"time-based"` | `"reuse-same-mode"` |
+| `askAfterHours` | Time-based: hours before asking user to resume or create new | `4` |
+| `staleAfterHours` | Time-based: hours after which a session is considered stale | `12` |
+| `tagPromptTemplate` | Prompt template for `#tag` mentions. `{tags}` is replaced with the tag list. | `"Focus on tag '{tags}'"` |
+| `qualifierPromptTemplate` | Prompt template for `:qualifier` mentions. `{qualifier}` is replaced with the value. | `"Focus on {qualifier}"` |

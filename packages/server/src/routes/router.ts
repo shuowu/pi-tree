@@ -14,6 +14,9 @@ import {
   registerSession,
   closeSessionByKey,
 } from "../services/session-store.js";
+import { parseMentions } from "../agents/extensions/router/mention-parser.js";
+import { getExtensionServices } from "../agents/context.js";
+import { getAgentRegistry } from "../services/agent-registry.js";
 
 export const routerRoutes = new Hono();
 
@@ -71,5 +74,173 @@ routerRoutes.get("/session/:userId", async (c) => {
   } catch (err) {
     console.error("Router session error:", err);
     return c.json({ error: String(err) }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /router/route — deterministic routing (no LLM needed)
+//
+// Resolves @mentions, checks existing sessions, and either creates/opens
+// a session directly or returns { resolved: false } for LLM fallback.
+// ---------------------------------------------------------------------------
+
+routerRoutes.post("/route", async (c) => {
+  try {
+    const { message, userId } = await c.req.json<{ message: string; userId: string }>();
+    const registry = getAgentRegistry();
+    const services = getExtensionServices();
+    const sourceTypeConfigs = registry.getSourceTypes();
+
+    // 1. Parse mentions
+    const parsed = parseMentions(
+      message,
+      sourceTypeConfigs,
+      (query) => services.sources.list({ search: query }),
+    );
+
+    // YouTube URLs need LLM (source creation + transcript fetch)
+    if (parsed.youtubeUrl) return c.json({ resolved: false });
+
+    // No mentions → LLM fallback
+    if (parsed.mentions.length === 0) return c.json({ resolved: false });
+
+    // Take the first mention
+    const mention = parsed.mentions[0];
+    if (mention.error || !mention.sourceId) return c.json({ resolved: false });
+
+    // 2. Look up source
+    const source = services.sources.get(mention.sourceId);
+    if (!source) return c.json({ resolved: false });
+
+    const stConfig = sourceTypeConfigs.find((st) => st.key === source.type);
+    const mode = mention.defaultMode ?? stConfig?.defaultMode ?? "reading";
+    const strategy = stConfig?.sessionStrategy ?? "reuse-same-mode";
+    const askAfterHrs = (stConfig as any)?.askAfterHours ?? 4;
+    const staleAfterHrs = (stConfig as any)?.staleAfterHours ?? 12;
+
+    // 3. Check explicit user intent from plain text
+    const plainText = parsed.plainText ?? "";
+    const wantsNew = /\b(new|fresh|start\s+over)\b/i.test(plainText);
+    const wantsResume = /\b(continue|resume|go\s+back)\b/i.test(plainText);
+
+    // 4. Get existing sessions
+    const sessions = services.sessions.listForSource(userId, mention.sourceId);
+
+    // Helper: get session mode from its context JSON
+    const getSessionMode = (row: { context: string }): string => {
+      try { return JSON.parse(row.context).mode ?? "reading"; } catch { return "reading"; }
+    };
+
+    // Helper: build prompt from mention metadata using plugin-declared templates
+    const buildPrompt = (): string | undefined => {
+      if (mention.tags?.length) {
+        const tagList = mention.tags.join("', '");
+        return stConfig?.tagPromptTemplate
+          ? stConfig.tagPromptTemplate.replace("{tags}", tagList)
+          : `Focus on tag '${tagList}'`;
+      }
+      if (mention.qualifier) {
+        return stConfig?.qualifierPromptTemplate
+          ? stConfig.qualifierPromptTemplate.replace("{qualifier}", mention.qualifier)
+          : `Focus on ${mention.qualifier}`;
+      }
+      if (plainText) return plainText;
+      return undefined;
+    };
+
+    // Helper: build session title
+    const buildTitle = (): string => {
+      const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      try {
+        const profile = registry.resolveProfile(source.type, mode);
+        if ((profile as any).defaultTitle) {
+          return (profile as any).defaultTitle
+            .replace("{sourceTitle}", source.title ?? "Source")
+            .replace("{date}", dateStr);
+        }
+      } catch { /* no profile — use fallback */ }
+      if (strategy === "time-based") return `${source.title} - ${dateStr}`;
+      return source.title ?? "New Session";
+    };
+
+    // Helper: create session and return result
+    const createAndReturn = () => {
+      services.users.ensureExists(userId);
+      const session = services.sessions.create(userId, mention.sourceId!, {
+        title: buildTitle(),
+        context: { mode },
+      });
+      const prompt = buildPrompt();
+      let url = `/source/${mention.sourceId}?session=${session.id}&new=${mode}`;
+      if (prompt) url += `&query=${encodeURIComponent(prompt)}`;
+      return c.json({
+        resolved: true,
+        action: "created",
+        url,
+        sessionId: session.id,
+        sourceId: mention.sourceId,
+        sourceTitle: source.title,
+        mode,
+      });
+    };
+
+    // Helper: open existing session and return result
+    const openAndReturn = (sessionId: number) => {
+      return c.json({
+        resolved: true,
+        action: "opened",
+        url: `/source/${mention.sourceId}?session=${sessionId}`,
+        sessionId,
+        sourceId: mention.sourceId,
+        sourceTitle: source.title,
+        mode,
+      });
+    };
+
+    // 5. Apply decision logic
+
+    // Explicit intent overrides strategy
+    if (wantsNew) return createAndReturn();
+    if (wantsResume && sessions.length > 0) {
+      const match = sessions.find((s) => getSessionMode(s) === mode) ?? sessions[0];
+      return openAndReturn(match.id);
+    }
+
+    // No sessions → create
+    if (sessions.length === 0) return createAndReturn();
+
+    // Strategy: reuse-same-mode (books, papers)
+    if (strategy === "reuse-same-mode") {
+      const match = sessions.find((s) => getSessionMode(s) === mode);
+      return match ? openAndReturn(match.id) : createAndReturn();
+    }
+
+    // Strategy: time-based (news)
+    if (strategy === "time-based") {
+      const now = Date.now();
+      // Find best candidate by mode match, then most recent
+      const candidates = sessions
+        .filter((s) => getSessionMode(s) === mode)
+        .map((s) => {
+          const lastActive = s.lastActiveAt ? new Date(s.lastActiveAt).getTime() : 0;
+          const hoursAgo = lastActive ? (now - lastActive) / 3600000 : Infinity;
+          return { ...s, hoursAgo };
+        })
+        .sort((a, b) => a.hoursAgo - b.hoursAgo);
+
+      if (candidates.length === 0) return createAndReturn();
+
+      const best = candidates[0];
+      if (best.hoursAgo < askAfterHrs) return openAndReturn(best.id);
+      if (best.hoursAgo > staleAfterHrs) return createAndReturn();
+      // "ask" zone — ambiguous, let LLM handle
+      return c.json({ resolved: false });
+    }
+
+    // Unknown strategy — fall back to LLM
+    return c.json({ resolved: false });
+  } catch (err) {
+    console.error("[router/route] Deterministic routing error:", err);
+    return c.json({ resolved: false });
   }
 });

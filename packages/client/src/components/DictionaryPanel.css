@@ -145,20 +145,21 @@
   font-size: var(--text-xs);
 }
 
-/* ── Quick Lookup Card (floating over Book tab) ── */
+/* ── Quick Lookup Card (floating overlay, independent of right panel) ── */
 
 .dict-quick-card {
-  position: absolute;
-  bottom: var(--space-3);
-  left: var(--space-3);
-  right: var(--space-3);
+  position: fixed;
+  bottom: var(--space-4, 16px);
+  right: var(--space-4, 16px);
+  width: 340px;
+  max-width: calc(100vw - 32px);
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   box-shadow: var(--shadow-lg, 0 4px 16px rgba(0, 0, 0, 0.12));
-  z-index: 10;
-  max-height: 50%;
+  z-index: 100;
+  max-height: 40vh;
   overflow-y: auto;
   animation: quickCardSlideUp 0.2s ease;
 }

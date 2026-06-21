@@ -392,6 +392,19 @@ export async function fetchRouterSession(userId: string): Promise<{ sessionKey: 
   return res.json();
 }
 
+export async function routeDeterministic(
+  userId: string,
+  message: string,
+): Promise<{ resolved: boolean; url?: string; sourceTitle?: string; action?: string; mode?: string }> {
+  const res = await fetch(`${API}/router/route`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, message }),
+  });
+  if (!res.ok) return { resolved: false };
+  return res.json();
+}
+
 export async function sendMessage(
   userId: string,
   sourceId: string,

@@ -30,7 +30,8 @@ export interface ParsedMention {
   sessionModes?: string[];
   sessionStrategy?: string;
   tags?: string[];
-  feed?: string;
+  /** Generic qualifier from `:value` syntax (e.g. feed name, channel, database) */
+  qualifier?: string;
   error?: string;
 }
 
@@ -62,12 +63,12 @@ export function parseMentions(
   const ytMatch = youtubeUrlRegex.exec(message);
   const youtubeUrl = ytMatch ? ytMatch[0] : undefined;
 
-  // Pass 1: keyword mentions — @Keyword, @Keyword:Feed, @Keyword#tag
+  // Pass 1: keyword mentions — @Keyword, @Keyword:Qualifier, @Keyword#tag
   const keywordRegex = /@(\w+)(?::([^#@\s][^#@]*))?(?:#(\w+))?/g;
   let match: RegExpExecArray | null;
 
   while ((match = keywordRegex.exec(message)) !== null) {
-    const [raw, keyword, feed, tag] = match;
+    const [raw, keyword, qualifier, tag] = match;
     const keyLower = keyword.toLowerCase();
 
     const sourceType = keywordMap.get(keyLower);
@@ -80,7 +81,7 @@ export function parseMentions(
         sessionModes: sourceType.sessionModes,
       };
       if (tag) mention.tags = [tag];
-      if (feed) mention.feed = feed.trim();
+      if (qualifier) mention.qualifier = qualifier.trim();
       if (sourceType.sessionStrategy) mention.sessionStrategy = sourceType.sessionStrategy;
       mentions.push(mention);
       consumedRanges.push([match.index, match.index + raw.length]);
