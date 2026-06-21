@@ -113,7 +113,7 @@ routerRoutes.post("/route", async (c) => {
     if (!source) return c.json({ resolved: false });
 
     const stConfig = sourceTypeConfigs.find((st) => st.key === source.type);
-    const mode = mention.defaultMode ?? stConfig?.defaultMode ?? "reading";
+    let mode = mention.defaultMode ?? stConfig?.defaultMode ?? "reading";
     const strategy = stConfig?.sessionStrategy ?? "reuse-same-mode";
     const askAfterHrs = (stConfig as any)?.askAfterHours ?? 4;
     const staleAfterHrs = (stConfig as any)?.staleAfterHours ?? 12;
@@ -122,6 +122,28 @@ routerRoutes.post("/route", async (c) => {
     const plainText = parsed.plainText ?? "";
     const wantsNew = /\b(new|fresh|start\s+over)\b/i.test(plainText);
     const wantsResume = /\b(continue|resume|go\s+back)\b/i.test(plainText);
+
+    // Detect mode override from plain text (e.g. "@Dune analysis" → mode "analysis")
+    if (plainText && stConfig?.sessionModes && stConfig.sessionModes.length > 1) {
+      const words = plainText.toLowerCase();
+      for (const m of stConfig.sessionModes) {
+        if (m === mode) continue; // skip default — it's already set
+        // Match mode key directly (e.g. "qa", "analysis", "reading")
+        if (words.includes(m)) {
+          mode = m;
+          break;
+        }
+        // Match profile label (e.g. "q&a" → "qa", "deep analysis" → "analysis")
+        try {
+          const profile = registry.resolveProfile(source.type, m);
+          const label = ((profile as any).label ?? "").toLowerCase();
+          if (label && words.includes(label)) {
+            mode = m;
+            break;
+          }
+        } catch { /* skip */ }
+      }
+    }
 
     // 4. Get existing sessions
     const sessions = services.sessions.listForSource(userId, mention.sourceId);
@@ -164,8 +186,10 @@ routerRoutes.post("/route", async (c) => {
     const buildTitle = (): string => {
       const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
       const focus = focusLabel();
+      let profileLabel: string | undefined;
       try {
         const profile = registry.resolveProfile(source.type, mode);
+        profileLabel = (profile as any).label;
         if ((profile as any).defaultTitle) {
           let title = (profile as any).defaultTitle
             .replace("{sourceTitle}", source.title ?? "Source")
@@ -174,8 +198,13 @@ routerRoutes.post("/route", async (c) => {
           return title;
         }
       } catch { /* no profile — use fallback */ }
-      if (focus) return `${focus} News - ${dateStr}`;
+      if (focus) return `${focus} ${source.title} - ${dateStr}`;
       if (strategy === "time-based") return `${source.title} - ${dateStr}`;
+      // For multi-mode sources (books), append profile label to distinguish sessions
+      const hasMultipleModes = (stConfig?.sessionModes?.length ?? 1) > 1;
+      if (hasMultipleModes && profileLabel) {
+        return `${source.title ?? "Session"} — ${profileLabel}`;
+      }
       return source.title ?? "New Session";
     };
 
