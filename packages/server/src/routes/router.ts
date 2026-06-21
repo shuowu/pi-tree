@@ -148,17 +148,33 @@ routerRoutes.post("/route", async (c) => {
       return undefined;
     };
 
+    // Helper: build a focus prefix from tags/qualifier for titles
+    const focusLabel = (): string | null => {
+      if (mention.tags?.length) {
+        // Capitalize first letter of each tag: ["ai","sports"] → "AI, Sports"
+        return mention.tags
+          .map((t) => t.charAt(0).toUpperCase() + t.slice(1))
+          .join(", ");
+      }
+      if (mention.qualifier) return mention.qualifier;
+      return null;
+    };
+
     // Helper: build session title
     const buildTitle = (): string => {
       const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const focus = focusLabel();
       try {
         const profile = registry.resolveProfile(source.type, mode);
         if ((profile as any).defaultTitle) {
-          return (profile as any).defaultTitle
+          let title = (profile as any).defaultTitle
             .replace("{sourceTitle}", source.title ?? "Source")
             .replace("{date}", dateStr);
+          if (focus) title = `${focus} ${title}`;
+          return title;
         }
       } catch { /* no profile — use fallback */ }
+      if (focus) return `${focus} News - ${dateStr}`;
       if (strategy === "time-based") return `${source.title} - ${dateStr}`;
       return source.title ?? "New Session";
     };
@@ -166,9 +182,12 @@ routerRoutes.post("/route", async (c) => {
     // Helper: create session and return result
     const createAndReturn = () => {
       services.users.ensureExists(userId);
+      const context: Record<string, unknown> = { mode };
+      if (mention.tags?.length) context.tags = mention.tags;
+      if (mention.qualifier) context.qualifier = mention.qualifier;
       const session = services.sessions.create(userId, mention.sourceId!, {
         title: buildTitle(),
-        context: { mode },
+        context,
       });
       const prompt = buildPrompt();
       let url = `/source/${mention.sourceId}?session=${session.id}&new=${mode}`;
