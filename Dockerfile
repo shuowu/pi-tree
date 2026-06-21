@@ -29,6 +29,11 @@ COPY . .
 RUN npm run build -w @pi-tree/shared \
  && npm run build -w @pi-tree/core \
  && npm run build -w @pi-tree/plugin-sdk \
+ && npm run build -w pi-tree-book \
+ && npm run build -w pi-tree-news \
+ && npm run build -w pi-tree-paper \
+ && npm run build -w pi-tree-youtube \
+ && npm run build -w pi-tree-mcp \
  && npm run build -w @pi-tree/server \
  && npm run build -w @pi-tree/client
 

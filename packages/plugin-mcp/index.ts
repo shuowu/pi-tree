@@ -35,7 +35,7 @@ export default definePiTreeExtension((pi, services) => {
             params as Record<string, unknown>,
           );
           // Coerce MCP content to Pi SDK TextContent
-          const content = mcpContent.map((c) => ({
+          const content = mcpContent.map((c: any) => ({
             type: c.type as "text",
             text: c.text ?? JSON.stringify(c),
           }));

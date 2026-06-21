@@ -1,7 +1,7 @@
 import { join, dirname } from "node:path";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { app } from "./app.js";
+import { app, mountSpaFallback } from "./app.js";
 import { getMcpBridge } from "./services/mcp-bridge.js";
 import { initAgentRegistry, getAgentRegistry } from "./services/agent-registry.js";
 import { setExtensionServices } from "./agents/context.js";
@@ -173,6 +173,10 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
       console.error(`[bootstrap] Failed to mount plugin routes for ${route.name}:`, err);
     }
   }
+
+  // Mount SPA fallback AFTER all plugin routes — Hono matches in registration
+  // order, so the wildcard must come last to avoid swallowing /api/news/* etc.
+  await mountSpaFallback();
 
   // Cleanup function
   async function cleanup() {

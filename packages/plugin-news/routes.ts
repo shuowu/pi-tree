@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { RssService, type FeedConfig } from "./rss-service.ts";
+import { RssService, type FeedConfig } from "./rss-service.js";
 import { readdirSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { closeNewsDb } from "./db.ts";
+import { closeNewsDb } from "./db.js";
 import type { PluginRouteContext, PluginSetupResult } from "@pi-tree/plugin-sdk";
 
 export function setup(ctx: PluginRouteContext): PluginSetupResult {

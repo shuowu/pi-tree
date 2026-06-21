@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
-import { RssService } from "./rss-service.ts";
+import { RssService } from "./rss-service.js";
 
 export default definePiTreeExtension((pi, services) => {
   const rssService = new RssService({

@@ -257,7 +257,7 @@ export default definePiTreeExtension((pi, services) => {
       source_id: Type.String({ description: "The source to create a session on." }),
       user_id: Type.Optional(Type.String({ description: "The user who owns the session. Auto-detected if omitted." })),
       title: Type.String({ description: "Display title for the session." }),
-      mode: Type.Optional(Type.String({ description: "Session mode — depends on source type and installed profiles. Common: 'reading', 'qa', 'custom'. Default: 'reading'." })),
+      mode: Type.Optional(Type.String({ description: "Session mode — depends on source type and installed profiles. If omitted, defaults to the source type's default mode (e.g. 'news' for news sources, 'reading' for books). Only pass this if you need a non-default mode." })),
       profile: Type.Optional(Type.String({ description: "Custom profile name (e.g. 'socratic-discussion'). When set, the server uses this profile's skills/extensions instead of the default mode resolution." })),
       prompt: Type.Optional(Type.String({ description: "Optional focus for this session (e.g. 'Focus on Hacker News feed'). Passed as the first message so the AI and user both see it." }))
     }),
@@ -270,29 +270,35 @@ export default definePiTreeExtension((pi, services) => {
         // Auto-create user if not present (mirrors TreeManager.ensureUser)
         services.users.ensureExists(userId);
 
-        const context: Record<string, any> = { mode: params.mode ?? "reading" };
+        // Resolve mode: use the source type's defaultMode instead of hardcoding "reading"
+        // (e.g. news sources default to "news", books to "reading")
+        const source = services.sources.get(params.source_id);
+        const sourceType = source?.type ?? "unknown";
+        const sourceTypeInfo = services.registry.getSourceTypes().find(
+          (st: any) => st.key === sourceType
+        );
+        const mode = params.mode ?? sourceTypeInfo?.defaultMode ?? "reading";
+
+        const context: Record<string, any> = { mode };
         if (params.profile) {
           context.profile = params.profile;
         }
 
         // Smart title: use profile's defaultTitle template if available
         let title = params.title;
-        const mode = params.mode ?? "reading";
         if (!title) {
           const registry = services.registry as any;
           const profile = registry.resolveProfile(
-            services.sources.get(params.source_id)?.type ?? "unknown",
+            sourceType,
             mode,
           );
           if (profile.defaultTitle) {
-            const src = services.sources.get(params.source_id);
             const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
             title = profile.defaultTitle
-              .replace("{sourceTitle}", src?.title ?? "Source")
+              .replace("{sourceTitle}", source?.title ?? "Source")
               .replace("{date}", dateStr);
           } else {
-            const src = services.sources.get(params.source_id);
-            title = src?.title ? `${src.title} Session` : "New Session";
+            title = source?.title ? `${source.title} Session` : "New Session";
           }
         }
 

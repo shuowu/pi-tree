@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 import Parser from "rss-parser";
 import { eq, desc } from "drizzle-orm";
-import { getNewsDb, rssFeeds, rssItems } from "./db.ts";
+import { getNewsDb, rssFeeds, rssItems } from "./db.js";
 import type { SourceService } from "@pi-tree/plugin-sdk";
 
 // ---------------------------------------------------------------------------

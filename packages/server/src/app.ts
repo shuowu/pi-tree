@@ -126,7 +126,15 @@ app.put("/api/config", async (c) => {
 // Production: serve client static files (Docker / Electron / NODE_ENV=production)
 // ---------------------------------------------------------------------------
 
-if (process.env.NODE_ENV === "production") {
+/**
+ * Mount the SPA static file server and catch-all fallback.
+ * MUST be called AFTER all API and plugin routes are registered,
+ * because Hono matches routes in registration order — a wildcard
+ * registered too early would swallow plugin API routes.
+ */
+export async function mountSpaFallback() {
+  if (process.env.NODE_ENV !== "production") return;
+
   const { serveStatic } = await import("@hono/node-server/serve-static");
   const { readFile } = await import("node:fs/promises");
   const { join } = await import("node:path");

@@ -1,5 +1,24 @@
 import { join } from "node:path";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+
+// ---------------------------------------------------------------------------
+// Plugin file resolution — prefer compiled dist/ over source .ts
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a plugin-relative file path, preferring the compiled version in dist/.
+ * In production (Docker), plain `node` can't import .ts files, so we resolve to
+ * the compiled .js in dist/. In dev mode (tsx), always use the source file so
+ * hot-reload works even if a stale dist/ directory exists from a previous build.
+ */
+function resolvePluginFile(pluginDir: string, relPath: string): string {
+  if (process.env.NODE_ENV !== "production") {
+    return join(pluginDir, relPath);
+  }
+  const compiled = join(pluginDir, "dist", relPath.replace(/\.ts$/, ".js"));
+  if (existsSync(compiled)) return compiled;
+  return join(pluginDir, relPath);
+}
 import yaml from "js-yaml";
 import { z } from "zod";
 import type { SessionContext } from "@pi-tree/shared";
@@ -362,7 +381,7 @@ export class AgentRegistry {
         const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
         const routesRelPath = pkg.piTree?.routes;
         if (routesRelPath) {
-          const routesPath = join(pluginDir, routesRelPath);
+          const routesPath = resolvePluginFile(pluginDir, routesRelPath);
           const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
           this.pluginRoutes.set(name, { name, routesPath, prefix });
           console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
@@ -456,7 +475,7 @@ export class AgentRegistry {
         // Register routes from piTree.routes
         const routesRelPath = pkg.piTree?.routes;
         if (routesRelPath && !this.pluginRoutes.has(name)) {
-          const routesPath = join(pluginDir, routesRelPath);
+          const routesPath = resolvePluginFile(pluginDir, routesRelPath);
           const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
           this.pluginRoutes.set(name, { name, routesPath, prefix });
           console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
@@ -733,7 +752,7 @@ export class AgentRegistry {
           const routesRelPath = pkg.piTree?.routes;
           if (!routesRelPath) continue;
 
-          const routesPath = join(pluginDir, routesRelPath);
+          const routesPath = resolvePluginFile(pluginDir, routesRelPath);
           const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
 
           this.pluginRoutes.set(name, { name, routesPath, prefix });
