@@ -5,6 +5,8 @@ dist
 *.md
 !packages/server/src/agents/skills/**/*.md
 !packages/server/src/agents/prompts/**/*.md
+!packages/plugin-*/skills/**/*.md
+!packages/plugin-*/profiles/**/*.md
 .env
 .env.*
 .vscode

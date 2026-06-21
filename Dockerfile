@@ -6,10 +6,17 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/core/package.json ./packages/core/
+COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/
+COPY packages/plugin-book/package.json ./packages/plugin-book/
+COPY packages/plugin-news/package.json ./packages/plugin-news/
+COPY packages/plugin-paper/package.json ./packages/plugin-paper/
+COPY packages/plugin-youtube/package.json ./packages/plugin-youtube/
+COPY packages/plugin-mcp/package.json ./packages/plugin-mcp/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/server/package.json ./packages/server/
 COPY packages/mcp/package.json ./packages/mcp/
 COPY packages/client/package.json ./packages/client/
+COPY packages/electron/package.json ./packages/electron/
 
 RUN npm ci
 
@@ -21,6 +28,7 @@ COPY . .
 # Build only server-relevant packages (skip electron — needs native binaries)
 RUN npm run build -w @pi-tree/shared \
  && npm run build -w @pi-tree/core \
+ && npm run build -w @pi-tree/plugin-sdk \
  && npm run build -w @pi-tree/server \
  && npm run build -w @pi-tree/client
 
@@ -44,6 +52,18 @@ COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 # Copy core package (runtime dependency for server)
 COPY --from=build /app/packages/core/package.json ./packages/core/
 COPY --from=build /app/packages/core/dist ./packages/core/dist
+
+# Copy plugin-sdk (runtime dependency for server + plugins)
+COPY --from=build /app/packages/plugin-sdk/package.json ./packages/plugin-sdk/
+COPY --from=build /app/packages/plugin-sdk/dist ./packages/plugin-sdk/dist
+
+# Copy plugin packages (skills, profiles, extensions, routes, source types)
+# These are discovered at runtime by the agent registry via resolveCorePluginDirs()
+COPY --from=build /app/packages/plugin-book ./packages/plugin-book
+COPY --from=build /app/packages/plugin-news ./packages/plugin-news
+COPY --from=build /app/packages/plugin-paper ./packages/plugin-paper
+COPY --from=build /app/packages/plugin-youtube ./packages/plugin-youtube
+COPY --from=build /app/packages/plugin-mcp ./packages/plugin-mcp
 
 # Copy server dist + config + production node_modules
 COPY --from=build /app/packages/server/package.json ./packages/server/
