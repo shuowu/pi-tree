@@ -73,7 +73,9 @@ News uses `sessionStrategy: "time-based"` — suggestions are computed from `hou
 - `askAfterHours < hoursAgo < staleAfterHours` → `"ask"`
 - `hoursAgo > staleAfterHours` → `"stale"`
 
-When multiple sessions exist, also consider **topic matching**:
+**Tags/qualifiers always create a new session.** `@News#sports` and `@News#ai` are different intents — never reuse an existing session for a different tag/qualifier. Time-based reuse only applies for unqualified mentions like plain `@News`.
+
+When multiple sessions exist with no tag/qualifier, also consider **topic matching**:
 - **Same topic** (matching title keywords) → prefer that session's suggestion
 - **Different topic** → don't resume, `create_session`
 

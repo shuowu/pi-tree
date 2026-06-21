@@ -206,6 +206,11 @@ routerRoutes.post("/route", async (c) => {
       return openAndReturn(match.id);
     }
 
+    // Tags/qualifier indicate a specific focus — always create a new session.
+    // We can't match these against existing sessions (context doesn't store tags),
+    // and reusing an @News#ai session for @News#sports would be wrong.
+    if (mention.tags?.length || mention.qualifier) return createAndReturn();
+
     // No sessions → create
     if (sessions.length === 0) return createAndReturn();
 
