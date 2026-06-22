@@ -1,9 +1,35 @@
 import { Hono } from "hono";
 import { getAgentRegistry } from "../services/agent-registry.js";
+import { getServerConfig, saveServerConfig } from "../config.js";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const configRoutes = new Hono();
+
+// Server config endpoints (model config)
+configRoutes.get("/", (c) => {
+  const cfg = getServerConfig();
+  return c.json({
+    readingModel: cfg.readingModel,
+    lookupModel: cfg.lookupModel,
+  });
+});
+
+configRoutes.put("/", async (c) => {
+  try {
+    const body = await c.req.json();
+    const updated = saveServerConfig(body);
+    return c.json({
+      success: true,
+      config: {
+        readingModel: updated.readingModel,
+        lookupModel: updated.lookupModel,
+      },
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
 
 /**
  * GET /api/config/source-types

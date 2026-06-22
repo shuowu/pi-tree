@@ -73,7 +73,8 @@ describe("Health", () => {
     const res = await app.request("/health");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ status: "ok", version: "0.1.0" });
+    expect(body.status).toBe("ok");
+    expect(body.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
 // ── Environment isolation ──────────────────────────────────────────────────

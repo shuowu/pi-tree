@@ -1,9 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
-import { createRequire } from "node:module";
 import { readFileSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { parseMentions } from "./mention-parser.js";
 
 export default definePiTreeExtension((pi, services) => {
@@ -287,7 +286,7 @@ export default definePiTreeExtension((pi, services) => {
         // Smart title: use profile's defaultTitle template if available
         let title = params.title;
         if (!title) {
-          const registry = services.registry as any;
+          const registry = services.registry;
           const profile = registry.resolveProfile(
             sourceType,
             mode,
@@ -395,197 +394,6 @@ export default definePiTreeExtension((pi, services) => {
         details: undefined,
       };
     }
-  });
-
-  // 6. Create YouTube Source — auto-create a source from a YouTube URL
-  pi.registerTool({
-    name: "create_youtube_source",
-    label: "Create YouTube Source",
-    description:
-      "Create a new YouTube video source from a URL. Fetches video metadata (title, channel, duration) and adds it to the library. If a source for this video already exists, returns the existing one. Use this when a user pastes a YouTube link in chat.",
-    parameters: Type.Object({
-      url: Type.String({
-        description:
-          'YouTube video URL (e.g. "https://www.youtube.com/watch?v=dQw4w9WgXcQ") or video ID.',
-      }),
-    }),
-    async execute(_toolCallId, params) {
-      try {
-        // Extract video ID from URL
-        const VIDEO_ID_RE = /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
-        const BARE_ID_RE = /^([a-zA-Z0-9_-]{11})$/;
-
-        let videoId: string | null = null;
-        const m1 = params.url.match(VIDEO_ID_RE);
-        if (m1) videoId = m1[1];
-        if (!videoId) {
-          const m2 = params.url.match(BARE_ID_RE);
-          if (m2) videoId = m2[1];
-        }
-
-        if (!videoId) {
-          throw new Error(
-            `Invalid YouTube URL: ${params.url}. Please provide a valid youtube.com or youtu.be link.`,
-          );
-        }
-
-        // Check if a source for this video already exists
-        const existingSources = services.sources.list({ type: "youtube" });
-        let existing: any = null;
-        for (const s of existingSources) {
-          const full = services.sources.get(s.id);
-          if (full?.metadata?.videoId === videoId) {
-            existing = full;
-            break;
-          }
-        }
-
-        if (existing) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    sourceId: existing.id,
-                    title: existing.title,
-                    author: existing.author,
-                    alreadyExists: true,
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
-            details: undefined,
-          };
-        }
-
-        // Fetch video info from YouTube
-        const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-          },
-        });
-        if (!pageRes.ok) throw new Error(`Failed to fetch YouTube page: HTTP ${pageRes.status}`);
-        const html = await pageRes.text();
-
-        // Extract ytInitialPlayerResponse
-        const prMatch = html.match(/var\s+ytInitialPlayerResponse\s*=\s*({.+?})\s*;/s)
-          ?? html.match(/ytInitialPlayerResponse\s*=\s*({.+?})\s*;/s);
-        if (!prMatch) throw new Error("Could not extract video info from YouTube page.");
-
-        let playerResponse: any;
-        try { playerResponse = JSON.parse(prMatch[1]); } catch { throw new Error("Failed to parse YouTube player response."); }
-        const details = playerResponse.videoDetails;
-        if (!details) throw new Error("No video details found.");
-
-        const title = details.title ?? "Untitled";
-        const author = details.author ?? "Unknown";
-        const lengthSeconds = parseInt(details.lengthSeconds ?? "0", 10);
-        const publishDate = playerResponse.microformat?.playerMicroformatRenderer?.publishDate ?? "";
-        const viewCount = parseInt(details.viewCount ?? "0", 10);
-        const thumbnailUrl = details.thumbnail?.thumbnails?.slice(-1)?.[0]?.url ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-
-        // Generate a slug ID from the video title
-        const baseId =
-          title
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "")
-            .slice(0, 60) || "youtube-video";
-
-        let sourceIdCandidate = baseId;
-        if (services.sources.get(sourceIdCandidate)) {
-          sourceIdCandidate = `${baseId}-${videoId.slice(0, 6)}`;
-        }
-
-        // Create source
-        const created = services.sources.create({
-          id: sourceIdCandidate,
-          title,
-          author,
-          type: "youtube",
-          source: "user",
-          status: "ready",
-          metadata: {
-            videoId,
-            youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
-            thumbnailUrl,
-            embedUrl: `https://www.youtube.com/embed/${videoId}`,
-            lengthSeconds,
-            publishDate,
-            viewCount,
-            description: (details.shortDescription ?? "").slice(0, 1000),
-          },
-        });
-
-        // Eagerly pre-fetch and cache the transcript at creation time in the background/sync
-        try {
-          const _require = createRequire(import.meta.url);
-          const ytServicePath = join(dirname(_require.resolve("pi-tree-youtube/package.json")), "services", "youtube.js");
-          const { getTranscript } = await import(ytServicePath);
-          const segments = await getTranscript(videoId);
-          const data = { videoId, fetchedAt: new Date().toISOString(), segments };
-
-          const sourcePath = join(services.dataPath, "sources", created.id, "transcript.json");
-          const fallbackPath = join(services.dataPath, "plugins", "youtube", `${videoId}.json`);
-
-          const dir = join(services.dataPath, "sources", created.id);
-          const fallbackDir = join(services.dataPath, "plugins", "youtube");
-          const { mkdirSync, writeFileSync } = await import("node:fs");
-          mkdirSync(dir, { recursive: true });
-          mkdirSync(fallbackDir, { recursive: true });
-
-          const raw = JSON.stringify(data, null, 2);
-          writeFileSync(sourcePath, raw, "utf-8");
-          writeFileSync(fallbackPath, raw, "utf-8");
-          console.log(`[router/create_youtube_source] Successfully pre-fetched and cached transcript for ${created.id}.`);
-
-          // Fetch and cache the cover thumbnail as cover.jpg
-          if (thumbnailUrl) {
-            try {
-              const res = await fetch(thumbnailUrl);
-              if (res.ok) {
-                const buffer = await res.arrayBuffer();
-                const coverPath = join(dir, "cover.jpg");
-                writeFileSync(coverPath, Buffer.from(buffer));
-                console.log(`[router/create_youtube_source] Successfully cached cover image for ${created.id}.`);
-              } else {
-                console.warn(`[router/create_youtube_source] Failed to fetch cover from ${thumbnailUrl}: ${res.statusText}`);
-              }
-            } catch (coverErr: any) {
-              console.warn(`[router/create_youtube_source] Error caching cover image for ${created.id}:`, coverErr.message);
-            }
-          }
-        } catch (err: any) {
-          console.warn(`[router/create_youtube_source] Failed to pre-fetch transcript for ${created.id}:`, err.message);
-        }
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  sourceId: created.id,
-                  title,
-                  author,
-                  duration: `${Math.floor(lengthSeconds / 60)}m ${lengthSeconds % 60}s`,
-                  alreadyExists: false,
-                },
-                null,
-                2,
-              ),
-            },
-          ],
-          details: undefined,
-        };
-      } catch (err: any) {
-        throw new Error(`Failed to create YouTube source: ${err.message}`);
-      }
-    },
   });
 
 });

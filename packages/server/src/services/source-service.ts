@@ -49,6 +49,7 @@ export interface CreateSourceInput {
   year?: number;
   source?: string;
   status?: string;
+  error?: string | null;
   metadata?: any;
   coverUrl?: string;
 }
@@ -179,6 +180,7 @@ export class SourceServiceImpl implements SourceService {
     if (fields.year !== undefined) updates.year = fields.year;
     if (fields.source !== undefined) updates.source = fields.source;
     if (fields.status !== undefined) updates.status = fields.status;
+    if (fields.error !== undefined) updates.error = fields.error;
     if (fields.metadata !== undefined) updates.metadata = JSON.stringify(fields.metadata);
     if (fields.coverUrl !== undefined) updates.coverUrl = fields.coverUrl;
 

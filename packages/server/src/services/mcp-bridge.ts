@@ -22,6 +22,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { VERSION } from "../version.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -234,7 +235,7 @@ export class McpBridge {
     }
 
     const client = new Client(
-      { name: "pi-tree", version: "0.1.0" },
+      { name: "pi-tree", version: VERSION },
       {
         capabilities: {},
         // Handle tools/list_changed notification: re-fetch tools when server updates

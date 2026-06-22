@@ -51,8 +51,10 @@ beforeAll(() => {
     dataDir: pluginDataDir,
     dataPath: TEST_DATA_PATH,
     sources: new SourceServiceImpl(getDb, sources),
-    coreDb: getDb,
-    coreSchema: { sources },
+    sessions: { listForSource: () => [], create: () => ({} as any), resolveUserId: () => undefined, getById: () => null },
+    users: { get: () => null, ensureExists: (id: string) => ({ id, displayName: id }) },
+    registry: { getProfiles: () => new Map(), getSourceTypes: () => [], resolveProfile: () => ({ skills: [], extensions: [] }) },
+    config: {},
   });
 
   app.route("/api/news", result.routes);

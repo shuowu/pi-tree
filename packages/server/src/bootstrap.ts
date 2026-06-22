@@ -116,6 +116,10 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
           routingContextLabel: st.routingContextLabel,
         }));
       },
+      resolveProfile: (sourceType: string, mode?: string, sessionContext?: any) => {
+        const reg = getAgentRegistry();
+        return reg.resolveProfile(sourceType, mode, sessionContext);
+      },
     },
     config: {
       jinaApiKey: process.env.JINA_API_KEY,
@@ -161,8 +165,15 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
           dataDir: join(dataPath, "plugins", route.name),
           dataPath,
           sources: sourceService,
-          coreDb: getDb,
-          coreSchema: { sources },
+          sessions: sessionService,
+          users: userService,
+          registry: {
+            getProfiles: () => getAgentRegistry().getProfiles(),
+            getSourceTypes: () => getAgentRegistry().getSourceTypes(),
+            resolveProfile: (sourceType: string, mode?: string, sessionContext?: any) =>
+              getAgentRegistry().resolveProfile(sourceType, mode, sessionContext),
+          },
+          config: { jinaApiKey: process.env.JINA_API_KEY },
         });
         const routes = result.routes ?? result;
         app.route(route.prefix, routes);

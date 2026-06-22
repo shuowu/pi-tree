@@ -85,6 +85,7 @@ export class SessionServiceImpl implements SessionService {
     const db = this.getDb();
     const us = this.userSessions;
     const now = new Date().toISOString();
+    const sessionFile = opts.sessionFile ?? `pending-${Date.now()}`;
 
     const result = db
       .insert(us)
@@ -93,7 +94,7 @@ export class SessionServiceImpl implements SessionService {
         sourceId,
         title: opts.title,
         context: JSON.stringify(opts.context),
-        sessionFile: opts.sessionFile ?? `pending-${Date.now()}`,
+        sessionFile,
         isActive: 1,
         createdAt: now,
         lastActiveAt: now,
@@ -108,7 +109,7 @@ export class SessionServiceImpl implements SessionService {
       context: JSON.stringify(opts.context),
       lastActiveAt: now,
       sourceId,
-      sessionFile: opts.sessionFile ?? `pending-${Date.now()}`,
+      sessionFile,
     };
   }
 

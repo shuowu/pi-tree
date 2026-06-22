@@ -11,8 +11,9 @@ import { dictionaryRoutes } from "./routes/dictionary.js";
 import { routerRoutes } from "./routes/router.js";
 import { modelRoutes } from "./routes/models.js";
 import { configRoutes } from "./routes/config.js";
-import { getServerConfig, saveServerConfig } from "./config.js";
+
 import { getAgentRegistry } from "./services/agent-registry.js";
+import { VERSION } from "./version.js";
 
 export const app = new Hono();
 
@@ -25,7 +26,7 @@ app.use(
   cors({
     origin: (origin) => {
       // Allow requests with no origin (e.g. curl, server-to-server)
-      if (!origin) return "http://localhost:5847";
+      if (!origin) return "http://localhost:5947";
       // In development, accept any origin (LAN devices, localhost variants)
       return origin;
     },
@@ -54,7 +55,7 @@ app.notFound((c) => {
 });
 
 // Health check
-app.get("/health", (c) => c.json({ status: "ok", version: "0.1.0" }));
+app.get("/health", (c) => c.json({ status: "ok", version: VERSION }));
 
 // API routes
 app.route("/api/library", libraryRoutes);
@@ -96,31 +97,6 @@ if (process.env.PI_MOCK === "true") {
   app.route("/api/test", testRoutes);
 }
 
-
-// Server config endpoints
-app.get("/api/config", (c) => {
-  const cfg = getServerConfig();
-  return c.json({
-    readingModel: cfg.readingModel,
-    lookupModel: cfg.lookupModel,
-  });
-});
-
-app.put("/api/config", async (c) => {
-  try {
-    const body = await c.req.json();
-    const updated = saveServerConfig(body);
-    return c.json({
-      success: true,
-      config: {
-        readingModel: updated.readingModel,
-        lookupModel: updated.lookupModel,
-      },
-    });
-  } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 400);
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Production: serve client static files (Docker / Electron / NODE_ENV=production)
