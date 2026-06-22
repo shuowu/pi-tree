@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
+import { definePiTreeExtension, textResult, jsonResult, toolError } from "@pi-tree/plugin-sdk";
 import {
   extractVideoId,
   getVideoInfo,
@@ -98,10 +98,7 @@ export default definePiTreeExtension((pi, services) => {
         embedUrl: info.embedUrl,
       };
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(formatted, null, 2) }],
-        details: undefined,
-      };
+      return jsonResult(formatted);
     },
   });
 
@@ -149,10 +146,7 @@ export default definePiTreeExtension((pi, services) => {
       const source = fromCache ? " (cached)" : "";
       const header = `Transcript for video ${videoId}${source} (${segments.length} segments):\n\n`;
 
-      return {
-        content: [{ type: "text", text: header + formatted }],
-        details: undefined,
-      };
+      return textResult(header + formatted);
     },
   });
 
@@ -217,23 +211,122 @@ export default definePiTreeExtension((pi, services) => {
         description: meta?.description ?? "",
       };
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              {
-                videoDetails: info,
-                transcriptInfo: `Transcript${transcriptSource} has ${segments.length} segments.`,
-                transcript: formattedTranscript,
-              },
-              null,
-              2,
-            ),
+      return jsonResult({
+        videoDetails: info,
+        transcriptInfo: `Transcript${transcriptSource} has ${segments.length} segments.`,
+        transcript: formattedTranscript,
+      });
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // 4. Create YouTube Source — auto-create a source from a URL
+  // ---------------------------------------------------------------------------
+
+  pi.registerTool({
+    name: "create_youtube_source",
+    label: "Create YouTube Source",
+    description:
+      "Create a new YouTube video source from a URL. Fetches video metadata (title, channel, duration) and adds it to the library. If a source for this video already exists, returns the existing one. Use this when a user pastes a YouTube link in chat.",
+    parameters: Type.Object({
+      url: Type.String({
+        description:
+          'YouTube video URL (e.g. "https://www.youtube.com/watch?v=dQw4w9WgXcQ") or video ID.',
+      }),
+    }),
+    async execute(_toolCallId, params) {
+      try {
+        const videoId = extractVideoId(params.url);
+        if (!videoId) {
+          throw new Error(
+            `Invalid YouTube URL: ${params.url}. Please provide a valid youtube.com or youtu.be link.`,
+          );
+        }
+
+        // Check if a source for this video already exists
+        const existingSources = services.sources.list({ type: "youtube" });
+        for (const s of existingSources) {
+          const full = services.sources.get(s.id);
+          const meta = typeof full?.metadata === "string" ? JSON.parse(full.metadata) : full?.metadata;
+          if (meta?.videoId === videoId) {
+            return {
+              content: [{ type: "text", text: JSON.stringify({ sourceId: full!.id, title: full!.title, author: full!.author, alreadyExists: true }, null, 2) }],
+              details: undefined,
+            };
+          }
+        }
+
+        // Fetch video metadata using the existing service
+        const info = await getVideoInfo(videoId);
+
+        // Generate a slug ID from the video title
+        const baseId =
+          info.title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")
+            .slice(0, 60) || "youtube-video";
+
+        let sourceIdCandidate = baseId;
+        if (services.sources.get(sourceIdCandidate)) {
+          sourceIdCandidate = `${baseId}-${videoId.slice(0, 6)}`;
+        }
+
+        // Create source
+        const created = services.sources.create({
+          id: sourceIdCandidate,
+          title: info.title,
+          author: info.author,
+          type: "youtube",
+          source: "user",
+          status: "ready",
+          metadata: {
+            videoId,
+            youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
+            thumbnailUrl: info.thumbnailUrl,
+            embedUrl: info.embedUrl,
+            lengthSeconds: info.lengthSeconds,
+            publishDate: info.publishDate,
+            viewCount: info.viewCount,
+            description: info.description.slice(0, 1000),
           },
-        ],
-        details: undefined,
-      };
+        });
+
+        // Eagerly pre-fetch and cache transcript + thumbnail in the background
+        try {
+          const segments = await getTranscript(videoId);
+          await saveCachedTranscript(videoId, segments);
+          console.log(`[youtube/create_youtube_source] Cached transcript for ${created.id}.`);
+        } catch (err: any) {
+          console.warn(`[youtube/create_youtube_source] Failed to pre-fetch transcript for ${created.id}:`, err.message);
+        }
+
+        // Cache the cover thumbnail
+        if (info.thumbnailUrl) {
+          try {
+            const res = await fetch(info.thumbnailUrl);
+            if (res.ok) {
+              const buffer = await res.arrayBuffer();
+              const dir = join(services.dataPath, "sources", created.id);
+              await mkdir(dir, { recursive: true });
+              await writeFile(join(dir, "cover.jpg"), Buffer.from(buffer));
+              console.log(`[youtube/create_youtube_source] Cached cover for ${created.id}.`);
+            }
+          } catch (coverErr: any) {
+            console.warn(`[youtube/create_youtube_source] Failed to cache cover for ${created.id}:`, coverErr.message);
+          }
+        }
+
+        return jsonResult({
+          sourceId: created.id,
+          title: info.title,
+          author: info.author,
+          duration: `${Math.floor(info.lengthSeconds / 60)}m ${info.lengthSeconds % 60}s`,
+          alreadyExists: false,
+        });
+      } catch (err: any) {
+        throw toolError("create YouTube source", err);
+      }
     },
   });
 });

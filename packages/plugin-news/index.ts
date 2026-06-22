@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
+import { definePiTreeExtension, jsonResult, textResult, toolError, fetchViaJina } from "@pi-tree/plugin-sdk";
 import { RssService } from "./rss-service.js";
 
 export default definePiTreeExtension((pi, services) => {
@@ -28,12 +28,9 @@ export default definePiTreeExtension((pi, services) => {
           days: params.days,
           limit: params.limit
         });
-        return {
-          content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
-          details: undefined
-        };
+        return jsonResult(items);
       } catch (err: any) {
-        throw new Error(`Failed to get latest RSS: ${err.message}`);
+        throw toolError("get latest RSS", err);
       }
     }
   });
@@ -59,12 +56,9 @@ export default definePiTreeExtension((pi, services) => {
           days: params.days ?? 7,
           limit: params.limit
         });
-        return {
-          content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
-          details: undefined
-        };
+        return jsonResult(items);
       } catch (err: any) {
-        throw new Error(`Failed to search RSS: ${err.message}`);
+        throw toolError("search RSS", err);
       }
     }
   });
@@ -92,12 +86,9 @@ export default definePiTreeExtension((pi, services) => {
           limit: params.limit,
           includeUrl: params.include_url
         });
-        return {
-          content: [{ type: "text", text: JSON.stringify(groups, null, 2) }],
-          details: undefined
-        };
+        return jsonResult(groups);
       } catch (err: any) {
-        throw new Error(`Failed to aggregate RSS: ${err.message}`);
+        throw toolError("aggregate RSS", err);
       }
     }
   });
@@ -111,12 +102,9 @@ export default definePiTreeExtension((pi, services) => {
     async execute() {
       try {
         const feeds = rssService.listFeeds();
-        return {
-          content: [{ type: "text", text: JSON.stringify(feeds, null, 2) }],
-          details: undefined
-        };
+        return jsonResult(feeds);
       } catch (err: any) {
-        throw new Error(`Failed to get feeds status: ${err.message}`);
+        throw toolError("get feeds status", err);
       }
     }
   });
@@ -130,12 +118,9 @@ export default definePiTreeExtension((pi, services) => {
     async execute() {
       try {
         const stats = await rssService.crawlAllFeeds();
-        return {
-          content: [{ type: "text", text: JSON.stringify(stats, null, 2) }],
-          details: undefined
-        };
+        return jsonResult(stats);
       } catch (err: any) {
-        throw new Error(`Failed to refresh RSS feeds: ${err.message}`);
+        throw toolError("refresh RSS feeds", err);
       }
     }
   });
@@ -155,9 +140,9 @@ export default definePiTreeExtension((pi, services) => {
           feedCount: feeds.filter((f: any) => f.tags.includes(tag)).length,
           feeds: feeds.filter((f: any) => f.tags.includes(tag)).map((f: any) => f.name),
         }));
-        return { content: [{ type: "text", text: JSON.stringify(tagMap, null, 2) }], details: undefined };
+        return jsonResult(tagMap);
       } catch (err: any) {
-        throw new Error(`Failed to get feed tags: ${err.message}`);
+        throw toolError("get feed tags", err);
       }
     }
   });
@@ -172,26 +157,12 @@ export default definePiTreeExtension((pi, services) => {
     }),
     async execute(_toolCallId, params) {
       try {
-        const headers: Record<string, string> = {
-          "Accept": "text/markdown"
-        };
-        const jinaKey = services.config.jinaApiKey;
-        if (jinaKey) {
-          headers["Authorization"] = `Bearer ${jinaKey}`;
-        }
-        const response = await fetch(`https://r.jina.ai/${params.url}`, {
-          headers
+        const markdown = await fetchViaJina(params.url, {
+          apiKey: services.config.jinaApiKey,
         });
-        if (!response.ok) {
-          throw new Error(`Jina Reader returned status ${response.status}`);
-        }
-        const markdown = await response.text();
-        return {
-          content: [{ type: "text", text: markdown }],
-          details: undefined
-        };
+        return textResult(markdown);
       } catch (err: any) {
-        throw new Error(`Failed to read article: ${err.message}`);
+        throw toolError("read article", err);
       }
     }
   });
@@ -209,12 +180,9 @@ export default definePiTreeExtension((pi, services) => {
     async execute(_toolCallId, params) {
       try {
         const relativePath = rssService.saveAnalysis(params.title, params.content, params.type);
-        return {
-          content: [{ type: "text", text: `Successfully saved report to: ${relativePath}` }],
-          details: undefined
-        };
+        return textResult(`Successfully saved report to: ${relativePath}`);
       } catch (err: any) {
-        throw new Error(`Failed to save news analysis: ${err.message}`);
+        throw toolError("save news analysis", err);
       }
     }
   });

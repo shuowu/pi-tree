@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
+import { definePiTreeExtension, textResult, toolError } from "@pi-tree/plugin-sdk";
 import { join } from "node:path";
 import { processBook } from "./services/process-book.js";
 
@@ -21,41 +21,24 @@ export default definePiTreeExtension((pi, services) => {
     async execute(_toolCallId, params) {
       const result = await processBook(params.source_id, {
         sourcesBasePath,
-        db: services.db,
-        sourcesTable: services.schema.sources,
+        sources: services.sources,
       });
 
       if (result.alreadyProcessed) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Book '${result.sourceId}' already has markdown content. Status set to ready.`,
-            },
-          ],
-          details: undefined,
-        };
+        return textResult(`Book '${result.sourceId}' already has markdown content. Status set to ready.`);
       }
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: [
-              `Successfully processed book '${result.sourceId}'.`,
-              `Title: ${result.title}`,
-              `Author: ${result.author}`,
-              `Content: ${result.lines} lines of markdown`,
-              `Headings found: ${result.headings}`,
-              `Cover image: ${result.hasCover ? "yes" : "no"}`,
-              `Candidate toc.json written to analysis/toc.json.`,
-              ``,
-              `The book is now ready for reading.`,
-            ].join("\n"),
-          },
-        ],
-        details: undefined,
-      };
+      return textResult([
+        `Successfully processed book '${result.sourceId}'.`,
+        `Title: ${result.title}`,
+        `Author: ${result.author}`,
+        `Content: ${result.lines} lines of markdown`,
+        `Headings found: ${result.headings}`,
+        `Cover image: ${result.hasCover ? "yes" : "no"}`,
+        `Candidate toc.json written to analysis/toc.json.`,
+        ``,
+        `The book is now ready for reading.`,
+      ].join("\n"));
     },
   });
 });

@@ -1,8 +1,8 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { definePiTreeExtension, textResult, jsonResult } from "@pi-tree/plugin-sdk";
 import { Type } from "typebox";
 import { searchPapers, getPaperInfo, readPaper } from "./services/arxiv.js";
 
-export default function (pi: ExtensionAPI) {
+export default definePiTreeExtension((pi, services) => {
   // 1. Search arXiv
   pi.registerTool({
     name: "search_papers",
@@ -34,10 +34,7 @@ export default function (pi: ExtensionAPI) {
       const entries = await searchPapers(params.query, params.max_results, params.sort_by);
 
       if (!entries.length) {
-        return {
-          content: [{ type: "text", text: "No papers found for this query." }],
-          details: undefined,
-        };
+        return textResult("No papers found for this query.");
       }
 
       const summary = entries
@@ -47,15 +44,7 @@ export default function (pi: ExtensionAPI) {
         )
         .join("\n\n");
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Found ${entries.length} papers:\n\n${summary}`,
-          },
-        ],
-        details: undefined,
-      };
+      return textResult(`Found ${entries.length} papers:\n\n${summary}`);
     },
   });
 
@@ -89,10 +78,7 @@ export default function (pi: ExtensionAPI) {
         },
       };
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(info, null, 2) }],
-        details: undefined,
-      };
+      return jsonResult(info);
     },
   });
 
@@ -109,12 +95,9 @@ export default function (pi: ExtensionAPI) {
       }),
     }),
     async execute(_toolCallId, params) {
-      const text = await readPaper(params.source, process.env.JINA_API_KEY);
+      const text = await readPaper(params.source, services.config?.jinaApiKey);
 
-      return {
-        content: [{ type: "text", text }],
-        details: undefined,
-      };
+      return textResult(text);
     },
   });
-}
+});
