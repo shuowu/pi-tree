@@ -314,7 +314,7 @@ export function ChatView({
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} onFork={onFork ?? onDrillDown} />
+          <MessageBubble key={msg.id} message={msg} onFork={onFork ?? onDrillDown} isLoading={isLoading} />
         ))}
 
         {isLoading && streamingContent !== null && streamingContent.length > 0 && (

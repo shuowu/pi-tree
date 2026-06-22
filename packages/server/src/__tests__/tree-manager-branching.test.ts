@@ -1808,6 +1808,8 @@ describe("TreeManager — Phase 3: Navigation", () => {
         status: "placeholder",
       }));
       expect(result.state).toBeDefined();
+      // forkScopeId = c1 (parent of AI_c1, since AI_c1 was the fallback fork point)
+      expect(result.forkScopeId).toBe("c1");
     });
 
     it("does not crash and skips simpleBranch for nonexistent nodeId", () => {
@@ -1829,6 +1831,266 @@ describe("TreeManager — Phase 3: Navigation", () => {
       expect(mock.simpleBranch).not.toHaveBeenCalled();
       expect(result.state).toBeDefined();
       expect(result.forkScopeId).toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Full fork-then-continue: forceBranch → returned viewNodeId → linear
+  // ---------------------------------------------------------------------------
+  //
+  // Regression test for the reported bug:
+  //
+  //   1. User has a linear conversation: p1 → AI_p1 → c1 → AI_c1
+  //   2. User clicks ⑂ on AI_c1 → fork creates placeholder under AI_p1
+  //   3. User sends message with forceBranch from p1 (forkScopeId)
+  //      → new branch created → server returns viewNodeId = c_new
+  //   4. User sends ANOTHER message from c_new (no forceBranch)
+  //      → MUST continue linearly, NOT auto-branch
+  //
+  // The bug was: the client's viewNodeId ref was stale after forceBranch,
+  // causing subsequent messages to be sent from the wrong scope or to
+  // trigger needsAutoBranch because the scope contained the fork.
+
+  describe("fork-then-continue: no auto-branch after explicit fork", () => {
+    it("continues linearly from forceBranch's returned viewNodeId", async () => {
+      // Step 1: Tree after forceBranch created the new branch.
+      // AI_p1 has 2 children (fork): c1 (original) + c_new (from forceBranch).
+      // The current leaf is the AI response in the new branch.
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "msg 2", [
+              aAINode("AI_c1", "resp 2"),
+            ]),
+            aUserNode("c_new", "forked msg", [
+              aAINode("AI_new", "fork resp", [], { isCurrent: true }),
+            ], { isCurrent: true }),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["c_new", "user", "forked msg"],
+          ["AI_new", "assistant", "fork resp"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      // Step 2: Continue from c_new (the viewNodeId returned by forceBranch).
+      // This should NOT auto-branch — the subtree from c_new is purely linear.
+      await tm.handleMessage("continue in fork", "c_new");
+
+      // Verify: simpleBranch positioned at deepest leaf of c_new chain (AI_new)
+      expect(mock.simpleBranch).toHaveBeenCalledOnce();
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_new");
+      expect(mock.sendMessage).toHaveBeenCalledWith("continue in fork");
+    });
+
+    it("continues linearly in streaming variant", async () => {
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "msg 2", [
+              aAINode("AI_c1", "resp 2"),
+            ]),
+            aUserNode("c_new", "forked msg", [
+              aAINode("AI_new", "fork resp", [], { isCurrent: true }),
+            ], { isCurrent: true }),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["c_new", "user", "forked msg"],
+          ["AI_new", "assistant", "fork resp"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      let doneResult: Record<string, unknown> | null = null;
+      await tm.handleMessageStreaming(
+        "continue in fork",
+        "c_new",
+        {
+          onToken: async () => {},
+          onTreeUpdate: async () => {},
+          onDone: async (r) => { doneResult = r; },
+        },
+      );
+
+      expect(mock.simpleBranch).toHaveBeenCalledOnce();
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_new");
+      // viewNodeId stays at c_new (no redirect for non-forceBranch)
+      expect((doneResult as any).viewNodeId).toBe("c_new");
+    });
+
+    it("stays linear even after multiple messages in the fork", async () => {
+      // Tree after 2 messages in the fork: c_new → AI_new → c_next → AI_next
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "msg 2", [
+              aAINode("AI_c1", "resp 2"),
+            ]),
+            aUserNode("c_new", "forked msg", [
+              aAINode("AI_new", "fork resp", [
+                aUserNode("c_next", "second msg", [
+                  aAINode("AI_next", "second resp", [], { isCurrent: true }),
+                ], { isCurrent: true }),
+              ], { isCurrent: true }),
+            ], { isCurrent: true }),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["c_new", "user", "forked msg"],
+          ["AI_new", "assistant", "fork resp"],
+          ["c_next", "user", "second msg"],
+          ["AI_next", "assistant", "second resp"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      // Third message from c_new scope — should walk to AI_next (deepest leaf)
+      await tm.handleMessage("third msg", "c_new");
+
+      expect(mock.simpleBranch).toHaveBeenCalledOnce();
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_next");
+    });
+
+    it("auto-branches only from the fork-containing scope (p1), not from inside (c_new)", async () => {
+      // Same tree as above, but sending from p1 (parent scope with fork)
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "msg 2", [
+              aAINode("AI_c1", "resp 2"),
+            ]),
+            aUserNode("c_new", "forked msg", [
+              aAINode("AI_new", "fork resp", [], { isCurrent: true }),
+            ], { isCurrent: true }),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["p1", "user", "msg 1"],
+          ["AI_p1", "assistant", "resp 1"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      // From p1 scope: AI_p1 has 2 children (c1 + c_new) → auto-branch
+      await tm.handleMessage("from parent", "p1");
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_p1");
+
+      // From c_new scope: AI_new has 0 children → linear
+      mock.simpleBranch.mockClear();
+      mock.sendMessage.mockClear();
+      await tm.handleMessage("from fork", "c_new");
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_new");
+    });
+
+    it("handles nested forks at multiple levels correctly", async () => {
+      // Tree: p1 → AI_p1 → [u2a → AI_2a → [u3a → AI_3a, u3b → AI_3b], u2b → AI_2b]
+      //
+      // AI_p1 has 2 children (u2a, u2b) → outer fork
+      // AI_2a has 2 children (u3a, u3b) → inner fork
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("u2a", "msg 2a", [
+              aAINode("AI_2a", "resp 2a", [
+                aUserNode("u3a", "msg 3a", [
+                  aAINode("AI_3a", "resp 3a", [], { isCurrent: true }),
+                ], { isCurrent: true }),
+                aUserNode("u3b", "msg 3b", [
+                  aAINode("AI_3b", "resp 3b"),
+                ]),
+              ], { isCurrent: true }),
+            ], { isCurrent: true }),
+            aUserNode("u2b", "msg 2b", [
+              aAINode("AI_2b", "resp 2b"),
+            ]),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["p1", "user", "msg 1"],
+          ["AI_p1", "assistant", "resp 1"],
+          ["u2a", "user", "msg 2a"],
+          ["AI_2a", "assistant", "resp 2a"],
+          ["u3a", "user", "msg 3a"],
+          ["AI_3a", "assistant", "resp 3a"],
+          ["u3b", "user", "msg 3b"],
+          ["AI_3b", "assistant", "resp 3b"],
+          ["u2b", "user", "msg 2b"],
+          ["AI_2b", "assistant", "resp 2b"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      // From u2a: AI_2a has 2 children (u3a, u3b) → auto-branch at inner fork
+      await tm.handleMessage("msg from u2a", "u2a");
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_2a");
+
+      // Reset
+      mock.simpleBranch.mockClear();
+      mock.sendMessage.mockClear();
+
+      // From p1: AI_p1 has 2 children (u2a, u2b) → auto-branch at outer fork
+      await tm.handleMessage("msg from p1", "p1");
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_p1");
+    });
+
+    it("routes correctly when viewNodeId is an AI node (not a user node)", async () => {
+      // Tree: p1 → AI_p1 → c1 → AI_c1
+      // User passes AI_c1 as viewNodeId
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "msg 2", [
+              aAINode("AI_c1", "resp 2", [], { isCurrent: true }),
+            ], { isCurrent: true }),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["p1", "user", "msg 1"],
+          ["AI_p1", "assistant", "resp 1"],
+          ["c1", "user", "msg 2"],
+          ["AI_c1", "assistant", "resp 2"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      // Should not crash; AI_c1 is a valid node.
+      // findBranchPoint("AI_c1") returns "AI_c1" itself (isAINode → true).
+      // needsAutoBranch walks from AI_c1: 0 children → linear → no auto-branch.
+      // Falls through to findDeepestLeaf("AI_c1") → "AI_c1" (leaf).
+      const result = await tm.handleMessage("msg", "AI_c1");
+
+      // simpleBranch should be called with "AI_c1" (deepest leaf = itself)
+      expect(mock.simpleBranch).toHaveBeenCalledWith("AI_c1");
+      expect(mock.sendMessage).toHaveBeenCalledWith("msg");
+      expect(result.response).toBe("AI response");
+      // viewNodeId stays at AI_c1 (no forceBranch, no redirect)
+      expect(result.viewNodeId).toBe("AI_c1");
     });
   });
 });

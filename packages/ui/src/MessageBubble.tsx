@@ -16,7 +16,15 @@ marked.use({
   },
 });
 
-export function MessageBubble({ message, onFork }: { message: ChatMessage; onFork?: (nodeId: string) => void }) {
+export function MessageBubble({
+  message,
+  onFork,
+  isLoading,
+}: {
+  message: ChatMessage;
+  onFork?: (nodeId: string) => void;
+  isLoading?: boolean;
+}) {
   const isAssistant = message.role === "assistant";
   const isUser = message.role === "user";
   const isMarkdown = isAssistant || (isUser && message.content.trim().startsWith(">"));
@@ -46,6 +54,7 @@ export function MessageBubble({ message, onFork }: { message: ChatMessage; onFor
           <button
             className="pit-fork-btn"
             title="Fork conversation from here"
+            disabled={isLoading}
             onClick={() => onFork(message.id)}
           >
             ⑂

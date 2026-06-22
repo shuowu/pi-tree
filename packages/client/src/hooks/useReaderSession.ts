@@ -23,6 +23,7 @@ import {
 } from "../api";
 import type { DictEntry } from "../components/DictionaryPanel";
 import { useStream } from "../StreamContext";
+import { resolveSendContext, shouldApplyStreamResult } from "./send-context";
 
 interface UseReaderSessionDeps {
   isMobile: () => boolean;
@@ -145,7 +146,7 @@ export function useReaderSession(
     const sendingNodeId = activeStream.sendingNodeId;
 
     if (activeStream.status === "streaming") {
-      if (lastViewNodeIdRef.current === sendingNodeId) {
+      if (shouldApplyStreamResult(lastViewNodeIdRef.current, sendingNodeId)) {
         setStreamingContent(activeStream.accumulatedText);
         setIsQueued(activeStream.isQueued);
         setActiveToolCall(activeStream.activeToolCall);
@@ -166,7 +167,7 @@ export function useReaderSession(
           return next;
         });
       }
-      if (lastViewNodeIdRef.current === sendingNodeId) {
+      if (shouldApplyStreamResult(lastViewNodeIdRef.current, sendingNodeId)) {
         setStreamingContent(null);
         setIsLoading(false);
         setIsCompacting(false);
@@ -196,7 +197,7 @@ export function useReaderSession(
           return next;
         });
       }
-      if (lastViewNodeIdRef.current === sendingNodeId) {
+      if (shouldApplyStreamResult(lastViewNodeIdRef.current, sendingNodeId)) {
         setStreamingContent(null);
         setIsLoading(false);
         setIsCompacting(false);
@@ -225,10 +226,11 @@ export function useReaderSession(
       // Use fork scope if set (routes message to the fork level, not the viewed scope)
       const forkScope = pendingForkScopeRef.current;
       pendingForkScopeRef.current = null;
-      const sendingNodeId = forkScope ?? lastViewNodeIdRef.current;
 
-      // Force branch only when the ⑂ button was explicitly clicked
-      const forceBranch = forkScope != null;
+      const { sendingNodeId, forceBranch, nextLastViewNodeId } =
+        resolveSendContext(forkScope, lastViewNodeIdRef.current);
+      lastViewNodeIdRef.current = nextLastViewNodeId;
+
 
       // Track which node is generating (for tree panel spinner).
       if (sendingNodeId) {
@@ -305,6 +307,9 @@ export function useReaderSession(
     if (!userId) return;
     const sid = sessionIdRef.current;
     if (sid === null) return;
+
+    // Back-to-root cancels any pending fork — same as handleNavigate.
+    pendingForkScopeRef.current = null;
 
     setIsLoading(true);
     try {
