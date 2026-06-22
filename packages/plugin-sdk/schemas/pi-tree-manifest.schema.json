@@ -1,0 +1,204 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pi-tree.dev/schemas/pi-tree-manifest.json",
+  "title": "Pi-Tree Plugin Manifest",
+  "description": "Schema for the 'piTree' field in a pi-tree plugin's package.json. Declares plugin capabilities discovered by the server at startup.",
+  "type": "object",
+  "properties": {
+    "sourceType": {
+      "type": "object",
+      "description": "Source type registration — describes a new kind of source this plugin provides.",
+      "required": ["key"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Unique source type key (e.g. \"book\", \"news\", \"paper\"). Lowercase alphanumeric with hyphens."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label (e.g. \"Book\", \"News Feed\"). Defaults to key."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Lucide icon name in kebab-case (e.g. \"book-open\", \"newspaper\"). Defaults to \"puzzle\"."
+        },
+        "sessionModes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Available session modes (e.g. [\"reading\", \"qa\", \"custom\"]). Defaults to [\"reading\", \"custom\"]."
+        },
+        "defaultMode": {
+          "type": "string",
+          "description": "Default mode when auto-creating the first session. Defaults to \"reading\"."
+        },
+        "autoStartMode": {
+          "type": "string",
+          "description": "If set, skip the welcome screen and auto-create a session with this mode."
+        },
+        "hasProcessing": {
+          "type": "boolean",
+          "description": "Whether this source type supports processing (e.g. EPUB → Markdown conversion). Defaults to false."
+        },
+        "searchPlaceholder": {
+          "type": "string",
+          "description": "Placeholder text for the library search bar."
+        },
+        "chatPlaceholder": {
+          "type": "string",
+          "description": "Placeholder text for the chat input."
+        },
+        "mentionKeyword": {
+          "type": "string",
+          "description": "Keyword matched in @mentions (e.g. \"News\", \"Paper\"). If omitted, source titles are fuzzy-matched."
+        },
+        "fixedSourceId": {
+          "type": "string",
+          "description": "Fixed source ID for singleton source types (e.g. \"news\"). The router will always route mentions to this source."
+        },
+        "sessionStrategy": {
+          "type": "string",
+          "enum": ["reuse-same-mode", "time-based"],
+          "description": "Session reuse strategy. \"reuse-same-mode\" (default) reuses existing sessions of the same mode. \"time-based\" creates new sessions based on staleness."
+        },
+        "askAfterHours": {
+          "type": "number",
+          "minimum": 0,
+          "description": "For time-based strategy: hours after which to suggest asking the user about continuing. Default: 4."
+        },
+        "staleAfterHours": {
+          "type": "number",
+          "minimum": 0,
+          "description": "For time-based strategy: hours after which the session is considered stale. Default: 12."
+        },
+        "routingContextFile": {
+          "type": "string",
+          "description": "Relative path from $DATA_PATH to a JSON config file that provides routing context (e.g. \"sources/news/feeds.json\")."
+        },
+        "routingContextLabel": {
+          "type": "string",
+          "description": "Human-readable label describing the routing context (e.g. \"Available news feeds and topic tags\")."
+        },
+        "addSource": {
+          "type": "object",
+          "description": "Configuration for the \"Add Source\" modal tab. If absent, this source type won't appear in the add-source modal.",
+          "required": ["subtitle"],
+          "properties": {
+            "subtitle": {
+              "type": "string",
+              "description": "Subtitle shown below the tab header in the Add Source modal."
+            },
+            "hasFileUpload": {
+              "type": "boolean",
+              "description": "Whether this tab supports file upload."
+            },
+            "acceptedExtensions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Accepted file extensions for upload (e.g. [\".epub\", \".pdf\", \".md\"])."
+            },
+            "fields": {
+              "type": "array",
+              "description": "Form fields to render in the add-source form.",
+              "items": {
+                "type": "object",
+                "required": ["key", "label"],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "Field key — maps to the source property or metadata key."
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "Human-readable label shown above the input."
+                  },
+                  "placeholder": {
+                    "type": "string",
+                    "description": "Placeholder text inside the input."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["text", "number"],
+                    "description": "Input type. Defaults to \"text\"."
+                  },
+                  "required": {
+                    "type": "boolean",
+                    "description": "Whether this field is required."
+                  },
+                  "metadataKey": {
+                    "type": "string",
+                    "description": "If set, value goes into metadata[metadataKey] instead of top-level source property."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cardSubtitle": {
+          "type": "string",
+          "description": "Template for the library card subtitle. Supports {field} placeholders resolved from source properties (e.g. \"{author}, {year}\")."
+        },
+        "badges": {
+          "type": "array",
+          "description": "Badge definitions for library cards.",
+          "items": {
+            "type": "object",
+            "required": ["field", "label", "color"],
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "Source property to check (e.g. \"hasMarkdown\", \"source\", \"status\")."
+              },
+              "value": {
+                "type": "string",
+                "description": "If set, check equality (source[field] === value). If omitted, check truthiness."
+              },
+              "label": {
+                "type": "string",
+                "description": "Badge label text shown on the library card."
+              },
+              "color": {
+                "type": "string",
+                "enum": ["green", "amber", "blue", "red"],
+                "description": "Badge color."
+              }
+            }
+          }
+        },
+        "systemContext": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Custom system context prompt template. Each element is one line. Supports {sourceId}, {userId}, {videoId} placeholders."
+        },
+        "tagPromptTemplate": {
+          "type": "string",
+          "description": "Prompt template for #tag mentions. {tags} is replaced with the tag list."
+        },
+        "qualifierPromptTemplate": {
+          "type": "string",
+          "description": "Prompt template for :qualifier mentions. {qualifier} is replaced with the value."
+        }
+      }
+    },
+    "routes": {
+      "type": "string",
+      "description": "Path to the routes module (relative to package.json), e.g. \"./routes.ts\"."
+    },
+    "routePrefix": {
+      "type": "string",
+      "pattern": "^/",
+      "description": "URL prefix for mounting routes, e.g. \"/api/news\". Defaults to /api/{pluginName}."
+    },
+    "ui": {
+      "type": "object",
+      "description": "Client-side UI component declarations.",
+      "properties": {
+        "contentPanel": {
+          "type": "string",
+          "description": "Path to the content panel React component (relative to package.json)."
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

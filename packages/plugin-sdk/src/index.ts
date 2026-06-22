@@ -1,5 +1,15 @@
 export { definePiTreeExtension } from "./wrapper.js";
 export { getPiTreeServices } from "./getter.js";
+export {
+  textResult,
+  jsonResult,
+  toolError,
+  fetchViaJina,
+} from "./helpers.js";
+export type {
+  ToolResult,
+  JinaFetchOptions,
+} from "./helpers.js";
 export type {
   PiTreeServices,
   SourceService,

@@ -62,6 +62,7 @@ export interface CreateSourceInput {
   year?: number;
   source?: string;    // 'library' | 'upload' | 'system'
   status?: string;    // 'pending' | 'processing' | 'ready' | 'failed'
+  error?: string | null;
   metadata?: any;
   coverUrl?: string;
 }
@@ -151,6 +152,14 @@ export interface RegistryService {
   getProfiles(): Map<string, ProfileInfo>;
   /** Return all registered source types with routing metadata. */
   getSourceTypes(): SourceTypeInfo[];
+  /** Resolve a session profile by source type and optional mode. */
+  resolveProfile(sourceType: string, mode?: string, sessionContext?: any): {
+    skills: string[];
+    extensions: string[];
+    excludeTools?: string[];
+    model?: string;
+    defaultTitle?: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -178,10 +187,14 @@ export interface PluginRouteContext {
   dataPath: string;
   /** Typed source service for creating/reading/updating core source entries */
   sources: SourceService;
-  /** @deprecated Use `sources` service instead. Raw DB accessor for edge cases. */
-  coreDb: () => any;
-  /** @deprecated Use `sources` service instead. Raw schema for edge cases. */
-  coreSchema: { sources: any };
+  /** Session service for listing/creating sessions */
+  sessions: SessionService;
+  /** User service for user lookup */
+  users: UserService;
+  /** Agent registry for profile/source-type introspection */
+  registry: RegistryService;
+  /** Extension configuration (API keys, feature flags) */
+  config: ExtensionConfig;
 }
 
 /**
@@ -203,18 +216,81 @@ export interface PluginSetupResult {
 /**
  * The `piTree` field in a plugin's package.json.
  * Declares plugin capabilities that the server discovers at startup.
+ *
+ * Validated at startup by the server's manifest-schema.ts (Zod).
  */
 export interface PluginManifest {
+  /** Source type registration — describes a new kind of source this plugin provides */
+  sourceType?: {
+    /** Unique source type key (e.g. "book", "news"). Lowercase alphanumeric + hyphens. */
+    key: string;
+    /** Human-readable label (e.g. "Book", "News Feed") */
+    label?: string;
+    /** Lucide icon name in kebab-case (e.g. "book-open") */
+    icon?: string;
+    /** Available session modes (e.g. ["reading", "qa", "custom"]) */
+    sessionModes?: string[];
+    /** Default mode when auto-creating the first session */
+    defaultMode?: string;
+    /** If set, skip welcome screen and auto-create session with this mode */
+    autoStartMode?: string;
+    /** Whether this source type supports processing (e.g. EPUB conversion) */
+    hasProcessing?: boolean;
+    /** Search placeholder text for the library filter bar */
+    searchPlaceholder?: string;
+    /** Chat input placeholder text */
+    chatPlaceholder?: string;
+    /** Keyword matched in @mentions (e.g. "News", "Paper") */
+    mentionKeyword?: string;
+    /** Fixed source ID for singleton source types (e.g. "news") */
+    fixedSourceId?: string;
+    /** Session reuse strategy */
+    sessionStrategy?: "reuse-same-mode" | "time-based";
+    /** For time-based strategy: hours after which to prompt user (default: 4) */
+    askAfterHours?: number;
+    /** For time-based strategy: hours after which session is stale (default: 12) */
+    staleAfterHours?: number;
+    /** Relative path from $DATA_PATH to routing context JSON */
+    routingContextFile?: string;
+    /** Human-readable label for routing context (e.g. "feeds and tags") */
+    routingContextLabel?: string;
+    /** Configuration for the "Add Source" modal tab */
+    addSource?: {
+      subtitle: string;
+      hasFileUpload?: boolean;
+      acceptedExtensions?: string[];
+      fields?: Array<{
+        key: string;
+        label: string;
+        placeholder?: string;
+        type?: "text" | "number";
+        required?: boolean;
+        metadataKey?: string;
+      }>;
+    };
+    /** Library card subtitle template (e.g. "{author}, {year}") */
+    cardSubtitle?: string;
+    /** Badge definitions for library cards */
+    badges?: Array<{
+      field: string;
+      value?: string;
+      label: string;
+      color: "green" | "amber" | "blue" | "red";
+    }>;
+    /** Custom system context prompt template (one line per array element) */
+    systemContext?: string[];
+    /** Prompt template for #tag mentions */
+    tagPromptTemplate?: string;
+    /** Prompt template for :qualifier mentions */
+    qualifierPromptTemplate?: string;
+  };
   /** Path to the routes module (relative to package.json), e.g. "./routes.ts" */
   routes?: string;
   /** URL prefix for mounting routes, e.g. "/api/news". Defaults to /api/{pluginName} */
   routePrefix?: string;
-  /** Source type this plugin provides, e.g. "podcast" */
-  sourceType?: string;
-  /** Human-readable label for the source type, e.g. "Podcasts" */
-  label?: string;
-  /** Icon name (lucide icon), e.g. "headphones" */
-  icon?: string;
-  /** One-line description of the plugin */
-  description?: string;
+  /** Client-side UI component declarations */
+  ui?: {
+    /** Path to the content panel component (relative to package.json) */
+    contentPanel?: string;
+  };
 }
