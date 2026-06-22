@@ -68,6 +68,21 @@
   gap: var(--space-3);
 }
 
+.library-github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.library-github-link:hover {
+  color: var(--text-primary);
+}
+
 
 
 .library-add-source-btn {
