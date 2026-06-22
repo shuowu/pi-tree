@@ -47,3 +47,30 @@ export function defineConfig(plugins: ClientPlugin[]): ResolvedConfig {
 
   return { plugins, contentPanels, addSourceForms, sourceCards, modals };
 }
+
+/**
+ * Merge runtime-loaded plugins into an existing resolved config.
+ * Called after loadPluginUI() resolves — mutates the config in place so all
+ * existing references (e.g. Library.tsx reading appConfig.sourceCards) pick up
+ * the new entries without needing a re-import.
+ */
+export function mergeRuntimePlugins(
+  config: ResolvedConfig,
+  plugins: ClientPlugin[],
+): void {
+  for (const plugin of plugins) {
+    config.plugins.push(plugin);
+    if (plugin.contentPanel) {
+      config.contentPanels[plugin.sourceType] = plugin.contentPanel;
+    }
+    if (plugin.addSourceForm) {
+      config.addSourceForms[plugin.sourceType] = plugin.addSourceForm;
+    }
+    if (plugin.sourceCard) {
+      config.sourceCards[plugin.sourceType] = plugin.sourceCard;
+    }
+    if (plugin.modals) {
+      Object.assign(config.modals, plugin.modals);
+    }
+  }
+}

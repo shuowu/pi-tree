@@ -55,7 +55,7 @@
     ]
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "*",
+    "@pi-tree/plugin-sdk": "workspace:*",
     "typebox": "^1.2.6"
   }
 }

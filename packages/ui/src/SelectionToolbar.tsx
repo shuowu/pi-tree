@@ -147,12 +147,12 @@ export function SelectionToolbar({
     let context: string | undefined;
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
-      // Walk up to the nearest block-level container (.chat-content or <p>)
+      // Walk up to the nearest block-level container (.pit-chat-content or <p>)
       const container =
         range.commonAncestorContainer.nodeType === Node.TEXT_NODE
           ? range.commonAncestorContainer.parentElement
           : (range.commonAncestorContainer as HTMLElement);
-      const blockParent = container?.closest(".chat-content, p, blockquote, li");
+      const blockParent = container?.closest(".pit-chat-content, p, blockquote, li");
       if (blockParent) {
         const fullText = blockParent.textContent ?? "";
         // Keep a window of ~200 chars around the selection

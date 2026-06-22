@@ -23,12 +23,12 @@ function MentionIcon({ suggestion }: { suggestion: MentionSuggestion }) {
   if (suggestion.kind === "feed") return <Rss size={14} />;
   if (suggestion.kind === "tag") return <Hash size={14} />;
   if (suggestion.kind === "category") {
-    const config = getSourceTypeConfig(suggestion.type ?? "book");
+    const config = getSourceTypeConfig(suggestion.type ?? "");
     const Icon = config.icon;
     return <Icon size={14} />;
   }
   // Source kind — pick by source type
-  const config = getSourceTypeConfig(suggestion.type ?? "book");
+  const config = getSourceTypeConfig(suggestion.type ?? "");
   const Icon = config.icon;
   return <Icon size={14} />;
 }

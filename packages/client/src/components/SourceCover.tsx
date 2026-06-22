@@ -55,7 +55,7 @@ export function SourceCover({ sourceId, title, author, hasCover, sourceType, siz
   }
 
   // Fallback CSS Cover — config-driven icon for non-cover sources
-  const config = getSourceTypeConfig(sourceType ?? "book");
+  const config = getSourceTypeConfig(sourceType ?? "");
   const Icon = config.icon;
   const gradient = getGradient(title);
   const cleanTitle = title.replace(/[_-]/g, " ").trim();

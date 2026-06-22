@@ -32,7 +32,7 @@ export function RightPanel({
   onResizeStart,
   onSendMessage,
 }: RightPanelProps) {
-  const config = getSourceTypeConfig(sourceType ?? "book");
+  const config = getSourceTypeConfig(sourceType ?? "");
   const PanelComponent = config.contentPanel;
 
   return (

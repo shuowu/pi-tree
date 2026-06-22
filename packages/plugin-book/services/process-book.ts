@@ -1,6 +1,7 @@
 import { readdir, writeFile, mkdir, stat } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { getParser } from "../parsers/index.js";
+import type { SourceService } from "@pi-tree/plugin-sdk";
 
 export async function exists(path: string): Promise<boolean> {
   try {
@@ -102,8 +103,7 @@ export function extractHeadings(
 
 export interface ProcessBookDeps {
   sourcesBasePath: string;
-  db: () => any;
-  sourcesTable: any;
+  sources: Pick<SourceService, "get" | "update">;
 }
 
 export interface ProcessBookResult {
@@ -124,16 +124,10 @@ export async function processBook(
   sourceId: string,
   deps: ProcessBookDeps,
 ): Promise<ProcessBookResult> {
-  const { sourcesBasePath, db: getDb, sourcesTable } = deps;
-  const db = getDb();
+  const { sourcesBasePath, sources } = deps;
 
   // 1. Validate source exists
-  const { eq } = await import("drizzle-orm");
-  const row = db
-    .select()
-    .from(sourcesTable)
-    .where(eq(sourcesTable.id, sourceId))
-    .get();
+  const row = sources.get(sourceId);
   if (!row) {
     throw new Error(`Source '${sourceId}' not found in database.`);
   }
@@ -148,10 +142,7 @@ export async function processBook(
     const hasMd = files.some((f) => f.endsWith(".md"));
     if (hasMd) {
       // Already parsed — just make sure status is right
-      db.update(sourcesTable)
-        .set({ status: "ready", updatedAt: new Date().toISOString() })
-        .where(eq(sourcesTable.id, sourceId))
-        .run();
+      sources.update(sourceId, { status: "ready" });
       return {
         sourceId,
         title: row.title,
@@ -183,10 +174,7 @@ export async function processBook(
   }
 
   // 5. Update status to processing
-  db.update(sourcesTable)
-    .set({ status: "processing", updatedAt: new Date().toISOString() })
-    .where(eq(sourcesTable.id, sourceId))
-    .run();
+  sources.update(sourceId, { status: "processing" });
 
   // 6. Parse the file
   const result = await parser.parse(original.path);
@@ -214,18 +202,13 @@ export async function processBook(
   // 10. Update DB with metadata from parsed file and mark ready
   const title = result.metadata.title ?? row.title;
   const author = result.metadata.author ?? row.author;
-  const now = new Date().toISOString();
-  db.update(sourcesTable)
-    .set({
-      status: "ready",
-      error: null,
-      title,
-      author,
-      year: result.metadata.year ?? row.year,
-      updatedAt: now,
-    })
-    .where(eq(sourcesTable.id, sourceId))
-    .run();
+  sources.update(sourceId, {
+    status: "ready",
+    error: null,
+    title,
+    author,
+    year: result.metadata.year ?? row.year ?? undefined,
+  });
 
   const lineCount = result.markdown.split("\n").length;
   return {
@@ -238,3 +221,4 @@ export async function processBook(
     alreadyProcessed: false,
   };
 }
+
