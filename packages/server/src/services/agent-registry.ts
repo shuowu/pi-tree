@@ -22,6 +22,10 @@ function resolvePluginFile(pluginDir: string, relPath: string): string {
 import yaml from "js-yaml";
 import { z } from "zod";
 import type { SessionContext } from "@pi-tree/shared";
+import { validatePluginManifest } from "./manifest-schema.js";
+import { createLogger } from "../lib/logger.js";
+
+const log = createLogger("agent-registry");
 import type {
   SkillEntry,
   ExtensionEntry,
@@ -113,7 +117,12 @@ export class AgentRegistry {
     // --- Discover core plugins (individual plugin directories) ---
     if (config.corePluginDirs?.length) {
       for (const pluginDir of config.corePluginDirs) {
-        this.registerPluginDir(pluginDir, "core");
+        try {
+          this.registerPluginDir(pluginDir, "core");
+        } catch (err) {
+          if (err instanceof Error && err.message.includes("Route prefix collision")) throw err;
+          log.error(`Failed to load plugin from ${pluginDir}:`, err instanceof Error ? err.message : err);
+        }
       }
     }
 
@@ -172,8 +181,8 @@ export class AgentRegistry {
       this.discoverSourceTypes(config.extensionsPath);
     }
 
-    console.log(
-      `[agent-registry] Initialized: ${this.skills.size} skills, ` +
+    log.info(
+      `Initialized: ${this.skills.size} skills, ` +
       `${this.extensions.size} extensions, ${this.profiles.size} profiles, ` +
       `${this.pluginRoutes.size} plugin routes, ${this.sourceTypes.size} source types`,
     );
@@ -322,109 +331,57 @@ export class AgentRegistry {
   }
 
   /**
-   * Register a single plugin directory — runs all discovery phases on it.
-   * Used for individually-specified plugin directories (corePluginDirs).
+   * Build a SourceTypeEntry from a piTree.sourceType manifest section.
+   * Extracted to avoid duplicating the 20+ field mapping in two places.
    */
-  private registerPlugin(pluginDir: string, source: "core" | "user"): void {
-    if (!existsSync(pluginDir)) return;
-    try {
-      if (!statSync(pluginDir).isDirectory()) return;
-    } catch { return; }
+  private buildSourceTypeEntry(
+    st: Record<string, any>,
+    pluginName: string,
+    pluginDir: string,
+    hasUI: boolean,
+  ): SourceTypeEntry {
+    return {
+      key: st.key,
+      label: st.label ?? st.key,
+      icon: st.icon ?? "puzzle",
+      sessionModes: st.sessionModes ?? ["reading", "custom"],
+      defaultMode: st.defaultMode ?? "reading",
+      autoStartMode: st.autoStartMode,
+      hasProcessing: st.hasProcessing ?? false,
+      searchPlaceholder: st.searchPlaceholder,
+      chatPlaceholder: st.chatPlaceholder,
+      mentionKeyword: st.mentionKeyword,
+      fixedSourceId: st.fixedSourceId,
+      sessionStrategy: st.sessionStrategy,
+      askAfterHours: st.askAfterHours,
+      staleAfterHours: st.staleAfterHours,
+      routingContextFile: st.routingContextFile,
+      routingContextLabel: st.routingContextLabel,
+      addSource: st.addSource,
+      cardSubtitle: st.cardSubtitle,
+      badges: st.badges,
+      systemContext: st.systemContext,
+      tagPromptTemplate: st.tagPromptTemplate,
+      qualifierPromptTemplate: st.qualifierPromptTemplate,
+      pluginName,
+      hasUI,
+      pluginDir,
+    };
+  }
 
-    const name = pluginDir.split("/").pop() ?? pluginDir;
-
-    // --- Extensions ---
-    const pkgJsonPath = join(pluginDir, "package.json");
-    if (existsSync(pkgJsonPath)) {
-      try {
-        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
-        if (pkg.pi?.extensions?.length) {
-          if (source === "user" || !this.extensions.has(name)) {
-            this.extensions.set(name, { name, path: pluginDir, source });
-          }
-        }
-      } catch { /* skip */ }
-    } else {
-      // Convention: index.ts or index.js
-      if (
-        existsSync(join(pluginDir, "index.ts")) ||
-        existsSync(join(pluginDir, "index.js"))
-      ) {
-        if (source === "user" || !this.extensions.has(name)) {
-          this.extensions.set(name, { name, path: pluginDir, source });
-        }
+  /**
+   * Check for route prefix collisions before registering a new plugin route.
+   * Throws if another plugin already registered the same prefix.
+   */
+  private checkRoutePrefixCollision(name: string, prefix: string): void {
+    for (const existing of this.pluginRoutes.values()) {
+      if (existing.prefix === prefix && existing.name !== name) {
+        throw new Error(
+          `Route prefix collision: plugin "${name}" wants prefix "${prefix}" ` +
+          `but plugin "${existing.name}" already registered it. ` +
+          `Set a unique "routePrefix" in one of the plugins' package.json piTree field.`,
+        );
       }
-    }
-
-    // --- Skills (bundled in package via pi.skills) ---
-    if (existsSync(pkgJsonPath)) {
-      try {
-        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
-        if (pkg.pi?.skills?.length) {
-          for (const skillDir of pkg.pi.skills as string[]) {
-            const resolvedSkillDir = join(pluginDir, skillDir);
-            this.discoverSkills(resolvedSkillDir, source);
-          }
-        }
-      } catch { /* skip */ }
-    }
-
-    // --- Profiles ---
-    const profilesDir = join(pluginDir, "profiles");
-    if (existsSync(profilesDir)) {
-      this.discoverProfiles(profilesDir);
-    }
-
-    // --- Routes ---
-    if (existsSync(pkgJsonPath) && !this.pluginRoutes.has(name)) {
-      try {
-        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
-        const routesRelPath = pkg.piTree?.routes;
-        if (routesRelPath) {
-          const routesPath = resolvePluginFile(pluginDir, routesRelPath);
-          const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
-          this.pluginRoutes.set(name, { name, routesPath, prefix });
-          console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
-        }
-      } catch { /* skip */ }
-    }
-
-    // --- Source types ---
-    if (existsSync(pkgJsonPath)) {
-      try {
-        const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
-        const st = pkg.piTree?.sourceType;
-        if (st?.key && !this.sourceTypes.has(st.key)) {
-          this.sourceTypes.set(st.key, {
-            key: st.key,
-            label: st.label ?? st.key,
-            icon: st.icon ?? "puzzle",
-            sessionModes: st.sessionModes ?? ["reading", "custom"],
-            defaultMode: st.defaultMode ?? "reading",
-            autoStartMode: st.autoStartMode,
-            hasProcessing: st.hasProcessing ?? false,
-            searchPlaceholder: st.searchPlaceholder,
-            chatPlaceholder: st.chatPlaceholder,
-            mentionKeyword: st.mentionKeyword,
-            fixedSourceId: st.fixedSourceId,
-            sessionStrategy: st.sessionStrategy,
-            askAfterHours: st.askAfterHours,
-            staleAfterHours: st.staleAfterHours,
-            routingContextFile: st.routingContextFile,
-            routingContextLabel: st.routingContextLabel,
-            addSource: st.addSource,
-            cardSubtitle: st.cardSubtitle,
-            badges: st.badges,
-            systemContext: st.systemContext,
-            tagPromptTemplate: st.tagPromptTemplate,
-            qualifierPromptTemplate: st.qualifierPromptTemplate,
-            pluginName: name,
-            hasUI: !!pkg.piTree?.ui,
-            pluginDir,
-          });
-          console.log(`[agent-registry] Discovered source type "${st.key}" from plugin ${name}`);
-        }
-      } catch { /* skip */ }
     }
   }
 
@@ -453,6 +410,17 @@ export class AgentRegistry {
         const rawName: string = pkg.name ?? pluginDir.split(/[\/\\]/).pop() ?? pluginDir;
         const name = rawName.replace(/^pi-tree-/, "");
 
+        // Validate manifest (piTree + pi fields)
+        if (pkg.piTree || pkg.pi) {
+          const validation = validatePluginManifest(pkg, name);
+          for (const err of validation.errors) {
+            log.error(`Manifest error: ${err}`);
+          }
+          for (const warn of validation.warnings) {
+            log.warn(`Manifest warning: ${warn}`);
+          }
+        }
+
         // Register extension
         if (pkg.pi?.extensions?.length) {
           if (source === "user" || !this.extensions.has(name)) {
@@ -479,44 +447,20 @@ export class AgentRegistry {
         if (routesRelPath && !this.pluginRoutes.has(name)) {
           const routesPath = resolvePluginFile(pluginDir, routesRelPath);
           const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
+          this.checkRoutePrefixCollision(name, prefix);
           this.pluginRoutes.set(name, { name, routesPath, prefix });
-          console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
+          log.info(`Discovered plugin routes: ${name} → ${prefix}`);
         }
 
         // Register source type from piTree.sourceType
         const st = pkg.piTree?.sourceType;
         if (st?.key && !this.sourceTypes.has(st.key)) {
-          this.sourceTypes.set(st.key, {
-            key: st.key,
-            label: st.label ?? st.key,
-            icon: st.icon ?? "puzzle",
-            sessionModes: st.sessionModes ?? ["reading", "custom"],
-            defaultMode: st.defaultMode ?? "reading",
-            autoStartMode: st.autoStartMode,
-            hasProcessing: st.hasProcessing ?? false,
-            searchPlaceholder: st.searchPlaceholder,
-            chatPlaceholder: st.chatPlaceholder,
-            mentionKeyword: st.mentionKeyword,
-            fixedSourceId: st.fixedSourceId,
-            sessionStrategy: st.sessionStrategy,
-            askAfterHours: st.askAfterHours,
-            staleAfterHours: st.staleAfterHours,
-            routingContextFile: st.routingContextFile,
-            routingContextLabel: st.routingContextLabel,
-            addSource: st.addSource,
-            cardSubtitle: st.cardSubtitle,
-            badges: st.badges,
-            systemContext: st.systemContext,
-            tagPromptTemplate: st.tagPromptTemplate,
-            qualifierPromptTemplate: st.qualifierPromptTemplate,
-            pluginName: name,
-            hasUI: !!pkg.piTree?.ui,
-            pluginDir,
-          });
-          console.log(`[agent-registry] Discovered source type "${st.key}" from plugin ${name}`);
+          this.sourceTypes.set(st.key, this.buildSourceTypeEntry(st, name, pluginDir, !!pkg.piTree?.ui));
+          log.info(`Discovered source type "${st.key}" from plugin ${name}`);
         }
-      } catch {
-        // Invalid package.json — skip
+      } catch (err: any) {
+        if (err?.message?.includes("Route prefix collision")) throw err;
+        log.error(`Failed to read plugin package.json in ${pluginDir}:`, err?.message ?? err);
       }
     } else {
       // Fallback: directory with index.ts/index.js (no package.json)
@@ -554,8 +498,8 @@ export class AgentRegistry {
                 }
                 continue;
               }
-            } catch {
-              // Invalid package.json, fall through to regular skill check
+            } catch (err: any) {
+              log.error(`Invalid package.json in skill ${skillPath}:`, err?.message ?? err);
             }
           }
 
@@ -602,8 +546,8 @@ export class AgentRegistry {
                 }
                 continue; // Don't also check for index.ts
               }
-            } catch {
-              // Invalid package.json, fall through to index.ts check
+            } catch (err: any) {
+              log.error(`Invalid package.json in extension ${extPath}:`, err?.message ?? err);
             }
           }
 
@@ -638,7 +582,7 @@ export class AgentRegistry {
       if (entry) {
         paths.push(entry.path);
       } else {
-        console.warn(`[agent-registry] Skill "${name}" not found — skipping`);
+        log.warn(`Skill "${name}" not found — skipping`);
       }
     }
     return paths;
@@ -655,7 +599,7 @@ export class AgentRegistry {
       if (entry) {
         paths.push(entry.path);
       } else {
-        console.warn(`[agent-registry] Extension "${name}" not found — skipping`);
+        log.warn(`Extension "${name}" not found — skipping`);
       }
     }
     return paths;
@@ -681,7 +625,7 @@ export class AgentRegistry {
             const issues = result.error.issues
               .map((i) => `  ${i.path.join(".") || "(root)"}: ${i.message}`)
               .join("\n");
-            console.warn(`[agent-registry] Profile ${file} — validation failed:\n${issues}`);
+            log.warn(`Profile ${file} — validation failed:\n${issues}`);
             continue;
           }
 
@@ -702,9 +646,9 @@ export class AgentRegistry {
           };
 
           this.profiles.set(parsed.name, profile);
-          console.log(`[agent-registry] Loaded profile "${parsed.name}" from ${file}`);
+          log.info(`Loaded profile "${parsed.name}" from ${file}`);
         } catch (err) {
-          console.warn(`[agent-registry] Failed to parse profile ${file}:`, err);
+          log.error(`Failed to parse profile ${file}:`, err);
         }
       }
     } catch {
@@ -753,16 +697,25 @@ export class AgentRegistry {
           if (!existsSync(pkgJsonPath)) continue;
 
           const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+
+          // Validate manifest
+          const validation = validatePluginManifest(pkg, name);
+          for (const err of validation.errors) {
+            log.error(`Manifest error: ${err}`);
+          }
+
           const routesRelPath = pkg.piTree?.routes;
           if (!routesRelPath) continue;
 
           const routesPath = resolvePluginFile(pluginDir, routesRelPath);
           const prefix = pkg.piTree?.routePrefix ?? `/api/${name}`;
+          this.checkRoutePrefixCollision(name, prefix);
 
           this.pluginRoutes.set(name, { name, routesPath, prefix });
-          console.log(`[agent-registry] Discovered plugin routes: ${name} → ${prefix}`);
-        } catch {
-          // Skip unreadable entries
+          log.info(`Discovered plugin routes: ${name} → ${prefix}`);
+        } catch (err: any) {
+          if (err?.message?.includes("Route prefix collision")) throw err;
+          log.error(`Failed to read plugin in ${pluginDir}:`, err?.message ?? err);
         }
       }
     } catch {
@@ -785,42 +738,23 @@ export class AgentRegistry {
           if (!existsSync(pkgJsonPath)) continue;
 
           const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+
+          // Validate manifest
+          const validation = validatePluginManifest(pkg, name);
+          for (const err of validation.errors) {
+            log.error(`Manifest error: ${err}`);
+          }
+
           const st = pkg.piTree?.sourceType;
           if (!st?.key) continue;
 
           // Don't override if already discovered (first wins = core)
           if (this.sourceTypes.has(st.key)) continue;
 
-          this.sourceTypes.set(st.key, {
-            key: st.key,
-            label: st.label ?? st.key,
-            icon: st.icon ?? "puzzle",
-            sessionModes: st.sessionModes ?? ["reading", "custom"],
-            defaultMode: st.defaultMode ?? "reading",
-            autoStartMode: st.autoStartMode,
-            hasProcessing: st.hasProcessing ?? false,
-            searchPlaceholder: st.searchPlaceholder,
-            chatPlaceholder: st.chatPlaceholder,
-            mentionKeyword: st.mentionKeyword,
-            fixedSourceId: st.fixedSourceId,
-            sessionStrategy: st.sessionStrategy,
-            askAfterHours: st.askAfterHours,
-            staleAfterHours: st.staleAfterHours,
-            routingContextFile: st.routingContextFile,
-            routingContextLabel: st.routingContextLabel,
-            addSource: st.addSource,
-            cardSubtitle: st.cardSubtitle,
-            badges: st.badges,
-            systemContext: st.systemContext,
-            tagPromptTemplate: st.tagPromptTemplate,
-            qualifierPromptTemplate: st.qualifierPromptTemplate,
-            pluginName: name,
-            hasUI: !!pkg.piTree?.ui,
-            pluginDir,
-          });
-          console.log(`[agent-registry] Discovered source type "${st.key}" from plugin ${name}`);
-        } catch {
-          // Skip unreadable entries
+          this.sourceTypes.set(st.key, this.buildSourceTypeEntry(st, name, pluginDir, !!pkg.piTree?.ui));
+          log.info(`Discovered source type "${st.key}" from plugin ${name}`);
+        } catch (err: any) {
+          log.error(`Failed to read plugin in ${pluginDir}:`, err?.message ?? err);
         }
       }
     } catch {
@@ -856,12 +790,12 @@ export function initAgentRegistry(config: AgentRegistryConfig): AgentRegistry {
 
   const validation = _registry.validate();
   if (validation.errors.length) {
-    console.error(`[agent-registry] Validation errors:`);
-    for (const err of validation.errors) console.error(`  ✗ ${err}`);
+    log.error("Validation errors:");
+    for (const err of validation.errors) log.error(` ${err}`);
   }
   if (validation.warnings.length) {
-    console.warn(`[agent-registry] Warnings:`);
-    for (const warn of validation.warnings) console.warn(`  ⚠ ${warn}`);
+    log.warn("Warnings:");
+    for (const warn of validation.warnings) log.warn(` ${warn}`);
   }
 
   return _registry;
