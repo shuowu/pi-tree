@@ -164,21 +164,21 @@ sessionRoutes.post("/message/stream", async (c) => {
     stream.onAbort(() => abortController.abort());
 
     try {
-      // Let the client know this request is queued behind another operation
-      await stream.writeSSE({ data: JSON.stringify({ type: "queued" }) });
-
       const opts = { forceBranch: body.forceBranch, signal: abortController.signal };
+      const onQueued = () => {
+        stream.writeSSE({ data: JSON.stringify({ type: "queued" }) });
+      };
 
       if (body.sessionKey) {
         await withSessionLockByKey(body.sessionKey, async (manager) => {
           await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream), opts);
-        });
+        }, onQueued);
       } else {
         const userId = extractUserId(body);
         const sessionId = extractSessionId(body);
         await withSessionLock(userId, body.sourceId!, sessionId, async (manager) => {
           await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream), opts);
-        });
+        }, onQueued);
       }
     } catch (err) {
       // Send error event to client before closing the stream

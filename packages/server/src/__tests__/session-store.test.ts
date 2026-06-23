@@ -6,7 +6,7 @@
  * Uses a minimal mock TreeManager stub — no Pi SDK, no DB, no env vars needed.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   registerSession,
   getSessionByKey,
@@ -130,6 +130,37 @@ describe("Session Store — ephemeral session APIs", () => {
     await Promise.all([p1, p2]);
     // p1 acquires lock first, p2 waits → order is always [1, 2]
     expect(order).toEqual([1, 2]);
+  });
+
+  it("onQueued is NOT called when lock is uncontended", async () => {
+    registerSession("lock-test", stubManager());
+    const onQueued = vi.fn();
+
+    await withSessionLockByKey("lock-test", async () => {
+      // no-op
+    }, onQueued);
+
+    expect(onQueued).not.toHaveBeenCalled();
+  });
+
+  it("onQueued IS called when lock is contended", async () => {
+    registerSession("lock-test", stubManager());
+    const onQueued1 = vi.fn();
+    const onQueued2 = vi.fn();
+
+    const p1 = withSessionLockByKey("lock-test", async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    }, onQueued1);
+
+    const p2 = withSessionLockByKey("lock-test", async () => {
+      // no-op
+    }, onQueued2);
+
+    await Promise.all([p1, p2]);
+    // First caller gets the lock immediately → no contention callback
+    expect(onQueued1).not.toHaveBeenCalled();
+    // Second caller waits behind the first → contention callback fires
+    expect(onQueued2).toHaveBeenCalledOnce();
   });
 
   // ── Multiple keys are independent ────────────────────────────────────────

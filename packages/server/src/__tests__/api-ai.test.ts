@@ -217,8 +217,8 @@ describe("API LLM Integration via aimock", () => {
       return JSON.parse(match[1]);
     }).filter(Boolean);
 
-    // Verify we got the expected sequence of SSE events
-    expect(events.some((e) => e.type === "queued")).toBe(true);
+    // No lock contention in a single-request test → no queued event
+    expect(events.some((e) => e.type === "queued")).toBe(false);
     
     const tokens = events
       .filter((e) => e.type === "token")

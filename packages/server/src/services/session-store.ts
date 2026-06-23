@@ -40,18 +40,37 @@ function sessionKey(userId: string, sourceId: string, sessionId?: number): strin
  */
 class SessionLock {
   private tail: Promise<void> = Promise.resolve();
+  private held = false;
 
-  /** Wait for any in-flight operation, then hold the lock. */
-  acquire(): Promise<() => void> {
+  /**
+   * Wait for any in-flight operation, then hold the lock.
+   *
+   * @param onQueued — called exactly once if the lock is already held and this
+   *   caller must wait. NOT called when the lock is immediately available.
+   */
+  acquire(onQueued?: () => void): Promise<() => void> {
     let release!: () => void;
     const next = new Promise<void>((resolve) => {
       release = resolve;
     });
+
+    const wasHeld = this.held;
+    this.held = true;
+
     // Wait for the previous holder, then let caller proceed.
     // The caller releases by calling the returned function.
     const gate = this.tail;
     this.tail = next;
-    return gate.then(() => release);
+
+    if (wasHeld && onQueued) {
+      onQueued();
+    }
+
+    const wrappedRelease = () => {
+      this.held = false;
+      release();
+    };
+    return gate.then(() => wrappedRelease);
   }
 }
 
@@ -116,10 +135,11 @@ export async function withSessionLock<T>(
   sourceId: string,
   sessionId: number | undefined,
   fn: (manager: TreeManager) => Promise<T>,
+  onQueued?: () => void,
 ): Promise<T> {
   const key = sessionKey(userId, sourceId, sessionId);
   const lock = getLock(key);
-  const release = await lock.acquire();
+  const release = await lock.acquire(onQueued);
   try {
     const manager = await getSession(userId, sourceId, sessionId);
     return await fn(manager);
@@ -219,9 +239,10 @@ export function getSessionByKey(key: string): TreeManager | undefined {
 export async function withSessionLockByKey<T>(
   key: string,
   fn: (manager: TreeManager) => Promise<T>,
+  onQueued?: () => void,
 ): Promise<T> {
   const lock = getLock(key);
-  const release = await lock.acquire();
+  const release = await lock.acquire(onQueued);
   try {
     const manager = activeSessions.get(key);
     if (!manager) throw new Error(`No session found for key: ${key}`);
