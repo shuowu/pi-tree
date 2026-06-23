@@ -5,98 +5,74 @@ description: "Generate and save structured book analysis. Use when the user asks
 
 # Book Analysis
 
-This skill handles generating structured analysis from converted ebooks and persisting it to the `analysis/` directory.
+Generate structured analysis from ebooks and save to `<sourceId>/analysis/`.
+
+## Context You Already Have
+
+Your system context includes the book's **Table of Contents** with line numbers. Use these to navigate directly to relevant chapters — no grepping needed.
+
+A richer outline with chapter summaries and thematic map may be at `<sourceId>/analysis/outline.md`. Read it once for deeper structural context.
 
 ## When to Use
 
-- User asks to summarize a book
+- User asks to summarize a book or chapters
 - User wants key ideas or takeaways extracted
 - User wants notable quotes collected
 - User asks to compare two or more books
 - User says "save my notes" or "write this up"
 
-## Output Directory
+## Output Files
 
-All analysis goes to `<sourceId>/analysis/`. One subfolder per book.
-
-### Naming Convention
+All analysis goes to `<sourceId>/analysis/`:
 
 | File | Purpose |
 |---|---|
 | `summary.md` | Overall book summary with themes and chapter breakdowns |
-| `key-ideas.md` | Extracted core ideas with evidence and applications |
+| `key-ideas.md` | Core ideas with evidence and applications |
 | `chapter-NN-notes.md` | Per-chapter notes (NN = zero-padded chapter number) |
 | `quotes.md` | Notable quotes with source location |
-| `context.md` | Author background and historical context |
 | `comparison.md` | Cross-book thematic comparisons |
 
 ## Workflow
 
-### 1. Identify the Source
+1. **Locate content** — use the TOC line numbers (in your system context) with the `read` tool's offset parameter
+2. **Read in chunks** — use offset/limit for large sections
+3. **Generate analysis** — match the format below to the user's request
+4. **Save** — write to `<sourceId>/analysis/` using the `write` tool
+5. **Offer next steps** — suggest related analysis or continuing to the next chapter
 
-- Check `<sourceId>/markdown/` for the converted book
-- If no markdown file exists, tell the user the book hasn't been ingested yet and suggest uploading it
-- Confirm the book title with the user if ambiguous
+## Analysis Formats
 
-### 2. Read the Content
-
-- Use `read` with offset/limit to process the markdown in chunks
-- For full-book analysis, read in chunks using offset/limit
-- For targeted analysis, search for specific topics/themes
-
-### 3. Generate Analysis
-
-Choose the appropriate analysis type based on the user's request:
-
-#### Summary (`summary.md`)
+### Summary (`summary.md`)
 - One-line summary
-- 3-5 key themes
-- Chapter-by-chapter breakdown (2-3 sentences each)
+- 3–5 key themes
+- Chapter-by-chapter breakdown (2–3 sentences each)
 - Overall takeaway
 
-#### Key Ideas (`key-ideas.md`)
+### Key Ideas (`key-ideas.md`)
 - Each idea as a separate section
 - Core concept, evidence from text, practical application
-- Number and name each idea
 
-#### Chapter Notes (`chapter-NN-notes.md`)
+### Chapter Notes (`chapter-NN-notes.md`)
 - Chapter summary
 - Bullet-point key takeaways
 - Notable passages (quoted with attribution)
 - Questions for reflection
 
-#### Quotes (`quotes.md`)
-- Blockquote format
-- Source: chapter/section reference
+### Quotes (`quotes.md`)
+- Blockquote format with chapter/section reference
 - Group by theme if the collection is large
 
-#### Cross-Book Comparison (`comparison.md`)
-- Identify shared themes across books
-- Contrast different approaches or perspectives
-- Use a table for side-by-side comparison
-- Note where books complement or contradict each other
-
-### 4. Save to File
-
-- Use the book's analysis folder: `<sourceId>/analysis/`
-- Create if it doesn't exist: `mkdir -p "<sourceId>/analysis"`
-- Write the file using the `write` tool
-- Tell the user what was saved and where
-
-### 5. Offer Next Steps
-
-After saving, suggest:
-- Reading the next chapter and generating notes
-- Extracting quotes from what was discussed
-- Comparing with another book in the library
-- Generating a key-ideas summary
+### Cross-Book Comparison (`comparison.md`)
+- Shared themes across books
+- Contrasting approaches (use tables for side-by-side)
+- Where books complement or contradict each other
 
 ## Tips
 
-- Always include the book title and date in the file header
-- Quote the text directly (with `>`) rather than paraphrasing for quotes files
+- **The TOC is in your system context** — use line numbers for direct navigation
+- Always include the book title and date in file headers
+- Quote text directly (`>`) rather than paraphrasing for quotes files
 - Keep summaries concise — the user can always re-read the chapter
-- For large books, offer to do chapter-by-chapter analysis rather than all at once
-- Cross-reference with `grep` for any previously indexed content
-- When doing comparison, list all books being compared in the header
-- If previous analysis exists for a book, read it first and build on it rather than overwriting
+- For large books, offer chapter-by-chapter analysis rather than all at once
+- If previous analysis exists, read it first and build on it rather than overwriting
