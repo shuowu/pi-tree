@@ -114,7 +114,7 @@ export class LibraryService {
     for (const row of rows) {
       const dir = this.sourceDir(row.id);
 
-      const hasMarkdown = await this.exists(join(dir, "markdown"));
+      const hasMarkdown = await this.hasMarkdownFiles(join(dir, "markdown"));
       const hasOutline =
         (await this.exists(join(dir, "analysis", "outline.md"))) ||
         (await this.exists(join(dir, "analysis", "toc.json")));
@@ -684,6 +684,19 @@ export class LibraryService {
     try {
       await stat(path);
       return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if a directory contains at least one .md file.
+   * Returns false if the directory doesn't exist or is empty.
+   */
+  private async hasMarkdownFiles(dirPath: string): Promise<boolean> {
+    try {
+      const files = await readdir(dirPath);
+      return files.some((f) => f.endsWith(".md"));
     } catch {
       return false;
     }

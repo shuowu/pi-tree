@@ -12,6 +12,7 @@ AI-assisted interactive reading with ebooks that have been converted to markdown
 Your working directory (`cwd`) is set to the `sources/` directory. Each source lives at `<sourceId>/` relative to cwd.
 
 1. **Find the book** — the system context tells you the book directory (`<sourceId>/`). Check `<sourceId>/markdown/` for the converted `.md` file.
+   - **If no markdown file exists** (directory missing, empty, or no `.md` files): the book hasn't been processed yet. Tell the user: "This book is still being processed. Please wait a moment and try again, or re-upload the book from the Library."
 2. **Load the outline** — check `<sourceId>/analysis/outline.md`. If it exists, use it as the navigation map (chapter line numbers, thematic map, reading recommendations). If not, offer to generate one with `book-outline`.
 3. **Read the book** — use `read` with offset/limit, using outline line numbers for precise navigation.
 4. **Engage interactively** — discuss, summarize, analyze, or quiz.
