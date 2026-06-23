@@ -1,5 +1,5 @@
 /**
- * E2E: Add Source — tests the Add Source modal (Book / Paper / Custom tabs)
+ * E2E: Add Source — tests the Add Source modal (type picker → form flow)
  * and verifies created sources appear in the library.
  *
  * No LLM calls — only tests UI forms, API calls, and library listing.
@@ -22,109 +22,63 @@ test.describe("Add Source", () => {
     await api(request).deleteUser(TEST_USER);
   });
 
-  // ── Modal tabs ──────────────────────────────────────────────────────────
+  // ── Modal type picker ───────────────────────────────────────────────────
 
-  test("Add Source modal shows Book, Paper, and Custom tabs", async ({ page }) => {
+  test("Add Source modal shows type cards for registered source types", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E Source Tester");
     await page.goto("/library");
 
     // Open the Add Source modal
     await page.click("text=Add Source");
-    await expect(page.locator(".add-book-modal")).toBeVisible();
+    await expect(page.locator(".add-source-modal")).toBeVisible();
 
-    // Verify all three tabs exist
-    const tabs = page.locator(".add-book-tab");
-    await expect(tabs).toHaveCount(3);
-    await expect(tabs.nth(0)).toContainText("Book");
-    await expect(tabs.nth(1)).toContainText("Paper");
-    await expect(tabs.nth(2)).toContainText("Custom");
-
-    // Book tab is active by default
-    await expect(tabs.nth(0)).toHaveClass(/active/);
-
-    // Book tab shows the file dropzone
-    await expect(page.locator(".add-book-dropzone")).toBeVisible();
+    // Verify Book and Paper type cards exist
+    const bookCard = page.locator(".add-source-type-card", { hasText: "Book" });
+    const paperCard = page.locator(".add-source-type-card", { hasText: "Paper" });
+    await expect(bookCard).toBeVisible();
+    await expect(paperCard).toBeVisible();
   });
 
-  test("switching to Paper tab shows paper form", async ({ page }) => {
+  test("clicking Paper card shows paper form", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E Source Tester");
     await page.goto("/library");
 
     await page.click("text=Add Source");
-    await expect(page.locator(".add-book-modal")).toBeVisible();
+    await expect(page.locator(".add-source-modal")).toBeVisible();
 
-    // Switch to Paper tab
-    await page.click(".add-book-tab:has-text('Paper')");
+    // Click the Paper type card
+    await page.locator(".add-source-type-card", { hasText: "Paper" }).click();
 
     // Paper form has title and arXiv fields
     await expect(page.locator("#add-paper-title")).toBeVisible();
-    await expect(page.locator("#add-paper-arxiv")).toBeVisible();
+    await expect(page.locator("#add-paper-arxivId")).toBeVisible();
 
-    // Dropzone should NOT be visible
-    await expect(page.locator(".add-book-dropzone")).not.toBeVisible();
-  });
-
-  test("switching to Custom tab shows type input and path hint", async ({ page }) => {
-    await loginAs(page, TEST_USER, "E2E Source Tester");
-    await page.goto("/library");
-
-    await page.click("text=Add Source");
-    await page.click(".add-book-tab:has-text('Custom')");
-
-    // Custom form has title and type fields
-    await expect(page.locator("#add-custom-title")).toBeVisible();
-    await expect(page.locator("#add-custom-type")).toBeVisible();
-
-    // Hint about content path is visible
-    await expect(page.locator(".add-book-hint")).toBeVisible();
-    await expect(page.locator(".add-book-hint")).toContainText("DATA_PATH");
+    // Book dropzone should NOT be visible
+    await expect(page.locator(".add-source-dropzone")).not.toBeVisible();
   });
 
   // ── Paper creation ──────────────────────────────────────────────────────
 
-  test("Paper tab → create paper → appears in library", async ({ page }) => {
+  test("Paper card → create paper → appears in library", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E Source Tester");
     await page.goto("/library");
 
     await page.click("text=Add Source");
-    await page.click(".add-book-tab:has-text('Paper')");
+    await page.locator(".add-source-type-card", { hasText: "Paper" }).click();
 
     // Fill in paper details
     await page.fill("#add-paper-title", "Attention Is All You Need (E2E)");
     await page.fill("#add-paper-author", "Vaswani et al.");
-    await page.fill("#add-paper-arxiv", "1706.03762");
+    await page.fill("#add-paper-arxivId", "1706.03762");
 
     // Submit
-    await page.click(".add-book-submit");
+    await page.click(".add-source-submit");
 
     // Modal should close
-    await expect(page.locator(".add-book-modal")).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".add-source-modal")).not.toBeVisible({ timeout: 5000 });
 
     // Paper should appear in the library grid after reload
     await expect(page.locator(".book-card", { hasText: "Attention Is All You Need" }).first()).toBeVisible({ timeout: 5000 });
-  });
-
-  // ── Custom source creation ──────────────────────────────────────────────
-
-  test("Custom tab → create custom source → appears in library", async ({ page }) => {
-    await loginAs(page, TEST_USER, "E2E Source Tester");
-    await page.goto("/library");
-
-    await page.click("text=Add Source");
-    await page.click(".add-book-tab:has-text('Custom')");
-
-    // Fill in custom source details
-    await page.fill("#add-custom-title", "My Tutorial (E2E)");
-    await page.fill("#add-custom-type", "tutorial");
-
-    // Submit
-    await page.click(".add-book-submit");
-
-    // Modal should close
-    await expect(page.locator(".add-book-modal")).not.toBeVisible({ timeout: 5000 });
-
-    // Source should appear in the library
-    await expect(page.locator(".book-card", { hasText: "My Tutorial" }).first()).toBeVisible({ timeout: 5000 });
   });
 
   // ── API-level: POST /library/sources/create ─────────────────────────────

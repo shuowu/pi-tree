@@ -84,8 +84,8 @@ test.describe("News domain", () => {
     await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
-    // Open the right panel via the Dictionary toggle
-    await page.locator('button[aria-label="Dictionary"]').click();
+    // Open the right panel via the Right Panel toggle
+    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
 
     const rightPanel = page.locator(".right-sidebar:not(.hidden)");
     await expect(rightPanel).toBeVisible({ timeout: 5_000 });
@@ -107,7 +107,7 @@ test.describe("News domain", () => {
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
     // Open right panel → switch to News Feed tab → Feeds Manager sub-tab
-    await page.locator('button[aria-label="Dictionary"]').click();
+    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
     const rightPanel = page.locator(".right-sidebar:not(.hidden)");
     await expect(rightPanel).toBeVisible({ timeout: 5_000 });
 
@@ -195,7 +195,7 @@ test.describe("News domain", () => {
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
     // Open right panel → News Feed tab → Feeds Manager
-    await page.locator('button[aria-label="Dictionary"]').click();
+    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
     const rightPanel = page.locator(".right-sidebar:not(.hidden)");
     await expect(rightPanel).toBeVisible({ timeout: 5_000 });
     await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
@@ -236,7 +236,7 @@ test.describe("News domain", () => {
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
     // Open right panel → News Feed tab → Feeds Manager
-    await page.locator('button[aria-label="Dictionary"]').click();
+    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
     const rightPanel = page.locator(".right-sidebar:not(.hidden)");
     await expect(rightPanel).toBeVisible({ timeout: 5_000 });
     await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
@@ -268,7 +268,7 @@ test.describe("News domain", () => {
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
     // Open right panel → News Feed tab (default sub-tab is "Feed Stories")
-    await page.locator('button[aria-label="Dictionary"]').click();
+    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
     const rightPanel = page.locator(".right-sidebar:not(.hidden)");
     await expect(rightPanel).toBeVisible({ timeout: 5_000 });
     await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
