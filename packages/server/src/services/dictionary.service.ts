@@ -6,7 +6,7 @@
  */
 
 import { join, dirname } from "node:path";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import { eq, and, desc } from "drizzle-orm";
@@ -190,6 +190,74 @@ export class DictionaryService {
     result = result.replace(/\n{3,}/g, "\n\n").trim();
 
     return result;
+  }
+
+  /**
+   * Get the effective lookup prompt and its resolution source.
+   */
+  getLookupPrompt(sourceId?: string): {
+    template: string;
+    source: 'source' | 'global' | 'project' | 'fallback';
+    isCustom: boolean;
+    defaultTemplate: string;
+  } {
+    const dataPath =
+      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-tree");
+    const thisDir = dirname(fileURLToPath(import.meta.url));
+
+    // Get the project default first (for returning as defaultTemplate)
+    const projectPromptPath = join(thisDir, "..", "agents", "prompts", "dictionary-prompt.md");
+    const projectDefault = this.tryReadPromptFile(projectPromptPath) ?? DEFAULT_CONFIG.lookup.promptTemplate;
+
+    // Check per-source override
+    if (sourceId) {
+      const sourcePromptPath = join(dataPath, "books", sourceId, "dictionary-prompt.md");
+      const loaded = this.tryReadPromptFile(sourcePromptPath);
+      if (loaded) return { template: loaded, source: 'source', isCustom: true, defaultTemplate: projectDefault };
+    }
+
+    // Check global override
+    const globalPromptPath = join(dataPath, "dictionary-prompt.md");
+    const globalLoaded = this.tryReadPromptFile(globalPromptPath);
+    if (globalLoaded) return { template: globalLoaded, source: 'global', isCustom: true, defaultTemplate: projectDefault };
+
+    // Project default
+    return { template: projectDefault, source: 'project', isCustom: false, defaultTemplate: projectDefault };
+  }
+
+  /**
+   * Save a custom lookup prompt template.
+   * scope: 'global' → DATA_PATH/dictionary-prompt.md
+   * scope: 'source' → DATA_PATH/books/<sourceId>/dictionary-prompt.md
+   * Pass null/empty template to delete the override (revert to default).
+   */
+  saveLookupPrompt(scope: 'global' | 'source', template: string | null, sourceId?: string): void {
+    const dataPath =
+      process.env.DATA_PATH ?? join(os.homedir(), ".local", "share", "pi-tree");
+
+    let targetPath: string;
+    if (scope === 'source') {
+      if (!sourceId) throw new Error('sourceId is required for source-scoped prompt');
+      targetPath = join(dataPath, "books", sourceId, "dictionary-prompt.md");
+    } else {
+      targetPath = join(dataPath, "dictionary-prompt.md");
+    }
+
+    if (!template || !template.trim()) {
+      // Delete the override file if it exists
+      if (existsSync(targetPath)) {
+        unlinkSync(targetPath);
+      }
+      return;
+    }
+
+    // Ensure directory exists
+    const dir = dirname(targetPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+
+    writeFileSync(targetPath, template, 'utf-8');
   }
 
   // ---------------------------------------------------------------------------

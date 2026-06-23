@@ -37,6 +37,33 @@ dictionaryRoutes.post("/lookup/stream", async (c) => {
   });
 });
 
+/** Get the effective dictionary prompt template */
+dictionaryRoutes.get("/prompt", (c) => {
+  const sourceId = c.req.query("sourceId");
+  const dictService = DictionaryService.getInstance();
+  const result = dictService.getLookupPrompt(sourceId || undefined);
+  return c.json(result);
+});
+
+/** Save a custom dictionary prompt template */
+dictionaryRoutes.put("/prompt", async (c) => {
+  const body = await c.req.json<{
+    scope: 'global' | 'source';
+    template: string | null;
+    sourceId?: string;
+  }>();
+
+  const dictService = DictionaryService.getInstance();
+  try {
+    dictService.saveLookupPrompt(body.scope, body.template, body.sourceId);
+    // Return the new effective state
+    const result = dictService.getLookupPrompt(body.sourceId);
+    return c.json({ success: true, ...result });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
 /** Save a term to the glossary */
 dictionaryRoutes.post("/glossary/save", async (c) => {
   const body = await c.req.json<{

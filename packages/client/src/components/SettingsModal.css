@@ -39,6 +39,9 @@
   color: var(--text-secondary, #555);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 6px);
 }
 
 .settings-divider {
@@ -388,4 +391,81 @@
   font-size: var(--text-xs, 12px);
   color: var(--text-secondary, #555);
   min-width: 64px;
+}
+
+/* ── Dictionary Prompt ── */
+
+.form-group textarea {
+  font-size: var(--text-sm, 13px);
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  padding: 10px 14px;
+  background: var(--bg-secondary, #fcfcfc);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  border-radius: var(--radius-lg, 10px);
+  color: var(--text-primary, #111111);
+  outline: none;
+  transition: all var(--transition-fast, 0.15s ease);
+  resize: vertical;
+  min-height: 120px;
+  max-height: 300px;
+  line-height: 1.5;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-group textarea:focus {
+  border-color: var(--accent, #6366f1);
+  background: var(--bg-primary, #ffffff);
+  box-shadow: 0 0 0 3px var(--accent-dim, rgba(99, 102, 241, 0.12));
+}
+
+.form-group textarea::placeholder {
+  color: var(--text-tertiary, #aaa);
+  font-style: italic;
+}
+
+.dict-prompt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-2, 8px);
+}
+
+.dict-prompt-actions .reset-link {
+  background: none;
+  border: none;
+  color: var(--text-tertiary, #888);
+  font-size: var(--text-xs, 12px);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.dict-prompt-actions .reset-link:hover {
+  color: var(--red, #9c4a4a);
+}
+
+.dict-prompt-actions .save-prompt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--accent, #6366f1);
+  border: 1px solid transparent;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.dict-prompt-actions .save-prompt-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #4f46e5);
+}
+
+.dict-prompt-actions .save-prompt-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { X, Loader2, Save, Check, Info, Server, GitBranch } from "lucide-react";
-import { fetchModels, saveServerConfig, fetchServerConfig } from "../api";
+import { X, Loader2, Save, Check, Info, Server, GitBranch, BookOpen } from "lucide-react";
+import { fetchModels, saveServerConfig, fetchServerConfig, fetchDictPrompt, saveDictPrompt } from "../api";
 import type { ModelInfo, ProviderInfo } from "../api";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { getBranchesCollapsed, setBranchesCollapsed as saveBranchesCollapsed } from "../utils/preferences";
@@ -23,6 +23,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
 
+  // Dictionary prompt state
+  const [dictPrompt, setDictPrompt] = useState("");
+  const [dictPromptLoading, setDictPromptLoading] = useState(true);
+  const [dictPromptSaving, setDictPromptSaving] = useState(false);
+  const [dictPromptCustom, setDictPromptCustom] = useState(false);
+  const [dictPromptDefault, setDictPromptDefault] = useState("");
+
   useEffect(() => {
     async function load() {
       try {
@@ -36,6 +43,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         setProviders(modelsData.providers ?? []);
         setReadingModel(configData.readingModel || modelsData.currentModel || "");
         setLookupModel(configData.lookupModel || "");
+        // Load dictionary prompt template
+        try {
+          const promptData = await fetchDictPrompt();
+          setDictPrompt(promptData.template);
+          setDictPromptCustom(promptData.isCustom);
+          setDictPromptDefault(promptData.defaultTemplate);
+        } catch {
+          // Non-critical — dict prompt is optional
+        }
+        setDictPromptLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load configuration");
       } finally {
@@ -153,6 +170,76 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <span className="toggle-slider" />
               <span className="toggle-label">{branchesCollapsed ? "Collapsed" : "Expanded"}</span>
             </label>
+          </div>
+        </div>
+
+        <div className="settings-divider" />
+
+        {/* ── Dictionary prompt section ── */}
+        <div className="settings-section">
+          <h3 className="settings-section-title">
+            <BookOpen size={16} />
+            Dictionary Prompt
+          </h3>
+          <div className="form-group">
+            <label htmlFor="dict-prompt-template">Lookup prompt template</label>
+            <textarea
+              id="dict-prompt-template"
+              value={dictPrompt}
+              onChange={(e) => setDictPrompt(e.target.value)}
+              rows={8}
+              disabled={dictPromptLoading}
+            />
+            <p className="form-help">
+              Placeholders: <code>{"{{term}}"}</code>, <code>{"{{context}}"}</code>, <code>{"{{bookTitle}}"}</code>, <code>{"{{#context}}...{{/context}}"}</code> (conditional block).
+            </p>
+            <div className="dict-prompt-actions">
+              {(dictPromptCustom || dictPrompt.trim() !== dictPromptDefault.trim()) && (
+                <button
+                  type="button"
+                  className="reset-link"
+                  onClick={async () => {
+                    try {
+                      setDictPromptSaving(true);
+                      const result = await saveDictPrompt('global', null);
+                      setDictPrompt(result.defaultTemplate);
+                      setDictPromptCustom(result.isCustom);
+                      setDictPromptDefault(result.defaultTemplate);
+                    } finally {
+                      setDictPromptSaving(false);
+                    }
+                  }}
+                  disabled={dictPromptSaving}
+                >
+                  Reset to Default
+                </button>
+              )}
+              <button
+                type="button"
+                className="save-prompt-btn"
+                disabled={dictPromptSaving || dictPromptLoading}
+                onClick={async () => {
+                  try {
+                    setDictPromptSaving(true);
+                    // If content matches default, save null to remove the override file
+                    const templateToSave = dictPrompt.trim() === dictPromptDefault.trim() ? null : dictPrompt.trim();
+                    const result = await saveDictPrompt('global', templateToSave);
+                    setDictPromptCustom(result.isCustom);
+                    setDictPromptDefault(result.defaultTemplate);
+                  } catch {
+                    // Could add error state here
+                  } finally {
+                    setDictPromptSaving(false);
+                  }
+                }}
+              >
+                {dictPromptSaving ? (
+                  <><Loader2 size={12} className="spinner" /> Saving…</>
+                ) : (
+                  <><Save size={12} /> Save Prompt</>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 

@@ -736,6 +736,39 @@ export async function fetchGlossary(
   return data.entries ?? [];
 }
 
+// ---------------------------------------------------------------------------
+// Dictionary Prompt Template
+// ---------------------------------------------------------------------------
+
+export interface DictPromptInfo {
+  template: string;
+  source: 'source' | 'global' | 'project' | 'fallback';
+  isCustom: boolean;
+  defaultTemplate: string;
+}
+
+export async function fetchDictPrompt(sourceId?: string): Promise<DictPromptInfo> {
+  const params = sourceId ? `?sourceId=${encodeURIComponent(sourceId)}` : '';
+  const res = await fetch(`${API}/dict/prompt${params}`);
+  if (!res.ok) throw new Error(`Failed to fetch prompt: ${res.status}`);
+  return res.json();
+}
+
+export async function saveDictPrompt(
+  scope: 'global' | 'source',
+  template: string | null,
+  sourceId?: string,
+): Promise<DictPromptInfo> {
+  const res = await fetch(`${API}/dict/prompt`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope, template, sourceId }),
+  });
+  if (!res.ok) throw new Error(`Failed to save prompt: ${res.status}`);
+  const data = await res.json();
+  return data;
+}
+
 export interface ClientFeedConfig {
   id: string;
   name: string;
