@@ -85,7 +85,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
           </button>
           <a
             className="home-nav-btn"
-            href="https://github.com/nicobailon/pi-tree"
+            href="https://github.com/shuowu/pi-tree"
             target="_blank"
             rel="noopener noreferrer"
             title="View on GitHub"

@@ -277,7 +277,7 @@ export function Library() {
         <div className="library-header-right">
           <a
             className="library-github-link"
-            href="https://github.com/nicobailon/pi-tree"
+            href="https://github.com/shuowu/pi-tree"
             target="_blank"
             rel="noopener noreferrer"
             title="View on GitHub"
