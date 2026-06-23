@@ -131,6 +131,8 @@ export interface ProfileInfo {
   skills: string[];
   /** Extension names loaded by this profile */
   extensions: string[];
+  /** Display order in the UI (lower = first). Defaults to 100. */
+  order?: number;
 }
 
 export interface SourceTypeInfo {

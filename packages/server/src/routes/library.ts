@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { LibraryService } from "../services/library.js";
-import { readFile, stat, mkdir, copyFile, writeFile } from "node:fs/promises";
+import { readFile, readdir, stat, mkdir, copyFile, writeFile } from "node:fs/promises";
 import { extname, resolve, isAbsolute, join } from "node:path";
 import { getDb, sources as sourcesTable } from "../db/index.js";
 import { eq } from "drizzle-orm";
@@ -110,6 +110,54 @@ libraryRoutes.get("/sources/:sourceId/headings", async (c) => {
   return c.json({ headings });
 });
 
+/** List analysis files for a source */
+libraryRoutes.get("/sources/:sourceId/analysis", async (c) => {
+  const sourceId = c.req.param("sourceId");
+  const analysisDir = join(getLibrary().getSourcesPath(), sourceId, "analysis");
+
+  try {
+    const entries = await readdir(analysisDir);
+    const fileInfos = await Promise.all(
+      entries
+        .filter((f) => !f.startsWith("."))
+        .map(async (f) => {
+          try {
+            const s = await stat(join(analysisDir, f));
+            if (!s.isFile()) return null;
+            return { name: f, size: s.size, modified: s.mtime.toISOString() };
+          } catch {
+            return null;
+          }
+        }),
+    );
+    return c.json({ files: fileInfos.filter(Boolean) });
+  } catch {
+    return c.json({ files: [] });
+  }
+});
+
+/** Serve a specific analysis file */
+libraryRoutes.get("/sources/:sourceId/analysis/:filename", async (c) => {
+  const { sourceId, filename } = c.req.param();
+
+  // Security: prevent path traversal
+  if (filename.includes("..") || filename.includes("/")) {
+    return c.json({ error: "Invalid filename" }, 400);
+  }
+
+  const filePath = join(getLibrary().getSourcesPath(), sourceId, "analysis", filename);
+  try {
+    const content = await readFile(filePath, "utf-8");
+    const ext = extname(filename).toLowerCase();
+    const contentType =
+      ext === ".json" ? "application/json" :
+      ext === ".md" ? "text/markdown" :
+      "text/plain";
+    return c.text(content, 200, { "Content-Type": contentType });
+  } catch {
+    return c.json({ error: "File not found" }, 404);
+  }
+});
 /** Create a metadata-only source (no file upload — for papers, podcasts, etc.) */
 libraryRoutes.post("/sources/create", async (c) => {
   try {

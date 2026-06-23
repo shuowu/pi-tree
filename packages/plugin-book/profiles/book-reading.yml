@@ -6,3 +6,4 @@ defaultPrompt: 'Let''s start reading "{sourceTitle}". Show me the book overview 
 skills: [interactive-reading]
 extensions: [mcp]
 exclude_tools: [bash, edit]
+order: 10

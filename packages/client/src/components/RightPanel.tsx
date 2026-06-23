@@ -1,12 +1,13 @@
 import type { DictEntry } from "./DictionaryPanel";
 import { DictionaryPanel } from "./DictionaryPanel";
+import { AnalysisPanel } from "./AnalysisPanel";
 import { getSourceTypeConfig } from "../source-types";
 import { X } from "lucide-react";
 
 interface RightPanelProps {
   isOpen: boolean;
-  rightTab: "dict" | "content";
-  onTabChange: (tab: "dict" | "content") => void;
+  rightTab: "dict" | "content" | "analysis";
+  onTabChange: (tab: "dict" | "content" | "analysis") => void;
   onClose: () => void;
   dictEntries: DictEntry[];
   onDictRemove: (id: string) => void;
@@ -61,6 +62,13 @@ export function RightPanel({
                 {config.label}
               </button>
             )}
+            <button
+              className={`right-sidebar-tab ${rightTab === "analysis" ? "active" : ""}`}
+              onClick={() => onTabChange("analysis")}
+              data-testid="right-tab-analysis"
+            >
+              Analysis
+            </button>
           </div>
           <button
             className="right-sidebar-close"
@@ -83,6 +91,9 @@ export function RightPanel({
               />
             </div>
           )}
+          <div style={{ display: rightTab === "analysis" ? "contents" : "none" }}>
+            <AnalysisPanel sourceId={sourceId} />
+          </div>
         </div>
       </aside>
     </>

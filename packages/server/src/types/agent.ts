@@ -60,6 +60,8 @@ export interface SessionProfile {
     /** Session title template — {input} and {date} interpolated */
     titleTemplate?: string;
   }>;
+  /** Display order in the UI (lower = first). Defaults to 100. */
+  order: number;
 }
 
 /** The resolved profile with absolute paths ready for PiSession */

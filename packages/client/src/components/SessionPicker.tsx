@@ -70,7 +70,7 @@ export function SessionPicker({
       }
     }
 
-    return result;
+    return result.sort((a, b) => (a[1].order ?? 100) - (b[1].order ?? 100));
   }, [profiles, source.type]);
 
   // -------------------------------------------------------------------------

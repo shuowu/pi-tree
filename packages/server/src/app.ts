@@ -86,6 +86,7 @@ app.get("/api/profiles", (c) => {
       ...(profile.icon ? { icon: profile.icon } : {}),
       ...(profile.defaultPrompt ? { defaultPrompt: profile.defaultPrompt } : {}),
       ...(profile.quickActions ? { quickActions: profile.quickActions } : {}),
+      order: profile.order,
     };
   }
   return c.json(result);

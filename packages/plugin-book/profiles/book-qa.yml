@@ -6,3 +6,4 @@ defaultPrompt: 'I''d like to explore "{sourceTitle}" through Q&A. Start by brief
 skills: [interactive-reading]
 extensions: [mcp]
 exclude_tools: [bash, edit]
+order: 20

@@ -79,6 +79,8 @@ export const profileSchema = z.strictObject({
     /** Session title template — {input} and {date} interpolated */
     titleTemplate: z.string().optional(),
   })).optional(),
+  /** Display order in the UI (lower = first). Defaults to 100. */
+  order: z.number().int().default(100),
 });
 
 export type ProfileYaml = z.infer<typeof profileSchema>;
@@ -643,6 +645,7 @@ export class AgentRegistry {
             ...(parsed.defaultPrompt ? { defaultPrompt: parsed.defaultPrompt } : {}),
             ...(parsed.defaultTitle ? { defaultTitle: parsed.defaultTitle } : {}),
             ...(parsed.quickActions ? { quickActions: parsed.quickActions } : {}),
+            order: parsed.order,
           };
 
           this.profiles.set(parsed.name, profile);

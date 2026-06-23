@@ -5,7 +5,7 @@ export function usePanelLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [rightTab, setRightTab] = useState<"dict" | "content">("content");
+  const [rightTab, setRightTab] = useState<"dict" | "content" | "analysis">("content");
   const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
 
   const [scrollDirection, setScrollDirection] = useState<ScrollDirection>(null);

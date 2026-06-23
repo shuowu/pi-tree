@@ -5,3 +5,5 @@ description: Deep structural analysis — outlines, themes, and argumentation pa
 skills: [book-analysis, book-outline]
 extensions: [mcp]
 exclude_tools: [bash, edit]
+defaultPrompt: 'Analyze "{sourceTitle}". Start with a high-level overview of the book''s structure and main thesis, then walk me through the key themes and arguments across chapters.'
+order: 30
