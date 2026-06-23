@@ -26,18 +26,19 @@ jobs:
         run: npm run lint
 
       # Layer 2: Unit + API smoke tests
-      #   - Runs vitest per workspace with named summary headings
-      #   - --reporter=verbose prevents vitest's auto github-actions reporter
-      #     from writing 4 identical "Vitest Test Report" headings
-      - name: Test
+      #   --reporter=verbose prevents vitest's auto github-actions reporter
+      #   from writing 4 identical "Vitest Test Report" headings
+      - name: Unit tests
         run: |
+          echo "## 🧪 Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           failed=0
           for pkg in core server client ui; do
             echo "::group::@pi-tree/$pkg"
             if npm test --workspace=packages/$pkg -- --reporter=verbose 2>&1; then
-              echo "### ✅ @pi-tree/$pkg" >> "$GITHUB_STEP_SUMMARY"
+              echo "✅ **@pi-tree/$pkg** — passed" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "### ❌ @pi-tree/$pkg" >> "$GITHUB_STEP_SUMMARY"
+              echo "❌ **@pi-tree/$pkg** — failed" >> "$GITHUB_STEP_SUMMARY"
               failed=1
             fi
             echo "::endgroup::"
@@ -51,8 +52,19 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests (Dev Services)
+      - name: E2E tests
+        id: e2e
         run: npm run e2e -- --project=chromium --reporter=html
+
+      - name: E2E summary
+        if: always() && steps.e2e.outcome != 'skipped'
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.e2e.outcome }}" = "success" ]; then
+            echo "✅ **E2E (Playwright)** — passed" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ **E2E (Playwright)** — failed (see [report artifact](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}))" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload Playwright report
         if: always()
