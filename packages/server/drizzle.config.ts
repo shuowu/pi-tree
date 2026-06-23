@@ -9,6 +9,7 @@ const dbPath = path.join(dataPath, "pi-tree.db");
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
+  out: "./drizzle",
   dialect: "sqlite",
   dbCredentials: {
     url: dbPath,

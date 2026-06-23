@@ -1,11 +1,13 @@
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { join } from "node:path";
-import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { mkdirSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
-// Schema — news plugin's own tables (previously in server/db/schema.ts)
+// Schema — news plugin's own tables
 // ---------------------------------------------------------------------------
 
 export const rssFeeds = sqliteTable("rss_feeds", {
@@ -37,10 +39,26 @@ export const rssItems = sqliteTable("rss_items", {
 }));
 
 // ---------------------------------------------------------------------------
+// Migrations folder — resolved relative to this file so it works in both
+// dev (source) and production (dist/) builds.
+//
+//   dev:  packages/plugin-news/db.ts      → ./drizzle
+//   prod: packages/plugin-news/dist/db.js → ../drizzle
+// ---------------------------------------------------------------------------
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// In dev, __dirname is packages/plugin-news/  → ./drizzle exists
+// In prod, __dirname is packages/plugin-news/dist/ → ../drizzle exists
+
+const MIGRATIONS_FOLDER = existsSync(join(__dirname, "drizzle"))
+  ? join(__dirname, "drizzle")
+  : join(__dirname, "../drizzle");
+
+// ---------------------------------------------------------------------------
 // Singleton DB connection
 // ---------------------------------------------------------------------------
 
-let dbInstance: ReturnType<typeof drizzle> | null = null;
+let dbInstance: BetterSQLite3Database | null = null;
 let sqliteDb: InstanceType<typeof Database> | null = null;
 
 export function getNewsDb(dataDir: string) {
@@ -50,36 +68,13 @@ export function getNewsDb(dataDir: string) {
   sqliteDb = new Database(dbPath);
   sqliteDb.pragma("journal_mode = WAL");
 
-  // Create tables if they don't exist
-  sqliteDb.exec(`
-    CREATE TABLE IF NOT EXISTS rss_feeds (
-      id TEXT PRIMARY KEY,
-      source_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      url TEXT NOT NULL,
-      tags TEXT NOT NULL DEFAULT '[]',
-      is_active INTEGER NOT NULL DEFAULT 1,
-      last_fetch_time TEXT,
-      last_fetch_status TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS rss_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      feed_id TEXT NOT NULL REFERENCES rss_feeds(id) ON DELETE CASCADE,
-      url TEXT NOT NULL,
-      guid TEXT NOT NULL DEFAULT '',
-      published_at TEXT,
-      summary TEXT,
-      author TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS rss_items_feed_url_idx ON rss_items(feed_id, url);
-  `);
-
   dbInstance = drizzle(sqliteDb);
+
+  // Run pending migrations (auto-generated SQL in drizzle/ folder)
+  console.log(`[news-db] Checking for pending migrations...`);
+  migrate(dbInstance, { migrationsFolder: MIGRATIONS_FOLDER });
+  console.log("[news-db] Migrations up to date");
+
   return dbInstance;
 }
 

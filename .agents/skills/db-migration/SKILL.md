@@ -3,92 +3,128 @@ name: db-migration
 description: >
   Run a database migration after schema changes in packages/server/src/db/schema.ts.
   Invoke when the user asks to "run migration", "push schema", "update database",
-  "db migrate", or after modifying schema.ts.
+  "db migrate", "add a column", "add a table", or after modifying schema.ts.
 ---
 
 # Database Migration
 
 Apply Drizzle ORM schema changes to the SQLite database.
 
-## Pre-flight Checks
+## How Migrations Work
 
-1. **Verify the schema file has changes**:
-   ```bash
-   git diff packages/server/src/db/schema.ts
-   ```
-   If no changes, confirm with the user what they want to do.
+Migrations are **auto-generated** by `drizzle-kit` and **auto-applied** on server startup:
 
-2. **Verify the dev server is running** — the database file must exist at `DATA_PATH` (default: `~/.local/share/pi-tree/pi-tree.db`):
-   ```bash
-   ls -la ~/.local/share/pi-tree/pi-tree.db
-   ```
+1. Developer edits `packages/server/src/db/schema.ts`
+2. Developer runs `npm run db:generate -w @pi-tree/server` → drizzle-kit diffs schema.ts against the previous snapshot and generates a `.sql` file in `packages/server/drizzle/`
+3. Developer reviews the generated SQL (**protection layer**) and commits it
+4. On next startup, `migrate()` from drizzle-orm applies any pending SQL files automatically
 
-## Schema Change Checklist
+**Users never run migrations manually** — they just pull a new Docker image or rebuild locally.
 
-Before pushing, verify these common issues:
+### Under the hood
 
-- [ ] **New columns on existing tables**: Use `.default()` to avoid breaking existing rows
-- [ ] **New tables**: Use `CREATE TABLE IF NOT EXISTS` pattern (Drizzle handles this)
-- [ ] **Column renames**: Drizzle `push` treats these as drop + add — data will be lost. Use a manual migration instead
-- [ ] **Type changes**: SQLite is flexible with types but verify no data truncation
-- [ ] **New indexes**: Safe to add anytime
-- [ ] **Foreign keys**: SQLite doesn't enforce FK by default — add `PRAGMA foreign_keys = ON` if needed
+- Migration SQL files live in `packages/server/drizzle/` (committed to git)
+- Snapshots and journal metadata live in `packages/server/drizzle/meta/`
+- Applied migrations are tracked in a `__drizzle_migrations` table (auto-created by drizzle-orm)
+- The baseline migration (`0000_baseline.sql`) uses `IF NOT EXISTS` so it's safe on both fresh installs and existing databases
 
-## Push the Schema
+## Adding a New Migration
 
-Run from the server package directory:
+### Step 1: Edit the schema
 
 ```bash
-npm run db:push -w @pi-tree/server
+$EDITOR packages/server/src/db/schema.ts
 ```
 
-This uses `drizzle-kit push` which:
-- Compares `packages/server/src/db/schema.ts` against the live database
-- Generates and applies ALTER TABLE statements
-- Is safe for development (for production, use `drizzle-kit generate` + `drizzle-kit migrate` instead)
+### Step 2: Generate the migration
 
-## Verify
+```bash
+npm run db:generate -w @pi-tree/server
+# Optionally name it:
+npm run db:generate -w @pi-tree/server -- --name=add-language-column
+```
 
-1. **Check the push output** for any warnings about data loss.
+This creates a new file like `drizzle/0001_add-language-column.sql` with the SQL diff.
 
-2. **Inspect the database** (optional):
-   ```bash
-   npm run db:studio -w @pi-tree/server
-   ```
-   This opens Drizzle Studio in the browser to inspect tables and data.
+### Step 3: Review the generated SQL
 
-3. **Restart the dev server** if it's running — the server caches the DB connection:
-   ```bash
-   tmux kill-session -t pi-tree && ./scripts/start-dev-tmux.sh
-   ```
+Open the generated `.sql` file and verify:
+- No unexpected `DROP` statements
+- ALTER TABLE / CREATE TABLE looks correct
+- For `ALTER TABLE ... ADD COLUMN`: SQLite doesn't support `IF NOT EXISTS` for columns. If you need idempotency, wrap with a try/catch in code or accept that re-running the migration file is safe (drizzle's migrator won't re-apply applied migrations)
+
+> **Important**: For the baseline migration only, we manually added `IF NOT EXISTS` to all statements. Future incremental migrations don't need this — drizzle's `__drizzle_migrations` table prevents re-application.
+
+### Step 4: Test
+
+```bash
+npm test -w @pi-tree/server -- src/__tests__/migration.test.ts
+```
+
+### Step 5: Commit
+
+Commit both the schema change and the generated migration:
+```bash
+git add packages/server/src/db/schema.ts packages/server/drizzle/
+git commit -m "feat: add language column to sources"
+```
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `packages/server/src/db/schema.ts` | Drizzle ORM schema definitions |
+| `packages/server/src/db/index.ts` | DB connection + `migrate()` call on startup |
+| `packages/server/drizzle/` | Generated migration SQL files + metadata |
+| `packages/server/drizzle/meta/_journal.json` | Migration order and metadata |
+| `packages/server/drizzle.config.ts` | Drizzle-kit config (schema path, output dir) |
+| `packages/server/src/__tests__/migration.test.ts` | Migration tests |
+
+## Available Scripts
+
+| Script | Command | Purpose |
+|--------|---------|---------|
+| `db:generate` | `drizzle-kit generate` | Auto-detect schema changes → produce SQL |
+| `db:push` | `drizzle-kit push` | Dev-only: push schema directly to DB (⚠️ can drop columns) |
+| `db:studio` | `drizzle-kit studio` | Open Drizzle Studio UI to inspect tables |
+
+Run with: `npm run <script> -w @pi-tree/server`
 
 ## Common Patterns
 
+### Adding a new column
+
+In `schema.ts`, add with a `.default()` value:
+```typescript
+language: text("language").default(""),
+```
+
+Then: `npm run db:generate -w @pi-tree/server`
+
+Drizzle-kit will produce:
+```sql
+ALTER TABLE `sources` ADD `language` text DEFAULT '';
+```
+
 ### Adding a new table
 
-In `packages/server/src/db/schema.ts`:
+In `schema.ts`:
 ```typescript
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-
-export const myNewTable = sqliteTable("my_new_table", {
-  id: text("id").primaryKey(),
-  someField: text("some_field").notNull(),
-  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+export const bookmarks = sqliteTable("bookmarks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull(),
+  sourceId: text("source_id").notNull(),
+  nodeId: text("node_id").notNull(),
+  createdAt: text("created_at").notNull(),
 });
 ```
 
-Then export it from `packages/server/src/db/index.ts` if needed by other modules.
+Then: `npm run db:generate -w @pi-tree/server`
 
-### Adding a column to an existing table
+### Column renames / drops
 
-Add with a `.default()` value so existing rows aren't broken:
-```typescript
-newColumn: text("new_column").default(""),
-```
+SQLite has limited support for renames and drops. Drizzle-kit will generate appropriate SQL (may involve recreating the table). Always review carefully.
 
-## Notes
+## Plugin Databases
 
-- **Schema location**: `packages/server/src/db/schema.ts`
-- **Drizzle config**: `packages/server/drizzle.config.ts`
-- **DB file**: `<DATA_PATH>/pi-tree.db` (default: `~/.local/share/pi-tree/pi-tree.db`)
-- **`db:push` is for development only** — it can drop columns. For production deployments, generate migration files with `drizzle-kit generate`.
+Plugin databases (e.g., `$DATA_PATH/plugins/news/news.db`) are managed independently by each plugin. When a plugin needs schema migration, apply the same `PRAGMA user_version` pattern or add drizzle migrations within the plugin.

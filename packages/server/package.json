@@ -43,6 +43,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "bash scripts/check-migrations.sh",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },

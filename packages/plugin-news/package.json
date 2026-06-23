@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "bash scripts/check-migrations.sh"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.4"
   },
   "piTree": {
     "sourceType": {

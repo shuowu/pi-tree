@@ -70,10 +70,11 @@ COPY --from=build /app/packages/plugin-paper ./packages/plugin-paper
 COPY --from=build /app/packages/plugin-youtube ./packages/plugin-youtube
 COPY --from=build /app/packages/plugin-mcp ./packages/plugin-mcp
 
-# Copy server dist + config + production node_modules
+# Copy server dist + config + drizzle migrations + production node_modules
 COPY --from=build /app/packages/server/package.json ./packages/server/
 COPY --from=build /app/packages/server/dist ./packages/server/dist
 COPY --from=build /app/packages/server/config ./packages/server/config
+COPY --from=build /app/packages/server/drizzle ./packages/server/drizzle
 COPY --from=build /app/node_modules ./node_modules
 
 # Copy client build output (served by Hono serveStatic in production mode)
