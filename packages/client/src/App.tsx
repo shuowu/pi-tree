@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Routes, Route, Navigate } from "react-router";
+import { Routes, Route, Navigate, useNavigate } from "react-router";
 import { UserProvider, useUser } from "./UserContext";
 import { StreamProvider } from "./StreamContext";
 import { ThemeProvider } from "./ThemeContext";
@@ -17,6 +17,7 @@ import "./App.css";
 function AppRoutes() {
   const { userId } = useUser();
   const [spotlightOpen, setSpotlightOpen] = useState(false);
+  const navigate = useNavigate();
   const [addSourceOpen, setAddSourceOpen] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -62,7 +63,7 @@ function AppRoutes() {
       {addSourceOpen && (
         <AddSourceModal
           onClose={() => setAddSourceOpen(false)}
-          onSuccess={() => setAddSourceOpen(false)}
+          onSuccess={() => { setAddSourceOpen(false); navigate("/library"); }}
         />
       )}
 

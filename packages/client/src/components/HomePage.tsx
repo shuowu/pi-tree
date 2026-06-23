@@ -163,7 +163,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
       {showSettingsModal && (
         <SettingsModal onClose={() => setShowSettingsModal(false)} />
       )}
-      {showAddSource && <AddSourceModal onClose={() => setShowAddSource(false)} onSuccess={() => setShowAddSource(false)} />}
+      {showAddSource && <AddSourceModal onClose={() => setShowAddSource(false)} onSuccess={() => { setShowAddSource(false); navigate("/library"); }} />}
     </div>
   );
 }
