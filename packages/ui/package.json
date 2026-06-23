@@ -20,7 +20,9 @@
     "@pi-tree/core": "*",
     "@pi-tree/shared": "*",
     "lucide-react": "^1.17.0",
+    "katex": "^0.16.47",
     "marked": "^18.0.4",
+    "marked-katex-extension": "^5.1.10",
     "mermaid": "^11.15.0"
   },
   "peerDependencies": {

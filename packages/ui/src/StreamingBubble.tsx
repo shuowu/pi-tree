@@ -1,5 +1,6 @@
 import { forwardRef, useRef, useMemo } from "react";
 import { useMermaid } from "./hooks/useMermaid.js";
+import "./marked-config.js"; // side-effect: registers KaTeX + link extensions
 import { marked } from "marked";
 
 /**

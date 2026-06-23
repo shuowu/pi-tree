@@ -684,6 +684,19 @@
   text-decoration-color: var(--pit-accent-hover);
 }
 
+/* ── KaTeX Math ── */
+
+.pit-chat-content.pit-markdown .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--pit-space-2) 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pit-chat-content.pit-markdown .katex {
+  font-size: 1.1em;
+}
+
 /* ── Mobile Reading Experience ── */
 
 @media (max-width: 768px) {

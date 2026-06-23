@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMermaid } from "./hooks/useMermaid.js";
 import type { ChatMessage, BranchOption } from "@pi-tree/core/types";
+import "./marked-config.js"; // side-effect: registers KaTeX + link extensions
 import { marked } from "marked";
 
 /** Data returned when fetching a branch's content for inline preview */

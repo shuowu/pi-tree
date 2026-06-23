@@ -55,7 +55,7 @@
     ]
   },
   "dependencies": {
-    "@pi-tree/plugin-sdk": "workspace:*",
+    "@pi-tree/plugin-sdk": "*",
     "typebox": "^1.2.6"
   }
 }

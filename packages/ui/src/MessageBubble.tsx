@@ -1,20 +1,8 @@
 import { useRef, useMemo } from "react";
 import { useMermaid } from "./hooks/useMermaid.js";
 import type { ChatMessage } from "@pi-tree/core/types";
+import "./marked-config.js"; // side-effect: registers KaTeX + link extensions
 import { marked } from "marked";
-
-// Configure marked: open external links in new tabs
-marked.use({
-  renderer: {
-    link({ href, title, text }) {
-      const titleAttr = title ? ` title="${title}"` : "";
-      if (href && !href.startsWith("#")) {
-        return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
-      }
-      return `<a href="${href}"${titleAttr}>${text}</a>`;
-    },
-  },
-});
 
 export function MessageBubble({
   message,
