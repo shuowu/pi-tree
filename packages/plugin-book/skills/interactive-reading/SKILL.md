@@ -5,125 +5,77 @@ description: Interactive reading and analysis of converted ebook markdown files.
 
 # Interactive Reading
 
-AI-assisted interactive reading with ebooks that have been converted to markdown.
+AI-assisted interactive reading with ebooks converted to markdown.
 
-## Workflow
+## Context You Already Have
 
-Your working directory (`cwd`) is set to the `sources/` directory. Each source lives at `<sourceId>/` relative to cwd.
+Your system context includes the book's **Table of Contents** with line numbers. Use these line numbers directly with the `read` tool's `offset` parameter to jump to any section — no grepping needed.
 
-1. **Find the book** — the system context tells you the book directory (`<sourceId>/`). Check `<sourceId>/markdown/` for the converted `.md` file.
-   - **If no markdown file exists** (directory missing, empty, or no `.md` files): the book hasn't been processed yet. Tell the user: "This book is still being processed. Please wait a moment and try again, or re-upload the book from the Library."
-2. **Load the outline** — check `<sourceId>/analysis/outline.md`. If it exists, use it as the navigation map (chapter line numbers, thematic map, reading recommendations). If not, offer to generate one with `book-outline`.
-3. **Read the book** — use `read` with offset/limit, using outline line numbers for precise navigation.
-4. **Engage interactively** — discuss, summarize, analyze, or quiz.
+A richer outline with chapter summaries, thematic map, and reading recommendations is at `<sourceId>/analysis/outline.md`. Read it once at session start for deeper context.
 
-## Reading Strategies
+## Responding to User Requests
 
-### Full Book Summary
-Read the entire markdown file (use offset/limit for large books) and provide a structured summary with key themes, arguments, and takeaways.
+### Starting a session
+1. Read `<sourceId>/analysis/outline.md` (one tool call)
+2. Present a brief overview: what the book is about, how it's structured, and recommended starting points
+3. Ask where they'd like to begin
 
-### Chapter-by-Chapter Reading
-- **If outline exists**: use its chapter table with line numbers to navigate directly via `read` offset — no grepping needed
-- **If no outline**: identify chapter headings via `grep -n '^#' "<file>"`
-- Read and discuss one chapter at a time, using the outline's one-line summaries for context
-- After finishing a chapter, show the next chapter's outline entry and offer to continue
+### "Read chapter N" / "Next chapter"
+1. Find the chapter's line number from the TOC (already in your context)
+2. `read` the content using that offset
+3. Give a **chapter briefing** first, then discuss
 
-### Chapter Briefing — Always Provide One
+### Questions about the book
+1. Use the TOC to identify which chapters are relevant
+2. `read` those sections using line numbers
+3. Answer with chapter/section citations
 
-At the start of every chapter (including when resuming mid-chapter), give a detailed pre-read briefing so the reader can decide which concepts to zoom in on. Cover:
+### "Continue reading" / "Resume"
+1. Check `<sourceId>/notes/bookmark.md` for saved position
+2. `read` from the bookmarked offset
+3. Briefly recap where they left off, then continue
 
-1. **Chapter purpose** — what problem/question does it address? Why does it exist in the arc?
-2. **Key concepts in plain language** — 2–3 sentences each, enough that the reader isn't lost without having read it
-3. **The argument/flow** — how the chapter builds its case
-4. **Concrete examples or analogies** — running example or case study anchor
-5. **What to watch for** — 1–3 counterintuitive or especially important ideas
-6. **Connection to previous/next**
+## Chapter Briefings
 
-**After the briefing, offer choices:** read through together, zoom in on a specific concept (handled inline), skim, or ask questions. Mention that `/tree` is available if they want to branch off and explore a tangent.
+Before or at the start of each chapter, give a concise briefing:
 
-**Style:** Be concrete (not abstract). Aim for a 3–5 minute read, not a reproduction of the chapter. Scale briefing length to chapter size — short chapters get brief briefings.
+1. **Purpose** — what problem/question does this chapter address?
+2. **Key concepts** — 2–3 sentences each, concrete not abstract
+3. **The argument flow** — how it builds its case
+4. **What to watch for** — 1–2 counterintuitive or important ideas
+5. **Connection** — how it relates to previous/next material
 
-### Focused Analysis
-- **If outline exists**: check its **Thematic Map** first for cross-cutting themes and the chapters that address each one
-- **If no outline**: grep for the topic
-- Extract and discuss passages; compare across sections
+Scale briefing length to chapter size. Short chapters get brief briefings.
 
-### Q&A Mode
-Search the markdown for relevant passages; answer with chapter/section citations.
-
-## Using the Outline
-
-The outline (`analysis/outline.md`) is the **navigation backbone**. Always check for it at session start.
-
-- **Chapter table with line numbers** — instant `read` offset navigation
-- **One-line chapter summaries** — context before diving in
-- **Thematic map** — which chapters cover which themes
-- **Reading recommendations** — must-read vs. skimmable, prerequisite order
-
-**Starting a book:** show the outline's "Structure at a Glance" and "Reading Recommendations" to help plan reading.
-
-**If outline is missing:** offer to generate one with `book-outline`. While waiting, fall back to grepping headings.
-
-**Between chapters:** show the next chapter's outline entry (title + one-line summary) as a preview, then offer the full briefing.
-
----
+After the briefing, offer choices: read together, zoom into a concept, skim, or ask questions.
 
 ## Bookmarks
 
-Save reading progress at `<sourceId>/notes/bookmark.md` so the user can resume across sessions.
+Save reading progress at `<sourceId>/notes/bookmark.md`:
 
 ```markdown
 # Bookmark: <Book Title>
 
 - **File**: <sourceId>/markdown/<filename>.md
-- **Outline**: <sourceId>/analysis/outline.md
-- **Last Section**: Part II, Chapter 1: Embrace Reality and Deal with It
-- **Offset**: 1500
-- **Updated**: 2025-05-28T10:30:00Z
+- **Last Section**: <section name>
+- **Offset**: <line number>
+- **Updated**: <timestamp>
 
 ## Reading Log
-- 2025-05-28 — Read Part I, Chapters 1–4 (lines 1–500)
-- 2025-05-28 — Started Part II, Chapter 1 (line 1000–1500)
+- <date> — Read <chapters> (lines <range>)
 ```
 
-**Updating:**
-- After each section/chapter read, update offset and section name
-- On "bookmark this" / "save my place", update immediately
-- Read existing bookmark first, then update
-
-**Resuming:**
-- On "resume" / "continue reading", check `<sourceId>/notes/bookmark.md` (and legacy `<sourceId>/analysis/bookmark.md`)
-- Show: "You left off at **Part II, Ch 1** (line 1500). Resume?"
-- After resuming, show the outline entry for the current chapter, then give the **detailed chapter briefing** (covering the whole chapter but flagging where the reader left off if mid-chapter)
-
----
+Update after each chapter read. On "bookmark this" / "save my place", update immediately.
 
 ## Notes & Analysis
 
-For personal notes, save to `<sourceId>/notes/` (e.g., `session-<date>.md`, `chapter-NN.md`).
+For personal notes, save to `<sourceId>/notes/`.
+For structured analysis (summary, key ideas, quotes), use the **`book-analysis`** skill.
 
-For structured analysis (summary, key ideas, quotes, comparisons), use the **`book-analysis`** skill — it handles templates and naming conventions.
+## Tips
 
-
-
-## Using /tree While Reading
-
-Pi's `/tree` navigation is a natural fit for interactive reading. The session is stored as a tree, so readers can branch at any point without losing their place.
-
-### Reading Patterns with /tree
-
-| Pattern | How /tree Helps |
-|---|---|
-| **Explore a tangent** | After discussing a concept, the user can `/tree` back to the chapter briefing and continue reading — the tangent becomes a branch, not a detour |
-| **Try a reading approach** | Branch at a chapter start, try socratic style, then `/tree` back and try dense summary — keep both paths |
-| **Resume after a deep dive** | `/tree` back to the chapter turn; pi's branch summary preserves what was explored |
-| **Re-read with different focus** | Jump back to any chapter and re-read with new questions |
-
-### Tips
-- Encourage labeling key turns with `Shift+L` in `/tree` (e.g., "Ch3 briefing", "tangent on X") for easy navigation later
-- Branch summaries keep context flowing between branches — suggest accepting summaries when switching
-- `/tree` is lighter-weight than bookmarks for within-session navigation; bookmarks remain best for cross-session resume
-
-## Commands
-
-- `/books` — List all sources and their status
+- **The TOC is in your system context** — use it for instant navigation, no tool calls needed to find chapters
+- **Read the outline once** at session start for chapter summaries and thematic map
+- **Use line numbers from the TOC** as `read` offset values — they map directly
+- Keep responses conversational and concrete — avoid reproducing the chapter verbatim
+- After a chapter, show the next chapter's TOC entry as a preview

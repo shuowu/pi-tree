@@ -2,7 +2,7 @@ name: book.reading
 label: Interactive Reading
 icon: book-open
 description: Guided chapter-by-chapter exploration with briefings, discussions, and deep dives
-defaultPrompt: 'Let''s start reading "{sourceTitle}". Show me the book overview and outline to plan my reading.'
+defaultPrompt: 'Let''s start reading "{sourceTitle}".'
 skills: [interactive-reading]
 extensions: [mcp]
 exclude_tools: [bash, edit]

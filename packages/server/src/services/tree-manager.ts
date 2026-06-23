@@ -38,7 +38,7 @@ import { LibraryService } from "./library.js";
 import { getAgentRegistry } from "./agent-registry.js";
 import { findProviderForModel, resolveApiKey } from "./models-json.js";
 import { join } from "node:path";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import os from "node:os";
 
 export class TreeManager {
@@ -157,36 +157,9 @@ export class TreeManager {
       };
     }
 
-    const stConfig = registry.getSourceTypes().find((st) => st.key === sourceType);
-    let systemContext: string | undefined;
-    if (stConfig?.systemContext) {
-      let metadata: Record<string, any> = {};
-      if (sourceRow?.metadata) {
-        try {
-          metadata = typeof sourceRow.metadata === "string"
-            ? JSON.parse(sourceRow.metadata)
-            : sourceRow.metadata;
-        } catch (err) {
-          console.warn(`[tree-manager] Failed to parse metadata for source ${sourceId}:`, err);
-        }
-      }
-
-      systemContext = stConfig.systemContext
-        .map((line) => {
-          let resolved = line
-            .split("{sourceId}").join(sourceId)
-            .split("{userId}").join(userId);
-          if (metadata && typeof metadata === "object") {
-            for (const [key, val] of Object.entries(metadata)) {
-              if (val !== null && val !== undefined) {
-                resolved = resolved.split(`{${key}}`).join(String(val));
-              }
-            }
-          }
-          return resolved;
-        })
-        .join("\n");
-    }
+    const systemContext = TreeManager.resolveSystemContext(
+      registry, sourceType, sourceId, userId, sourceRow, resolvedLibraryPath,
+    );
 
     const piSession = await PiSession.create(
       userId,
@@ -242,13 +215,9 @@ export class TreeManager {
     console.log(`[tree-manager] Ephemeral session: resolved profile "${profile.resolvedFrom}" for ${sourceType}/${mode}`);
 
     const syntheticSourceId = `_system_${sourceType}_${mode}`;
-    const stConfig = registry.getSourceTypes().find((st) => st.key === sourceType);
-    let systemContext: string | undefined;
-    if (stConfig?.systemContext) {
-      systemContext = stConfig.systemContext
-        .map((line) => line.replace("{sourceId}", syntheticSourceId).replace("{userId}", userId))
-        .join("\n");
-    }
+    const systemContext = TreeManager.resolveSystemContext(
+      registry, sourceType, syntheticSourceId, userId, null, library.getSourcesPath(),
+    );
 
     const piSession = await PiSession.create(
       userId,
@@ -929,4 +898,105 @@ export class TreeManager {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // System context template resolution
+  // ---------------------------------------------------------------------------
+
+  private static resolveSystemContext(
+    registry: ReturnType<typeof getAgentRegistry>,
+    sourceType: string,
+    sourceId: string,
+    userId: string,
+    sourceRow: { title: string; author: string; year: number | null; metadata: string | null } | null | undefined,
+    sourcesBasePath: string,
+  ): string | undefined {
+    const stConfig = registry.getSourceTypes().find((st) => st.key === sourceType);
+    if (!stConfig?.systemContext) return undefined;
+
+    return resolveSystemContextTemplate(
+      stConfig.systemContext, sourceId, userId, sourceRow,
+      join(sourcesBasePath, sourceId),
+    );
+  }
+
+}
+
+// ---------------------------------------------------------------------------
+// Exported for unit testing — pure function, no class dependencies
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a plugin's `systemContext` template array into a final string.
+ *
+ * Supported placeholders:
+ * - `{sourceId}`, `{userId}` — always available
+ * - `{title}`, `{author}`, `{year}` — from the source DB row
+ * - `{<key>}` — any key from the source's `metadata` JSON column
+ * - `{file:<path>}` — reads a file relative to the source directory and
+ *   inlines its content. Gracefully replaced with "(not available)" if the
+ *   file doesn't exist. Max 16 KB to avoid bloating the prompt.
+ */
+export function resolveSystemContextTemplate(
+  template: string[],
+  sourceId: string,
+  userId: string,
+  sourceRow: { title: string; author: string; year: number | null; metadata: string | null } | null | undefined,
+  sourceDir: string,
+): string {
+  // Build replacement map: source-level fields + metadata JSON
+  const vars: Record<string, string> = {
+    sourceId,
+    userId,
+  };
+  if (sourceRow) {
+    if (sourceRow.title) vars.title = sourceRow.title;
+    if (sourceRow.author) vars.author = sourceRow.author;
+    if (sourceRow.year != null) vars.year = String(sourceRow.year);
+
+    if (sourceRow.metadata) {
+      try {
+        const metadata = typeof sourceRow.metadata === "string"
+          ? JSON.parse(sourceRow.metadata)
+          : sourceRow.metadata;
+        if (metadata && typeof metadata === "object") {
+          for (const [key, val] of Object.entries(metadata)) {
+            if (val !== null && val !== undefined && !(key in vars)) {
+              vars[key] = String(val);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[tree-manager] Failed to parse metadata for source ${sourceId}:`, err);
+      }
+    }
+  }
+
+  const MAX_FILE_SIZE = 16 * 1024; // 16 KB cap per file injection
+
+  return template
+    .map((line) => {
+      // 1. Replace simple {key} placeholders
+      let resolved = line;
+      for (const [key, val] of Object.entries(vars)) {
+        resolved = resolved.split(`{${key}}`).join(val);
+      }
+
+      // 2. Replace {file:path} placeholders with file contents
+      resolved = resolved.replace(/\{file:([^}]+)\}/g, (_match, relPath: string) => {
+        const filePath = join(sourceDir, relPath.trim());
+        try {
+          if (!existsSync(filePath)) return "(not available)";
+          const content = readFileSync(filePath, "utf-8");
+          if (content.length > MAX_FILE_SIZE) {
+            return content.slice(0, MAX_FILE_SIZE) + "\n...(truncated)";
+          }
+          return content;
+        } catch {
+          return "(not available)";
+        }
+      });
+
+      return resolved;
+    })
+    .join("\n");
 }

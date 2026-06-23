@@ -25,6 +25,31 @@ import type { DictEntry } from "../components/DictionaryPanel";
 import { useStream } from "../StreamContext";
 import { resolveSendContext, shouldApplyStreamResult } from "./send-context";
 
+/**
+ * Strip system context markers echoed by weaker models in their responses.
+ * During streaming, the model may start by echoing the injected context
+ * (e.g. "[INTERNAL CONTEXT …]"). We detect the marker and strip everything
+ * up to the separator "---" or the end of the context block.
+ *
+ * While the model is still in the middle of outputting the context block
+ * (no separator found yet), we return empty string so the streaming bubble
+ * doesn't show raw JSON/internal data.
+ */
+const CONTEXT_MARKER = /\[(SYSTEM|INTERNAL) CONTEXT/;
+
+function stripSystemContext(text: string): string {
+  if (!CONTEXT_MARKER.test(text)) return text;
+
+  // If we find the separator, take everything after it
+  const sepIdx = text.indexOf("\n\n---\n\n");
+  if (sepIdx !== -1) {
+    return text.slice(sepIdx + 7).trimStart(); // 7 = "\n\n---\n\n".length
+  }
+
+  // Still inside the context block — suppress output until separator arrives
+  return "";
+}
+
 interface UseReaderSessionDeps {
   isMobile: () => boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -147,7 +172,7 @@ export function useReaderSession(
 
     if (activeStream.status === "streaming") {
       if (shouldApplyStreamResult(lastViewNodeIdRef.current, sendingNodeId)) {
-        setStreamingContent(activeStream.accumulatedText);
+        setStreamingContent(stripSystemContext(activeStream.accumulatedText));
         setIsQueued(activeStream.isQueued);
         setActiveToolCall(activeStream.activeToolCall);
         setIsCompacting(activeStream.isCompacting);

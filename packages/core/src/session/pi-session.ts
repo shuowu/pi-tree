@@ -804,11 +804,33 @@ export class PiSession {
             : String(msg.content ?? "");
 
           // Strip deferred system context prefix from user messages
-          // so it doesn't appear in the chat UI
-          if (msg.role === "user" && content.includes("[SYSTEM CONTEXT")) {
+          // so it doesn't appear in the chat UI.
+          // Matches any marker like [SYSTEM CONTEXT …] or [INTERNAL CONTEXT …]
+          if (msg.role === "user" && /\[(SYSTEM|INTERNAL) CONTEXT/.test(content)) {
             const sepIdx = content.indexOf("\n\n---\n\n");
             if (sepIdx !== -1) {
               content = content.slice(sepIdx + 7); // 7 = "\n\n---\n\n".length
+            }
+          }
+
+          // Strip system context echoed by the model in assistant responses.
+          // Weaker models may parrot the injected context as their reply.
+          if (msg.role === "assistant" && /\[(SYSTEM|INTERNAL) CONTEXT/.test(content)) {
+            // Try separator first (model copied the full block with ---)
+            const sepIdx = content.indexOf("\n\n---\n\n");
+            if (sepIdx !== -1) {
+              content = content.slice(sepIdx + 7);
+            } else {
+              // Otherwise strip everything up to the last context-block marker
+              // Look for a double newline after the context header section ends
+              const headerEnd = content.search(/\n\n(?!#)/);
+              if (headerEnd !== -1 && headerEnd < content.length - 10) {
+                // Only strip if there's meaningful content after the header
+                const remaining = content.slice(headerEnd + 2).trim();
+                if (remaining.length > 50) {
+                  content = remaining;
+                }
+              }
             }
           }
 
@@ -991,7 +1013,23 @@ export class PiSession {
     if (entry.type === "message" && "message" in entry) {
       const msg = (entry as any).message;
       if (msg.role === "user") {
-        return this.extractText(msg.content, 60);
+        // Flatten content to string first (handles both string and array forms)
+        let text = Array.isArray(msg.content)
+          ? (msg.content as Array<{ type: string; text?: string }>)
+              .filter((c) => c.type === "text")
+              .map((c) => c.text ?? "")
+              .join("")
+          : String(msg.content ?? "");
+
+        // Strip injected system context prefix so the label comes from
+        // the user's actual message, not the internal context block.
+        if (/\[(SYSTEM|INTERNAL) CONTEXT/.test(text)) {
+          const sepIdx = text.indexOf("\n\n---\n\n");
+          if (sepIdx !== -1) {
+            text = text.slice(sepIdx + 7); // 7 = "\n\n---\n\n".length
+          }
+        }
+        return this.extractText(text, 60);
       }
     }
     return `Entry ${entry.id.slice(0, 8)}`;
@@ -1034,6 +1072,7 @@ export class PiSession {
     const meaningful = lines.find((l) =>
       // Skip system/meta lines
       !l.startsWith("[SYSTEM") &&
+      !l.startsWith("[INTERNAL") &&
       !l.startsWith("---") &&
       !l.startsWith("```") &&
       l.length > 3  // skip tiny lines like "OK" or "..."

@@ -2,7 +2,7 @@ name: book.qa
 label: Freeform Q&A
 icon: message-circle
 description: Ask anything about the book — themes, arguments, passages, or comparisons
-defaultPrompt: 'I''d like to explore "{sourceTitle}" through Q&A. Start by briefly introducing the book''s main thesis in 2-3 sentences, then let me lead with questions.'
+defaultPrompt: 'I''d like to explore "{sourceTitle}" through Q&A. What would you like to know?'
 skills: [interactive-reading]
 extensions: [mcp]
 exclude_tools: [bash, edit]

@@ -106,6 +106,9 @@ export function ChatView({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const streamingBubbleRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Auto-scroll state: tracks whether we should follow streaming content.
+  // Starts true (follow by default) and becomes false if the user scrolls up.
+  const autoScrollRef = useRef(true);
   const wasStreamingRef = useRef(false);
 
 
@@ -127,13 +130,22 @@ export function ChatView({
   }, [scrollDir, onScrollDirectionChange]);
 
   // Track whether user is near the bottom (for scroll-to-bottom button)
+  // Also detect user-initiated scrolls during streaming to disable auto-scroll.
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
 
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      setIsNearBottom(distanceFromBottom < 300);
+      const nearBottom = distanceFromBottom < 300;
+      setIsNearBottom(nearBottom);
+
+      // If the user is actively streaming and they scrolled away from the
+      // bottom, disable auto-scroll. If they scroll back to the bottom,
+      // re-enable it. This matches ChatGPT / Claude scroll behavior.
+      if (wasStreamingRef.current) {
+        autoScrollRef.current = nearBottom;
+      }
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -145,7 +157,17 @@ export function ChatView({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Scroll management
+  // Scroll management — ChatGPT/Claude-style auto-scroll
+  //
+  // Pattern:
+  // 1. When streaming starts, auto-scroll is enabled by default.
+  // 2. During streaming, we continuously scroll to the bottom on each
+  //    content update — but ONLY if auto-scroll is still enabled.
+  // 3. If the user scrolls up during streaming, auto-scroll is disabled
+  //    (detected by the onScroll handler above).
+  // 4. If the user scrolls back to the bottom, auto-scroll re-enables.
+  // 5. When streaming ends, we do NOT scroll anywhere — the user's
+  //    scroll position is preserved.
   // ---------------------------------------------------------------------------
 
   // Scroll to top when the parent signals a navigation event.
@@ -161,26 +183,63 @@ export function ChatView({
     }
   }, [scrollTopTrigger]);
 
-  // One-shot scroll: when streaming begins, scroll the streaming bubble's top
-  // into view so the user sees the start of the response. After that, the user
-  // is free to scroll wherever they want — no forced scrolling during streaming.
+  // Auto-scroll during streaming: on every content update, scroll to bottom
+  // if the user hasn't scrolled away. When streaming starts, enable auto-scroll.
+  // When streaming ends, save scroll position for restoration.
+  const savedScrollTopRef = useRef<number | null>(null);
   useEffect(() => {
     const isActive = streamingContent !== null && streamingContent.length > 0;
     const justStarted = isActive && !wasStreamingRef.current;
+    const justEnded = !isActive && wasStreamingRef.current;
     wasStreamingRef.current = isActive;
 
-    if (justStarted && streamingBubbleRef.current) {
-      streamingBubbleRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    // When streaming begins, enable auto-scroll
+    if (justStarted) {
+      autoScrollRef.current = true;
+    }
+
+    // Continuously auto-scroll to bottom during streaming
+    if (isActive && autoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
+
+    // When streaming ends, save scroll position before React replaces the
+    // streaming bubble with the final message (which may shift layout)
+    if (justEnded) {
+      savedScrollTopRef.current = messagesContainerRef.current?.scrollTop ?? null;
     }
   }, [streamingContent]);
+
+  // Preserve scroll position when streaming completes and messages update.
+  // When the streaming bubble is replaced by the final MessageBubble, the
+  // DOM changes can cause the browser to lose the scroll position. We save
+  // the scrollTop (in the effect above) and restore it after paint.
+  const prevMessagesRef = useRef(messages);
 
   // When a new user message appears (from input OR external send like content panel),
   // scroll it into view so the user sees their question with room below for the response.
   const prevMessageCountRef = useRef(messages.length);
   useEffect(() => {
+    const messagesChanged = prevMessagesRef.current !== messages;
     const prevCount = prevMessageCountRef.current;
+    prevMessagesRef.current = messages;
     prevMessageCountRef.current = messages.length;
 
+    // Restore scroll position after streaming→final message swap
+    if (messagesChanged && savedScrollTopRef.current !== null) {
+      const el = messagesContainerRef.current;
+      const savedTop = savedScrollTopRef.current;
+      savedScrollTopRef.current = null;
+      if (el && !autoScrollRef.current) {
+        // User had scrolled away — restore their position
+        requestAnimationFrame(() => {
+          el.scrollTop = savedTop;
+        });
+        return; // Skip the new-user-message scroll below
+      }
+    }
+
+    // Scroll new user messages into view
     if (messages.length > prevCount) {
       const lastMsg = messages[messages.length - 1];
       if (lastMsg?.role === "user") {

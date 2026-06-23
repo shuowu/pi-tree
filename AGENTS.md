@@ -481,6 +481,9 @@ Add the `systemContext` property (an array of strings) under `piTree.sourceType`
 The following placeholders are supported and will be automatically interpolated at runtime before launching the session:
 - `{sourceId}`: The unique ID of the loaded source.
 - `{userId}`: The slug of the active user.
+- `{title}`, `{author}`, `{year}`: Top-level fields from the source DB row.
+- `{<key>}`: Any key from the source's `metadata` JSON column.
+- `{file:<path>}`: Reads a file relative to `sources/<sourceId>/` and inlines its content. Gracefully replaced with `(not available)` if the file doesn't exist. Capped at 16 KB per file.
 
 ## Mention Routing
 
