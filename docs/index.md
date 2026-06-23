@@ -3,13 +3,10 @@ layout: home
 
 hero:
   name: Pi-tree
-  text: AI-assisted reading and research with tree-structured conversations
+  text: AI that reads with you
   tagline: "AI makes you productive where you already understand. It confuses you where you don't. Pi-tree works on the boundary — helping you cross from confusion into comprehension, not skip past it."
   actions:
     - theme: brand
-      text: Download Desktop App
-      link: https://github.com/shuowu/pi-tree/releases/latest
-    - theme: alt
       text: Get Started
       link: /docs/getting-started
     - theme: alt
