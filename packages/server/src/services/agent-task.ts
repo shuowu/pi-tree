@@ -57,7 +57,6 @@ export class AgentTaskServiceImpl implements AgentTaskService {
       isActive: 1,
       lastActiveAt: now,
       createdAt: now,
-      updatedAt: now,
     }).run();
     const sessionId = Number(sessionResult.lastInsertRowid);
 

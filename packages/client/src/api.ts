@@ -779,6 +779,8 @@ export interface ProfileInfo {
   defaultPrompt?: string;
   /** Quick-action buttons shown in the session picker */
   quickActions?: ProfileQuickAction[];
+  /** Display order in the UI (lower = first). Defaults to 100. */
+  order?: number;
 }
 
 /**

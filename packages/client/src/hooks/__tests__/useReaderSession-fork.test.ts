@@ -64,6 +64,10 @@ import { useReaderSession } from "../useReaderSession";
 
 function makeSessionState(viewNodeId: string | null): SessionState & { response: string } {
   return {
+    sessionId: 1,
+    userId: "test-user",
+    sourceId: "test-source",
+    activeNodeId: "root",
     viewNodeId,
     messages: [],
     breadcrumb: [],
