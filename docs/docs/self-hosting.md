@@ -1,11 +1,11 @@
 ---
 title: Self-Hosting Guide
-description: Complete guide to configuring, customizing, and extending a self-hosted pi-tree deployment — environment variables, data layout, custom skills, extensions, session profiles, MCP bridge, news feeds, and runtime configuration.
+description: Complete guide to configuring, customizing, and extending a self-hosted pi-tree deployment — environment variables, data layout, Docker Compose, custom skills, extensions, session profiles, MCP bridge, and more.
 ---
 
 # Self-Hosting Guide
 
-This guide covers everything you need to configure, customize, and extend your self-hosted pi-tree deployment. Whether you're running pi-tree directly on your machine or via [Docker](/docs/docker), the configuration concepts are the same.
+This guide covers everything you need to configure, customize, and extend your pi-tree deployment. Whether you're running from source or via Docker, the configuration concepts are the same.
 
 ## Environment Variables
 
@@ -77,16 +77,16 @@ All mutable state lives under `DATA_PATH` (default: `~/.local/share/pi-tree/`):
 ├── pi-tree.db                       # SQLite database (users, sessions, config)
 ├── mcp.json                          # MCP server config (optional, see below)
 ├── sessions/                         # Pi SDK session JSONL files
-│   └── <bookId>/<userId>/            # Per-user per-book sessions
-├── books/                            # Uploaded books (from UI)
-│   └── <bookId>/
-│       ├── original.epub             # Source file
-│       ├── markdown/                 # Converted markdown
-│       ├── analysis/                 # AI-generated outlines
-│       └── cover.jpg                 # Cover image
-├── news/                             # News feature data
-│   ├── analyses/                     # AI-generated news analyses (.md)
-│   └── summaries/                    # AI-generated news summaries (.md)
+│   └── <sourceId>/<userId>/          # Per-user per-source sessions
+├── sources/                          # All source content (books, news, etc.)
+│   ├── <sourceId>/
+│   │   ├── original.epub             # Uploaded source file
+│   │   ├── markdown/                 # Converted markdown
+│   │   ├── analysis/                 # AI-generated outlines
+│   │   └── cover.jpg                 # Cover image
+│   └── news/                         # News plugin data
+│       ├── analyses/                 # AI-generated news analyses (.md)
+│       └── summaries/                # AI-generated news summaries (.md)
 ├── plugins/                          # Plugin-specific data
 │   └── news/
 │       └── news.db                   # News plugin's own database
@@ -98,6 +98,166 @@ All mutable state lives under `DATA_PATH` (default: `~/.local/share/pi-tree/`):
 │       └── index.ts
 └── global-config.json                # Runtime config overrides (from Settings UI)
 ```
+
+## Docker Compose {#docker}
+
+Docker Compose is the recommended way to manage pi-tree in production. The [Getting Started](/docs/getting-started) page covers the basics of `docker run` — this section covers advanced Compose setups.
+
+### Basic Setup
+
+```yaml
+services:
+  pi-tree:
+    image: ghcr.io/shuowu/pi-tree:latest
+    restart: unless-stopped
+    ports:
+      - "3847:3847"
+    environment:
+      - PI_PROVIDER=anthropic
+      - PI_API_KEY=${PI_API_KEY}
+      - PI_MODEL=claude-sonnet-4-20250514
+    volumes:
+      - ~/.local/share/pi-tree:/data    # all state: DB, sessions, library
+```
+
+### With Custom Skills, Extensions, and MCP Tools
+
+```yaml
+volumes:
+  - pi-tree-data:/data
+  - ./my-skills:/data/skills:ro          # your custom skills
+  - ./my-extensions:/data/extensions:ro  # your custom extensions
+  - ./mcp.json:/data/mcp.json:ro        # MCP server config
+```
+
+### Using a Local LLM {#docker-local-llm}
+
+If you're running [Ollama](https://ollama.com/download), [LM Studio](https://lmstudio.ai/), or another local model server on the host machine, there are a few networking and compatibility details to get right.
+
+#### 1. Enable Docker-to-host networking
+
+Docker containers can't reach `localhost` on the host. You need `host.docker.internal` to resolve to the host machine:
+
+```yaml
+services:
+  pi-tree:
+    # ... your other config ...
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
+
+:::info
+`extra_hosts` is required on **Linux**. On Docker Desktop (macOS/Windows), `host.docker.internal` works out of the box — but adding it explicitly doesn't hurt.
+:::
+
+#### 2. Bind your model server to all interfaces
+
+Local model servers typically bind to `127.0.0.1` (localhost only) by default. Docker containers connect via the host's bridge IP, so the server must listen on `0.0.0.0`:
+
+**Ollama** — listens on `0.0.0.0` by default. No changes needed.
+
+**LM Studio** — binds to `127.0.0.1` by default. Change it:
+
+```bash
+# Via CLI (preferred)
+lms server stop
+lms server start --bind 0.0.0.0
+
+# Or edit ~/.lmstudio/.internal/http-server-config.json
+# Change "networkInterface": "127.0.0.1" → "networkInterface": "0.0.0.0"
+```
+
+#### 3. Configure the provider
+
+**Simple setup** (single local provider via env vars):
+
+```yaml
+environment:
+  - PI_PROVIDER=ollama
+  - PI_API_KEY=not-needed
+  - PI_BASE_URL=http://host.docker.internal:11434/v1
+  - PI_MODEL=gemma4:12b
+```
+
+**Multi-provider setup** (local + cloud via `models.json`):
+
+```json
+{
+  "providers": {
+    "lmstudio": {
+      "baseUrl": "http://host.docker.internal:1234/v1",
+      "api": "openai-completions",
+      "apiKey": "not-needed",
+      "compat": { "supportsDeveloperRole": false },
+      "models": [
+        { "id": "qwen/qwen3.6-27b" }
+      ]
+    },
+    "deepseek": {
+      "apiKey": "$DEEPSEEK_API_KEY",
+      "models": [
+        { "id": "deepseek-v4-flash" }
+      ]
+    }
+  }
+}
+```
+
+Mount the file into the container:
+
+```yaml
+volumes:
+  - ~/.pi/agent/models.json:/root/.pi/agent/models.json:ro
+```
+
+:::tip Compatibility flags
+Local model servers don't always support all OpenAI API features. The `compat` field tells pi-tree how to adapt:
+
+| Flag | Default | When to set `false` |
+|------|---------|-------------------|
+| `supportsDeveloperRole` | `true` | LM Studio, Ollama, and most local servers only support `system` and `user` roles — not the `developer` role. Set this to `false` to avoid silent failures. |
+
+If your local model returns empty responses or hangs, missing `compat` flags are usually the cause.
+:::
+
+#### Complete Docker Compose example
+
+A full working setup with a local LM Studio provider and a cloud fallback:
+
+```yaml
+services:
+  pi-tree:
+    image: ghcr.io/shuowu/pi-tree:latest
+    restart: unless-stopped
+    ports:
+      - "3847:3847"
+    env_file: .env
+    volumes:
+      - ${PI_TREE_DATA:-./data}:/data
+      - ~/.pi/agent/models.json:/root/.pi/agent/models.json:ro
+    environment:
+      - DATA_PATH=/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
+
+### Volumes
+
+| Mount Point | Purpose | Access |
+|-------------|---------|--------|
+| `/data` | All state — database, sessions, library, processed content | Read-write |
+
+The `/data` volume contains everything pi-tree needs: the SQLite database, session files, uploaded books, processed content, and user configuration.
+
+### Build from Source
+
+If you prefer to build the image locally instead of using the pre-built one:
+
+```bash
+docker compose up --build
+```
+
+This builds the image from the `Dockerfile` in the repository root and starts the container.
 
 ## Custom Skills
 
@@ -174,7 +334,7 @@ Extensions are TypeScript modules that register tools and commands with the Pi a
 
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 
 export default function myExtension(pi: ExtensionAPI) {
   pi.registerTool({
@@ -251,11 +411,7 @@ Here's how to add a custom source type, end to end:
 
 #### 1. Prepare Your Content
 
-You have two options:
-
-**Option A — Use the UI**: In the **Add Source → Custom** tab, provide a **Content Path** (absolute or relative to `DATA_PATH`). The server copies the file to the right location automatically.
-
-**Option B — Manual placement**: Place your content as a markdown file at:
+Place your content as a markdown file at:
 
 ```
 <DATA_PATH>/sources/<source-id>/markdown/content.md
@@ -263,9 +419,13 @@ You have two options:
 
 You can convert from any format — PDF, HTML, Notion export, Obsidian vault, etc. — using tools like Pandoc, Calibre, or any other converter. Pi-tree reads markdown.
 
-:::tip
-If you upload a `.md` file through the UI (Add Source → Book tab), this is done automatically. The manual path and content path field are for content you've already prepared.
-:::
+Alternatively, you can create the source via the API with a `contentPath` and the server copies the file for you:
+
+```bash
+curl -X POST http://localhost:3847/api/library/sources/create \
+  -H "Content-Type: application/json" \
+  -d '{"id": "my-tutorial", "title": "React Tutorial", "type": "tutorial", "contentPath": "/path/to/tutorial.md"}'
+```
 
 #### 2. Create a Skill (Optional)
 
@@ -308,18 +468,20 @@ The `source_type: tutorial` field makes this profile appear as a session mode on
 
 #### 4. Register the Source
 
-In the UI, click **Add Source → Custom** tab:
+Create the source via the API:
 
-- **Title**: "React Tutorial"
-- **Source Type**: `tutorial`
-- **Content Path**: `/path/to/tutorial.md` (optional — server copies it to `sources/<id>/markdown/`)
-- **Author**: optional
+```bash
+curl -X POST http://localhost:3847/api/library/sources/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "react-tutorial",
+    "title": "React Tutorial",
+    "type": "tutorial",
+    "author": "optional"
+  }'
+```
 
-This creates a source record. The app will:
-- Copy your content file to `$DATA_PATH/sources/<id>/markdown/content.md` (if provided)
-- Look up the profile for `tutorial.reading`
-- Load your custom skill
-- Start a session with your custom flow
+If you already placed the content at `<DATA_PATH>/sources/react-tutorial/markdown/content.md` (step 1), you're set. The app will look up the `tutorial.reading` profile, load your custom skill, and start a session with your custom flow.
 
 ### Example: Codebase Explorer
 
@@ -410,18 +572,12 @@ The AI agent can then use these tools during any session. If an MCP server disco
 
 If no `mcp.json` exists or is empty, the MCP bridge silently does nothing — no configuration is needed if you don't want external tools.
 
-### Docker
-
-Mount the config file and ensure the MCP server commands are available:
+For Docker, mount the config file:
 
 ```yaml
 volumes:
   - ./mcp.json:/data/mcp.json:ro
 ```
-
-For MCP servers that use `npx`, Node.js must be available in the container (it is by default).
-
-See the [Docker guide](/docs/docker) for more container configuration examples.
 
 ## News Feeds
 
@@ -457,14 +613,12 @@ Feeds are crawled automatically every 30 minutes by default. Set `RSS_CRAWL_INTE
 
 ### Data Storage
 
-News data lives under `<DATA_PATH>/news/`:
+News data lives under `<DATA_PATH>/sources/news/`:
 
 - `analyses/` — AI-generated news analyses (Markdown files)
 - `summaries/` — AI-generated news summaries (Markdown files)
 
 Feed metadata and cached articles are stored in the news plugin's own SQLite database at `<DATA_PATH>/plugins/news/news.db`, separate from the main `pi-tree.db`.
-
-For Docker-specific setup (Compose files, volumes, local LLM), see the [Docker guide](/docs/docker).
 
 ## Runtime Configuration
 

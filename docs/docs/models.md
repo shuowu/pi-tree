@@ -71,7 +71,7 @@ When running pi-tree in Docker, two extra steps are needed:
 
 2. **Use `host.docker.internal`** — Replace `localhost` with `host.docker.internal` in your base URL. On Linux, add `extra_hosts: ["host.docker.internal:host-gateway"]` to your Compose file.
 
-See [Docker Deployment — Local LLM](/docs/docker#using-a-local-llm) for a complete walkthrough.
+See [Self-Hosting — Local LLM](/docs/self-hosting#docker-local-llm) for a complete walkthrough.
 :::
 
 ### Compatibility flags
@@ -152,4 +152,4 @@ You can change models at runtime through the **Settings UI** — no restart need
 ## What's Next?
 
 - **[Getting Started](/docs/getting-started)** — Set up pi-tree for the first time
-- **[Docker Deployment](/docs/docker)** — Deploy with Docker Compose, custom skills, and more
+- **[Self-Hosting](/docs/self-hosting)** — Docker Compose, custom skills, env vars, and more

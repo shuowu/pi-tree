@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 
 export default withMermaid(defineConfig({
   title: 'Pi-tree',
@@ -42,7 +43,6 @@ export default withMermaid(defineConfig({
           text: 'Setup',
           items: [
             { text: 'Quick Start', link: '/docs/getting-started' },
-            { text: 'Docker', link: '/docs/docker' },
             { text: 'Models & Providers', link: '/docs/models' },
             { text: 'Self-Hosting', link: '/docs/self-hosting' },
           ],
@@ -87,6 +87,9 @@ export default withMermaid(defineConfig({
     theme: {
       light: 'github-light',
       dark: 'github-dark',
+    },
+    config(md) {
+      md.use(tabsMarkdownPlugin)
     },
   },
 
