@@ -25,7 +25,7 @@ If applicable, add screenshots or paste browser/server console logs to help expl
 ## Environment Details
 - **OS**: [e.g. macOS, Windows, Linux]
 - **Node.js Version**: [e.g. v22.0.0]
-- **Deployment Method**: [e.g. dev server (`npm run dev`), Docker, local build]
+- **Deployment Method**: [e.g. dev server (`npm run dev`), Docker, local build, Desktop App (Electron) ⚠️ experimental]
 - **Browser (if applicable)**: [e.g. Chrome, Firefox, Safari]
 
 ## Additional Context

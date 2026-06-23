@@ -60,9 +60,11 @@ Most AI tools help you skip past material. That works when you already understan
 |---|---|---|---|---|
 | **Focus** | Comprehension & exploration | General-purpose Q&A | Document Q&A | Note-taking |
 | **Conversations** | 🌳 Tree — branch, explore, return | Linear chat | Linear chat | Linear chat |
-| **Persistence** | Long-term reading companion | Session-oriented | Project-scoped | Manual |
+| **AI approach** | Agentic — tools & skills over local data | Prompt + context window | RAG over uploads | Plugins over local vault |
+| **Sources** | Books, papers, news feeds, YouTube | File uploads, web | Multi-doc notebooks | Markdown vault |
+| **Extensibility** | Skills, plugins, MCP bridge | GPTs (cloud-hosted) | None | Community plugins |
 | **Model choice** | BYOK — any provider or local | Vendor-locked | Google only | Plugin-dependent |
-| **Data** | Local-first, your machine | Cloud | Cloud | Local |
+| **Data** | Local-first, self-hosted | Cloud | Cloud | Local |
 
 </div>
 

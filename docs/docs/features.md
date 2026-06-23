@@ -4,7 +4,7 @@ outline: deep
 
 # Features in Action
 
-A visual tour of pi-tree's capabilities across different source types.
+Pi-tree is built for comprehension, not productivity. Instead of a generic chatbot with documents bolted on, each source type gets purpose-built AI tools and skills — an agentic approach where the AI actively reads and explores with you. Here's what that looks like in practice.
 
 ## Library
 

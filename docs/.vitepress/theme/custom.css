@@ -217,3 +217,34 @@
   line-height: 1.6;
 }
 
+/* ── Security section (landing page) ── */
+.security-section {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+
+.security-section h2 {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  margin-bottom: 16px;
+}
+
+.security-section p {
+  color: var(--vp-c-text-2);
+  line-height: 1.7;
+}
+
+.security-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.security-section li {
+  padding: 8px 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+

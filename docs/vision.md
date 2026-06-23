@@ -43,7 +43,7 @@ Right now, the dominant pattern is general-purpose: one model, one interface, in
 
 I think the future looks different. Not one model that does everything, but **specific tools doing specific things exceptionally well**, wrapped in purpose-built UX that respects the activity. A reading tool that understands how people actually read. A research tool that understands how people actually explore. A learning tool that helps you build genuine comprehension, not just collect AI-generated summaries.
 
-Pi-tree is a bet on that direction. It's not a general chatbot with content bolted on. It's a **reading companion** — and every design decision, from the tree structure to the branching conversations to the zoom controls, serves that single purpose: helping you understand what you're taking in.
+Pi-tree is a bet on that direction. It's not a general chatbot with content bolted on. It's a **reading companion** — and every design decision, from the tree structure to the branching conversations to the zoom controls, serves that single purpose: helping you understand what you're taking in. Architecturally, this means an **agentic approach** — purpose-built tools and skills per source type — rather than a RAG pipeline that chunks and retrieves.
 
 ## Local-First, by Design
 

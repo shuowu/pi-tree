@@ -7,6 +7,10 @@ description: How pi-tree is structured — plugin-based architecture, package re
 
 Pi-tree is a web app built around the [Pi SDK](https://github.com/AiExperts/pi-coding-agent). AI orchestration logic lives in `@pi-tree/core` (a pure library); the server discovers and loads **plugins** that provide source-type-specific capabilities.
 
+### Agentic, Not RAG
+
+Pi-tree uses an **agentic architecture** — the AI has purpose-built tools and skills for each source type, rather than a RAG pipeline that chunks and retrieves text. When you read a book, the AI calls `process_book` to parse and navigate the full text. When you follow news, it calls `get_latest_rss` to pull live feeds. When you explore research, it calls `search_papers` and `read_paper` to find and work through papers directly. The AI actively reads and explores *with* you, using real tools — not answering questions from retrieved chunks.
+
 ## How It Works
 
 ```mermaid

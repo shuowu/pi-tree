@@ -26,10 +26,12 @@ Most AI tools help you skip past material — paste the text, get the summary, m
 | | Pi-tree | ChatGPT / Claude | NotebookLM | Obsidian + AI |
 |---|---|---|---|---|
 | **Focus** | Comprehension & exploration | General-purpose Q&A | Document Q&A | Note-taking |
-| **Conversation shape** | 🌳 Tree — branch, explore, return | Linear chat | Linear chat | Linear chat |
-| **Persistence** | Long-term reading companion | Session-oriented | Project-scoped | Manual |
+| **Conversations** | 🌳 Tree — branch, explore, return | Linear chat | Linear chat | Linear chat |
+| **AI approach** | Agentic — tools & skills over local data | Prompt + context window | RAG over uploads | Plugins over local vault |
+| **Sources** | Books, papers, news feeds, YouTube | File uploads, web | Multi-doc notebooks | Markdown vault |
+| **Extensibility** | Skills, plugins, MCP bridge | GPTs (cloud-hosted) | None | Community plugins |
 | **Model choice** | BYOK — any provider or local | Vendor-locked | Google only | Plugin-dependent |
-| **Data ownership** | Local-first, your files | Cloud | Cloud | Local |
+| **Data** | Local-first, self-hosted | Cloud | Cloud | Local |
 
 ### What a session looks like
 
@@ -87,13 +89,7 @@ Pi-tree supports four source types, each handled by a dedicated [plugin](#plugin
 
 ## Getting Started
 
-### Desktop App (easiest)
-
-Download from the [**Releases page**](https://github.com/shuowu/pi-tree/releases/latest) — available for macOS, Linux, and Windows. No Node.js, no Docker, no terminal needed.
-
-Open the app, enter an API key (or point to a local Ollama server), and start reading.
-
-### Docker
+### Docker (recommended)
 
 ```bash
 cp .env.example .env   # edit with your API key
@@ -119,6 +115,12 @@ npm run dev
 ```
 
 Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
+
+### Desktop App ⚠️ Experimental
+
+Download from the [**Releases page**](https://github.com/shuowu/pi-tree/releases/latest) — available for macOS, Linux, and Windows. No Node.js, no Docker, no terminal needed.
+
+Open the app, enter an API key (or point to a local Ollama server), and start reading.
 
 ## Models
 

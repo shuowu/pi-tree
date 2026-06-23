@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Set up pi-tree in minutes — Docker, desktop app, or from source.
+description: Set up pi-tree in minutes — Docker (recommended) or from source.
 ---
 
 # Getting Started

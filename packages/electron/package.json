@@ -1,7 +1,7 @@
 {
   "name": "@pi-tree/electron",
   "version": "0.1.0",
-  "description": "Pi Tree desktop app — AI-assisted reading and research",
+  "description": "Pi-tree desktop app (experimental) — AI that reads with you",
   "author": {
     "name": "Pi Tree Contributors",
     "email": "pi-tree@users.noreply.github.com"

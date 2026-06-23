@@ -15,11 +15,18 @@ Please delete options that are not relevant.
 
 ## Packages Affected
 Which packages are modified by this PR?
-- [ ] `@pi-tree/client` (Frontend React app)
-- [ ] `@pi-tree/server` (Backend Hono app)
-- [ ] `@pi-tree/extension` (Reading skills and ebook parsers)
+- [ ] `@pi-tree/core` (Pure library: PiSession, TreeManager, types)
 - [ ] `@pi-tree/shared` (Shared TypeScript types)
-- [ ] `@pi-tree/mcp` (MCP package)
+- [ ] `@pi-tree/plugin-sdk` (Plugin authoring SDK)
+- [ ] `@pi-tree/ui` (Reusable React component library)
+- [ ] `@pi-tree/server` (Backend Hono app)
+- [ ] `@pi-tree/client` (Frontend React app)
+- [ ] `@pi-tree/electron` (Desktop app — experimental)
+- [ ] `pi-tree-book` (plugin-book: skills, tools, parsers)
+- [ ] `pi-tree-news` (plugin-news: RSS tools, routes, crawling)
+- [ ] `pi-tree-paper` (plugin-paper: search, read papers)
+- [ ] `pi-tree-youtube` (plugin-youtube: transcripts, video player)
+- [ ] `pi-tree-mcp` (plugin-mcp: MCP client bridge)
 - [ ] Infrastructure / Config (Docker, CI/CD, scripts, etc.)
 
 ## Checklist
