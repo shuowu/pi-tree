@@ -172,6 +172,29 @@ export interface ExtensionConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Agent task service — headless Pi session runner
+// ---------------------------------------------------------------------------
+
+/**
+ * Service for running headless agent tasks.
+ * Creates a temporary Pi session, sends a message, waits for completion.
+ * Used by plugins to run agentic work (e.g. generating outlines) without
+ * importing @pi-tree/core directly.
+ */
+export interface AgentTaskService {
+  run(opts: {
+    /** Source ID to run the task for */
+    sourceId: string;
+    /** Profile mode (e.g. "analysis", "reading") */
+    mode: string;
+    /** The prompt message to send to the agent */
+    message: string;
+    /** User ID — defaults to "system" */
+    userId?: string;
+  }): Promise<{ response: string }>;
+}
+
+// ---------------------------------------------------------------------------
 // Plugin routes — types for plugin-registered HTTP routes
 // ---------------------------------------------------------------------------
 
@@ -195,6 +218,13 @@ export interface PluginRouteContext {
   registry: RegistryService;
   /** Extension configuration (API keys, feature flags) */
   config: ExtensionConfig;
+  /** Job queue for registering source processors and enqueuing work */
+  jobQueue: {
+    registerProcessor(sourceType: string, processor: (sourceId: string, onProgress?: (step: string, progress: number) => void) => Promise<void>): void;
+    enqueue(sourceId: string): unknown;
+  };
+  /** Service for running headless agent tasks (e.g. generating outlines) */
+  agentTask: AgentTaskService;
 }
 
 /**

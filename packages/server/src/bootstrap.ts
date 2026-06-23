@@ -9,6 +9,9 @@ import { getDb, sources, userSessions, users } from "./db/index.js";
 import { SourceServiceImpl } from "./services/source-service.js";
 import { SessionServiceImpl } from "./services/session-service.js";
 import { UserServiceImpl } from "./services/user-service.js";
+import { getJobQueue } from "./services/job-queue.js";
+import { jobRoutes } from "./routes/jobs.js";
+import { AgentTaskServiceImpl } from "./services/agent-task.js";
 
 /**
  * Resolve core plugin directories by finding their installed package locations.
@@ -72,6 +75,13 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
   const sourceService = new SourceServiceImpl(getDb, sources);
   const sessionService = new SessionServiceImpl(getDb, userSessions, users);
   const userService = new UserServiceImpl(getDb, users);
+
+  // Initialize job queue
+  const jobQueue = getJobQueue();
+  jobQueue.setSourceService(sourceService);
+
+  // Agent task service — runs headless Pi sessions for plugins
+  const agentTask = new AgentTaskServiceImpl();
 
   // Populate extension services — extensions access server capabilities through
   // this locator instead of importing server internals directly.
@@ -174,6 +184,8 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
               getAgentRegistry().resolveProfile(sourceType, mode, sessionContext),
           },
           config: { jinaApiKey: process.env.JINA_API_KEY },
+          jobQueue,
+          agentTask,
         });
         const routes = result.routes ?? result;
         app.route(route.prefix, routes);
@@ -184,6 +196,9 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
       console.error(`[bootstrap] Failed to mount plugin routes for ${route.name}:`, err);
     }
   }
+
+  // Mount job queue API routes
+  app.route("/api/jobs", jobRoutes);
 
   // Mount SPA fallback AFTER all plugin routes — Hono matches in registration
   // order, so the wildcard must come last to avoid swallowing /api/news/* etc.

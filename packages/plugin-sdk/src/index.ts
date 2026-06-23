@@ -23,6 +23,7 @@ export type {
   ProfileInfo,
   RegistryService,
   ExtensionConfig,
+  AgentTaskService,
   PluginRouteContext,
   PluginSetupResult,
   PluginManifest,

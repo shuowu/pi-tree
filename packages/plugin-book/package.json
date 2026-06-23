@@ -72,7 +72,9 @@
     },
     "ui": {
       "contentPanel": "./ui/ContentPanel.tsx"
-    }
+    },
+    "routes": "./routes.ts",
+    "routePrefix": "/api/book"
   },
   "pi": {
     "extensions": [

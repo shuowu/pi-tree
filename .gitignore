@@ -12,6 +12,9 @@ pending-*
 *.local.yml
 router-*
 
+# Local dev/test data (in-repo, per-developer)
+.local-data/
+
 # Default Docker data directory
 /data
 

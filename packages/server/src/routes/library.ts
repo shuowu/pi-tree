@@ -4,6 +4,7 @@ import { readFile, stat, mkdir, copyFile, writeFile } from "node:fs/promises";
 import { extname, resolve, isAbsolute, join } from "node:path";
 import { getDb, sources as sourcesTable } from "../db/index.js";
 import { eq } from "drizzle-orm";
+import { getJobQueue } from "../services/job-queue.js";
 
 export const libraryRoutes = new Hono();
 
@@ -290,10 +291,9 @@ libraryRoutes.post("/sources", async (c) => {
       sourceId = `${baseId}-${suffix}`;
     }
 
-    // Create directory structure
+    // Create source directory (markdown/ will be created by process_book)
     const sourceDir = join(dataPath, "sources", sourceId);
-    const markdownDir = join(sourceDir, "markdown");
-    await mkdir(markdownDir, { recursive: true });
+    await mkdir(sourceDir, { recursive: true });
 
     // Save original file
     const originalPath = join(sourceDir, `original${ext}`);
@@ -303,6 +303,8 @@ libraryRoutes.post("/sources", async (c) => {
 
     // For markdown files, skip conversion — save directly and mark ready
     if (ext === ".md") {
+      const markdownDir = join(sourceDir, "markdown");
+      await mkdir(markdownDir, { recursive: true });
       await writeFile(join(markdownDir, "content.md"), buffer);
 
       db.insert(sourcesTable)
@@ -352,6 +354,12 @@ libraryRoutes.post("/sources", async (c) => {
         updatedAt: now,
       })
       .run();
+
+    // Auto-enqueue processing for source types with a registered processor
+    const jobQueue = getJobQueue();
+    if (jobQueue.hasProcessor(sourceType)) {
+      jobQueue.enqueue(sourceId);
+    }
 
     return c.json(
       {

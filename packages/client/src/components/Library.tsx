@@ -147,13 +147,12 @@ export function Library() {
 
   const getStepLabel = (step?: string) => {
     switch (step) {
-      case "queued": return "Queued in line";
-      case "parsing_file": return "Parsing source files";
-      case "writing_markdown": return "Saving formatted content";
-      case "generating_outline": return "AI Analysis: Creating outline & TOC";
-      case "generating_summary": return "AI Analysis: Writing summaries";
-      case "finished": return "Finalizing source contents";
-      default: return "Processing source";
+      case "queued": return "Queued";
+      case "converting": return "Converting to markdown";
+      case "analyzing": return "AI analyzing: outline & summary";
+      case "processing": return "Processing…";
+      case "done": return "Complete";
+      default: return step ? `Processing: ${step}` : "Processing…";
     }
   };
 

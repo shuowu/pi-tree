@@ -50,12 +50,17 @@ export function SourceCard({ source, onClick, onTagClick, renderCover }: SourceC
           {source.status === "failed" && (
             <span className="badge badge-red">Failed</span>
           )}
-          {(source.status === "pending" || source.status === "processing") && (
+          {source.status === "processing" && (
             <span
               className="badge badge-blue animate-pulse"
               style={{ animation: "pulse 1.5s ease-in-out infinite" }}
             >
-              {source.status === "processing" ? "Processing..." : "Queued"}
+              Processing…
+            </span>
+          )}
+          {source.status === "pending" && (
+            <span className="badge badge-blue">
+              New
             </span>
           )}
         </div>

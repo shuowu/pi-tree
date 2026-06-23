@@ -245,13 +245,12 @@ export async function deleteSource(sourceId: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }
 
-/**
- * @deprecated Processing is now handled by the AI's process_book tool.
- * Kept as a no-op for backward compatibility with UI components.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function processSource(_sourceId: string): Promise<void> {
-  // No-op: processing is now handled by the AI's process_book tool
+export async function processSource(sourceId: string): Promise<void> {
+  const res = await fetch(`${API}/jobs/${sourceId}/process`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Processing failed' }));
+    throw new Error(err.error || `Processing failed: ${res.status}`);
+  }
 }
 
 export interface Job {
@@ -268,19 +267,25 @@ export interface JobWithSource extends Job {
   sourceAuthor: string;
 }
 
-/**
- * @deprecated Job queue removed. Returns null.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function fetchJobStatus(_sourceId: string): Promise<Job | null> {
-  return null;
+export async function fetchJobStatus(sourceId: string): Promise<Job | null> {
+  try {
+    const res = await fetch(`${API}/jobs/${sourceId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
-/**
- * @deprecated Job queue removed. Returns empty array.
- */
 export async function fetchJobs(): Promise<JobWithSource[]> {
-  return [];
+  try {
+    const res = await fetch(`${API}/jobs`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.jobs ?? [];
+  } catch {
+    return [];
+  }
 }
 /**
  * Fetch sessions — unified endpoint.
