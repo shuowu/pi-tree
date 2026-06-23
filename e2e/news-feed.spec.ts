@@ -4,7 +4,7 @@
  * Session creation is handled via API (domain-agnostic, already tested).
  * These tests focus on what's unique to the news domain:
  *   - News-specific chat placeholder
- *   - News dashboard panel (tabs, feeds list)
+ *   - News feed panel (feeds grouped by tag)
  *   - News feed CRUD API
  *   - Reports API
  *
@@ -75,9 +75,9 @@ test.describe("News domain", () => {
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
   });
 
-  // ── News dashboard panel ───────────────────────────────────────────────────
+  // ── News feed panel ─────────────────────────────────────────────────────────
 
-  test("right panel opens with news dashboard tabs", async ({ page }) => {
+  test("right panel opens with news feed panel", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E News Reader");
     await page.goto(`/source/${NEWS_SOURCE_ID}?session=${sessionId}`);
 
@@ -93,38 +93,38 @@ test.describe("News domain", () => {
     // Switch to the "News Feed" tab (shows NewsDashboardPanel for news sources)
     await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
 
-    // News dashboard has domain-specific tabs
-    await expect(rightPanel.locator("text=Feed Stories")).toBeVisible({ timeout: 3_000 });
-    await expect(rightPanel.locator("text=Saved Reports")).toBeVisible({ timeout: 3_000 });
-    await expect(rightPanel.locator("text=Feeds Manager")).toBeVisible({ timeout: 3_000 });
+    // News dashboard shows feeds grouped by tag
+    const feedsPanel = rightPanel.locator(".news-feeds-panel");
+    await expect(feedsPanel).toBeVisible({ timeout: 3_000 });
+
+    // Should show feed count status
+    await expect(rightPanel.locator(".nfp-status-count")).toBeVisible({ timeout: 3_000 });
   });
 
-  test("feeds manager tab lists default RSS feeds", async ({ page }) => {
+  test("news feed panel lists default RSS feeds", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E News Reader");
     await page.goto(`/source/${NEWS_SOURCE_ID}?session=${sessionId}`);
 
     await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
-    // Open right panel → switch to News Feed tab → Feeds Manager sub-tab
+    // Open right panel → switch to News Feed tab
     await page.locator('[data-testid="panel-toggle-right-panel"]').click();
     const rightPanel = page.locator(".right-sidebar:not(.hidden)");
     await expect(rightPanel).toBeVisible({ timeout: 5_000 });
 
-    // Switch to News Feed tab first
+    // Switch to News Feed tab
     await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
 
-    await rightPanel.locator("button", { hasText: "Feeds Manager" }).click();
-
     // Should show default feed entries from default-feeds.yml
-    const feedItems = rightPanel.locator(".feed-item");
+    const feedItems = rightPanel.locator(".nfp-feed");
     await expect(feedItems.first()).toBeVisible({ timeout: 5_000 });
 
     const count = await feedItems.count();
     expect(count).toBeGreaterThan(0);
 
-    // Each feed should have a name and URL
-    const firstName = await feedItems.first().locator(".feed-name").textContent();
+    // Each feed should have a name
+    const firstName = await feedItems.first().locator(".nfp-feed-name").textContent();
     expect(firstName).toBeTruthy();
   });
 
@@ -184,100 +184,4 @@ test.describe("News domain", () => {
     expect(Array.isArray(body.analyses)).toBe(true);
     expect(Array.isArray(body.summaries)).toBe(true);
   });
-
-  // ── Feed management UI ─────────────────────────────────────────────────────
-
-  test("add a feed via the UI form → appears in list", async ({ page }) => {
-    await loginAs(page, TEST_USER, "E2E News Reader");
-    await page.goto(`/source/${NEWS_SOURCE_ID}?session=${sessionId}`);
-
-    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
-
-    // Open right panel → News Feed tab → Feeds Manager
-    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
-    const rightPanel = page.locator(".right-sidebar:not(.hidden)");
-    await expect(rightPanel).toBeVisible({ timeout: 5_000 });
-    await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
-    await rightPanel.locator("button", { hasText: "Feeds Manager" }).click();
-
-    // Count existing feeds
-    const feedItems = rightPanel.locator(".feed-item");
-    await expect(feedItems.first()).toBeVisible({ timeout: 5_000 });
-    const initialCount = await feedItems.count();
-
-    // Fill in the add-feed form
-    const form = rightPanel.locator(".add-feed-form");
-    await form.locator('input[placeholder*="Feed Name"]').fill(`UI Test Feed ${RUN_ID}`);
-    await form.locator('input[placeholder*="Feed URL"]').fill("https://example.com/test-rss");
-    await form.locator('input[placeholder*="Tags"]').fill("e2e, testing");
-
-    // Submit
-    await form.locator(".btn-add").click();
-
-    // New feed should appear in the list
-    const newFeedItem = rightPanel.locator(".feed-item", { hasText: `UI Test Feed ${RUN_ID}` });
-    await expect(newFeedItem).toBeVisible({ timeout: 5_000 });
-
-    // Feed count should have increased
-    const newCount = await feedItems.count();
-    expect(newCount).toBe(initialCount + 1);
-
-    // New feed should show URL and tags
-    await expect(newFeedItem.locator(".feed-url")).toContainText("example.com");
-    await expect(newFeedItem.locator(".feed-tag").first()).toContainText("#e2e");
-  });
-
-  test("delete a feed via UI → disappears from list", async ({ page }) => {
-    await loginAs(page, TEST_USER, "E2E News Reader");
-    await page.goto(`/source/${NEWS_SOURCE_ID}?session=${sessionId}`);
-
-    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
-
-    // Open right panel → News Feed tab → Feeds Manager
-    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
-    const rightPanel = page.locator(".right-sidebar:not(.hidden)");
-    await expect(rightPanel).toBeVisible({ timeout: 5_000 });
-    await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
-    await rightPanel.locator("button", { hasText: "Feeds Manager" }).click();
-
-    // Find the feed we added in the previous test
-    const feedToDelete = rightPanel.locator(".feed-item", { hasText: `UI Test Feed ${RUN_ID}` });
-    await expect(feedToDelete).toBeVisible({ timeout: 5_000 });
-
-    const countBefore = await rightPanel.locator(".feed-item").count();
-
-    // Accept the confirm() dialog, then click delete
-    page.on("dialog", (dialog) => dialog.accept());
-    await feedToDelete.locator(".btn-delete").click();
-
-    // Feed should disappear
-    await expect(feedToDelete).not.toBeVisible({ timeout: 5_000 });
-    const countAfter = await rightPanel.locator(".feed-item").count();
-    expect(countAfter).toBe(countBefore - 1);
-  });
-
-  // ── Feed Stories tab ───────────────────────────────────────────────────────
-
-  test("feed stories tab shows empty state with sync button", async ({ page }) => {
-    await loginAs(page, TEST_USER, "E2E News Reader");
-    await page.goto(`/source/${NEWS_SOURCE_ID}?session=${sessionId}`);
-
-    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
-
-    // Open right panel → News Feed tab (default sub-tab is "Feed Stories")
-    await page.locator('[data-testid="panel-toggle-right-panel"]').click();
-    const rightPanel = page.locator(".right-sidebar:not(.hidden)");
-    await expect(rightPanel).toBeVisible({ timeout: 5_000 });
-    await rightPanel.locator(".right-sidebar-tab", { hasText: "News Feed" }).click();
-
-    // "Feed Stories" tab should already be active (default)
-    // Since no crawl has been done, should show empty state with sync button
-    const syncBtn = rightPanel.locator(".btn-refresh");
-    await expect(syncBtn).toBeVisible({ timeout: 5_000 });
-    await expect(syncBtn).toContainText("Sync Feeds");
-  });
 });
-

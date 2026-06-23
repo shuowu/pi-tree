@@ -37,7 +37,15 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests (Dev Services)
-        run: npm run e2e -- --project=chromium
+        run: npm run e2e -- --project=chromium --reporter=html
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
 
   docker:
     runs-on: ubuntu-latest

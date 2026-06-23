@@ -78,7 +78,7 @@ test.describe("Add Source", () => {
     await expect(page.locator(".add-source-modal")).not.toBeVisible({ timeout: 5000 });
 
     // Paper should appear in the library grid after reload
-    await expect(page.locator(".book-card", { hasText: "Attention Is All You Need" }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".source-card", { hasText: "Attention Is All You Need" }).first()).toBeVisible({ timeout: 5000 });
   });
 
   // ── API-level: POST /library/sources/create ─────────────────────────────
