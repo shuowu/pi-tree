@@ -37,7 +37,7 @@ Pi-Tree is an AI-assisted reading and research app built around tree-structured 
    direnv allow
    ```
 
-3. **Create a `.env` file** with your API keys (see `.env.example` if available). At minimum you'll need a model provider key (e.g. `PI_API_KEY`).
+3. **Create a `.env` file** with your API keys (see `.env.example`). At minimum you'll need a model provider key (e.g. `PI_API_KEY`).
 
 4. **Install dependencies**:
 
