@@ -31,8 +31,8 @@ A richer outline with chapter summaries, thematic map, and reading recommendatio
 3. Answer with chapter/section citations
 
 ### "Continue reading" / "Resume"
-1. Check `<sourceId>/notes/bookmark.md` for saved position
-2. `read` from the bookmarked offset
+1. Review the conversation history to find the last chapter/section read
+2. `read` from that offset to continue
 3. Briefly recap where they left off, then continue
 
 ## Chapter Briefings
@@ -49,23 +49,7 @@ Scale briefing length to chapter size. Short chapters get brief briefings.
 
 After the briefing, offer choices: read together, zoom into a concept, skim, or ask questions.
 
-## Bookmarks
 
-Save reading progress at `<sourceId>/notes/bookmark.md`:
-
-```markdown
-# Bookmark: <Book Title>
-
-- **File**: <sourceId>/markdown/<filename>.md
-- **Last Section**: <section name>
-- **Offset**: <line number>
-- **Updated**: <timestamp>
-
-## Reading Log
-- <date> — Read <chapters> (lines <range>)
-```
-
-Update after each chapter read. On "bookmark this" / "save my place", update immediately.
 
 ## Notes & Analysis
 

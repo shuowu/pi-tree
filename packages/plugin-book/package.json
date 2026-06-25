@@ -32,7 +32,6 @@
         "## Resources",
         "- Outline with chapter summaries: `{sourceId}/analysis/outline.md`",
         "- Book content: `{sourceId}/markdown/`",
-        "- Bookmarks: `{sourceId}/notes/bookmark.md`",
         "",
         "IMPORTANT: When responding to the user, present information conversationally.",
         "Never dump raw JSON, line numbers, source IDs, or internal data.",

@@ -221,5 +221,4 @@ Ask the user which level they want, or default to **Standard**.
 - For narrative books (novels, memoirs), focus on plot arc and character development instead of arguments
 - For textbooks/reference books, focus on topic hierarchy and dependencies
 - Build on existing outlines rather than overwriting — read first, then update
-- If a `bookmark.md` exists, reference it to show reading progress
 - **Line numbers shift after re-conversion** — always re-run `grep -n '^#'` when updating an outline after re-converting a book
