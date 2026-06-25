@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import type { ChatMessage, BranchOption } from "@pi-tree/core/types";
 
 // Mock mermaid before any component imports

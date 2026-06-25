@@ -1,0 +1,5 @@
+name: concept-extraction
+label: Concept Extraction
+skills: [concept-extraction]
+extensions: ["*"]
+exclude_tools: []

@@ -1,0 +1,205 @@
+/* ---- Backdrop & Modal Shell ---- */
+
+.kg-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(60, 40, 20, 0.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: kg-fade-in 0.18s ease;
+  backdrop-filter: blur(4px);
+}
+
+@keyframes kg-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.kg-modal {
+  width: 90vw;
+  height: 85vh;
+  background: var(--bg-primary);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(60, 40, 20, 0.25), 0 0 0 1px var(--border);
+  position: relative;
+}
+
+/* ---- Header ---- */
+
+.kg-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+  background: var(--bg-surface);
+}
+
+.kg-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.kg-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+
+.kg-close {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.kg-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ---- SVG Canvas ---- */
+
+.kg-canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 30% 40%, var(--accent-dim), transparent 50%),
+    var(--bg-primary);
+}
+
+.kg-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+.kg-svg:active {
+  cursor: grabbing;
+}
+
+.kg-svg .kg-node {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.kg-svg .kg-edge {
+  transition: opacity 0.2s ease;
+}
+
+.kg-svg .kg-label {
+  pointer-events: none;
+  user-select: none;
+  fill: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.kg-svg .kg-dim {
+  opacity: 0.12;
+}
+
+/* ---- Tooltip ---- */
+
+.kg-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-width: 280px;
+  z-index: 10;
+  animation: kg-fade-in 0.12s ease;
+  box-shadow: var(--shadow-md);
+}
+
+.kg-tooltip-term {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.kg-tooltip-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.kg-tooltip-chapter {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* ---- Legend ---- */
+
+.kg-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  box-shadow: var(--shadow-sm);
+}
+
+.kg-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.kg-legend-line {
+  width: 24px;
+  height: 2px;
+  flex-shrink: 0;
+}
+
+.kg-legend-line--solid {
+  background: var(--text-tertiary);
+}
+
+.kg-legend-line--dashed {
+  background: repeating-linear-gradient(
+    to right,
+    var(--text-tertiary) 0 5px,
+    transparent 5px 9px
+  );
+}
+
+.kg-legend-line--dotted {
+  background: repeating-linear-gradient(
+    to right,
+    var(--text-tertiary) 0 2px,
+    transparent 2px 6px
+  );
+}
