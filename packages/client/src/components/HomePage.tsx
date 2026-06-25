@@ -128,7 +128,8 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
               const Icon = config.icon;
               return <Icon size={16} />;
             }}
-            renderSubtitle={(rs) => rs.sourceTitle}
+            renderTitle={(rs) => rs.sourceType === 'book' ? (rs.sourceTitle || rs.title) : undefined}
+            renderSubtitle={(rs) => rs.sourceType === 'book' ? rs.title : rs.sourceTitle}
             onSelectSession={(rs) => navigate(`/source/${rs.sourceId}?session=${rs.id}`)}
             className="home-continue-list"
           />

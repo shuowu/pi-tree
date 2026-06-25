@@ -47,6 +47,7 @@ function formatDate(dateStr: string): string {
 interface SessionCardProps {
   session: SourceSession;
   icon: ReactNode;
+  title?: ReactNode;
   subtitle?: ReactNode;
   isDeleting: boolean;
   isEditing: boolean;
@@ -68,6 +69,7 @@ interface SessionCardProps {
 function SessionCard({
   session,
   icon,
+  title,
   subtitle,
   isDeleting,
   isEditing,
@@ -93,7 +95,7 @@ function SessionCard({
       >
         <div className="session-card-icon">{icon}</div>
         <div className="session-card-body">
-          <span className="session-card-title">{session.title}</span>
+          <span className="session-card-title">{title ?? session.title}</span>
           <span className="session-card-meta">
             {subtitle && <>{subtitle} · </>}{relativeTime(session.lastActiveAt)}
           </span>
@@ -146,7 +148,7 @@ function SessionCard({
                 </button>
               </div>
             ) : (
-              <span className="session-card-title">{session.title}</span>
+              <span className="session-card-title">{title ?? session.title}</span>
             )}
             {subtitle && <span className="session-card-subtitle">{subtitle}</span>}
             <span className="session-card-meta">
@@ -191,6 +193,8 @@ interface SessionListProps {
   sessions: SourceSession[];
   /** Render the icon for each session (e.g. mode emoji or Lucide icon) */
   renderIcon: (session: SourceSession) => ReactNode;
+  /** Optional custom title (defaults to session.title) */
+  renderTitle?: (session: SourceSession) => ReactNode;
   /** Optional subtitle below the title (e.g. source name for cross-source lists) */
   renderSubtitle?: (session: SourceSession) => ReactNode;
   onSelectSession: (session: SourceSession) => void;
@@ -205,6 +209,7 @@ interface SessionListProps {
 export function SessionList({
   sessions,
   renderIcon,
+  renderTitle,
   renderSubtitle,
   onSelectSession,
   onDeleteSession,
@@ -262,6 +267,7 @@ export function SessionList({
           key={session.id}
           session={session}
           icon={renderIcon(session)}
+          title={renderTitle?.(session)}
           subtitle={renderSubtitle?.(session)}
           isDeleting={deletingId === session.id}
           isEditing={editingId === session.id}
