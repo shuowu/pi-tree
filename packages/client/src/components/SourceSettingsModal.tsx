@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { X, Trash } from "lucide-react";
+import { X, Trash, RefreshCw, Zap } from "lucide-react";
 import type { Source } from "@pi-tree/shared";
 import { getSourceTypeConfig } from "../source-types";
-import { updateSource, deleteSource } from "../api";
+import { updateSource, deleteSource, processSource } from "../api";
 import "./SourceSettingsModal.css";
 
 interface SourceSettingsModalProps {
@@ -32,6 +32,7 @@ export function SourceSettingsModal({ source, onClose }: SourceSettingsModalProp
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +62,27 @@ export function SourceSettingsModal({ source, onClose }: SourceSettingsModalProp
       setSaveError(errMsg || "Failed to update source");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [processStatus, setProcessStatus] = useState<string | null>(null);
+
+  const handleProcess = async (force: boolean) => {
+    const msg = force
+      ? "Re-process from scratch? This will regenerate the outline, summary, and concepts. Takes 30\u201360 seconds."
+      : "Update analysis? This will generate any missing data (e.g. concept extraction) without redoing existing work.";
+    if (!confirm(msg)) return;
+    setProcessing(true);
+    setProcessStatus(null);
+    try {
+      await processSource(source.id, { force });
+      setProcessStatus("queued");
+      // Auto-close after a short delay so the user sees the feedback
+      setTimeout(() => onClose(), 1500);
+    } catch (err) {
+      setProcessStatus(err instanceof Error ? err.message : "Processing failed");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -147,6 +169,31 @@ export function SourceSettingsModal({ source, onClose }: SourceSettingsModalProp
             </div>
             {saveError && <div className="source-settings-error">{saveError}</div>}
           </form>
+
+          <hr className="source-settings-divider" />
+          <div className="source-settings-section">
+            <div className="source-settings-section-info">
+              <h3>Processing</h3>
+              <p>
+                Update analysis to generate any missing data (e.g. concept extraction), or re-process from scratch to regenerate everything.
+              </p>
+            </div>
+            <div className="source-settings-action-buttons">
+              <button type="button" className="source-settings-action-btn reprocess-btn" disabled={processing || processStatus === "queued"} onClick={() => handleProcess(false)}>
+                <Zap size={14} /> {processing ? "Queuing\u2026" : "Update Analysis"}
+              </button>
+              <button type="button" className="source-settings-action-btn reprocess-btn" disabled={processing || processStatus === "queued"} onClick={() => handleProcess(true)}>
+                <RefreshCw size={14} /> {processing ? "Queuing\u2026" : "Re-process"}
+              </button>
+            </div>
+            {processStatus && (
+              <div className={`source-settings-process-status ${processStatus === "queued" ? "success" : "error"}`}>
+                {processStatus === "queued"
+                  ? "✓ Queued — check Background Tasks in the library for progress."
+                  : processStatus}
+              </div>
+            )}
+          </div>
 
           {source.source !== "system" && (
             <>

@@ -81,6 +81,8 @@ export const profileSchema = z.strictObject({
   })).optional(),
   /** Display order in the UI (lower = first). Defaults to 100. */
   order: z.number().int().default(100),
+  /** If true, this profile is internal and should not appear in the session picker UI. */
+  hidden: z.boolean().default(false),
 });
 
 export type ProfileYaml = z.infer<typeof profileSchema>;
@@ -197,6 +199,7 @@ export class AgentRegistry {
    *   1. `sessionContext.profile` — direct reference to a registered profile (highest priority)
    *   2. Profile for `${sourceType}.${mode}` (composite key)
    *   3. Profile for `${sourceType}` (direct key, e.g. "router")
+   *   4. Profile for `${mode}` alone (source-type-agnostic profiles, e.g. "concept-extraction")
    *
    * No implicit fallback — every source type + mode combination must have an
    * explicit profile YAML. The `_default` profile is only used when explicitly
@@ -219,16 +222,22 @@ export class AgentRegistry {
       profile = this.profiles.get(sessionContext.profile)!;
       resolvedFrom = sessionContext.profile;
     } else {
-      // 2–3. Strict lookup: sourceType.mode → sourceType (no fallback)
+      // 2–4. Strict lookup: sourceType.mode → sourceType → mode (no fallback)
       const profileKey = mode ? `${sourceType}.${mode}` : sourceType;
-      profile = this.profiles.get(profileKey) ?? this.profiles.get(sourceType);
+      profile = this.profiles.get(profileKey)
+        ?? this.profiles.get(sourceType)
+        ?? (mode ? this.profiles.get(mode) : undefined);
       if (!profile) {
         throw new Error(
           `No profile found for '${profileKey}'. ` +
           `Plugin must declare a profile YAML for each source type + mode combination.`,
         );
       }
-      resolvedFrom = this.profiles.has(profileKey) ? profileKey : sourceType;
+      resolvedFrom = this.profiles.has(profileKey)
+        ? profileKey
+        : this.profiles.has(sourceType)
+          ? sourceType
+          : mode!;
     }
 
     // Apply SessionContext overrides
@@ -350,6 +359,7 @@ export class AgentRegistry {
       defaultMode: st.defaultMode ?? "reading",
       autoStartMode: st.autoStartMode,
       hasProcessing: st.hasProcessing ?? false,
+      concepts: st.concepts ?? false,
       searchPlaceholder: st.searchPlaceholder,
       chatPlaceholder: st.chatPlaceholder,
       mentionKeyword: st.mentionKeyword,
@@ -646,6 +656,7 @@ export class AgentRegistry {
             ...(parsed.defaultTitle ? { defaultTitle: parsed.defaultTitle } : {}),
             ...(parsed.quickActions ? { quickActions: parsed.quickActions } : {}),
             order: parsed.order,
+            ...(parsed.hidden ? { hidden: true } : {}),
           };
 
           this.profiles.set(parsed.name, profile);

@@ -245,8 +245,11 @@ export async function deleteSource(sourceId: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }
 
-export async function processSource(sourceId: string): Promise<void> {
-  const res = await fetch(`${API}/jobs/${sourceId}/process`, { method: 'POST' });
+export async function processSource(sourceId: string, options?: { force?: boolean }): Promise<void> {
+  const url = options?.force
+    ? `${API}/jobs/${sourceId}/process?force=true`
+    : `${API}/jobs/${sourceId}/process`;
+  const res = await fetch(url, { method: 'POST' });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Processing failed' }));
     throw new Error(err.error || `Processing failed: ${res.status}`);

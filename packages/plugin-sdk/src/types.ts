@@ -222,8 +222,9 @@ export interface PluginRouteContext {
   config: ExtensionConfig;
   /** Job queue for registering source processors and enqueuing work */
   jobQueue: {
-    registerProcessor(sourceType: string, processor: (sourceId: string, onProgress?: (step: string, progress: number) => void) => Promise<void>): void;
-    enqueue(sourceId: string): unknown;
+    registerProcessor(sourceType: string, processor: (sourceId: string, onProgress?: (step: string, progress: number) => void, options?: { force?: boolean }) => Promise<void>): void;
+    enqueue(sourceId: string, options?: { force?: boolean }): unknown;
+    enableConcepts(sourceType: string): void;
   };
   /** Service for running headless agent tasks (e.g. generating outlines) */
   agentTask: AgentTaskService;

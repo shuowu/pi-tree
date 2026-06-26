@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { marked } from "marked";
 import { FileText, ArrowLeft } from "lucide-react";
+import { ConceptsPanel } from "./ConceptsPanel";
 import "./AnalysisPanel.css";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:3947/api";
+const API = import.meta.env.VITE_API_URL || "/api";
 
 interface AnalysisFile {
   name: string;
@@ -149,8 +150,9 @@ export function AnalysisPanel({ sourceId }: { sourceId: string }) {
   // --- File list view (layer 1) ---
   return (
     <div className="analysis-panel">
+      <ConceptsPanel sourceId={sourceId} />
       <div className="analysis-file-list">
-        {files.map((f) => (
+        {files.filter((f) => f.name !== "concepts.json").map((f) => (
           <button
             key={f.name}
             className="analysis-file-item"

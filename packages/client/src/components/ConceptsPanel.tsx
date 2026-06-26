@@ -3,7 +3,7 @@ import { Lightbulb, ChevronDown, ChevronRight, BookOpen, Network } from "lucide-
 import { KnowledgeGraphModal } from "./KnowledgeGraphModal";
 import "./ConceptsPanel.css";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:3947/api";
+const API = import.meta.env.VITE_API_URL || "/api";
 
 interface Concept {
   term: string;

@@ -62,6 +62,8 @@ export interface SessionProfile {
   }>;
   /** Display order in the UI (lower = first). Defaults to 100. */
   order: number;
+  /** If true, this profile is internal and should not appear in the session picker UI. */
+  hidden?: boolean;
 }
 
 /** The resolved profile with absolute paths ready for PiSession */
@@ -137,6 +139,8 @@ export interface SourceTypeEntry {
   autoStartMode?: string;
   /** Whether this source type supports processing (e.g. EPUB conversion) */
   hasProcessing: boolean;
+  /** Whether this source type supports concept extraction */
+  concepts: boolean;
   /** Search placeholder text for the library */
   searchPlaceholder?: string;
   /** Chat input placeholder text */

@@ -82,6 +82,7 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
 
   // Agent task service — runs headless Pi sessions for plugins
   const agentTask = new AgentTaskServiceImpl();
+  jobQueue.setPostProcessingServices(agentTask, dataPath);
 
   // Populate extension services — extensions access server capabilities through
   // this locator instead of importing server internals directly.
@@ -163,6 +164,13 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
 
   // Mount plugin-registered routes
   const registry = getAgentRegistry();
+
+  // Register source types that have concept extraction enabled
+  for (const st of registry.getSourceTypes()) {
+    if (st.concepts) {
+      jobQueue.enableConcepts(st.key);
+    }
+  }
   const pluginRoutes = registry.getPluginRoutes();
   const pluginCleanups: (() => void)[] = [];
 

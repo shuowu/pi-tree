@@ -18,6 +18,7 @@
       "defaultMode": "reading",
       "autoStartMode": "reading",
       "hasProcessing": false,
+      "concepts": true,
       "searchPlaceholder": "Search papers...",
       "chatPlaceholder": "Search arXiv, paste a paper ID, or ask about research topics…",
       "mentionKeyword": "Paper",

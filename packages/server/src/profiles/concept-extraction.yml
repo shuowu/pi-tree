@@ -3,3 +3,4 @@ label: Concept Extraction
 skills: [concept-extraction]
 extensions: ["*"]
 exclude_tools: []
+hidden: true

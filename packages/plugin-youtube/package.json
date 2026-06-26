@@ -18,6 +18,7 @@
       "defaultMode": "watching",
       "autoStartMode": "watching",
       "hasProcessing": false,
+      "concepts": true,
       "searchPlaceholder": "Search videos...",
       "chatPlaceholder": "Paste a YouTube URL, or discuss a video…",
       "mentionKeyword": "YouTube",

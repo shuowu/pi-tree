@@ -123,6 +123,12 @@
   border: 1px solid var(--border);
 }
 
+.source-settings-action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .reprocess-btn {
   background: var(--bg-secondary);
   color: var(--accent);
@@ -131,6 +137,26 @@
 .reprocess-btn:hover {
   background: var(--accent-dim);
   border-color: var(--accent);
+}
+
+.source-settings-process-status {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.source-settings-process-status.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.source-settings-process-status.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .clear-session-btn {

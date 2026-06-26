@@ -158,6 +158,48 @@ libraryRoutes.get("/sources/:sourceId/analysis/:filename", async (c) => {
     return c.json({ error: "File not found" }, 404);
   }
 });
+
+/** Serve concepts data for a source */
+libraryRoutes.get("/sources/:sourceId/concepts", async (c) => {
+  const sourceId = c.req.param("sourceId");
+  const conceptsPath = join(getLibrary().getSourcesPath(), sourceId, "analysis", "concepts.json");
+
+  try {
+    const raw = await readFile(conceptsPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    const concepts = Array.isArray(parsed) ? parsed : parsed.concepts ?? [];
+    const relations = parsed.relations ?? [];
+
+    // Build cross-source references
+    const allSources = getDb().select().from(sourcesTable).all();
+    const crossRefs: Record<string, { sourceId: string; title: string }[]> = {};
+
+    for (const source of allSources) {
+      if (source.id === sourceId) continue;
+      const otherPath = join(getLibrary().getSourcesPath(), source.id, "analysis", "concepts.json");
+      try {
+        const otherRaw = await readFile(otherPath, "utf-8");
+        const otherParsed = JSON.parse(otherRaw);
+        const otherConcepts = Array.isArray(otherParsed) ? otherParsed : otherParsed.concepts ?? [];
+        const otherTerms = new Set(otherConcepts.map((c: any) => c.term?.toLowerCase()));
+
+        for (const concept of concepts) {
+          if (concept.term && otherTerms.has(concept.term.toLowerCase())) {
+            if (!crossRefs[concept.term]) crossRefs[concept.term] = [];
+            crossRefs[concept.term].push({ sourceId: source.id, title: source.title });
+          }
+        }
+      } catch {
+        // No concepts for this source
+      }
+    }
+
+    return c.json({ concepts, relations, crossRefs });
+  } catch {
+    return c.json({ concepts: [], relations: [], crossRefs: {} });
+  }
+});
+
 /** Create a metadata-only source (no file upload — for papers, podcasts, etc.) */
 libraryRoutes.post("/sources/create", async (c) => {
   try {
@@ -403,11 +445,9 @@ libraryRoutes.post("/sources", async (c) => {
       })
       .run();
 
-    // Auto-enqueue processing for source types with a registered processor
+    // Auto-enqueue processing (or concept extraction) for eligible source types
     const jobQueue = getJobQueue();
-    if (jobQueue.hasProcessor(sourceType)) {
-      jobQueue.enqueue(sourceId);
-    }
+    jobQueue.enqueue(sourceId);
 
     return c.json(
       {

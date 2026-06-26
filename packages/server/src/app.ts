@@ -74,7 +74,7 @@ app.get("/api/profiles", (c) => {
   const result: Record<string, object> = {};
   for (const [key, profile] of profiles) {
     // Skip internal profiles — not user-facing session modes
-    if (key === "_default" || key === "router") continue;
+    if (key === "_default" || key === "router" || profile.hidden) continue;
     result[key] = {
       label: profile.label,
       ...(profile.description ? { description: profile.description } : {}),

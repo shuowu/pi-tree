@@ -17,10 +17,14 @@ jobs.get("/:sourceId", (c) => {
   return c.json(job);
 });
 
-/** POST /api/jobs/:sourceId/process — manually trigger processing */
+/** POST /api/jobs/:sourceId/process — manually trigger processing
+ *  ?force=true  → hard reprocess (redo all phases from scratch)
+ *  default      → incremental (only run phases with missing output)
+ */
 jobs.post("/:sourceId/process", (c) => {
   const queue = getJobQueue();
-  const job = queue.enqueue(c.req.param("sourceId"));
+  const force = c.req.query("force") === "true";
+  const job = queue.enqueue(c.req.param("sourceId"), { force });
   if (!job) return c.json({ error: "No processor available for this source type" }, 400);
   return c.json(job);
 });

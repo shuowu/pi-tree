@@ -22,6 +22,10 @@ export interface SourceCardProps {
   onClick: () => void;
   onTagClick: () => void;
   renderCover: (size?: "sm" | "md" | "lg") => ReactNode;
+  /** Trigger incremental analysis update (no force) */
+  onUpdateSource?: () => void;
+  /** Trigger full re-processing (force) */
+  onReprocessSource?: () => void;
 }
 
 /**
