@@ -109,7 +109,10 @@ export function ChatView({
   // Auto-scroll state: tracks whether we should follow streaming content.
   // Starts true (follow by default) and becomes false if the user scrolls up.
   const autoScrollRef = useRef(true);
-  const wasStreamingRef = useRef(false);
+  // Track overall loading lifecycle (stable across multi-turn tool calls).
+  // Unlike streamingContent (which goes falsy between turns), isLoading stays
+  // true for the entire interaction, so we use it to detect the true start/end.
+  const wasLoadingRef = useRef(false);
 
 
   // Client-side filter: hide unused placeholder branches from the user.
@@ -122,6 +125,7 @@ export function ChatView({
   // Scroll direction tracking for shy-header UX
   const scrollDir = useScrollDirection({ scrollRef: messagesContainerRef, threshold: 50 });
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const isNearBottomRef = useRef(true);
 
   useEffect(() => {
     if (scrollDir && onScrollDirectionChange) {
@@ -130,7 +134,7 @@ export function ChatView({
   }, [scrollDir, onScrollDirectionChange]);
 
   // Track whether user is near the bottom (for scroll-to-bottom button)
-  // Also detect user-initiated scrolls during streaming to disable auto-scroll.
+  // Also detect user-initiated scrolls during loading to disable auto-scroll.
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -138,12 +142,19 @@ export function ChatView({
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
       const nearBottom = distanceFromBottom < 300;
-      setIsNearBottom(nearBottom);
 
-      // If the user is actively streaming and they scrolled away from the
-      // bottom, disable auto-scroll. If they scroll back to the bottom,
-      // re-enable it. This matches ChatGPT / Claude scroll behavior.
-      if (wasStreamingRef.current) {
+      // Only trigger a rerender when the boolean actually flips.
+      // Without this guard, every scroll tick calls setIsNearBottom
+      // and rerenders the entire ChatView (all messages, branches, etc.).
+      if (nearBottom !== isNearBottomRef.current) {
+        isNearBottomRef.current = nearBottom;
+        setIsNearBottom(nearBottom);
+      }
+
+      // While the AI is responding (isLoading covers streaming, tool calls,
+      // and gaps between turns), track whether the user scrolled away.
+      // If they scroll back to the bottom, re-enable auto-scroll.
+      if (wasLoadingRef.current) {
         autoScrollRef.current = nearBottom;
       }
     };
@@ -183,30 +194,35 @@ export function ChatView({
     }
   }, [scrollTopTrigger]);
 
-  // Auto-scroll during streaming: on every content update, scroll to bottom
-  // if the user hasn't scrolled away. When streaming starts, enable auto-scroll.
-  // When streaming ends, save scroll position for restoration.
+  // Auto-scroll lifecycle: reset auto-scroll only when a genuinely new
+  // interaction begins (isLoading goes false→true), not on each turn boundary.
+  // This prevents multi-turn tool calls from re-enabling auto-scroll.
   const savedScrollTopRef = useRef<number | null>(null);
   useEffect(() => {
-    const isActive = streamingContent !== null && streamingContent.length > 0;
-    const justStarted = isActive && !wasStreamingRef.current;
-    const justEnded = !isActive && wasStreamingRef.current;
-    wasStreamingRef.current = isActive;
+    const justStartedLoading = isLoading && !wasLoadingRef.current;
+    const justEndedLoading = !isLoading && wasLoadingRef.current;
+    wasLoadingRef.current = isLoading;
 
-    // When streaming begins, enable auto-scroll
-    if (justStarted) {
+    // When a new interaction begins, enable auto-scroll
+    if (justStartedLoading) {
       autoScrollRef.current = true;
     }
 
-    // Continuously auto-scroll to bottom during streaming
+    // When loading ends completely, save scroll position before React
+    // replaces the streaming bubble with the final message
+    if (justEndedLoading) {
+      savedScrollTopRef.current = messagesContainerRef.current?.scrollTop ?? null;
+    }
+  }, [isLoading]);
+
+  // Auto-scroll during streaming: on every content update, scroll to bottom
+  // if the user hasn't scrolled away. Gated by autoScrollRef which is only
+  // re-enabled at true interaction start, not on turn boundaries.
+  useEffect(() => {
+    const isActive = streamingContent !== null && streamingContent.length > 0;
+
     if (isActive && autoScrollRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-    }
-
-    // When streaming ends, save scroll position before React replaces the
-    // streaming bubble with the final message (which may shift layout)
-    if (justEnded) {
-      savedScrollTopRef.current = messagesContainerRef.current?.scrollTop ?? null;
     }
   }, [streamingContent]);
 
