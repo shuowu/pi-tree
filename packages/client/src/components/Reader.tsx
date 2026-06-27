@@ -11,7 +11,7 @@ import { SourceSetupState } from "./SourceSetupState";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
-import { DictQuickCard } from "./DictionaryPanel";
+import { DictQuickCardStack } from "./DictionaryPanel";
 
 import { fetchModels, updateSession, viewScope } from "../api";
 import { getBranchesCollapsed } from "../utils/preferences";
@@ -225,28 +225,24 @@ export function Reader() {
         sourceId={source.id}
         sourceType={source.type}
         onDefine={dict.handleDefine}
-        onDismissQuickLookup={() => dict.setQuickLookupId(null)}
+        onDismissQuickLookup={dict.dismissAllQuickCards}
         onResizeStart={panel.handleRightResizeStart}
         onSendMessage={session.handleSendMessage}
       />
 
-      {/* Floating dictionary quick card — rendered outside the right panel so it
-          shows even when the panel is closed */}
-      {dict.quickLookupId && (() => {
-        const entry = dict.dictEntries.find((e) => e.id === dict.quickLookupId);
-        if (!entry) return null;
-        return (
-          <DictQuickCard
-            entry={entry}
-            onDismiss={() => dict.setQuickLookupId(null)}
-            onGoToDict={() => {
-              panel.setRightPanelOpen(true);
-              panel.setRightTab("dict");
-              dict.setQuickLookupId(null);
-            }}
-          />
-        );
-      })()}
+      {/* Floating dictionary quick card stack — rendered outside the right panel
+          so it shows even when the panel is closed */}
+      <DictQuickCardStack
+        entries={dict.quickLookupStack
+          .map((id) => dict.dictEntries.find((e) => e.id === id))
+          .filter((e): e is NonNullable<typeof e> => !!e)}
+        onDismiss={dict.dismissQuickCard}
+        onGoToDict={() => {
+          panel.setRightPanelOpen(true);
+          panel.setRightTab("dict");
+          dict.dismissAllQuickCards();
+        }}
+      />
 
       {showSettings && (
         <SourceSettingsModal

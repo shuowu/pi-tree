@@ -7,12 +7,13 @@ export function useDictionary(
   sourceId: string,
 ) {
   const [dictEntries, setDictEntries] = useState<DictEntry[]>([]);
-  const [quickLookupId, setQuickLookupId] = useState<string | null>(null);
+  /** Stack of quick-lookup card IDs (most recent last) */
+  const [quickLookupStack, setQuickLookupStack] = useState<string[]>([]);
 
   /** Clear all entries — call when session changes */
   const clearEntries = useCallback(() => {
     setDictEntries([]);
-    setQuickLookupId(null);
+    setQuickLookupStack([]);
   }, []);
 
   const handleDefine = useCallback(
@@ -30,9 +31,8 @@ export function useDictionary(
 
       setDictEntries((prev) => [...prev, newEntry]);
 
-      // Always show the floating quick-card popup — don't open the right panel.
-      // Users can click "View in Dictionary →" in the popup to open the full panel.
-      setQuickLookupId(entryId);
+      // Push onto the quick-lookup stack so multiple popups coexist
+      setQuickLookupStack((prev) => [...prev, entryId]);
 
       streamLookup(userId, sourceId, term, (token) => {
         setDictEntries((prev) =>
@@ -66,15 +66,27 @@ export function useDictionary(
 
   const handleDictRemove = useCallback((id: string) => {
     setDictEntries((prev) => prev.filter((e) => e.id !== id));
+    setQuickLookupStack((prev) => prev.filter((eid) => eid !== id));
+  }, []);
+
+  /** Dismiss a single card from the quick-lookup stack */
+  const dismissQuickCard = useCallback((id: string) => {
+    setQuickLookupStack((prev) => prev.filter((eid) => eid !== id));
+  }, []);
+
+  /** Dismiss all quick-lookup cards (e.g. when opening the Dictionary tab) */
+  const dismissAllQuickCards = useCallback(() => {
+    setQuickLookupStack([]);
   }, []);
 
   return {
     dictEntries,
     setDictEntries,
     clearEntries,
-    quickLookupId,
-    setQuickLookupId,
+    quickLookupStack,
     handleDefine,
     handleDictRemove,
+    dismissQuickCard,
+    dismissAllQuickCards,
   };
 }

@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMermaid } from "@pi-tree/ui";
 import { marked } from "marked";
-import { BookA, X } from "lucide-react";
+import { BookA, ChevronDown, X } from "lucide-react";
 import "./DictionaryPanel.css";
 
 export interface DictEntry {
@@ -87,15 +87,64 @@ function DictCard({
 }
 
 /**
- * Floating mini-card shown at the bottom of the right sidebar
- * when a lookup is triggered from the Book tab.
+ * Stack of floating mini-cards shown at the bottom-right corner.
+ * Multiple lookups coexist as stacked cards — most recent on top.
+ * Click a collapsed card to expand it.
  */
-export function DictQuickCard({
+export function DictQuickCardStack({
+  entries,
+  onDismiss,
+  onGoToDict,
+}: {
+  entries: DictEntry[];
+  onDismiss: (id: string) => void;
+  onGoToDict: () => void;
+}) {
+  // The expanded card defaults to the most recent entry
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Auto-expand the newest card when it arrives
+  const latestId = entries.length > 0 ? entries[entries.length - 1].id : null;
+  useEffect(() => {
+    if (latestId) setExpandedId(latestId);
+  }, [latestId]);
+
+  if (entries.length === 0) return null;
+
+  // If the currently expanded card was dismissed, fall back to the latest
+  const activeId = entries.some((e) => e.id === expandedId)
+    ? expandedId
+    : latestId;
+
+  return (
+    <div className="dict-quick-stack">
+      {entries.map((entry, index) => (
+        <DictQuickCard
+          key={entry.id}
+          entry={entry}
+          isExpanded={entry.id === activeId}
+          zIndex={100 + index}
+          onExpand={() => setExpandedId(entry.id)}
+          onDismiss={() => onDismiss(entry.id)}
+          onGoToDict={onGoToDict}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DictQuickCard({
   entry,
+  isExpanded,
+  zIndex,
+  onExpand,
   onDismiss,
   onGoToDict,
 }: {
   entry: DictEntry;
+  isExpanded: boolean;
+  zIndex: number;
+  onExpand: () => void;
   onDismiss: () => void;
   onGoToDict: () => void;
 }) {
@@ -105,16 +154,25 @@ export function DictQuickCard({
   useMermaid(bodyRef, html);
 
   return (
-    <div className={`dict-quick-card ${entry.streaming ? "streaming" : ""}`}>
+    <div
+      className={`dict-quick-card ${entry.streaming ? "streaming" : ""} ${isExpanded ? "expanded" : "collapsed"}`}
+      style={{ zIndex }}
+      {...(!isExpanded ? { onClick: onExpand } : {})}
+    >
       <div className="dict-quick-card-header">
         <span className="dict-card-term">{entry.term}</span>
-        <button
-          className="dict-quick-card-close"
-          onClick={onDismiss}
-          title="Dismiss"
-        >
-          <X size={12} />
-        </button>
+        <div className="dict-quick-card-actions">
+          {!isExpanded && (
+            <ChevronDown size={14} className="dict-quick-card-expand-hint" />
+          )}
+          <button
+            className="dict-quick-card-close"
+            onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+            title="Dismiss"
+          >
+            <X size={12} />
+          </button>
+        </div>
       </div>
       <div
         ref={bodyRef}

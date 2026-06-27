@@ -145,23 +145,56 @@
   font-size: var(--text-xs);
 }
 
-/* ── Quick Lookup Card (floating overlay, independent of right panel) ── */
+/* ── Quick Lookup Card Stack (floating overlay, independent of right panel) ── */
 
-.dict-quick-card {
+.dict-quick-stack {
   position: fixed;
   bottom: var(--space-4, 16px);
   right: var(--space-4, 16px);
   width: 340px;
   max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.dict-quick-card {
+  width: 100%;
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   box-shadow: var(--shadow-lg, 0 4px 16px rgba(0, 0, 0, 0.12));
-  z-index: 100;
   max-height: 40vh;
   overflow-y: auto;
-  animation: quickCardSlideUp 0.2s ease;
+  animation: quickCardSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+  transition: max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s ease,
+              box-shadow 0.25s ease;
+}
+
+/* Collapsed cards show only the header as a clickable tab */
+.dict-quick-card.collapsed {
+  max-height: 38px;
+  overflow: hidden;
+  opacity: 0.88;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2px;
+  cursor: pointer;
+}
+
+.dict-quick-card.collapsed:hover {
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Expanded card is fully visible */
+.dict-quick-card.expanded {
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 .dict-quick-card.streaming {
@@ -187,6 +220,32 @@
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);
+}
+
+/* Collapsed cards don't need the bottom border/margin in the header */
+.dict-quick-card.collapsed .dict-quick-card-header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.dict-quick-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* Chevron hint — subtle "click to expand" indicator on collapsed cards */
+.dict-quick-card-expand-hint {
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.dict-quick-card.collapsed:hover .dict-quick-card-expand-hint {
+  opacity: 1;
+  transform: translateY(1px);
 }
 
 .dict-quick-card-close {
