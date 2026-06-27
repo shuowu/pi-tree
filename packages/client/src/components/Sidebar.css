@@ -165,19 +165,24 @@
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--text-muted);
 }
 
-.tree-dot.status-active {
+.tree-entry.current .tree-dot {
   background: var(--accent);
   box-shadow: 0 0 4px var(--accent-glow);
 }
 
-.tree-dot.status-completed {
-  background: var(--green);
+/* Branch entry icon — replaces the dot for branch-start nodes */
+.tree-branch-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+  opacity: 0.7;
 }
 
-.tree-dot.status-abandoned {
-  background: var(--text-muted);
+.tree-entry.current .tree-branch-icon,
+.tree-entry.viewing .tree-branch-icon {
+  opacity: 1;
 }
 
 .tree-dot.generating {

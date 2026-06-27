@@ -168,6 +168,7 @@ function TreeView({
         onEditChange={setEditValue}
         onEditFinish={handleFinishRename}
         onEditCancel={handleCancelRename}
+        isBranchEntry={false}
       />
       {contextMenu && (
         <div
@@ -213,6 +214,7 @@ function TreeNode({
   onEditChange,
   onEditFinish,
   onEditCancel,
+  isBranchEntry,
 }: {
   node: TreeNodeView;
   depth: number;
@@ -227,6 +229,8 @@ function TreeNode({
   onEditChange: (value: string) => void;
   onEditFinish: () => void;
   onEditCancel: () => void;
+  /** True when this node is a branch entry (parent has 2+ children) */
+  isBranchEntry: boolean;
 }) {
   const isAssistant = node.label.startsWith("✦");
   const isViewing = node.id === viewNodeId;
@@ -277,7 +281,11 @@ function TreeNode({
             ›
           </button>
         )}
-        <span className={`tree-dot status-${node.status}${isGenerating ? " generating" : ""}`} />
+        {isBranchEntry && !isAssistant ? (
+          <GitBranch size={10} className="tree-branch-icon" />
+        ) : (
+          <span className={`tree-dot${isGenerating ? " generating" : ""}`} />
+        )}
         {isEditing ? (
           <input
             ref={editInputRef}
@@ -300,12 +308,13 @@ function TreeNode({
       </div>
 
       {!isCollapsed &&
-        node.children
-          ?.filter((child) =>
+        (() => {
+          const visibleChildren = (node.children ?? []).filter((child) =>
             // Hide unused placeholder nodes (pending ⑂ forks with no content yet)
             !(child.status === "placeholder" && (child.messageCount ?? 0) === 0),
-          )
-          .map((child) => (
+          );
+          const parentHasMultipleChildren = visibleChildren.length > 1;
+          return visibleChildren.map((child) => (
             <TreeNode
               key={child.id}
               node={child}
@@ -321,8 +330,10 @@ function TreeNode({
               onEditChange={onEditChange}
               onEditFinish={onEditFinish}
               onEditCancel={onEditCancel}
+              isBranchEntry={parentHasMultipleChildren}
             />
-          ))}
+          ));
+        })()}
     </>
   );
 }
