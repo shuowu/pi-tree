@@ -13,6 +13,7 @@ import {
   needsAutoBranch,
   collectScopeMessages,
   buildBreadcrumb,
+  stripPlaceholders,
   type ContentMap,
 } from "../tree-nav";
 
@@ -887,6 +888,133 @@ describe("collectScopeMessages — placeholder behavior", () => {
     // Both branches visible — original + consumed placeholder
     expect(branches.length).toBe(2);
     expect(branches.map(b => b.nodeId).sort()).toEqual(["ph_1", "u2a"]);
+  });
+});
+
+// ── stripPlaceholders ──────────────────────────────────────────────────────
+
+describe("stripPlaceholders", () => {
+  function placeholderNode(
+    id: string,
+    children: TreeNodeView[] = [],
+  ): TreeNodeView {
+    return {
+      id,
+      parentId: null,
+      label: "New branch",
+      status: "placeholder",
+      messageCount: 0,
+      children,
+      isCurrent: false,
+    };
+  }
+
+  it("removes an empty placeholder child", () => {
+    const tree = node("root", "Book", [
+      userNode("u1", "hello", [
+        aiNode("AI_1", "hi", [
+          userNode("u2", "branch a"),
+          placeholderNode("ph_1"),
+        ]),
+      ]),
+    ]);
+
+    const stripped = stripPlaceholders(tree);
+    const ai1 = stripped.children![0].children![0];
+    expect(ai1.children).toHaveLength(1);
+    expect(ai1.children![0].id).toBe("u2");
+  });
+
+  it("hoists placeholder children up to the parent level", () => {
+    // AI_1 has 1 real child + 1 placeholder with children (consumed fork)
+    const tree = node("root", "Book", [
+      userNode("u1", "hello", [
+        aiNode("AI_1", "hi", [
+          userNode("u2a", "branch a"),
+          placeholderNode("ph_1", [
+            userNode("u2b", "branch b"),
+          ]),
+        ]),
+      ]),
+    ]);
+
+    const stripped = stripPlaceholders(tree);
+    const ai1 = stripped.children![0].children![0];
+    // ph_1 is removed; its child u2b is hoisted to AI_1's children
+    expect(ai1.children).toHaveLength(2);
+    expect(ai1.children!.map(c => c.id).sort()).toEqual(["u2a", "u2b"]);
+  });
+
+  it("recursively strips nested placeholders", () => {
+    // Placeholder inside a placeholder (edge case)
+    const tree = node("root", "Book", [
+      aiNode("AI_1", "hi", [
+        placeholderNode("ph_outer", [
+          placeholderNode("ph_inner", [
+            userNode("u1", "deeply nested"),
+          ]),
+        ]),
+      ]),
+    ]);
+
+    const stripped = stripPlaceholders(tree);
+    const ai1 = stripped.children![0];
+    // Both placeholders removed, u1 hoisted all the way up
+    expect(ai1.children).toHaveLength(1);
+    expect(ai1.children![0].id).toBe("u1");
+  });
+
+  it("returns identical tree when no placeholders exist", () => {
+    const tree = node("root", "Book", [
+      userNode("u1", "hello", [
+        aiNode("AI_1", "hi"),
+      ]),
+    ]);
+
+    const stripped = stripPlaceholders(tree);
+    expect(stripped.children).toHaveLength(1);
+    expect(stripped.children![0].id).toBe("u1");
+    expect(stripped.children![0].children![0].id).toBe("AI_1");
+  });
+
+  it("strips placeholders deeply in a multi-level tree", () => {
+    // root → u1 → AI_1 (fork) → [u2, ph_1]
+    //                    u2 → AI_2 (fork) → [u3, ph_2]
+    const tree = node("root", "Book", [
+      userNode("u1", "hello", [
+        aiNode("AI_1", "hi", [
+          userNode("u2", "branch a", [
+            aiNode("AI_2", "deeper", [
+              userNode("u3", "leaf"),
+              placeholderNode("ph_2"),
+            ]),
+          ]),
+          placeholderNode("ph_1"),
+        ]),
+      ]),
+    ]);
+
+    const stripped = stripPlaceholders(tree);
+    const ai1 = stripped.children![0].children![0];
+    // ph_1 removed from AI_1
+    expect(ai1.children).toHaveLength(1);
+    expect(ai1.children![0].id).toBe("u2");
+
+    // ph_2 removed from AI_2
+    const ai2 = ai1.children![0].children![0];
+    expect(ai2.children).toHaveLength(1);
+    expect(ai2.children![0].id).toBe("u3");
+  });
+
+  it("empty placeholder at root level is removed", () => {
+    const tree = node("root", "Book", [
+      placeholderNode("ph_1"),
+      userNode("u1", "hello"),
+    ]);
+
+    const stripped = stripPlaceholders(tree);
+    expect(stripped.children).toHaveLength(1);
+    expect(stripped.children![0].id).toBe("u1");
   });
 });
 

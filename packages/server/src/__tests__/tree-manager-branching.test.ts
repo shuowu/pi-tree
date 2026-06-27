@@ -1526,6 +1526,134 @@ describe("TreeManager — Phase 2: State Composition", () => {
       expect(view.parentId).toBeNull();
       expect(view.children[0].parentId).toBe("p1");
     });
+
+    it("strips placeholder nodes from client-facing tree", () => {
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "branch 1"),
+            // Empty placeholder from ⑂ click
+            aUserNode("ph_1", "New branch", [], {
+              status: "placeholder",
+            }),
+          ]),
+        ]),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [],
+      });
+      const tm = createTreeManager(mock);
+
+      const view = tm.getTreeView();
+
+      // AI_p1 should have only c1 — placeholder stripped
+      const aiNode = view.children[0];
+      expect(aiNode.children).toHaveLength(1);
+      expect(aiNode.children[0].id).toBe("c1");
+    });
+
+    it("hoists consumed placeholder children in client-facing tree", () => {
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "branch 1"),
+            // Consumed placeholder (has children from forceBranch)
+            aUserNode("ph_1", "New branch", [
+              aUserNode("c2", "branch 2", [
+                aAINode("AI_c2", "resp 2"),
+              ]),
+            ], {
+              status: "placeholder",
+            }),
+          ]),
+        ]),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [],
+      });
+      const tm = createTreeManager(mock);
+
+      const view = tm.getTreeView();
+
+      // AI_p1 should have c1 + c2 (hoisted from placeholder)
+      const aiNode = view.children[0];
+      expect(aiNode.children).toHaveLength(2);
+      expect(aiNode.children.map(c => c.id).sort()).toEqual(["c1", "c2"]);
+    });
+  });
+
+  describe("placeholder reuse during branching", () => {
+    it("auto-branch reuses existing placeholder when present", async () => {
+      // AI_p1 has a real child (c1) + empty placeholder (ph_1)
+      // needsAutoBranch should detect the fork and return ph_1 as placeholderId
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "msg 2", [
+              aAINode("AI_c1", "resp 2", [], { isCurrent: true }),
+            ], { isCurrent: true }),
+            // Placeholder from prior ⑂ click
+            aUserNode("ph_1", "New branch", [], {
+              status: "placeholder",
+            }),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["p1", "user", "msg 1"],
+          ["AI_p1", "assistant", "resp 1"],
+          ["c1", "user", "msg 2"],
+          ["AI_c1", "assistant", "resp 2"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      // Send from p1 scope (ancestor of the fork)
+      await tm.handleMessage("new msg", "p1");
+
+      // Should branch into the placeholder, not create a new sibling
+      expect(mock.simpleBranch).toHaveBeenCalledWith("ph_1");
+    });
+
+    it("forceBranch reuses existing placeholder when present", async () => {
+      // AI_p1 has a real child (c1) + empty placeholder (ph_1)
+      const tree = [
+        aUserNode("p1", "msg 1", [
+          aAINode("AI_p1", "resp 1", [
+            aUserNode("c1", "msg 2", [
+              aAINode("AI_c1", "resp 2", [], { isCurrent: true }),
+            ], { isCurrent: true }),
+            aUserNode("ph_1", "New branch", [], {
+              status: "placeholder",
+            }),
+          ], { isCurrent: true }),
+        ], { isCurrent: true }),
+      ];
+
+      const mock = createMockPiSession({
+        annotatedTree: tree,
+        contentEntries: [
+          ["p1", "user", "msg 1"],
+          ["AI_p1", "assistant", "resp 1"],
+          ["c1", "user", "msg 2"],
+          ["AI_c1", "assistant", "resp 2"],
+        ],
+      });
+      const tm = createTreeManager(mock);
+
+      // Force branch from p1 scope — branchPoint=AI_p1, placeholder=ph_1
+      await tm.handleMessage("branched msg", "p1", { forceBranch: true });
+
+      // forceBranch finds branchPoint=AI_p1, then finds placeholder=ph_1
+      expect(mock.simpleBranch).toHaveBeenCalledWith("ph_1");
+    });
   });
 });
 
