@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type TreeNodeView } from "@pi-tree/core/types";
-import { GitBranch, X, Trash2, Pencil } from "lucide-react";
+import { GitBranch, HelpCircle, X, Trash2, Pencil } from "lucide-react";
 import { buildTooltip } from "../utils/tree-utils";
 import "./Sidebar.css";
 
@@ -31,7 +31,20 @@ export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDel
   return (
     <aside className={`sidebar ${isOpen ? "open" : ""}`} data-testid="sidebar">
       <div className="sidebar-header">
-        <span className="sidebar-header-title"><GitBranch size={14} /> Session Tree</span>
+        <span className="sidebar-header-title">
+          <GitBranch size={14} /> Session Tree
+          <span className="sidebar-help-wrapper">
+            <HelpCircle size={12} className="sidebar-help-icon" />
+            <div className="sidebar-help-tooltip">
+              <div className="sidebar-help-row"><span className="tree-dot" style={{ position: 'relative', top: 0, flexShrink: 0 }} /> Message node</div>
+              <div className="sidebar-help-row"><span className="tree-dot" style={{ position: 'relative', top: 0, flexShrink: 0, background: 'var(--accent)', boxShadow: '0 0 4px var(--accent-glow)' }} /> Currently viewing</div>
+              <div className="sidebar-help-row"><GitBranch size={10} className="tree-branch-icon" style={{ flexShrink: 0 }} /> Branch start</div>
+              <div className="sidebar-help-row"><span className="sidebar-help-badge">⑂3</span> Fork point (3 branches)</div>
+              <div className="sidebar-help-row"><span className="sidebar-help-chevron">›</span> Expand / collapse</div>
+              <div className="sidebar-help-hint">Click any node to navigate. Right-click for options.</div>
+            </div>
+          </span>
+        </span>
         <button className="sidebar-close" onClick={onClose} aria-label="Close panel" title="Close panel">
           <X size={14} />
         </button>
