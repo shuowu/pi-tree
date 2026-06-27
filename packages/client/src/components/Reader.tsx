@@ -79,11 +79,13 @@ export function Reader() {
       containerRef: React.RefObject<HTMLDivElement | null>;
       onDefine: (term: string, context?: string) => void;
       onAsk: (text: string) => void;
+      onBranch: (text: string) => void;
     }) => (
       <SelectionToolbar
         containerRef={ctx.containerRef}
         onDefine={ctx.onDefine}
         onAsk={ctx.onAsk}
+        onBranch={ctx.onBranch}
       />
     ),
     [],

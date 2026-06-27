@@ -5,7 +5,7 @@ import { StreamingBubble } from "./StreamingBubble.js";
 import { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
 import { ToolCallIndicator } from "./ToolCallIndicator.js";
 import { ModelPicker, type ModelInfo } from "./ModelPicker.js";
-import { BookOpen, ChevronDown, Loader, Square } from "lucide-react";
+import { BookOpen, ChevronDown, GitBranch, Loader, Square } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
 import "./styles/ChatView.css";
 
@@ -19,7 +19,7 @@ interface ChatViewProps {
   streamingContent: string | null;
   /** Currently executing tool call, or null when not in a tool call */
   activeToolCall: { toolName: string; args: Record<string, unknown> } | null;
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, opts?: { forceBranch?: boolean }) => void;
   branches: BranchOption[];
   onDrillDown: (nodeId: string) => void;
   /** Whether the user is viewing a scoped branch (not root) */
@@ -43,6 +43,7 @@ interface ChatViewProps {
     containerRef: React.RefObject<HTMLDivElement | null>;
     onDefine: (term: string, context?: string) => void;
     onAsk: (text: string) => void;
+    onBranch: (text: string) => void;
   }) => React.ReactNode;
   /** Whether inline branch previews default to collapsed (default: true) */
   defaultBranchesCollapsed?: boolean;
@@ -101,6 +102,7 @@ export function ChatView({
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
+  const [pendingBranch, setPendingBranch] = useState(false);
   const [showAncestors, setShowAncestors] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -315,8 +317,9 @@ export function ChatView({
       finalMessage = trimmed;
     }
 
-    onSendMessage(finalMessage);
+    onSendMessage(finalMessage, pendingBranch ? { forceBranch: true } : undefined);
     setInput("");
+    setPendingBranch(false);
 
   };
 
@@ -330,7 +333,9 @@ export function ChatView({
   // Determine if typing will create a branch (scoped view with existing branches)
   const willBranch = isScoped && branches.length > 0;
   const placeholder = quotedText
-    ? "Press Enter to explain, or type your question…"
+    ? pendingBranch
+      ? "Ask about this, or press Enter to branch…"
+      : "Press Enter to explain, or type your question…"
     : willBranch
       ? "New branch from this point…"
       : isScoped
@@ -341,6 +346,17 @@ export function ChatView({
     (text: string) => {
       setQuotedText(text);
       // Focus in a timeout to let the selection toolbar unmount first
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+    },
+    [],
+  );
+
+  const handleBranch = useCallback(
+    (text: string) => {
+      setQuotedText(text);
+      setPendingBranch(true);
       setTimeout(() => {
         textareaRef.current?.focus();
       }, 50);
@@ -437,6 +453,7 @@ export function ChatView({
           containerRef: messagesContainerRef,
           onDefine,
           onAsk: handleAsk,
+          onBranch: handleBranch,
         })}
 
         <div ref={messagesEndRef} />
@@ -479,14 +496,21 @@ export function ChatView({
         )}
         <div className="pit-chat-input-area-wrapper">
           {quotedText && (
-            <div className="pit-chat-quote-preview">
+            <div className={`pit-chat-quote-preview${pendingBranch ? " pit-chat-quote-branch" : ""}`}>
               <div className="pit-chat-quote-content">
-                <span className="pit-chat-quote-label">Quote</span>
+                {pendingBranch ? (
+                  <>
+                    <GitBranch size={12} className="pit-chat-quote-branch-icon" />
+                    <span className="pit-chat-quote-label">Branching from</span>
+                  </>
+                ) : (
+                  <span className="pit-chat-quote-label">Quote</span>
+                )}
                 <span className="pit-chat-quote-text">"{quotedText}"</span>
               </div>
               <button
                 className="pit-chat-quote-remove"
-                onClick={() => setQuotedText(null)}
+                onClick={() => { setQuotedText(null); setPendingBranch(false); }}
                 title="Remove quote"
               >
                 ×

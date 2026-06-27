@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookA, Quote } from "lucide-react";
+import { BookA, GitBranch, Quote } from "lucide-react";
 import "./SelectionToolbar.css";
 
 interface SelectionToolbarProps {
@@ -7,6 +7,8 @@ interface SelectionToolbarProps {
   onDefine: (text: string, context?: string) => void;
   /** Ask: prefills chat input */
   onAsk?: (text: string) => void;
+  /** Branch: quotes text and starts a new branch */
+  onBranch?: (text: string) => void;
   /** Container element to listen for selections in */
   containerRef: React.RefObject<HTMLElement | null>;
 }
@@ -19,6 +21,7 @@ interface ToolbarPosition {
 export function SelectionToolbar({
   onDefine,
   onAsk,
+  onBranch,
   containerRef,
 }: SelectionToolbarProps) {
   const [selectedText, setSelectedText] = useState<string | null>(null);
@@ -181,6 +184,14 @@ export function SelectionToolbar({
     dismiss();
   };
 
+  const handleBranch = () => {
+    if (onBranch) {
+      onBranch(selectedText!);
+    }
+    window.getSelection()?.removeAllRanges();
+    dismiss();
+  };
+
   return (
     <div
       ref={toolbarRef}
@@ -194,6 +205,11 @@ export function SelectionToolbar({
         {onAsk && (
           <button className="pit-selection-btn" onClick={handleAsk} title="Quote and Ask in chat">
             <Quote size={14} /> Quote & Ask
+          </button>
+        )}
+        {onBranch && (
+          <button className="pit-selection-btn" onClick={handleBranch} title="Quote and start a new branch">
+            <GitBranch size={14} /> Branch
           </button>
         )}
         <button className="pit-selection-btn" onClick={handleDefine} title="Look up in dictionary">

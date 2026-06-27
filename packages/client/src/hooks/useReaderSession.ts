@@ -243,7 +243,7 @@ export function useReaderSession(
   }, [streams, viewNodeId, source.id, sessionId, userId, applySessionData, updateUrl, clearStream]);
 
   const handleSendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, opts?: { forceBranch?: boolean }) => {
       if (!userId) return;
       const sid = sessionIdRef.current;
       if (sid === null) return;
@@ -252,10 +252,13 @@ export function useReaderSession(
       const forkScope = pendingForkScopeRef.current;
       pendingForkScopeRef.current = null;
 
-      const { sendingNodeId, forceBranch, nextLastViewNodeId } =
+      const { sendingNodeId, forceBranch: forkBranch, nextLastViewNodeId } =
         resolveSendContext(forkScope, lastViewNodeIdRef.current);
       lastViewNodeIdRef.current = nextLastViewNodeId;
 
+      // Merge: explicit forceBranch from UI (e.g. branch-from-selection)
+      // OR implicit from pendingForkScope (⑂ button).
+      const forceBranch = opts?.forceBranch || forkBranch;
 
       // Track which node is generating (for tree panel spinner).
       if (sendingNodeId) {

@@ -133,7 +133,7 @@ describe("ChatView", () => {
       fireEvent.change(textarea, { target: { value: "Hello" } });
       fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
 
-      expect(onSendMessage).toHaveBeenCalledWith("Hello");
+      expect(onSendMessage).toHaveBeenCalledWith("Hello", undefined);
     });
 
     it("does not submit on Shift+Enter", () => {
@@ -284,7 +284,7 @@ describe("ChatView", () => {
       fireEvent.change(textarea, { target: { value: "What does this mean?" } });
       fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
 
-      expect(onSendMessage).toHaveBeenCalledWith("> important quote\n\nWhat does this mean?");
+      expect(onSendMessage).toHaveBeenCalledWith("> important quote\n\nWhat does this mean?", undefined);
     });
   });
 });

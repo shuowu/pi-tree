@@ -920,6 +920,20 @@
   color: var(--pit-red);
 }
 
+.pit-chat-quote-branch {
+  background: color-mix(in srgb, var(--pit-accent) 10%, var(--pit-bg-tertiary));
+  border-color: color-mix(in srgb, var(--pit-accent) 30%, var(--pit-border));
+}
+
+.pit-chat-quote-branch .pit-chat-quote-label {
+  color: var(--pit-accent);
+}
+
+.pit-chat-quote-branch-icon {
+  color: var(--pit-accent);
+  flex-shrink: 0;
+}
+
 .pit-chat-quote-preview + .pit-chat-input-wrapper {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
