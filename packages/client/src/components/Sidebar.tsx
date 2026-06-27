@@ -235,9 +235,8 @@ function TreeNode({
   const isAssistant = node.label.startsWith("✦");
   const isViewing = node.id === viewNodeId;
   const allChildren = node.children ?? [];
-  // First child = main continuation. Additional children = manually created branches.
-  const branchCount = allChildren.length - 1;
-  const hasBranches = branchCount > 0;
+  const branchCount = allChildren.length;
+  const hasBranches = branchCount > 1;
   const isCollapsed = collapsed.has(node.id);
   const isEditing = editingNodeId === node.id;
   const isGenerating = generatingNodeIds.has(node.id);
