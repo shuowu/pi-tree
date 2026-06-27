@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/shuowu/pi-tree/actions/workflows/ci.yml/badge.svg)](https://github.com/shuowu/pi-tree/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://github.com/shuowu/pi-tree/blob/master/LICENSE)
-[![release v0.1.0](https://img.shields.io/badge/release-v0.1.0-orange)](https://github.com/shuowu/pi-tree/releases)
+[![release v0.1.0](https://img.shields.io/badge/release-v0.1.1-orange)](https://github.com/shuowu/pi-tree/releases)
 [![Docker Image](https://img.shields.io/badge/ghcr.io-shuowu%2Fpi--tree-blue?logo=docker)](https://github.com/shuowu/pi-tree/pkgs/container/pi-tree)
 
 **AI makes you productive where you already understand. It confuses you where you don't.**
