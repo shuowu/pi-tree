@@ -44,15 +44,16 @@
   max-width: var(--pit-chat-max-width);
   width: 100%;
   margin: 0 auto;
-  animation: fadeIn 0.2s ease;
   min-width: 0;
 }
 
 .pit-chat-message-user {
   flex-direction: row-reverse;
+  animation: fadeIn 0.2s ease;
 }
 
 .pit-chat-message-toolResult {
+  animation: fadeIn 0.2s ease;
   max-width: 600px;
 }
 

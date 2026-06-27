@@ -105,6 +105,16 @@ export function StreamProvider({ children }: { children: ReactNode }) {
             const currentGen = streamGensRef.current[key];
             if (nextGen !== currentGen) return;
 
+            // Don't reset accumulatedText here. The old behavior cleared the
+            // text on every turn boundary, which is correct for multi-turn
+            // tool-call flows (the preamble like "Let me look that up…" gets
+            // cleared). However, on the *final* turn_end (which fires right
+            // before `done`), clearing the text causes a visible blink:
+            // StreamingBubble disappears → loading dots flash → final
+            // MessageBubble appears. Instead, we clear the activeToolCall
+            // so the tool indicator vanishes, and let the streaming bubble
+            // stay visible with whatever text was accumulated. The `done`
+            // handler replaces it with the final messages.
             setStreams((prev) => {
               const stream = prev[key];
               if (!stream || stream.gen !== nextGen) return prev;
@@ -112,7 +122,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
                 ...prev,
                 [key]: {
                   ...stream,
-                  accumulatedText: "",
+                  activeToolCall: null,
                 },
               };
             });
@@ -121,6 +131,10 @@ export function StreamProvider({ children }: { children: ReactNode }) {
             const currentGen = streamGensRef.current[key];
             if (nextGen !== currentGen) return;
 
+            // Clear accumulatedText here (not in onTurnEnd) so that interim
+            // preamble like "Let me look that up…" doesn't persist. A tool
+            // call always follows a turn_end for multi-turn flows, and never
+            // fires for the final turn — so this is the safe place to clear.
             setStreams((prev) => {
               const stream = prev[key];
               if (!stream || stream.gen !== nextGen) return prev;
@@ -128,6 +142,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
                 ...prev,
                 [key]: {
                   ...stream,
+                  accumulatedText: "",
                   activeToolCall: info,
                 },
               };
