@@ -203,8 +203,8 @@ export function SelectionToolbar({
     >
       <div className="pit-selection-toolbar-buttons">
         {onAsk && (
-          <button className="pit-selection-btn" onClick={handleAsk} title="Quote and Ask in chat">
-            <Quote size={14} /> Quote & Ask
+          <button className="pit-selection-btn" onClick={handleAsk} title="Quote in chat">
+            <Quote size={14} /> Quote
           </button>
         )}
         {onBranch && (
