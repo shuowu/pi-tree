@@ -39,6 +39,7 @@ export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDel
               <div className="sidebar-help-row"><span className="tree-dot" style={{ position: 'relative', top: 0, flexShrink: 0 }} /> Message node</div>
               <div className="sidebar-help-row"><span className="tree-dot" style={{ position: 'relative', top: 0, flexShrink: 0, background: 'var(--accent)', boxShadow: '0 0 4px var(--accent-glow)' }} /> Currently viewing</div>
               <div className="sidebar-help-row"><GitBranch size={10} className="tree-branch-icon" style={{ flexShrink: 0 }} /> Branch start</div>
+              <div className="sidebar-help-row"><span className="sidebar-help-star">✦</span> AI response</div>
               <div className="sidebar-help-row"><span className="sidebar-help-badge">⑂3</span> Fork point (3 branches)</div>
               <div className="sidebar-help-row"><span className="sidebar-help-chevron">›</span> Expand / collapse</div>
               <div className="sidebar-help-hint">Click any node to navigate. Right-click for options.</div>
