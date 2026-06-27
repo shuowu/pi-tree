@@ -69,14 +69,14 @@ export class JobQueue {
   }
 
   /** Enqueue processing for a source. Returns the job immediately, runs async. */
-  enqueue(sourceId: string, options?: ProcessOptions): Job | null {
+  async enqueue(sourceId: string, options?: ProcessOptions): Promise<Job | null> {
     // Don't enqueue if already in progress
     const existing = this.jobs.get(sourceId);
     if (existing && (existing.status === "pending" || existing.status === "processing")) {
       return existing;
     }
 
-    const source = this.sourcesService?.get(sourceId);
+    const source = await this.sourcesService?.get(sourceId);
     if (!source) return null;
 
     const processor = this.processors.get(source.type);

@@ -91,9 +91,9 @@ describe("Session flow — full lifecycle", () => {
 
     // User + source in DB
     await app.request("/api/users", json({ id: userId, displayName: "Flow Tester" }));
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
-    db.insert(sources)
+    await db.insert(sources)
       .values({
         id: sourceId,
         type: "book",
@@ -104,8 +104,7 @@ describe("Session flow — full lifecycle", () => {
         createdAt: now,
         updatedAt: now,
       })
-      .onConflictDoNothing()
-      .run();
+      .onConflictDoNothing();
 
     // Default aimock fixture — matches any message for our model
     mock().llm.addFixture({

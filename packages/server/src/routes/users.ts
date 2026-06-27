@@ -12,17 +12,17 @@ import { getDb, users } from "../db/index.js";
 export const userRoutes = new Hono();
 
 /** List all users */
-userRoutes.get("/", (c) => {
-  const db = getDb();
-  const allUsers = db.select().from(users).all();
+userRoutes.get("/", async (c) => {
+  const db = await getDb();
+  const allUsers = await db.select().from(users).all();
   return c.json({ users: allUsers });
 });
 
 /** Get a single user */
-userRoutes.get("/:userId", (c) => {
+userRoutes.get("/:userId", async (c) => {
   const userId = c.req.param("userId");
-  const db = getDb();
-  const user = db.select().from(users).where(eq(users.id, userId)).get();
+  const db = await getDb();
+  const user = await db.select().from(users).where(eq(users.id, userId)).get();
   if (!user) return c.json({ error: "User not found" }, 404);
   return c.json(user);
 });
@@ -40,8 +40,8 @@ userRoutes.post("/", async (c) => {
   }
 
   // Check for duplicate
-  const db = getDb();
-  const existing = db.select().from(users).where(eq(users.id, id)).get();
+  const db = await getDb();
+  const existing = await db.select().from(users).where(eq(users.id, id)).get();
   if (existing) {
     return c.json({ error: `User "${id}" already exists` }, 409);
   }
@@ -55,7 +55,7 @@ userRoutes.post("/", async (c) => {
     updatedAt: now,
   };
 
-  db.insert(users).values(user).run();
+  await db.insert(users).values(user).run();
   return c.json(user, 201);
 });
 
@@ -67,8 +67,8 @@ userRoutes.put("/:userId", async (c) => {
     avatarUrl?: string;
   }>();
 
-  const db = getDb();
-  const existing = db.select().from(users).where(eq(users.id, userId)).get();
+  const db = await getDb();
+  const existing = await db.select().from(users).where(eq(users.id, userId)).get();
   if (!existing) {
     return c.json({ error: "User not found" }, 404);
   }
@@ -79,9 +79,9 @@ userRoutes.put("/:userId", async (c) => {
   if (displayName !== undefined) updates.displayName = displayName;
   if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
 
-  db.update(users).set(updates).where(eq(users.id, userId)).run();
+  await db.update(users).set(updates).where(eq(users.id, userId)).run();
 
-  const updated = db.select().from(users).where(eq(users.id, userId)).get();
+  const updated = await db.select().from(users).where(eq(users.id, userId)).get();
   return c.json(updated);
 });
 
@@ -89,8 +89,8 @@ userRoutes.put("/:userId", async (c) => {
 userRoutes.delete("/:userId", async (c) => {
   const userId = c.req.param("userId");
 
-  const db = getDb();
-  const existing = db.select().from(users).where(eq(users.id, userId)).get();
+  const db = await getDb();
+  const existing = await db.select().from(users).where(eq(users.id, userId)).get();
   if (!existing) {
     return c.json({ error: "User not found" }, 404);
   }
@@ -99,11 +99,11 @@ userRoutes.delete("/:userId", async (c) => {
   const { userSessions, userSourceConfig, userSourceProgress, glossaryEntries } =
     await import("../db/index.js");
 
-  db.delete(glossaryEntries).where(eq(glossaryEntries.userId, userId)).run();
-  db.delete(userSourceProgress).where(eq(userSourceProgress.userId, userId)).run();
-  db.delete(userSourceConfig).where(eq(userSourceConfig.userId, userId)).run();
-  db.delete(userSessions).where(eq(userSessions.userId, userId)).run();
-  db.delete(users).where(eq(users.id, userId)).run();
+  await db.delete(glossaryEntries).where(eq(glossaryEntries.userId, userId)).run();
+  await db.delete(userSourceProgress).where(eq(userSourceProgress.userId, userId)).run();
+  await db.delete(userSourceConfig).where(eq(userSourceConfig.userId, userId)).run();
+  await db.delete(userSessions).where(eq(userSessions.userId, userId)).run();
+  await db.delete(users).where(eq(users.id, userId)).run();
 
   return c.json({ ok: true });
 });

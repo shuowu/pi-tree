@@ -143,8 +143,8 @@ export class RssService {
     this.sources = config.sources;
   }
 
-  private getDb() {
-    return getNewsDb(this.dataDir);
+  private async getDb() {
+    return await getNewsDb(this.dataDir);
   }
 
   // -------------------------------------------------------------------------
@@ -171,14 +171,14 @@ export class RssService {
    * Called once on startup. Reads from feeds.local.yml (user override)
    * or the shipped default-feeds.yml.
    */
-  public seedDefaultFeeds(): void {
-    const db = this.getDb();
+  public async seedDefaultFeeds(): Promise<void> {
+    const db = await this.getDb();
 
     // Always ensure the canonical news source exists (idempotent)
     this.ensureNewsSource();
 
     // Only seed feeds if no feeds exist
-    const existing = db.select({ id: rssFeeds.id }).from(rssFeeds).limit(1).all();
+    const existing = await db.select({ id: rssFeeds.id }).from(rssFeeds).limit(1).all();
     if (existing.length > 0) return;
 
     // Load defaults — prefer local override over shipped config
@@ -193,7 +193,7 @@ export class RssService {
 
     const now = new Date().toISOString();
     for (const feed of defaultFeeds) {
-      db.insert(rssFeeds)
+      await db.insert(rssFeeds)
         .values({
           id: feed.id,
           sourceId: NEWS_SOURCE_ID,
@@ -213,9 +213,9 @@ export class RssService {
   }
 
   /** List all active feeds from DB */
-  public listFeeds(): FeedConfig[] {
-    const db = this.getDb();
-    const rows = db.select().from(rssFeeds).where(eq(rssFeeds.isActive, 1)).all();
+  public async listFeeds(): Promise<FeedConfig[]> {
+    const db = await this.getDb();
+    const rows = await db.select().from(rssFeeds).where(eq(rssFeeds.isActive, 1)).all();
     return rows.map(r => ({
       id: r.id,
       name: r.name,
@@ -225,12 +225,12 @@ export class RssService {
   }
 
   /** Add a feed to the DB */
-  public addFeed(feed: FeedConfig): void {
+  public async addFeed(feed: FeedConfig): Promise<void> {
     this.ensureNewsSource();
 
-    const db = this.getDb();
+    const db = await this.getDb();
     const now = new Date().toISOString();
-    db.insert(rssFeeds)
+    await db.insert(rssFeeds)
       .values({
         id: feed.id,
         sourceId: NEWS_SOURCE_ID,
@@ -245,32 +245,32 @@ export class RssService {
   }
 
   /** Remove a feed from the DB. Returns true if a feed was deleted. */
-  public removeFeed(feedId: string): boolean {
-    const db = this.getDb();
-    const result = db.delete(rssFeeds).where(eq(rssFeeds.id, feedId)).run();
-    return result.changes > 0;
+  public async removeFeed(feedId: string): Promise<boolean> {
+    const db = await this.getDb();
+    const result = await db.delete(rssFeeds).where(eq(rssFeeds.id, feedId)).run();
+    return result.rowsAffected > 0;
   }
 
   /** Update a feed's name, url, and/or tags. Returns true if a feed was updated. */
-  public updateFeed(feedId: string, updates: Partial<Pick<FeedConfig, "name" | "url" | "tags">>): boolean {
-    const db = this.getDb();
+  public async updateFeed(feedId: string, updates: Partial<Pick<FeedConfig, "name" | "url" | "tags">>): Promise<boolean> {
+    const db = await this.getDb();
     const values: Record<string, unknown> = { updatedAt: new Date().toISOString() };
     if (updates.name !== undefined) values.name = updates.name;
     if (updates.url !== undefined) values.url = updates.url;
     if (updates.tags !== undefined) values.tags = JSON.stringify(updates.tags);
-    const result = db.update(rssFeeds).set(values).where(eq(rssFeeds.id, feedId)).run();
-    return result.changes > 0;
+    const result = await db.update(rssFeeds).set(values).where(eq(rssFeeds.id, feedId)).run();
+    return result.rowsAffected > 0;
   }
 
   /** Get feeds matching any of the given tags */
-  getFeedsByTags(filterTags: string[]): FeedConfig[] {
-    const feeds = this.listFeeds();
+  async getFeedsByTags(filterTags: string[]): Promise<FeedConfig[]> {
+    const feeds = await this.listFeeds();
     return feeds.filter(f => f.tags.some(t => filterTags.includes(t)));
   }
 
   /** Get all unique tags across all feeds, sorted */
-  getAllFeedTags(): string[] {
-    const feeds = this.listFeeds();
+  async getAllFeedTags(): Promise<string[]> {
+    const feeds = await this.listFeeds();
     const tagSet = new Set<string>();
     feeds.forEach(f => f.tags.forEach(t => tagSet.add(t)));
     return [...tagSet].sort();
@@ -283,9 +283,9 @@ export class RssService {
   /**
    * Check if feeds are stale and crawl in background if so.
    */
-  public checkAndCrawlIfStale(crawlIntervalMs: number): void {
-    const db = this.getDb();
-    const latest = db.select({ lastFetch: rssFeeds.lastFetchTime })
+  public async checkAndCrawlIfStale(crawlIntervalMs: number): Promise<void> {
+    const db = await this.getDb();
+    const latest = await db.select({ lastFetch: rssFeeds.lastFetchTime })
       .from(rssFeeds)
       .orderBy(desc(rssFeeds.lastFetchTime))
       .limit(1)
@@ -313,14 +313,14 @@ export class RssService {
   // -------------------------------------------------------------------------
 
   public async crawlAllFeeds(): Promise<CrawlStats[]> {
-    const feeds = this.listFeeds();
+    const feeds = await this.listFeeds();
     const stats: CrawlStats[] = [];
 
     for (const feed of feeds) {
       try {
         console.log(`[news] Fetching feed: ${feed.name} (${feed.url})`);
         const parsed = await this.parser.parseURL(feed.url);
-        const db = this.getDb();
+        const db = await this.getDb();
         const now = new Date().toISOString();
         let itemsSaved = 0;
 
@@ -336,7 +336,7 @@ export class RssService {
 
           // Insert or skip if already crawled
           try {
-            db.insert(rssItems)
+            await db.insert(rssItems)
               .values({
                 title,
                 feedId: feed.id,
@@ -356,7 +356,7 @@ export class RssService {
         }
 
         // Update feed status
-        db.update(rssFeeds)
+        await db.update(rssFeeds)
           .set({
             lastFetchTime: now,
             lastFetchStatus: "success",
@@ -374,8 +374,8 @@ export class RssService {
 
       } catch (err) {
         console.error(`[news] Error crawling feed ${feed.id}:`, err);
-        const db = this.getDb();
-        db.update(rssFeeds)
+        const db = await this.getDb();
+        await db.update(rssFeeds)
           .set({
             lastFetchStatus: "failed",
             updatedAt: new Date().toISOString()
@@ -407,7 +407,7 @@ export class RssService {
     limit?: number;
     keyword?: string;
   }): Promise<RssItemData[]> {
-    const db = this.getDb();
+    const db = await this.getDb();
     const days = options?.days ?? 3;
     const limit = options?.limit ?? 100;
 
@@ -434,12 +434,12 @@ export class RssService {
       .innerJoin(rssFeeds, eq(rssItems.feedId, rssFeeds.id))
       .orderBy(desc(rssItems.publishedAt));
 
-    const results = query.all();
+    const results = await query.all();
 
     // Resolve tags to feed IDs and merge with explicit feeds filter
     let feedFilter = options?.feeds ? [...options.feeds] : undefined;
     if (options?.tags && options.tags.length > 0) {
-      const tagFeedIds = this.getFeedsByTags(options.tags).map(f => f.id);
+      const tagFeedIds = (await this.getFeedsByTags(options.tags)).map(f => f.id);
       if (feedFilter) {
         // Merge: include feeds matching either explicit IDs or tags
         const merged = new Set([...feedFilter, ...tagFeedIds]);

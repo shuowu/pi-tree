@@ -60,7 +60,7 @@ function rowToSourceSession(row: {
 //   search       — optional text search (matches session title or source title)
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.get("/:userId", (c) => {
+sessionCrudRoutes.get("/:userId", async (c) => {
   // Guard: don't match if this looks like a sourceId path segment
   // (handled by the legacy /:userId/:sourceId route below)
   const userId = c.req.param("userId");
@@ -72,7 +72,7 @@ sessionCrudRoutes.get("/:userId", (c) => {
   const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
   const search = c.req.query("search")?.trim();
 
-  const db = getDb();
+  const db = await getDb();
 
   const conditions = [
     eq(userSessions.userId, userId),
@@ -98,7 +98,7 @@ sessionCrudRoutes.get("/:userId", (c) => {
     );
   }
 
-  const rows = db
+  const rows = await db
     .select({
       id: userSessions.id,
       title: userSessions.title,
@@ -130,12 +130,12 @@ sessionCrudRoutes.get("/:userId", (c) => {
 // Kept for backward compatibility; new code should use ?source= query param.
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.get("/:userId/:sourceId", (c) => {
+sessionCrudRoutes.get("/:userId/:sourceId", async (c) => {
   const userId = c.req.param("userId");
   const sourceId = c.req.param("sourceId");
 
-  const db = getDb();
-  const rows = db
+  const db = await getDb();
+  const rows = await db
     .select({
       id: userSessions.id,
       title: userSessions.title,
@@ -178,17 +178,17 @@ sessionCrudRoutes.post("/:userId/:sourceId", async (c) => {
   const context: SessionContext = body.context ?? { mode: "reading" };
   const now = new Date().toISOString();
 
-  const db = getDb();
+  const db = await getDb();
 
   // Auto-create user if not present (mirrors TreeManager.ensureUser)
-  const existingUser = db.select().from(users).where(eq(users.id, userId)).get();
+  const existingUser = await db.select().from(users).where(eq(users.id, userId)).get();
   if (!existingUser) {
-    db.insert(users)
+    await db.insert(users)
       .values({ id: userId, displayName: userId, createdAt: now, updatedAt: now })
       .run();
   }
 
-  const result = db
+  const [inserted] = await db
     .insert(userSessions)
     .values({
       userId,
@@ -200,11 +200,11 @@ sessionCrudRoutes.post("/:userId/:sourceId", async (c) => {
       createdAt: now,
       lastActiveAt: now,
     })
-    .run();
+    .returning({ id: userSessions.id });
 
   // Retrieve the newly created row
-  const newId = Number(result.lastInsertRowid);
-  const row = db
+  const newId = inserted.id;
+  const row = await db
     .select()
     .from(userSessions)
     .where(eq(userSessions.id, newId))
@@ -242,8 +242,8 @@ sessionCrudRoutes.put("/:userId/:sourceId/:sessionId", async (c) => {
     return c.json({ ok: true });
   }
 
-  const db = getDb();
-  db.update(userSessions)
+  const db = await getDb();
+  await db.update(userSessions)
     .set(updates)
     .where(
       and(
@@ -266,13 +266,13 @@ sessionCrudRoutes.put("/:userId/:sourceId/:sessionId", async (c) => {
 // DELETE /sessions/:userId/:sourceId/:sessionId — soft-delete a session
 // ---------------------------------------------------------------------------
 
-sessionCrudRoutes.delete("/:userId/:sourceId/:sessionId", (c) => {
+sessionCrudRoutes.delete("/:userId/:sourceId/:sessionId", async (c) => {
   const userId = c.req.param("userId");
   const sourceId = c.req.param("sourceId");
   const sessionId = Number(c.req.param("sessionId"));
 
-  const db = getDb();
-  db.update(userSessions)
+  const db = await getDb();
+  await db.update(userSessions)
     .set({ isActive: 0 })
     .where(
       and(

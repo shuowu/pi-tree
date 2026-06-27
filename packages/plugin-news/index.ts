@@ -101,7 +101,7 @@ export default definePiTreeExtension((pi, services) => {
     parameters: Type.Object({}),
     async execute() {
       try {
-        const feeds = rssService.listFeeds();
+        const feeds = await rssService.listFeeds();
         return jsonResult(feeds);
       } catch (err: any) {
         throw toolError("get feeds status", err);
@@ -133,8 +133,8 @@ export default definePiTreeExtension((pi, services) => {
     parameters: Type.Object({}),
     async execute() {
       try {
-        const tags = rssService.getAllFeedTags();
-        const feeds = rssService.listFeeds();
+        const tags = await rssService.getAllFeedTags();
+        const feeds = await rssService.listFeeds();
         const tagMap = tags.map((tag: any) => ({
           tag,
           feedCount: feeds.filter((f: any) => f.tags.includes(tag)).length,

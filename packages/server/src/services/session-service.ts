@@ -6,7 +6,7 @@
  */
 
 import { eq, and, desc } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import type {
   userSessions as userSessionsTable,
   users as usersTable,
@@ -33,13 +33,13 @@ export interface CreateSessionOpts {
 
 export interface SessionService {
   /** List active sessions for a user + source, ordered by most recent. */
-  listForSource(userId: string, sourceId: string): SessionInfo[];
+  listForSource(userId: string, sourceId: string): Promise<SessionInfo[]>;
   /** Create a new session. Returns the created session info. */
-  create(userId: string, sourceId: string, opts: CreateSessionOpts): SessionInfo;
+  create(userId: string, sourceId: string, opts: CreateSessionOpts): Promise<SessionInfo>;
   /** Resolve the userId that owns a given session file path. */
-  resolveUserId(sessionFile: string): string | undefined;
+  resolveUserId(sessionFile: string): Promise<string | undefined>;
   /** Look up a single session by its numeric ID. */
-  getById(sessionId: number): SessionInfo | null;
+  getById(sessionId: number): Promise<SessionInfo | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,16 +51,16 @@ type UsersSchema = typeof usersTable;
 
 export class SessionServiceImpl implements SessionService {
   constructor(
-    private getDb: () => BetterSQLite3Database<any>,
+    private getDb: () => Promise<LibSQLDatabase<any>>,
     private userSessions: UserSessionsSchema,
     private users: UsersSchema,
   ) {}
 
-  listForSource(userId: string, sourceId: string): SessionInfo[] {
-    const db = this.getDb();
+  async listForSource(userId: string, sourceId: string): Promise<SessionInfo[]> {
+    const db = await this.getDb();
     const us = this.userSessions;
 
-    return db
+    return await db
       .select({
         id: us.id,
         title: us.title,
@@ -81,13 +81,13 @@ export class SessionServiceImpl implements SessionService {
       .all() as SessionInfo[];
   }
 
-  create(userId: string, sourceId: string, opts: CreateSessionOpts): SessionInfo {
-    const db = this.getDb();
+  async create(userId: string, sourceId: string, opts: CreateSessionOpts): Promise<SessionInfo> {
+    const db = await this.getDb();
     const us = this.userSessions;
     const now = new Date().toISOString();
     const sessionFile = opts.sessionFile ?? `pending-${Date.now()}`;
 
-    const result = db
+    const [inserted] = await db
       .insert(us)
       .values({
         userId,
@@ -99,9 +99,9 @@ export class SessionServiceImpl implements SessionService {
         createdAt: now,
         lastActiveAt: now,
       })
-      .run();
+      .returning({ id: us.id });
 
-    const sessionId = Number(result.lastInsertRowid);
+    const sessionId = inserted.id;
 
     return {
       id: sessionId,
@@ -113,11 +113,11 @@ export class SessionServiceImpl implements SessionService {
     };
   }
 
-  resolveUserId(sessionFile: string): string | undefined {
-    const db = this.getDb();
+  async resolveUserId(sessionFile: string): Promise<string | undefined> {
+    const db = await this.getDb();
     const us = this.userSessions;
 
-    const row = db
+    const row = await db
       .select({ userId: us.userId })
       .from(us)
       .where(eq(us.sessionFile, sessionFile))
@@ -126,11 +126,11 @@ export class SessionServiceImpl implements SessionService {
     return row?.userId;
   }
 
-  getById(sessionId: number): SessionInfo | null {
-    const db = this.getDb();
+  async getById(sessionId: number): Promise<SessionInfo | null> {
+    const db = await this.getDb();
     const us = this.userSessions;
 
-    const row = db
+    const row = await db
       .select({
         id: us.id,
         title: us.title,
@@ -146,4 +146,3 @@ export class SessionServiceImpl implements SessionService {
     return (row as SessionInfo) ?? null;
   }
 }
-

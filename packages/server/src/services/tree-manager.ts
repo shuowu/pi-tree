@@ -107,7 +107,7 @@ export class TreeManager {
     // 3. Most recently active session for user+source
     let resumeSession = options?.resumeSession;
     if (!resumeSession) {
-      resumeSession = TreeManager.readActiveSession(userId, sourceId, options?.sessionId);
+      resumeSession = await TreeManager.readActiveSession(userId, sourceId, options?.sessionId);
     }
 
     // Validate session file exists on disk. DB placeholders (e.g. "pending-*")
@@ -117,8 +117,8 @@ export class TreeManager {
       resumeSession = undefined;
     }
 
-    const db = getDb();
-    const sourceRow = db.select().from(sources).where(eq(sources.id, sourceId)).get();
+    const db = await getDb();
+    const sourceRow = await db.select().from(sources).where(eq(sources.id, sourceId)).get();
     const resolvedLibraryPath = library.getSourcesPath();
     // Build PiSessionConfig — all env var resolution happens here in the app layer.
     // Core (PiSession) never reads process.env directly.
@@ -128,7 +128,7 @@ export class TreeManager {
     const sourceType = sourceRow?.type ?? "unknown";
 
     // Read session context from DB (carries mode, optional skill/model overrides)
-    const sessionContext = TreeManager.readSessionContext(userId, sourceId, options?.sessionId);
+    const sessionContext = await TreeManager.readSessionContext(userId, sourceId, options?.sessionId);
 
     // Resolve the session profile via the agent registry.
     // This replaces the old hardcoded sourceType === "router" branching.
@@ -188,11 +188,11 @@ export class TreeManager {
     console.log(`[tree-manager] Session created — user: ${userId}, file: ${sessionFile}`);
     let dbId: number | undefined;
     if (sessionFile) {
-      dbId = TreeManager.writeActiveSession(userId, sourceId, sessionFile, options?.sessionId);
+      dbId = await TreeManager.writeActiveSession(userId, sourceId, sessionFile, options?.sessionId);
     }
 
     const tm = new TreeManager(piSession, userId, sourceId, library);
-    tm.sessionDbId = dbId ?? TreeManager.readSessionDbId(userId, sourceId, options?.sessionId) ?? 0;
+    tm.sessionDbId = dbId ?? (await TreeManager.readSessionDbId(userId, sourceId, options?.sessionId)) ?? 0;
     return tm;
   }
 
@@ -249,17 +249,17 @@ export class TreeManager {
    * @param sessionId — When provided, looks up that specific row by ID.
    *   When omitted, finds the most recently active session.
    */
-  private static readActiveSession(
+  private static async readActiveSession(
     userId: string,
     sourceId: string,
     sessionId?: number,
-  ): string | undefined {
+  ): Promise<string | undefined> {
     try {
-      const db = getDb();
+      const db = await getDb();
 
       // If a specific session ID was requested, look it up directly
       if (sessionId !== undefined) {
-        const row = db
+        const row = await db
           .select()
           .from(userSessions)
           .where(
@@ -277,7 +277,7 @@ export class TreeManager {
       }
 
       // Fallback: most recently active session
-      const row = db
+      const row = await db
         .select()
         .from(userSessions)
         .where(
@@ -302,13 +302,13 @@ export class TreeManager {
    * Read the SessionContext for a user+source session from the DB.
    * Returns the parsed context, or a default if not found.
    */
-  private static readSessionContext(
+  private static async readSessionContext(
     userId: string,
     sourceId: string,
     sessionId?: number,
-  ): SessionContext | undefined {
+  ): Promise<SessionContext | undefined> {
     try {
-      const db = getDb();
+      const db = await getDb();
 
       const whereClause = sessionId !== undefined
         ? and(
@@ -323,7 +323,7 @@ export class TreeManager {
             eq(userSessions.isActive, 1),
           );
 
-      const row = db
+      const row = await db
         .select({ context: userSessions.context })
         .from(userSessions)
         .where(whereClause)
@@ -342,16 +342,16 @@ export class TreeManager {
    * @param sessionId — When provided, verifies that specific row exists.
    *   When omitted, finds the most recently active session.
    */
-  private static readSessionDbId(
+  private static async readSessionDbId(
     userId: string,
     sourceId: string,
     sessionId?: number,
-  ): number | undefined {
+  ): Promise<number | undefined> {
     try {
-      const db = getDb();
+      const db = await getDb();
 
       if (sessionId !== undefined) {
-        const row = db
+        const row = await db
           .select({ id: userSessions.id })
           .from(userSessions)
           .where(
@@ -366,7 +366,7 @@ export class TreeManager {
         return row?.id;
       }
 
-      const row = db
+      const row = await db
         .select({ id: userSessions.id })
         .from(userSessions)
         .where(
@@ -392,22 +392,22 @@ export class TreeManager {
    *
    * @returns The DB row ID of the written/updated session.
    */
-  private static writeActiveSession(
+  private static async writeActiveSession(
     userId: string,
     sourceId: string,
     sessionFile: string,
     sessionId?: number,
-  ): number | undefined {
+  ): Promise<number | undefined> {
     try {
-      const db = getDb();
+      const db = await getDb();
       const now = new Date().toISOString();
 
       // Ensure the user exists for backward compatibility
-      TreeManager.ensureUser(userId);
+      await TreeManager.ensureUser(userId);
 
       // If we have a specific session ID, update that row directly
       if (sessionId !== undefined) {
-        db.update(userSessions)
+        await db.update(userSessions)
           .set({
             sessionFile,
             lastActiveAt: now,
@@ -423,7 +423,7 @@ export class TreeManager {
       }
 
       // Legacy: deactivate previous sessions for this user+source
-      db.update(userSessions)
+      await db.update(userSessions)
         .set({ isActive: 0 })
         .where(
           and(
@@ -434,7 +434,7 @@ export class TreeManager {
         .run();
 
       // Insert or update the current session
-      db.insert(userSessions)
+      await db.insert(userSessions)
         .values({
           userId,
           sourceId,
@@ -457,7 +457,7 @@ export class TreeManager {
         .run();
 
       // Return the ID of the row we just wrote
-      const row = db
+      const row = await db
         .select({ id: userSessions.id })
         .from(userSessions)
         .where(
@@ -478,9 +478,9 @@ export class TreeManager {
   /**
    * Ensure a user row exists (auto-create for backward compatibility).
    */
-  private static ensureUser(userId: string): void {
-    const db = getDb();
-    const existing = db
+  private static async ensureUser(userId: string): Promise<void> {
+    const db = await getDb();
+    const existing = await db
       .select()
       .from(users)
       .where(eq(users.id, userId))
@@ -488,7 +488,7 @@ export class TreeManager {
 
     if (!existing) {
       const now = new Date().toISOString();
-      db.insert(users)
+      await db.insert(users)
         .values({
           id: userId,
           displayName: userId,

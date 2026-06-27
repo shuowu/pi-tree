@@ -1,5 +1,5 @@
 /**
- * Database connection — singleton backed by better-sqlite3 + Drizzle ORM.
+ * Database connection — singleton backed by @libsql/client + Drizzle ORM.
  *
  * The DB file lives at `<DATA_PATH>/pi-tree.db` (default: ~/.local/share/pi-tree/).
  *
@@ -11,9 +11,9 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdirSync } from "node:fs";
-import Database from "better-sqlite3";
-import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { createClient, type Client } from "@libsql/client";
+import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import * as schema from "./schema.js";
 
 // Re-export schema tables for convenient imports
@@ -43,54 +43,59 @@ export const MIGRATIONS_FOLDER = path.resolve(__dirname, "../../drizzle");
 // Singleton
 // ---------------------------------------------------------------------------
 
-let _db: BetterSQLite3Database<typeof schema> | null = null;
+let _db: LibSQLDatabase<typeof schema> | null = null;
+let _dbPromise: Promise<LibSQLDatabase<typeof schema>> | null = null;
+let _client: Client | null = null;
 
 /**
  * Get the Drizzle database instance (lazy-initialized on first call).
  * Creates the DB file and directory if they don't exist, and runs
  * any pending schema migrations.
  */
-export function getDb(): BetterSQLite3Database<typeof schema> {
+export async function getDb(): Promise<LibSQLDatabase<typeof schema>> {
   if (_db) return _db;
+  if (_dbPromise) return _dbPromise;
 
-  const dataPath =
-    process.env.DATA_PATH ??
-    path.join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
+  _dbPromise = (async () => {
+    const dataPath =
+      process.env.DATA_PATH ??
+      path.join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
 
-  const dbDir = dataPath;
-  const dbPath = path.join(dbDir, "pi-tree.db");
+    const dbDir = dataPath;
+    const dbPath = path.join(dbDir, "pi-tree.db");
 
-  // Ensure the directory exists
-  mkdirSync(dbDir, { recursive: true });
+    // Ensure the directory exists
+    mkdirSync(dbDir, { recursive: true });
 
-  console.log(`[db] Opening database at ${dbPath}`);
-  const sqlite = new Database(dbPath);
+    console.log(`[db] Opening database at ${dbPath}`);
+    _client = createClient({ url: `file:${dbPath}` });
 
-  // Enable WAL mode for better concurrent read performance
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(_client, { schema });
 
-  _db = drizzle(sqlite, { schema });
+    // Run pending migrations (auto-generated SQL in drizzle/ folder)
+    await runMigrations(db);
 
-  // Run pending migrations (auto-generated SQL in drizzle/ folder)
-  runMigrations(_db);
+    _db = db;
+    return db;
+  })();
 
-  return _db;
+  return _dbPromise;
 }
 
 /**
  * Reset the database connection. Used in tests to get a fresh DB.
- * Closes the underlying SQLite connection and clears the singleton.
+ * Closes the underlying libsql connection and clears the singleton.
  */
 export function resetDb(): void {
-  if (_db) {
+  if (_client) {
     try {
-      // Drizzle wraps the sqlite instance; close it to release the file lock
-      (_db as any)._.session.client.close();
+      _client.close();
     } catch {
       // Ignore if already closed
     }
+    _client = null;
     _db = null;
+    _dbPromise = null;
   }
 }
 
@@ -107,9 +112,8 @@ export function resetDb(): void {
 //   4. Commit and push — users get auto-migration on next startup
 // ---------------------------------------------------------------------------
 
-function runMigrations(db: BetterSQLite3Database<typeof schema>): void {
+async function runMigrations(db: LibSQLDatabase<typeof schema>): Promise<void> {
   console.log(`[db] Checking for pending migrations...`);
-  migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   console.log("[db] Migrations up to date");
 }
-

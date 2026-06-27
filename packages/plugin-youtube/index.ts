@@ -18,10 +18,10 @@ export default definePiTreeExtension((pi, services) => {
 
   async function getTranscriptCachePath(videoId: string): Promise<string> {
     // Check if there's a source with this videoId to use its directory
-    const sources = services.sources.list({ type: "youtube" });
+    const sources = await services.sources.list({ type: "youtube" });
     for (const item of sources) {
       try {
-        const s = services.sources.get(item.id);
+        const s = await services.sources.get(item.id);
         if (!s) continue;
         const meta = typeof s.metadata === "string" ? JSON.parse(s.metadata) : s.metadata;
         if (meta?.videoId === videoId) {
@@ -166,7 +166,7 @@ export default definePiTreeExtension((pi, services) => {
       }),
     }),
     async execute(_toolCallId, params) {
-      const source = services.sources.get(params.sourceId);
+      const source = await services.sources.get(params.sourceId);
       if (!source) {
         throw new Error(`Source not found: ${params.sourceId}`);
       }
@@ -244,9 +244,9 @@ export default definePiTreeExtension((pi, services) => {
         }
 
         // Check if a source for this video already exists
-        const existingSources = services.sources.list({ type: "youtube" });
+        const existingSources = await services.sources.list({ type: "youtube" });
         for (const s of existingSources) {
-          const full = services.sources.get(s.id);
+          const full = await services.sources.get(s.id);
           const meta = typeof full?.metadata === "string" ? JSON.parse(full.metadata) : full?.metadata;
           if (meta?.videoId === videoId) {
             return {
@@ -268,12 +268,12 @@ export default definePiTreeExtension((pi, services) => {
             .slice(0, 60) || "youtube-video";
 
         let sourceIdCandidate = baseId;
-        if (services.sources.get(sourceIdCandidate)) {
+        if (await services.sources.get(sourceIdCandidate)) {
           sourceIdCandidate = `${baseId}-${videoId.slice(0, 6)}`;
         }
 
         // Create source
-        const created = services.sources.create({
+        const created = await services.sources.create({
           id: sourceIdCandidate,
           title: info.title,
           author: info.author,

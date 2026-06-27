@@ -13,13 +13,13 @@ export default definePiTreeExtension((pi, services) => {
    * session owner from the DB by matching the current JSONL session file path
    * from the Pi SDK's session manager.
    */
-  function resolveUserId(aiProvidedUserId: string | undefined, ctx: ExtensionContext | undefined): string | undefined {
+  async function resolveUserId(aiProvidedUserId: string | undefined, ctx: ExtensionContext | undefined): Promise<string | undefined> {
     // Try to get the real userId from the current session's DB record
     if (ctx?.sessionManager) {
       try {
         const sessionFile = ctx.sessionManager.getSessionFile();
         if (sessionFile) {
-          const userId = services.sessions.resolveUserId(sessionFile);
+          const userId = await services.sessions.resolveUserId(sessionFile);
           if (userId) return userId;
         }
       } catch {
@@ -42,7 +42,7 @@ export default definePiTreeExtension((pi, services) => {
     }),
     async execute(_toolCallId, params) {
       const sourceTypes = services.registry.getSourceTypes();
-      const result = parseMentions(
+      const result = await parseMentions(
         params.message,
         sourceTypes,
         (query) => services.sources.list({ search: query }),
@@ -149,7 +149,7 @@ export default definePiTreeExtension((pi, services) => {
     }),
     async execute(_toolCallId, params) {
       try {
-        const rows = services.sources.list({
+        const rows = await services.sources.list({
           type: params.type,
           search: params.search,
         });
@@ -175,7 +175,7 @@ export default definePiTreeExtension((pi, services) => {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
-        const source = services.sources.get(params.source_id);
+        const source = await services.sources.get(params.source_id);
 
         if (!source) {
           throw new Error(`Source not found: ${params.source_id}`);
@@ -199,9 +199,9 @@ export default definePiTreeExtension((pi, services) => {
         const staleAfterHrs = sourceTypeConfig?.staleAfterHours ?? 12;
         result.sessionStrategy = strategy;
 
-        const userId = resolveUserId(params.user_id, ctx);
+        const userId = await resolveUserId(params.user_id, ctx);
         if (userId) {
-          const sessionRows = services.sessions.listForSource(userId, params.source_id);
+          const sessionRows = await services.sessions.listForSource(userId, params.source_id);
           const now = Date.now();
 
           result.sessions = sessionRows.map((row) => {
@@ -263,15 +263,15 @@ export default definePiTreeExtension((pi, services) => {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
         // Resolve userId: prefer the session owner from the DB over the AI-provided value
-        const userId = resolveUserId(params.user_id, ctx);
+        const userId = await resolveUserId(params.user_id, ctx);
         if (!userId) throw new Error("Could not determine user_id — please provide it explicitly.");
 
         // Auto-create user if not present (mirrors TreeManager.ensureUser)
-        services.users.ensureExists(userId);
+        await services.users.ensureExists(userId);
 
         // Resolve mode: use the source type's defaultMode instead of hardcoding "reading"
         // (e.g. news sources default to "news", books to "reading")
-        const source = services.sources.get(params.source_id);
+        const source = await services.sources.get(params.source_id);
         const sourceType = source?.type ?? "unknown";
         const sourceTypeInfo = services.registry.getSourceTypes().find(
           (st: any) => st.key === sourceType
@@ -301,7 +301,7 @@ export default definePiTreeExtension((pi, services) => {
           }
         }
 
-        const session = services.sessions.create(userId, params.source_id, {
+        const session = await services.sessions.create(userId, params.source_id, {
           title,
           context,
         });
@@ -332,7 +332,7 @@ export default definePiTreeExtension((pi, services) => {
     }),
     async execute(_toolCallId, params) {
       try {
-        const session = services.sessions.getById(params.session_id);
+        const session = await services.sessions.getById(params.session_id);
 
         if (!session) {
           throw new Error(`Session not found: ${params.session_id}`);

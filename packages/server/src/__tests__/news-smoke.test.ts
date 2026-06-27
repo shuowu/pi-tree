@@ -37,7 +37,7 @@ const { resetNewsDb } = await import(pJoin(newsPluginDir, "db.ts"));
 
 let newsCleanup: (() => void) | undefined;
 
-beforeAll(() => {
+beforeAll(async () => {
   mkdirSync(TEST_DATA_PATH, { recursive: true });
   mkdirSync(join(TEST_DATA_PATH, "library"), { recursive: true });
   mkdirSync(join(TEST_DATA_PATH, "sources", "news", "analyses"), { recursive: true });
@@ -51,14 +51,19 @@ beforeAll(() => {
     dataDir: pluginDataDir,
     dataPath: TEST_DATA_PATH,
     sources: new SourceServiceImpl(getDb, sources),
-    sessions: { listForSource: () => [], create: () => ({} as any), resolveUserId: () => undefined, getById: () => null },
-    users: { get: () => null, ensureExists: (id: string) => ({ id, displayName: id }) },
+    sessions: { listForSource: async () => [], create: async () => ({} as any), resolveUserId: async () => undefined, getById: async () => null },
+    users: { get: async () => null, ensureExists: async (id: string) => ({ id, displayName: id }) },
     registry: { getProfiles: () => new Map(), getSourceTypes: () => [], resolveProfile: () => ({ skills: [], extensions: [] }) },
     config: {},
   });
 
   app.route("/api/news", result.routes);
   newsCleanup = result.cleanup;
+
+  // Wait for seed to complete — seedDefaultFeeds() is fire-and-forget in setup(),
+  // so we need to ensure the DB is initialized and feeds are seeded before tests run.
+  // We do this by making a request that triggers getNewsDb() and waiting a tick.
+  await new Promise((resolve) => setTimeout(resolve, 200));
 });
 
 afterAll(() => {

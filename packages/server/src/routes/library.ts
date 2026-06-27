@@ -171,7 +171,7 @@ libraryRoutes.get("/sources/:sourceId/concepts", async (c) => {
     const relations = parsed.relations ?? [];
 
     // Build cross-source references
-    const allSources = getDb().select().from(sourcesTable).all();
+    const allSources = await (await getDb()).select().from(sourcesTable).all();
     const crossRefs: Record<string, { sourceId: string; title: string }[]> = {};
 
     for (const source of allSources) {
@@ -225,14 +225,14 @@ libraryRoutes.post("/sources/create", async (c) => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
 
     // Handle duplicate IDs by appending a suffix
     let id = baseId || "untitled";
     let suffix = 0;
     while (true) {
-      const existing = db
+      const existing = await db
         .select({ id: sourcesTable.id })
         .from(sourcesTable)
         .where(eq(sourcesTable.id, id))
@@ -255,7 +255,7 @@ libraryRoutes.post("/sources/create", async (c) => {
       updatedAt: now,
     };
 
-    db.insert(sourcesTable).values(values).run();
+    await db.insert(sourcesTable).values(values).run();
 
     // Fetch and save cover if thumbnailUrl is present in metadata
     if (body.metadata && typeof body.metadata === "object") {
@@ -373,9 +373,9 @@ libraryRoutes.post("/sources", async (c) => {
     let sourceId = baseId;
     let suffix = 1;
 
-    const db = getDb();
+    const db = await getDb();
     while (true) {
-      const existing = db.select().from(sourcesTable).where(eq(sourcesTable.id, sourceId)).get();
+      const existing = await db.select().from(sourcesTable).where(eq(sourcesTable.id, sourceId)).get();
       if (!existing) break;
       suffix++;
       sourceId = `${baseId}-${suffix}`;
@@ -397,7 +397,7 @@ libraryRoutes.post("/sources", async (c) => {
       await mkdir(markdownDir, { recursive: true });
       await writeFile(join(markdownDir, "content.md"), buffer);
 
-      db.insert(sourcesTable)
+      await db.insert(sourcesTable)
         .values({
           id: sourceId,
           type: sourceType,
@@ -431,7 +431,7 @@ libraryRoutes.post("/sources", async (c) => {
     }
 
     // For all other file types, save and mark as 'pending' (awaiting processing)
-    db.insert(sourcesTable)
+    await db.insert(sourcesTable)
       .values({
         id: sourceId,
         type: sourceType,
@@ -447,7 +447,7 @@ libraryRoutes.post("/sources", async (c) => {
 
     // Auto-enqueue processing (or concept extraction) for eligible source types
     const jobQueue = getJobQueue();
-    jobQueue.enqueue(sourceId);
+    jobQueue.enqueue(sourceId).catch(() => {/* fire-and-forget */});
 
     return c.json(
       {
@@ -483,8 +483,8 @@ libraryRoutes.put("/sources/:sourceId", async (c) => {
       metadata?: Record<string, any>;
     }>();
 
-    const db = getDb();
-    const existing = db
+    const db = await getDb();
+    const existing = await db
       .select()
       .from(sourcesTable)
       .where(eq(sourcesTable.id, sourceId))
@@ -507,7 +507,7 @@ libraryRoutes.put("/sources/:sourceId", async (c) => {
       updates.metadata = JSON.stringify(mergedMeta);
     }
 
-    db.update(sourcesTable)
+    await db.update(sourcesTable)
       .set(updates)
       .where(eq(sourcesTable.id, sourceId))
       .run();
@@ -534,8 +534,8 @@ libraryRoutes.delete("/sources/:sourceId", async (c) => {
     }
 
     // Delete DB row
-    const db = getDb();
-    db.delete(sourcesTable).where(eq(sourcesTable.id, sourceId)).run();
+    const db = await getDb();
+    await db.delete(sourcesTable).where(eq(sourcesTable.id, sourceId)).run();
 
     // Delete directory
     const { rm } = await import("node:fs/promises");
@@ -555,7 +555,7 @@ libraryRoutes.delete("/sources/:sourceId", async (c) => {
 
 /** List all tags */
 libraryRoutes.get("/tags", async (c) => {
-  const tagList = getLibrary().listTags();
+  const tagList = await getLibrary().listTags();
   return c.json({ tags: tagList });
 });
 

@@ -267,9 +267,9 @@ export class DictionaryService {
   /**
    * Ensure a user row exists (auto-create for backward compatibility).
    */
-  private ensureUser(userId: string): void {
-    const db = getDb();
-    const existing = db
+  private async ensureUser(userId: string): Promise<void> {
+    const db = await getDb();
+    const existing = await db
       .select()
       .from(users)
       .where(eq(users.id, userId))
@@ -277,7 +277,7 @@ export class DictionaryService {
 
     if (!existing) {
       const now = new Date().toISOString();
-      db.insert(users)
+      await db.insert(users)
         .values({
           id: userId,
           displayName: userId,
@@ -294,11 +294,11 @@ export class DictionaryService {
     term: string,
     definition?: string,
   ): Promise<void> {
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
-    this.ensureUser(userId);
+    await this.ensureUser(userId);
 
-    db.insert(glossaryEntries)
+    await db.insert(glossaryEntries)
       .values({
         userId,
         sourceId,
@@ -309,17 +309,17 @@ export class DictionaryService {
       .run();
   }
 
-  getGlossaryEntries(
+  async getGlossaryEntries(
     userId: string,
     sourceId: string,
-  ): Array<{
+  ): Promise<Array<{
     id: number;
     term: string;
     definition: string | null;
     createdAt: string;
-  }> {
-    const db = getDb();
-    return db
+  }>> {
+    const db = await getDb();
+    return await db
       .select()
       .from(glossaryEntries)
       .where(
@@ -332,9 +332,9 @@ export class DictionaryService {
       .all();
   }
 
-  deleteGlossaryEntry(userId: string, entryId: number): void {
-    const db = getDb();
-    db.delete(glossaryEntries)
+  async deleteGlossaryEntry(userId: string, entryId: number): Promise<void> {
+    const db = await getDb();
+    await db.delete(glossaryEntries)
       .where(
         and(
           eq(glossaryEntries.id, entryId),

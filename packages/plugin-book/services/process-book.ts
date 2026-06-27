@@ -127,7 +127,7 @@ export async function processBook(
   const { sourcesBasePath, sources } = deps;
 
   // 1. Validate source exists
-  const row = sources.get(sourceId);
+  const row = await sources.get(sourceId);
   if (!row) {
     throw new Error(`Source '${sourceId}' not found in database.`);
   }
@@ -142,7 +142,7 @@ export async function processBook(
     const hasMd = files.some((f) => f.endsWith(".md"));
     if (hasMd) {
       // Already parsed — just make sure status is right
-      sources.update(sourceId, { status: "ready" });
+      await sources.update(sourceId, { status: "ready" });
       return {
         sourceId,
         title: row.title,
@@ -174,7 +174,7 @@ export async function processBook(
   }
 
   // 5. Update status to processing
-  sources.update(sourceId, { status: "processing" });
+  await sources.update(sourceId, { status: "processing" });
 
   // 6. Parse the file
   const result = await parser.parse(original.path);
@@ -202,7 +202,7 @@ export async function processBook(
   // 10. Update DB with metadata from parsed file and mark ready
   const title = result.metadata.title ?? row.title;
   const author = result.metadata.author ?? row.author;
-  sources.update(sourceId, {
+  await sources.update(sourceId, {
     status: "ready",
     error: null,
     title,

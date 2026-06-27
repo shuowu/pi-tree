@@ -42,7 +42,7 @@ FROM node:22-slim AS runtime
 
 WORKDIR /app
 
-# better-sqlite3 needs these shared libs at runtime
+# @libsql/client needs the native SQLite shared library at runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*

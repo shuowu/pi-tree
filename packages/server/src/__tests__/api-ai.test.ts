@@ -80,9 +80,9 @@ describe("API LLM Integration via aimock", () => {
     await app.request("/api/users", json({ id: userId, displayName: "AI Tester" }));
 
     // Create the source in the DB
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
-    db.insert(sources)
+    await db.insert(sources)
       .values({
         id: sourceId,
         type: "book",
@@ -93,8 +93,7 @@ describe("API LLM Integration via aimock", () => {
         createdAt: now,
         updatedAt: now,
       })
-      .onConflictDoNothing()
-      .run();
+      .onConflictDoNothing();
 
     // Create a session so resolveProfile gets mode: "reading" → "book.reading"
     const sessRes = await app.request(

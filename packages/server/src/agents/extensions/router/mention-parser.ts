@@ -42,11 +42,11 @@ export interface MentionParseResult {
   youtubeUrl?: string;
 }
 
-export function parseMentions(
+export async function parseMentions(
   message: string,
   sourceTypeConfigs: MentionKeywordConfig[],
-  searchSources: (query: string) => SourceSearchResult[],
-): MentionParseResult {
+  searchSources: (query: string) => Promise<SourceSearchResult[]> | SourceSearchResult[],
+): Promise<MentionParseResult> {
   // Build keyword → config lookup
   const keywordMap = new Map<string, MentionKeywordConfig>();
   for (const st of sourceTypeConfigs) {
@@ -98,7 +98,7 @@ export function parseMentions(
     // Skip if this range overlaps with a keyword match from pass 1
     if (consumedRanges.some(([s, e]) => start < e && end > s)) continue;
 
-    const sources = searchSources(keyword);
+    const sources = await searchSources(keyword);
     if (sources.length > 0) {
       const best = sources[0];
       const stInfo = sourceTypeConfigs.find(st => st.key === best.type);

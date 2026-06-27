@@ -283,17 +283,17 @@ sessionRoutes.post("/reset", async (c) => {
   try {
     const { eq, and } = await import("drizzle-orm");
     const { getDb, userSessions } = await import("../db/index.js");
-    const db = getDb();
+    const db = await getDb();
 
     if (sessionId !== undefined) {
       // Reset a specific session
-      db.update(userSessions)
+      await db.update(userSessions)
         .set({ isActive: 0 })
         .where(eq(userSessions.id, sessionId))
         .run();
     } else {
       // Legacy: reset all sessions for user+source
-      db.update(userSessions)
+      await db.update(userSessions)
         .set({ isActive: 0 })
         .where(
           and(

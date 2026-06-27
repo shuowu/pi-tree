@@ -227,9 +227,9 @@ describe("Sessions CRUD", () => {
     // Create a user for session tests
     await app.request("/api/users", json({ id: userId, displayName: "Session Tester" }));
     // Create a source so FK constraint is satisfied
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
-    db.insert(sources).values({ id: sourceId, type: "book", title: "Test Book", author: "Test", source: "library", status: "ready", createdAt: now, updatedAt: now }).onConflictDoNothing().run();
+    await db.insert(sources).values({ id: sourceId, type: "book", title: "Test Book", author: "Test", source: "library", status: "ready", createdAt: now, updatedAt: now }).onConflictDoNothing();
   });
 
   it("GET /api/sessions/:userId/:sourceId → 200 + empty sessions", async () => {
@@ -289,9 +289,9 @@ describe("Glossary CRUD", () => {
   beforeAll(async () => {
     await app.request("/api/users", json({ id: userId, displayName: "Glossary Tester" }));
     // Create a source so FK constraint is satisfied
-    const db = getDb();
+    const db = await getDb();
     const now = new Date().toISOString();
-    db.insert(sources).values({ id: sourceId, type: "book", title: "Test Book", author: "Test", source: "library", status: "ready", createdAt: now, updatedAt: now }).onConflictDoNothing().run();
+    await db.insert(sources).values({ id: sourceId, type: "book", title: "Test Book", author: "Test", source: "library", status: "ready", createdAt: now, updatedAt: now }).onConflictDoNothing();
   });
 
   it("GET /api/dict/glossary/:userId/:sourceId → 200 + empty entries", async () => {
@@ -430,8 +430,8 @@ describe("Markdown Upload", () => {
     expect(result.title).toBe("Test Markdown Book");
 
     // Verify the source was inserted in DB as ready
-    const db = getDb();
-    const row = db.select().from(sources).where(eq(sources.id, result.id)).get();
+    const db = await getDb();
+    const [row] = await db.select().from(sources).where(eq(sources.id, result.id));
     expect(row).toBeDefined();
     expect(row!.status).toBe("ready");
 

@@ -19,7 +19,7 @@ export default definePiTreeExtension((pi, services) => {
     async execute(_toolCallId, params) {
       try {
         const query = params.query.toLowerCase();
-        const sources = services.sources.list();
+        const sources = await services.sources.list();
         const grouped = new Map<
           string,
           { descriptions: string[]; sources: { id: string; title: string }[] }

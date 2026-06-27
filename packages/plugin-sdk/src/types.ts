@@ -22,7 +22,7 @@ export interface PiTreeServices {
   /** Absolute path to the mutable data directory */
   dataPath: string;
   /** Raw Drizzle DB instance getter (power users, backward compat) */
-  db: () => any;
+  db: () => Promise<any> | any;
   /** Raw Drizzle schema tables (power users, backward compat) */
   schema: { sources: any; userSessions: any; users: any };
 }
@@ -69,13 +69,13 @@ export interface CreateSourceInput {
 
 export interface SourceService {
   /** List sources, excluding type='router'. Optional type & search filters. */
-  list(filter?: { type?: string; search?: string }): SourceListItem[];
+  list(filter?: { type?: string; search?: string }): Promise<SourceListItem[]>;
   /** Get full source info by ID. Returns null if not found. */
-  get(id: string): SourceInfo | null;
+  get(id: string): Promise<SourceInfo | null>;
   /** Create a new source. Returns the created source. No-ops if ID already exists. */
-  create(input: CreateSourceInput): SourceInfo;
+  create(input: CreateSourceInput): Promise<SourceInfo>;
   /** Update an existing source. Only provided fields are updated. */
-  update(id: string, fields: Partial<Omit<CreateSourceInput, "id">>): void;
+  update(id: string, fields: Partial<Omit<CreateSourceInput, "id">>): Promise<void>;
 }
 
 export interface SessionInfo {
@@ -88,7 +88,7 @@ export interface SessionInfo {
 }
 
 export interface SessionService {
-  listForSource(userId: string, sourceId: string): SessionInfo[];
+  listForSource(userId: string, sourceId: string): Promise<SessionInfo[]>;
   create(
     userId: string,
     sourceId: string,
@@ -97,10 +97,10 @@ export interface SessionService {
       context: Record<string, any>;
       sessionFile?: string;
     },
-  ): SessionInfo;
-  resolveUserId(sessionFile: string): string | undefined;
+  ): Promise<SessionInfo>;
+  resolveUserId(sessionFile: string): Promise<string | undefined>;
   /** Look up a single session by its numeric ID. */
-  getById(sessionId: number): SessionInfo | null;
+  getById(sessionId: number): Promise<SessionInfo | null>;
 }
 
 export interface UserInfo {
@@ -110,8 +110,8 @@ export interface UserInfo {
 }
 
 export interface UserService {
-  get(id: string): UserInfo | null;
-  ensureExists(id: string): UserInfo;
+  get(id: string): Promise<UserInfo | null>;
+  ensureExists(id: string): Promise<UserInfo>;
 }
 
 // ---------------------------------------------------------------------------

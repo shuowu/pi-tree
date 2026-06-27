@@ -64,7 +64,7 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
       }
 
       // Fallback 1: Check if there is a cached file in the plugin data dir
-      const sourceInfo = ctx.sources.get(sourceId);
+      const sourceInfo = await ctx.sources.get(sourceId);
       if (sourceInfo) {
         const meta = typeof sourceInfo.metadata === "string"
           ? JSON.parse(sourceInfo.metadata)

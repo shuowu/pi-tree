@@ -14,17 +14,26 @@ import { getDb, sources as sourcesTable, tags as tagsTable, sourceTags } from ".
 export class LibraryService {
   private sourcesPath: string;
 
+  private _dataPath: string;
+  private _initPromise: Promise<void> | null = null;
+
   constructor(dataPath?: string) {
     const dp =
       dataPath ??
       process.env.DATA_PATH ??
       join(process.env.HOME ?? "~", ".local", "share", "pi-tree");
+    this._dataPath = dp;
     this.sourcesPath = join(dp, "sources");
     
     mkdirSync(this.sourcesPath, { recursive: true });
+  }
 
-    // One-time migration: move books/ and library/ into sources/
-    this.migrateLegacyDirs(dp);
+  /** Lazy init — runs legacy migration on first DB access */
+  private async ensureInit(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this.migrateLegacyDirs(this._dataPath);
+    }
+    return this._initPromise;
   }
 
   /**
@@ -32,7 +41,7 @@ export class LibraryService {
    * - books/: move directories as-is (already have DB rows)
    * - library/: parse folder names for metadata, insert DB rows, then move
    */
-  private migrateLegacyDirs(dataPath: string): void {
+  private async migrateLegacyDirs(dataPath: string): Promise<void> {
     // --- Migrate books/ ---
     const booksPath = join(dataPath, "books");
     if (existsSync(booksPath)) {
@@ -57,7 +66,7 @@ export class LibraryService {
     if (existsSync(libraryPath)) {
       try {
         const entries = readdirSync(libraryPath, { withFileTypes: true });
-        const db = getDb();
+        const db = await getDb();
         const now = new Date().toISOString();
         let moved = 0;
         for (const entry of entries) {
@@ -67,7 +76,7 @@ export class LibraryService {
           if (!parsed) continue;
 
           // Ensure DB row exists
-          db.insert(sourcesTable)
+          await db.insert(sourcesTable)
             .values({
               id: folderName,
               type: "book",
@@ -105,10 +114,11 @@ export class LibraryService {
   }
 
   async listSources(): Promise<Source[]> {
-    const db = getDb();
+    await this.ensureInit();
+    const db = await getDb();
 
     // All sources live in DB — uploaded, user-created, system, migrated
-    const rows = db.select().from(sourcesTable).all();
+    const rows = await db.select().from(sourcesTable).all();
     const result: Source[] = [];
 
     for (const row of rows) {
@@ -156,7 +166,7 @@ export class LibraryService {
 
     // Attach tags from DB
     const sourceIds = result.map((s) => s.id);
-    const tagMap = this.getSourceTags(sourceIds);
+    const tagMap = await this.getSourceTags(sourceIds);
     for (const src of result) {
       src.tags = tagMap.get(src.id) ?? [];
     }
@@ -196,13 +206,13 @@ export class LibraryService {
   /**
    * Get tags for a list of source IDs. Returns a map of sourceId → tag names.
    */
-  getSourceTags(sourceIds: string[]): Map<string, string[]> {
+  async getSourceTags(sourceIds: string[]): Promise<Map<string, string[]>> {
     const result = new Map<string, string[]>();
     if (sourceIds.length === 0) return result;
 
-    const db = getDb();
+    const db = await getDb();
     // Use raw SQL for efficient join query
-    const rows = db.all<{ source_id: string; name: string }>(
+    const rows = await db.all<{ source_id: string; name: string }>(
       sql`SELECT st.source_id, t.name
           FROM source_tags st
           JOIN tags t ON t.id = st.tag_id
@@ -227,7 +237,7 @@ export class LibraryService {
    * Add a tag to a source. Creates the tag if it doesn't exist.
    */
   async addTag(sourceId: string, tagName: string): Promise<void> {
-    const db = getDb();
+    const db = await getDb();
     const name = tagName.toLowerCase().trim();
     if (!name) return;
 
@@ -235,13 +245,13 @@ export class LibraryService {
     await this.listSources();
 
     // Create tag if it doesn't exist
-    db.insert(tagsTable)
+    await db.insert(tagsTable)
       .values({ name, createdAt: new Date().toISOString() })
       .onConflictDoNothing()
       .run();
 
     // Get the tag id
-    const tag = db
+    const tag = await db
       .select({ id: tagsTable.id })
       .from(tagsTable)
       .where(eq(tagsTable.name, name))
@@ -249,7 +259,7 @@ export class LibraryService {
     if (!tag) return;
 
     // Insert junction row
-    db.run(
+    await db.run(
       sql`INSERT OR IGNORE INTO source_tags (source_id, tag_id) VALUES (${sourceId}, ${tag.id})`,
     );
   }
@@ -258,10 +268,10 @@ export class LibraryService {
    * Remove a tag from a source. Cleans up orphaned tags.
    */
   async removeTag(sourceId: string, tagName: string): Promise<void> {
-    const db = getDb();
+    const db = await getDb();
     const name = tagName.toLowerCase().trim();
 
-    const tag = db
+    const tag = await db
       .select({ id: tagsTable.id })
       .from(tagsTable)
       .where(eq(tagsTable.name, name))
@@ -269,27 +279,27 @@ export class LibraryService {
     if (!tag) return;
 
     // Remove junction row
-    db.run(
+    await db.run(
       sql`DELETE FROM source_tags WHERE source_id = ${sourceId} AND tag_id = ${tag.id}`,
     );
 
     // Clean up orphaned tag (no sources reference it)
-    const usage = db
+    const usage = await db
       .select({ count: sql<number>`count(*)` })
       .from(sourceTags)
       .where(eq(sourceTags.tagId, tag.id))
       .get();
     if (usage && usage.count === 0) {
-      db.delete(tagsTable).where(eq(tagsTable.id, tag.id)).run();
+      await db.delete(tagsTable).where(eq(tagsTable.id, tag.id)).run();
     }
   }
 
   /**
    * List all unique tag names.
    */
-  listTags(): string[] {
-    const db = getDb();
-    const rows = db
+  async listTags(): Promise<string[]> {
+    const db = await getDb();
+    const rows = await db
       .select({ name: tagsTable.name })
       .from(tagsTable)
       .orderBy(tagsTable.name)

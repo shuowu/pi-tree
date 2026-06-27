@@ -13,12 +13,9 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
   });
 
   // Seed default feeds on first run
-  try {
-    rssService.seedDefaultFeeds();
-    console.log("✅ [news] RSS feeds initialized.");
-  } catch (err) {
-    console.error("❌ [news] Failed to seed default feeds:", err);
-  }
+  rssService.seedDefaultFeeds()
+    .then(() => console.log("✅ [news] RSS feeds initialized."))
+    .catch((err) => console.error("❌ [news] Failed to seed default feeds:", err));
 
   // RSS cron scheduling
   let crawlInterval: ReturnType<typeof setInterval> | undefined;
@@ -27,7 +24,8 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
     const crawlIntervalMs = crawlIntervalMin * 60 * 1000;
 
     // Startup crawl check
-    rssService.checkAndCrawlIfStale(crawlIntervalMs);
+    rssService.checkAndCrawlIfStale(crawlIntervalMs)
+      .catch((err) => console.error("[news] Startup crawl check failed:", err));
 
     // Background interval
     crawlInterval = setInterval(() => {
@@ -47,9 +45,9 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
   // ---------------------------------------------------------------------------
 
   /** List all feeds from DB */
-  routes.get("/feeds", (c) => {
+  routes.get("/feeds", async (c) => {
     try {
-      const feeds = rssService.listFeeds();
+      const feeds = await rssService.listFeeds();
       return c.json(feeds);
     } catch (err: any) {
       return c.json({ success: false, error: err.message }, 500);
@@ -70,7 +68,7 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
         return c.json({ success: false, error: "Missing required fields: id, name, url" }, 400);
       }
 
-      const feeds = rssService.listFeeds();
+      const feeds = await rssService.listFeeds();
       if (feeds.some((f) => f.id === body.id)) {
         return c.json({ success: false, error: `Feed with ID '${body.id}' already exists` }, 400);
       }
@@ -82,7 +80,7 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
         tags: body.tags || []
       };
 
-      rssService.addFeed(newFeed);
+      await rssService.addFeed(newFeed);
       return c.json({ success: true, feed: newFeed });
     } catch (err: any) {
       return c.json({ success: false, error: err.message }, 500);
@@ -90,10 +88,10 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
   });
 
   /** Delete a feed */
-  routes.delete("/feeds/:id", (c) => {
+  routes.delete("/feeds/:id", async (c) => {
     try {
       const id = c.req.param("id");
-      const deleted = rssService.removeFeed(id);
+      const deleted = await rssService.removeFeed(id);
 
       if (!deleted) {
         return c.json({ success: false, error: `Feed with ID '${id}' not found` }, 404);
@@ -115,7 +113,7 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
         tags?: string[];
       }>();
 
-      const updated = rssService.updateFeed(id, body);
+      const updated = await rssService.updateFeed(id, body);
       if (!updated) {
         return c.json({ success: false, error: `Feed with ID '${id}' not found` }, 404);
       }

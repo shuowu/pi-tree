@@ -24,11 +24,11 @@ testRoutes.post("/seed-source", async (c) => {
     return c.json({ error: "id and title are required" }, 400);
   }
 
-  const db = getDb();
+  const db = await getDb();
   const now = new Date().toISOString();
 
   try {
-    db.insert(sources)
+    await db.insert(sources)
       .values({
         id,
         type,
@@ -60,11 +60,11 @@ testRoutes.post("/seed-source", async (c) => {
  */
 testRoutes.delete("/cleanup/:id", async (c) => {
   const id = c.req.param("id");
-  const db = getDb();
+  const db = await getDb();
 
   try {
     // Delete source if it has the test prefix
-    db.delete(sources)
+    await db.delete(sources)
       .where((await import("drizzle-orm")).eq(sources.id, id))
       .run();
     return c.json({ ok: true });

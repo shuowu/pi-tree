@@ -6,7 +6,7 @@
  */
 
 import { eq } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import type { users as usersTable } from "../db/schema.js";
 
 // ---------------------------------------------------------------------------
@@ -21,9 +21,9 @@ export interface UserInfo {
 
 export interface UserService {
   /** Get a user by ID. Returns null if not found. */
-  get(id: string): UserInfo | null;
+  get(id: string): Promise<UserInfo | null>;
   /** Ensure a user exists — inserts with displayName=id if missing. Returns the user. */
-  ensureExists(id: string): UserInfo;
+  ensureExists(id: string): Promise<UserInfo>;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,14 +34,14 @@ type UsersSchema = typeof usersTable;
 
 export class UserServiceImpl implements UserService {
   constructor(
-    private getDb: () => BetterSQLite3Database<any>,
+    private getDb: () => Promise<LibSQLDatabase<any>>,
     private users: UsersSchema,
   ) {}
 
-  get(id: string): UserInfo | null {
-    const db = this.getDb();
+  async get(id: string): Promise<UserInfo | null> {
+    const db = await this.getDb();
 
-    const row = db
+    const row = await db
       .select({
         id: this.users.id,
         displayName: this.users.displayName,
@@ -54,13 +54,13 @@ export class UserServiceImpl implements UserService {
     return row ?? null;
   }
 
-  ensureExists(id: string): UserInfo {
-    const db = this.getDb();
-    const existing = this.get(id);
+  async ensureExists(id: string): Promise<UserInfo> {
+    const db = await this.getDb();
+    const existing = await this.get(id);
     if (existing) return existing;
 
     const now = new Date().toISOString();
-    db.insert(this.users)
+    await db.insert(this.users)
       .values({
         id,
         displayName: id,

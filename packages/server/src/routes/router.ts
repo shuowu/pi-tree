@@ -35,9 +35,9 @@ async function cleanupLegacyRouterRows(): Promise<void> {
   try {
     const { getDb, sources, userSessions } = await import("../db/index.js");
     const { eq } = await import("drizzle-orm");
-    const db = getDb();
-    db.delete(userSessions).where(eq(userSessions.sourceId, "home-router")).run();
-    db.delete(sources).where(eq(sources.id, "home-router")).run();
+    const db = await getDb();
+    await db.delete(userSessions).where(eq(userSessions.sourceId, "home-router")).run();
+    await db.delete(sources).where(eq(sources.id, "home-router")).run();
     legacyCleaned = true;
     console.log("[router] Cleaned up legacy home-router DB rows");
   } catch {
@@ -92,7 +92,7 @@ routerRoutes.post("/route", async (c) => {
     const sourceTypeConfigs = registry.getSourceTypes();
 
     // 1. Parse mentions
-    const parsed = parseMentions(
+    const parsed = await parseMentions(
       message,
       sourceTypeConfigs,
       (query) => services.sources.list({ search: query }),
@@ -109,7 +109,7 @@ routerRoutes.post("/route", async (c) => {
     if (mention.error || !mention.sourceId) return c.json({ resolved: false });
 
     // 2. Look up source
-    const source = services.sources.get(mention.sourceId);
+    const source = await services.sources.get(mention.sourceId);
     if (!source) return c.json({ resolved: false });
 
     const stConfig = sourceTypeConfigs.find((st) => st.key === source.type);
@@ -146,7 +146,7 @@ routerRoutes.post("/route", async (c) => {
     }
 
     // 4. Get existing sessions
-    const sessions = services.sessions.listForSource(userId, mention.sourceId);
+    const sessions = await services.sessions.listForSource(userId, mention.sourceId);
 
     // Helper: get session mode from its context JSON
     const getSessionMode = (row: { context: string }): string => {
@@ -209,12 +209,12 @@ routerRoutes.post("/route", async (c) => {
     };
 
     // Helper: create session and return result
-    const createAndReturn = () => {
-      services.users.ensureExists(userId);
+    const createAndReturn = async () => {
+      await services.users.ensureExists(userId);
       const context: Record<string, unknown> = { mode };
       if (mention.tags?.length) context.tags = mention.tags;
       if (mention.qualifier) context.qualifier = mention.qualifier;
-      const session = services.sessions.create(userId, mention.sourceId!, {
+      const session = await services.sessions.create(userId, mention.sourceId!, {
         title: buildTitle(),
         context,
       });
@@ -248,7 +248,7 @@ routerRoutes.post("/route", async (c) => {
     // 5. Apply decision logic
 
     // Explicit intent overrides strategy
-    if (wantsNew) return createAndReturn();
+    if (wantsNew) return await createAndReturn();
     if (wantsResume && sessions.length > 0) {
       const match = sessions.find((s) => getSessionMode(s) === mode) ?? sessions[0];
       return openAndReturn(match.id);
@@ -257,15 +257,15 @@ routerRoutes.post("/route", async (c) => {
     // Tags/qualifier indicate a specific focus — always create a new session.
     // We can't match these against existing sessions (context doesn't store tags),
     // and reusing an @News#ai session for @News#sports would be wrong.
-    if (mention.tags?.length || mention.qualifier) return createAndReturn();
+    if (mention.tags?.length || mention.qualifier) return await createAndReturn();
 
     // No sessions → create
-    if (sessions.length === 0) return createAndReturn();
+    if (sessions.length === 0) return await createAndReturn();
 
     // Strategy: reuse-same-mode (books, papers)
     if (strategy === "reuse-same-mode") {
       const match = sessions.find((s) => getSessionMode(s) === mode);
-      return match ? openAndReturn(match.id) : createAndReturn();
+      return match ? openAndReturn(match.id) : await createAndReturn();
     }
 
     // Strategy: time-based (news)
@@ -281,11 +281,11 @@ routerRoutes.post("/route", async (c) => {
         })
         .sort((a, b) => a.hoursAgo - b.hoursAgo);
 
-      if (candidates.length === 0) return createAndReturn();
+      if (candidates.length === 0) return await createAndReturn();
 
       const best = candidates[0];
       if (best.hoursAgo < askAfterHrs) return openAndReturn(best.id);
-      if (best.hoursAgo > staleAfterHrs) return createAndReturn();
+      if (best.hoursAgo > staleAfterHrs) return await createAndReturn();
       // "ask" zone — ambiguous, let LLM handle
       return c.json({ resolved: false });
     }

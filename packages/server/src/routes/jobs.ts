@@ -21,10 +21,10 @@ jobs.get("/:sourceId", (c) => {
  *  ?force=true  → hard reprocess (redo all phases from scratch)
  *  default      → incremental (only run phases with missing output)
  */
-jobs.post("/:sourceId/process", (c) => {
+jobs.post("/:sourceId/process", async (c) => {
   const queue = getJobQueue();
   const force = c.req.query("force") === "true";
-  const job = queue.enqueue(c.req.param("sourceId"), { force });
+  const job = await queue.enqueue(c.req.param("sourceId"), { force });
   if (!job) return c.json({ error: "No processor available for this source type" }, 400);
   return c.json(job);
 });

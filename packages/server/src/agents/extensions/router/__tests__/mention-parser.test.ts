@@ -59,8 +59,8 @@ function mockSearchSources(query: string): SourceSearchResult[] {
 // ─── Tests ──────────────────────────────────────────────────────────────────────
 
 describe("parseMentions", () => {
-  it("parses @News as a keyword mention with fixedSourceId", () => {
-    const result = parseMentions("@News", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("parses @News as a keyword mention with fixedSourceId", async () => {
+    const result = await parseMentions("@News", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -74,8 +74,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
-  it("parses @News#ai as keyword + tag", () => {
-    const result = parseMentions("@News#ai", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("parses @News#ai as keyword + tag", async () => {
+    const result = await parseMentions("@News#ai", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -86,8 +86,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
-  it("parses @News:Hacker News as keyword + qualifier", () => {
-    const result = parseMentions("@News:Hacker News", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("parses @News:Hacker News as keyword + qualifier", async () => {
+    const result = await parseMentions("@News:Hacker News", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -97,8 +97,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
-  it("parses @News followed by unrelated text — keyword match + plain text preserved", () => {
-    const result = parseMentions("@News hacker news", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("parses @News followed by unrelated text — keyword match + plain text preserved", async () => {
+    const result = await parseMentions("@News hacker news", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -109,8 +109,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("hacker news");
   });
 
-  it("parses @Paper as a keyword mention without fixedSourceId", () => {
-    const result = parseMentions("@Paper", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("parses @Paper as a keyword mention without fixedSourceId", async () => {
+    const result = await parseMentions("@Paper", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -123,8 +123,8 @@ describe("parseMentions", () => {
     expect(result.mentions[0]).not.toHaveProperty("sessionStrategy");
   });
 
-  it("parses @Dune as a fuzzy source-title match", () => {
-    const result = parseMentions("@Dune", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("parses @Dune as a fuzzy source-title match", async () => {
+    const result = await parseMentions("@Dune", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -138,8 +138,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
-  it("returns an error mention for @Unknown when no source is found", () => {
-    const result = parseMentions("@Unknown", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("returns an error mention for @Unknown when no source is found", async () => {
+    const result = await parseMentions("@Unknown", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -150,8 +150,8 @@ describe("parseMentions", () => {
     });
   });
 
-  it("parses two mentions: @News#ai @Dune", () => {
-    const result = parseMentions("@News#ai @Dune", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("parses two mentions: @News#ai @Dune", async () => {
+    const result = await parseMentions("@News#ai @Dune", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(2);
     expect(result.mentions[0]).toMatchObject({
@@ -166,8 +166,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
-  it("returns empty mentions and full plainText when no @mentions are present", () => {
-    const result = parseMentions(
+  it("returns empty mentions and full plainText when no @mentions are present", async () => {
+    const result = await parseMentions(
       "plain text with no mentions",
       SOURCE_TYPE_CONFIGS,
       mockSearchSources,
@@ -177,8 +177,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("plain text with no mentions");
   });
 
-  it("parses @News:Tech — qualifier capture is greedy up to # or @", () => {
-    const result = parseMentions(
+  it("parses @News:Tech — qualifier capture is greedy up to # or @", async () => {
+    const result = await parseMentions(
       "@News:Tech latest updates",
       SOURCE_TYPE_CONFIGS,
       mockSearchSources,
@@ -194,8 +194,8 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
-  it("is case-insensitive for keyword matching", () => {
-    const result = parseMentions("@news", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("is case-insensitive for keyword matching", async () => {
+    const result = await parseMentions("@news", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -204,8 +204,8 @@ describe("parseMentions", () => {
     });
   });
 
-  it("handles keyword + tag + qualifier together: @News:Tech#ai", () => {
-    const result = parseMentions("@News:Tech#ai", SOURCE_TYPE_CONFIGS, mockSearchSources);
+  it("handles keyword + tag + qualifier together: @News:Tech#ai", async () => {
+    const result = await parseMentions("@News:Tech#ai", SOURCE_TYPE_CONFIGS, mockSearchSources);
 
     expect(result.mentions).toHaveLength(1);
     expect(result.mentions[0]).toMatchObject({
@@ -215,9 +215,9 @@ describe("parseMentions", () => {
     });
   });
 
-  it("title regex captures multi-word @mentions greedily", () => {
+  it("title regex captures multi-word @mentions greedily", async () => {
     // @(\w+(?:\s+\w+)*) matches "Dune please" as one mention
-    const result = parseMentions(
+    const result = await parseMentions(
       "tell me about @Dune please",
       SOURCE_TYPE_CONFIGS,
       mockSearchSources,
@@ -234,9 +234,9 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("tell me about");
   });
 
-  it("matches a single-word title mention when followed by punctuation", () => {
+  it("matches a single-word title mention when followed by punctuation", async () => {
     // When the next char isn't \w, the title regex stops at one word
-    const result = parseMentions(
+    const result = await parseMentions(
       "tell me about @Dune, please",
       SOURCE_TYPE_CONFIGS,
       mockSearchSources,

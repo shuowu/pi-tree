@@ -25,8 +25,8 @@ export class AgentTaskServiceImpl implements AgentTaskService {
     const sourceId = opts.sourceId;
 
     // Look up the source to get its type
-    const db = getDb();
-    const sourceRow = db.select().from(sources).where(eq(sources.id, sourceId)).get();
+    const db = await getDb();
+    const sourceRow = await db.select().from(sources).where(eq(sources.id, sourceId)).get();
     if (!sourceRow) {
       throw new Error(`[agent-task] Source '${sourceId}' not found`);
     }
@@ -34,9 +34,9 @@ export class AgentTaskServiceImpl implements AgentTaskService {
     console.log(`[agent-task] Running task: source=${sourceId}, type=${sourceRow.type}, mode=${opts.mode}, user=${userId}`);
 
     // Ensure the user exists (auto-create "system" user if needed)
-    const existingUser = db.select().from(users).where(eq(users.id, userId)).get();
+    const existingUser = await db.select().from(users).where(eq(users.id, userId)).get();
     if (!existingUser) {
-      db.insert(users).values({
+      await db.insert(users).values({
         id: userId,
         displayName: userId === "system" ? "System" : userId,
         createdAt: new Date().toISOString(),
@@ -48,7 +48,7 @@ export class AgentTaskServiceImpl implements AgentTaskService {
     // resolves the correct profile (skills, extensions, model).
     const now = new Date().toISOString();
     const context = JSON.stringify({ mode: opts.mode });
-    const sessionResult = db.insert(userSessions).values({
+    const [inserted] = await db.insert(userSessions).values({
       userId,
       sourceId,
       title: `System task: ${opts.mode}`,
@@ -57,8 +57,8 @@ export class AgentTaskServiceImpl implements AgentTaskService {
       isActive: 1,
       lastActiveAt: now,
       createdAt: now,
-    }).run();
-    const sessionId = Number(sessionResult.lastInsertRowid);
+    }).returning({ id: userSessions.id });
+    const sessionId = inserted.id;
 
     try {
       // Create session via TreeManager — this resolves the profile for the
@@ -72,12 +72,12 @@ export class AgentTaskServiceImpl implements AgentTaskService {
       return { response: result.response };
     } finally {
       // Clean up the temporary session — both DB row and JSONL file on disk
-      const sessionRow = db.select().from(userSessions)
+      const sessionRow = await db.select().from(userSessions)
         .where(and(eq(userSessions.id, sessionId), eq(userSessions.userId, userId)))
         .get();
       const sessionFile = sessionRow?.sessionFile;
 
-      db.delete(userSessions)
+      await db.delete(userSessions)
         .where(
           and(
             eq(userSessions.id, sessionId),

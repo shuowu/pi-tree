@@ -83,7 +83,7 @@ dictionaryRoutes.get("/glossary/:userId/:sourceId", async (c) => {
   const userId = c.req.param("userId");
   const sourceId = c.req.param("sourceId");
   const dictService = DictionaryService.getInstance();
-  const entries = dictService.getGlossaryEntries(userId, sourceId);
+  const entries = await dictService.getGlossaryEntries(userId, sourceId);
   return c.json({ entries });
 });
 
@@ -92,6 +92,6 @@ dictionaryRoutes.delete("/glossary/:userId/:entryId", async (c) => {
   const userId = c.req.param("userId");
   const entryId = parseInt(c.req.param("entryId"), 10);
   const dictService = DictionaryService.getInstance();
-  dictService.deleteGlossaryEntry(userId, entryId);
+  await dictService.deleteGlossaryEntry(userId, entryId);
   return c.json({ ok: true });
 });

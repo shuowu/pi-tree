@@ -1,6 +1,6 @@
-import Database from "better-sqlite3";
-import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { createClient, type Client } from "@libsql/client";
+import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { dirname, join } from "node:path";
 import { mkdirSync, existsSync } from "node:fs";
@@ -58,31 +58,39 @@ const MIGRATIONS_FOLDER = existsSync(join(__dirname, "drizzle"))
 // Singleton DB connection
 // ---------------------------------------------------------------------------
 
-let dbInstance: BetterSQLite3Database | null = null;
-let sqliteDb: InstanceType<typeof Database> | null = null;
+let dbInstance: LibSQLDatabase | null = null;
+let dbPromise: Promise<LibSQLDatabase> | null = null;
+let client: Client | null = null;
 
-export function getNewsDb(dataDir: string) {
+export async function getNewsDb(dataDir: string) {
   if (dbInstance) return dbInstance;
-  mkdirSync(dataDir, { recursive: true });
-  const dbPath = join(dataDir, "news.db");
-  sqliteDb = new Database(dbPath);
-  sqliteDb.pragma("journal_mode = WAL");
+  if (dbPromise) return dbPromise;
 
-  dbInstance = drizzle(sqliteDb);
+  dbPromise = (async () => {
+    mkdirSync(dataDir, { recursive: true });
+    const dbPath = join(dataDir, "news.db");
+    client = createClient({ url: `file:${dbPath}` });
 
-  // Run pending migrations (auto-generated SQL in drizzle/ folder)
-  console.log(`[news-db] Checking for pending migrations...`);
-  migrate(dbInstance, { migrationsFolder: MIGRATIONS_FOLDER });
-  console.log("[news-db] Migrations up to date");
+    const db = drizzle(client);
 
-  return dbInstance;
+    // Run pending migrations (auto-generated SQL in drizzle/ folder)
+    console.log(`[news-db] Checking for pending migrations...`);
+    await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+    console.log("[news-db] Migrations up to date");
+
+    dbInstance = db;
+    return db;
+  })();
+
+  return dbPromise;
 }
 
 export function closeNewsDb() {
-  if (sqliteDb) {
-    sqliteDb.close();
-    sqliteDb = null;
+  if (client) {
+    client.close();
+    client = null;
     dbInstance = null;
+    dbPromise = null;
   }
 }
 

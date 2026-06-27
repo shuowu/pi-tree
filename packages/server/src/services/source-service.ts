@@ -6,7 +6,7 @@
  */
 
 import { eq, not, like, and, or } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import type { sources as sourcesTable } from "../db/schema.js";
 
 // ---------------------------------------------------------------------------
@@ -56,13 +56,13 @@ export interface CreateSourceInput {
 
 export interface SourceService {
   /** List sources, excluding type='router'. Optional type & search filters. */
-  list(filter?: SourceListFilter): SourceListItem[];
+  list(filter?: SourceListFilter): Promise<SourceListItem[]>;
   /** Get full source info by ID. Returns null if not found. */
-  get(id: string): SourceInfo | null;
+  get(id: string): Promise<SourceInfo | null>;
   /** Create a new source. No-ops if ID already exists. */
-  create(input: CreateSourceInput): SourceInfo;
+  create(input: CreateSourceInput): Promise<SourceInfo>;
   /** Update an existing source. Only provided fields are updated. */
-  update(id: string, fields: Partial<Omit<CreateSourceInput, "id">>): void;
+  update(id: string, fields: Partial<Omit<CreateSourceInput, "id">>): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,12 +73,12 @@ type SourcesSchema = typeof sourcesTable;
 
 export class SourceServiceImpl implements SourceService {
   constructor(
-    private getDb: () => BetterSQLite3Database<any>,
+    private getDb: () => Promise<LibSQLDatabase<any>>,
     private sources: SourcesSchema,
   ) {}
 
-  list(filter?: SourceListFilter): SourceListItem[] {
-    const db = this.getDb();
+  async list(filter?: SourceListFilter): Promise<SourceListItem[]> {
+    const db = await this.getDb();
     const s = this.sources;
 
     const conditions: ReturnType<typeof eq>[] = [
@@ -99,7 +99,7 @@ export class SourceServiceImpl implements SourceService {
       );
     }
 
-    return db
+    return await db
       .select({
         id: s.id,
         title: s.title,
@@ -113,11 +113,11 @@ export class SourceServiceImpl implements SourceService {
       .all() as SourceListItem[];
   }
 
-  get(id: string): SourceInfo | null {
-    const db = this.getDb();
+  async get(id: string): Promise<SourceInfo | null> {
+    const db = await this.getDb();
     const s = this.sources;
 
-    const row = db
+    const row = await db
       .select()
       .from(s)
       .where(eq(s.id, id))
@@ -140,12 +140,12 @@ export class SourceServiceImpl implements SourceService {
     };
   }
 
-  create(input: CreateSourceInput): SourceInfo {
-    const db = this.getDb();
+  async create(input: CreateSourceInput): Promise<SourceInfo> {
+    const db = await this.getDb();
     const s = this.sources;
     const now = new Date().toISOString();
 
-    db.insert(s)
+    await db.insert(s)
       .values({
         id: input.id,
         type: input.type,
@@ -163,11 +163,11 @@ export class SourceServiceImpl implements SourceService {
       .onConflictDoNothing()
       .run();
 
-    return this.get(input.id)!;
+    return (await this.get(input.id))!;
   }
 
-  update(id: string, fields: Partial<Omit<CreateSourceInput, "id">>): void {
-    const db = this.getDb();
+  async update(id: string, fields: Partial<Omit<CreateSourceInput, "id">>): Promise<void> {
+    const db = await this.getDb();
     const s = this.sources;
 
     const updates: Record<string, any> = {
@@ -184,6 +184,6 @@ export class SourceServiceImpl implements SourceService {
     if (fields.metadata !== undefined) updates.metadata = JSON.stringify(fields.metadata);
     if (fields.coverUrl !== undefined) updates.coverUrl = fields.coverUrl;
 
-    db.update(s).set(updates).where(eq(s.id, id)).run();
+    await db.update(s).set(updates).where(eq(s.id, id)).run();
   }
 }
