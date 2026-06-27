@@ -288,23 +288,6 @@ export function collectScopeMessages(
     if (parent) {
       pushMessage(parent.id, contentMap, messages);
     }
-  } else if (viewNodeId) {
-    // User node — check if it's inside a fork (parent AI has 2+ children).
-    // If so, prepend grandparent user→AI pair for branch context.
-    const parentAI = findParent(tree, startNode.id);
-    if (parentAI && isAINode(parentAI)) {
-      const realChildren = (parentAI.children ?? []).filter(
-        (c) => !(c.status === "placeholder" && (c.messageCount ?? 0) === 0),
-      );
-      if (realChildren.length >= 2) {
-        // This is a fork — prepend the grandparent user → parent AI pair
-        const grandparentUser = findParent(tree, parentAI.id);
-        if (grandparentUser) {
-          pushMessage(grandparentUser.id, contentMap, messages);
-        }
-        pushMessage(parentAI.id, contentMap, messages);
-      }
-    }
   }
 
   // Walk the linear chain
@@ -425,5 +408,32 @@ export function buildBreadcrumb(
   return path;
 }
 
+// ─── Placeholder Stripping ──────────────────────────────────────────────────
 
+/**
+ * Remove placeholder nodes from the tree, hoisting their children up
+ * to the parent level. This is used for UI-facing trees so that
+ * internal fork scaffolding ("New branch") is invisible to the user.
+ *
+ * The branching logic operates on the raw tree (with placeholders) —
+ * this function is only applied to the tree sent to the client.
+ */
+export function stripPlaceholders(tree: TreeNodeView): TreeNodeView {
+  return {
+    ...tree,
+    children: flattenPlaceholderChildren(tree.children ?? []),
+  };
+}
 
+function flattenPlaceholderChildren(children: TreeNodeView[]): TreeNodeView[] {
+  const result: TreeNodeView[] = [];
+  for (const child of children) {
+    if (child.status === "placeholder") {
+      // Hoist this placeholder's children up to the current level
+      result.push(...flattenPlaceholderChildren(child.children ?? []));
+    } else {
+      result.push(stripPlaceholders(child));
+    }
+  }
+  return result;
+}

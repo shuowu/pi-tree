@@ -419,22 +419,21 @@ describe("collectScopeMessages — deeper levels", () => {
     ["AI_3b", "assistant", "Rebellion story content"],
   ]);
 
-  it("child scope includes fork parent context and branches", () => {
-    const { messages, branches } = collectScopeMessages(
+  it("child scope shows branch content with parent in parentContext", () => {
+    const { messages, branches, parentContext } = collectScopeMessages(
       deepTree,
       "user_2a",
       deepContentMap,
     );
 
-    // user_1 → AI_1 (fork parent) + user_2a → AI_2a → fork
-    expect(messages).toHaveLength(4);
-    expect(messages[0]).toMatchObject({ id: "user_1", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_1", role: "assistant" });
-    expect(messages[2]).toMatchObject({ id: "user_2a", role: "user" });
-    expect(messages[3]).toMatchObject({ id: "AI_2a", role: "assistant" });
+    // user_2a → AI_2a → fork (parent context: user_1, AI_1)
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toMatchObject({ id: "user_2a", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_2a", role: "assistant" });
     expect(branches).toHaveLength(2);
     expect(branches[0].nodeId).toBe("user_3a");
     expect(branches[1].nodeId).toBe("user_3b");
+    expect(parentContext.map(m => m.id)).toEqual(["user_1", "AI_1"]);
   });
 
   it("viewing child AI node includes its parent user msg", () => {
@@ -450,20 +449,19 @@ describe("collectScopeMessages — deeper levels", () => {
     expect(branches).toHaveLength(2);
   });
 
-  it("grandchild scope includes fork parent context", () => {
-    const { messages, branches } = collectScopeMessages(
+  it("grandchild scope shows branch content with ancestors in parentContext", () => {
+    const { messages, branches, parentContext } = collectScopeMessages(
       deepTree,
       "user_3a",
       deepContentMap,
     );
 
-    // user_2a → AI_2a (fork parent) + user_3a → AI_3a
-    expect(messages).toHaveLength(4);
-    expect(messages[0]).toMatchObject({ id: "user_2a", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_2a", role: "assistant" });
-    expect(messages[2]).toMatchObject({ id: "user_3a", role: "user" });
-    expect(messages[3]).toMatchObject({ id: "AI_3a", role: "assistant" });
+    // user_3a → AI_3a (parent context: user_1, AI_1, user_2a, AI_2a)
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toMatchObject({ id: "user_3a", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_3a", role: "assistant" });
     expect(branches).toHaveLength(0);
+    expect(parentContext.map(m => m.id)).toEqual(["user_1", "AI_1", "user_2a", "AI_2a"]);
   });
 
   it("viewing grandchild AI node includes parent user msg", () => {
@@ -527,20 +525,19 @@ describe("collectScopeMessages", () => {
     expect(branches).toHaveLength(2);
   });
 
-  it("collects chain for a child scope (with fork parent context)", () => {
-    const { messages, branches } = collectScopeMessages(
+  it("collects chain for a child scope with ancestors in parentContext", () => {
+    const { messages, branches, parentContext } = collectScopeMessages(
       testTree,
       "user_2b",
       testContentMap,
     );
 
-    // user_1 → AI_1 (fork parent) + user_2b → AI_2b
-    expect(messages).toHaveLength(4);
-    expect(messages[0]).toMatchObject({ id: "user_1", role: "user" });
-    expect(messages[1]).toMatchObject({ id: "AI_1", role: "assistant" });
-    expect(messages[2]).toMatchObject({ id: "user_2b", role: "user" });
-    expect(messages[3]).toMatchObject({ id: "AI_2b", role: "assistant" });
+    // user_2b → AI_2b (parent context: user_1, AI_1)
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toMatchObject({ id: "user_2b", role: "user" });
+    expect(messages[1]).toMatchObject({ id: "AI_2b", role: "assistant" });
     expect(branches).toHaveLength(0); // leaf
+    expect(parentContext.map(m => m.id)).toEqual(["user_1", "AI_1"]);
   });
 
   it("includes parent user msg when viewing a leaf AI node", () => {
@@ -956,7 +953,7 @@ describe("collectScopeMessages — parentContext", () => {
     expect(parentContext.map(m => m.id)).toEqual(["u1", "AI_1", "u2", "AI_2"]);
   });
 
-  it("excludes fork-parent prepended messages from parentContext", () => {
+  it("fork parent messages go to parentContext, not messages", () => {
     // root → u1 → AI_1 (fork) → [u2a (branch a), u2b (branch b)]
     const tree = node("root", "Book", [
       userNode("u1", "hello", [
@@ -976,17 +973,14 @@ describe("collectScopeMessages — parentContext", () => {
     ]);
 
     // View branch b at u2b:
-    // - Fork prepend adds u1 (grandparent user) + AI_1 (parent AI)
     // - walkChain adds u2b, AI_2b
-    // - So messages = [u1, AI_1, u2b, AI_2b]
+    // - parentContext gets u1, AI_1 (ancestors above the branch)
     const { messages, parentContext } = collectScopeMessages(tree, "u2b", contentMap);
-    expect(messages.map(m => m.id)).toEqual(["u1", "AI_1", "u2b", "AI_2b"]);
-    // parentContext should NOT duplicate u1, AI_1 — they're already in messages.
-    // root has no content → parentContext is empty.
-    expect(parentContext).toEqual([]);
+    expect(messages.map(m => m.id)).toEqual(["u2b", "AI_2b"]);
+    expect(parentContext.map(m => m.id)).toEqual(["u1", "AI_1"]);
   });
 
-  it("parentContext includes nodes above fork-parent prepend", () => {
+  it("parentContext includes all ancestors above the branch", () => {
     // root → u0 → AI_0 → u1 → AI_1 (fork) → [u2a, u2b]
     const tree = node("root", "Book", [
       userNode("u0", "start", [
@@ -1010,13 +1004,11 @@ describe("collectScopeMessages — parentContext", () => {
     ]);
 
     // View u2b:
-    // - Fork prepend adds u1, AI_1
     // - walkChain adds u2b
-    // - messages = [u1, AI_1, u2b]
+    // - parentContext gets all ancestors: u0, AI_0, u1, AI_1
     const { messages, parentContext } = collectScopeMessages(tree, "u2b", contentMap);
-    expect(messages.map(m => m.id)).toEqual(["u1", "AI_1", "u2b"]);
-    // Ancestors above the fork: u0, AI_0
-    expect(parentContext.map(m => m.id)).toEqual(["u0", "AI_0"]);
+    expect(messages.map(m => m.id)).toEqual(["u2b"]);
+    expect(parentContext.map(m => m.id)).toEqual(["u0", "AI_0", "u1", "AI_1"]);
   });
 });
 

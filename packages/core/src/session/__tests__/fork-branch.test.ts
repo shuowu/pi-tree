@@ -193,36 +193,36 @@ describe("Fork branching — unit tests (manual tree structures)", () => {
   });
 
   describe("scope within a branch is linear", () => {
-  it("viewing scope at user3 includes fork parent context", () => {
-      const { messages, branches } = collectScopeMessages(
+  it("viewing scope at user3 shows branch content", () => {
+      const { messages, branches, parentContext } = collectScopeMessages(
         forkedTree,
         "user3",
         forkedContentMap,
       );
 
-      // user2 → AI2 (fork parent context) + user3 → AI3
-      expect(messages).toHaveLength(4);
-      expect(messages[0]).toMatchObject({ id: "user2", role: "user" });
-      expect(messages[1]).toMatchObject({ id: "AI2", role: "assistant" });
-      expect(messages[2]).toMatchObject({ id: "user3", role: "user" });
-      expect(messages[3]).toMatchObject({ id: "AI3", role: "assistant" });
+      // user3 → AI3 (parent context: user2, AI2)
+      expect(messages).toHaveLength(2);
+      expect(messages[0]).toMatchObject({ id: "user3", role: "user" });
+      expect(messages[1]).toMatchObject({ id: "AI3", role: "assistant" });
       expect(branches).toHaveLength(0);
+      expect(parentContext.map(m => m.id)).toContain("user2");
+      expect(parentContext.map(m => m.id)).toContain("AI2");
     });
 
-    it("viewing scope at user4 includes fork parent context", () => {
-      const { messages, branches } = collectScopeMessages(
+    it("viewing scope at user4 shows branch content", () => {
+      const { messages, branches, parentContext } = collectScopeMessages(
         forkedTree,
         "user4",
         forkedContentMap,
       );
 
-      // user2 → AI2 (fork parent context) + user4 → AI4
-      expect(messages).toHaveLength(4);
-      expect(messages[0]).toMatchObject({ id: "user2", role: "user" });
-      expect(messages[1]).toMatchObject({ id: "AI2", role: "assistant" });
-      expect(messages[2]).toMatchObject({ id: "user4", role: "user" });
-      expect(messages[3]).toMatchObject({ id: "AI4", role: "assistant" });
+      // user4 → AI4 (parent context: user2, AI2)
+      expect(messages).toHaveLength(2);
+      expect(messages[0]).toMatchObject({ id: "user4", role: "user" });
+      expect(messages[1]).toMatchObject({ id: "AI4", role: "assistant" });
       expect(branches).toHaveLength(0);
+      expect(parentContext.map(m => m.id)).toContain("user2");
+      expect(parentContext.map(m => m.id)).toContain("AI2");
     });
   });
 
@@ -321,36 +321,36 @@ describe("Fork branching — unit tests (manual tree structures)", () => {
       expect(branches[1].nodeId).toBe("user6");
     });
 
-    it("scope at nested fork leaf includes fork parent context", () => {
-      const { messages, branches } = collectScopeMessages(
+    it("scope at nested fork leaf shows branch content", () => {
+      const { messages, branches, parentContext } = collectScopeMessages(
         nestedForkTree,
         "user6",
         nestedContentMap,
       );
 
-      // user3 → AI3 (fork parent) + user6 → AI6
-      expect(messages).toHaveLength(4);
-      expect(messages[0]).toMatchObject({ id: "user3", role: "user" });
-      expect(messages[1]).toMatchObject({ id: "AI3", role: "assistant" });
-      expect(messages[2]).toMatchObject({ id: "user6", role: "user" });
-      expect(messages[3]).toMatchObject({ id: "AI6", role: "assistant" });
+      // user6 → AI6 (parent context includes user3, AI3)
+      expect(messages).toHaveLength(2);
+      expect(messages[0]).toMatchObject({ id: "user6", role: "user" });
+      expect(messages[1]).toMatchObject({ id: "AI6", role: "assistant" });
       expect(branches).toHaveLength(0);
+      expect(parentContext.map(m => m.id)).toContain("user3");
+      expect(parentContext.map(m => m.id)).toContain("AI3");
     });
 
-    it("scope at original continuation leaf includes fork parent context", () => {
-      const { messages, branches } = collectScopeMessages(
+    it("scope at original continuation leaf shows branch content", () => {
+      const { messages, branches, parentContext } = collectScopeMessages(
         nestedForkTree,
         "user5",
         nestedContentMap,
       );
 
-      // user3 → AI3 (fork parent) + user5 → AI5
-      expect(messages).toHaveLength(4);
-      expect(messages[0]).toMatchObject({ id: "user3", role: "user" });
-      expect(messages[1]).toMatchObject({ id: "AI3", role: "assistant" });
-      expect(messages[2]).toMatchObject({ id: "user5", role: "user" });
-      expect(messages[3]).toMatchObject({ id: "AI5", role: "assistant" });
+      // user5 → AI5 (parent context includes user3, AI3)
+      expect(messages).toHaveLength(2);
+      expect(messages[0]).toMatchObject({ id: "user5", role: "user" });
+      expect(messages[1]).toMatchObject({ id: "AI5", role: "assistant" });
       expect(branches).toHaveLength(0);
+      expect(parentContext.map(m => m.id)).toContain("user3");
+      expect(parentContext.map(m => m.id)).toContain("AI3");
     });
 
     it("findBranchPoint at user3 → AI3 (the nested fork point)", () => {

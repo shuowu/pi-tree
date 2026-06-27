@@ -12,6 +12,7 @@ export {
   needsAutoBranch,
   collectScopeMessages,
   buildBreadcrumb,
+  stripPlaceholders,
   isAINode,
   findForkPoint,
   type ContentMap,

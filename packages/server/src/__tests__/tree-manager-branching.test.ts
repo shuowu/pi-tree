@@ -940,11 +940,12 @@ describe("TreeManager — Phase 1: Branching Pipeline", () => {
       const tm = createTreeManager(mock);
 
       const result = await tm.handleMessage("new msg from parent", "p1");
-      // Auto-branch: scope stays at p1 (user sees updated branch cards)
-      expect(result.viewNodeId).toBe("p1");
+      // Auto-branch: scope redirects to the new branch so follow-ups
+      // continue linearly instead of re-triggering auto-branch.
+      expect(result.viewNodeId).toBe("c_new");
     });
 
-    it("post-message state shows 3 branch cards at parent scope", async () => {
+    it("post-message state redirects to new branch after auto-branch", async () => {
       const { tree, postTree } = buildParentWithBranchedChildren();
       const mock = createMockPiSession({
         annotatedTree: tree,
@@ -964,8 +965,8 @@ describe("TreeManager — Phase 1: Branching Pipeline", () => {
 
       const result = await tm.handleMessage("new msg from parent", "p1");
 
-      // Auto-branch: scope stays at p1, user sees branch cards
-      expect(result.viewNodeId).toBe("p1");
+      // Auto-branch: scope redirects to the new branch
+      expect(result.viewNodeId).toBe("c_new");
     });
 
     it("streaming variant: branches from AI_p1 with forceBranch", async () => {

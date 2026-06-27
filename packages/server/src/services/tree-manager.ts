@@ -30,6 +30,7 @@ import {
   findParent,
   collectScopeMessages,
   buildBreadcrumb,
+  stripPlaceholders,
   wrapTokenWithEarlyTreeUpdate,
 } from "@pi-tree/core";
 import { eq, and } from "drizzle-orm";
@@ -535,7 +536,7 @@ export class TreeManager {
     const tree = this.buildTreeView();
     const effectiveViewNodeId = viewNodeId ?? tree.id ?? null;
 
-    let didExplicitBranch = false;
+    let didBranch = false;
 
     if (effectiveViewNodeId) {
       if (opts?.forceBranch) {
@@ -544,15 +545,14 @@ export class TreeManager {
         if (branchId) {
           const placeholder = findPlaceholderChild(tree, branchId);
           this.piSession.simpleBranch(placeholder?.id ?? branchId);
-          didExplicitBranch = true;
+          didBranch = true;
         }
       } else {
         // Auto-branch only when the scope already has a fork (2+ children).
-        // The message goes into the new branch, but the user's view stays
-        // at the current scope so they see updated branch cards.
         const { branchId, placeholderId } = needsAutoBranch(tree, effectiveViewNodeId);
         if (branchId) {
           this.piSession.simpleBranch(placeholderId ?? branchId);
+          didBranch = true;
         } else {
           // No branching needed — ensure the SDK pointer is at the deepest
           // leaf of the user's current view. Without this, the pointer may
@@ -565,10 +565,11 @@ export class TreeManager {
 
     const { response } = await this.piSession.sendMessage(message);
 
-    // Only redirect scope for explicit ⑂ branching.
-    // Auto-branch stays at the user's current view (branch cards update).
+    // After any branching (explicit or auto), redirect scope to the new
+    // branch so follow-up messages continue linearly instead of
+    // re-triggering auto-branch at the fork.
     let scopeNodeId = viewNodeId;
-    if (didExplicitBranch || !scopeNodeId) {
+    if (didBranch || !scopeNodeId) {
       const postTree = this.buildTreeView();
       const current = findCurrentNode(postTree);
       if (current) {
@@ -600,7 +601,7 @@ export class TreeManager {
     const tree = this.buildTreeView();
     const effectiveViewNodeId = viewNodeId ?? tree.id ?? null;
 
-    let didExplicitBranch = false;
+    let didBranch = false;
 
     if (effectiveViewNodeId) {
       if (opts?.forceBranch) {
@@ -608,13 +609,14 @@ export class TreeManager {
         if (branchId) {
           const placeholder = findPlaceholderChild(tree, branchId);
           this.piSession.simpleBranch(placeholder?.id ?? branchId);
-          didExplicitBranch = true;
+          didBranch = true;
         }
       } else {
-        // Auto-branch: message goes to new branch, view stays put.
+        // Auto-branch: message goes to new branch.
         const { branchId, placeholderId } = needsAutoBranch(tree, effectiveViewNodeId);
         if (branchId) {
           this.piSession.simpleBranch(placeholderId ?? branchId);
+          didBranch = true;
         } else {
           // No branching needed — ensure SDK pointer is at the correct leaf.
           const leafId = findDeepestLeaf(tree, effectiveViewNodeId);
@@ -638,9 +640,10 @@ export class TreeManager {
       opts?.signal,
     );
 
-    // Only redirect scope for explicit ⑂ branching.
+    // After any branching (explicit or auto), redirect scope to the new
+    // branch so follow-up messages continue linearly.
     let scopeNodeId = viewNodeId;
-    if (didExplicitBranch || !scopeNodeId) {
+    if (didBranch || !scopeNodeId) {
       const postTree = this.buildTreeView();
       const current = findCurrentNode(postTree);
       if (current) {
@@ -803,15 +806,23 @@ export class TreeManager {
     tree: TreeNodeView,
     viewNodeId: string | null,
   ): SessionState {
+    // Strip placeholder nodes first so that collectScopeMessages sees
+    // the correct tree structure (placeholder children hoisted up as
+    // proper branch siblings). The branching logic in handleMessage
+    // operates on the raw tree before this point.
+    const clientTree = stripPlaceholders(tree);
+
     const contentMap = this.piSession.getMessageContentMap();
     const { messages, branches, parentContext } = collectScopeMessages(
-      tree,
+      clientTree,
       viewNodeId,
       contentMap,
     );
 
+    // Build breadcrumb from the stripped tree so placeholder nodes
+    // don't appear in the navigation trail.
     const breadcrumb = viewNodeId
-      ? buildBreadcrumb(tree, viewNodeId)
+      ? buildBreadcrumb(clientTree, viewNodeId)
       : [];
 
     return {
@@ -823,14 +834,14 @@ export class TreeManager {
       viewNodeId,
       breadcrumb,
       messages,
-      tree,
+      tree: clientTree,
       branches,
       parentContext: parentContext.length > 0 ? parentContext : undefined,
     };
   }
 
   getTreeView(): TreeNodeView {
-    return this.buildTreeView();
+    return stripPlaceholders(this.buildTreeView());
   }
 
   getBreadcrumb(): BreadcrumbItem[] {
