@@ -230,9 +230,9 @@ export function Reader() {
         onSendMessage={session.handleSendMessage}
       />
 
-      {/* Floating dictionary quick card stack — rendered outside the right panel
-          so it shows even when the panel is closed */}
-      <DictQuickCardStack
+      {/* Floating dictionary quick card stack — hidden when the right panel
+          is open on the dict tab (no need for both simultaneously) */}
+      {!(panel.rightPanelOpen && panel.rightTab === "dict") && <DictQuickCardStack
         entries={dict.quickLookupStack
           .map((id) => dict.dictEntries.find((e) => e.id === id))
           .filter((e): e is NonNullable<typeof e> => !!e)}
@@ -242,7 +242,7 @@ export function Reader() {
           panel.setRightTab("dict");
           dict.dismissAllQuickCards();
         }}
-      />
+      />}
 
       {showSettings && (
         <SourceSettingsModal
