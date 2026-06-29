@@ -166,6 +166,23 @@ describe("parseMentions", () => {
     expect(result.plainText).toBe("");
   });
 
+  it("parses two same-source mentions with different tags: @News#tech @News#finance", async () => {
+    const result = await parseMentions("@News#tech @News#finance", SOURCE_TYPE_CONFIGS, mockSearchSources);
+
+    expect(result.mentions).toHaveLength(2);
+    expect(result.mentions[0]).toMatchObject({
+      sourceType: "news",
+      sourceId: "news",
+      tags: ["tech"],
+    });
+    expect(result.mentions[1]).toMatchObject({
+      sourceType: "news",
+      sourceId: "news",
+      tags: ["finance"],
+    });
+    expect(result.plainText).toBe("");
+  });
+
   it("returns empty mentions and full plainText when no @mentions are present", async () => {
     const result = await parseMentions(
       "plain text with no mentions",

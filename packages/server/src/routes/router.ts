@@ -14,7 +14,7 @@ import {
   registerSession,
   closeSessionByKey,
 } from "../services/session-store.js";
-import { parseMentions } from "../agents/extensions/router/mention-parser.js";
+import { parseMentions, type ParsedMention } from "../agents/extensions/router/mention-parser.js";
 import { getExtensionServices } from "../agents/context.js";
 import { getAgentRegistry } from "../services/agent-registry.js";
 
@@ -104,12 +104,27 @@ routerRoutes.post("/route", async (c) => {
     // No mentions → LLM fallback
     if (parsed.mentions.length === 0) return c.json({ resolved: false });
 
-    // Take the first mention
-    const mention = parsed.mentions[0];
-    if (mention.error || !mention.sourceId) return c.json({ resolved: false });
+    // Any errors or unresolved mentions → LLM fallback
+    if (parsed.mentions.some((m) => m.error || !m.sourceId)) return c.json({ resolved: false });
+
+    // Merge multiple mentions that target the same source.
+    // e.g. "@News#tech @News#finance" → single mention with tags: ["tech", "finance"]
+    // If mentions target different sources, fall back to LLM (multi-source routing).
+    const uniqueSourceIds = new Set(parsed.mentions.map((m) => m.sourceId));
+    if (uniqueSourceIds.size > 1) return c.json({ resolved: false });
+
+    const mention: ParsedMention = { ...parsed.mentions[0], tags: undefined, qualifier: undefined };
+    const allTags: string[] = [];
+    const allQualifiers: string[] = [];
+    for (const m of parsed.mentions) {
+      if (m.tags?.length) allTags.push(...m.tags);
+      if (m.qualifier) allQualifiers.push(m.qualifier);
+    }
+    if (allTags.length) mention.tags = [...new Set(allTags)];
+    if (allQualifiers.length) mention.qualifier = allQualifiers.join(", ");
 
     // 2. Look up source
-    const source = await services.sources.get(mention.sourceId);
+    const source = await services.sources.get(mention.sourceId!);
     if (!source) return c.json({ resolved: false });
 
     const stConfig = sourceTypeConfigs.find((st) => st.key === source.type);
@@ -146,7 +161,7 @@ routerRoutes.post("/route", async (c) => {
     }
 
     // 4. Get existing sessions
-    const sessions = await services.sessions.listForSource(userId, mention.sourceId);
+    const sessions = await services.sessions.listForSource(userId, mention.sourceId!);
 
     // Helper: get session mode from its context JSON
     const getSessionMode = (row: { context: string }): string => {
