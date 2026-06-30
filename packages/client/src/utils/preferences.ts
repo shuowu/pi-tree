@@ -11,6 +11,7 @@
 // ─── Keys ───────────────────────────────────────────────────────────────────
 
 const LS_BRANCHES_COLLAPSED = "pi-tree-branches-collapsed";
+const LS_SHOW_USAGE = "pi-tree-show-usage";
 
 // ─── Branch Previews ────────────────────────────────────────────────────────
 
@@ -22,4 +23,15 @@ export function getBranchesCollapsed(): boolean {
 
 export function setBranchesCollapsed(collapsed: boolean): void {
   localStorage.setItem(LS_BRANCHES_COLLAPSED, String(collapsed));
+}
+
+// ─── Usage Badge ────────────────────────────────────────────────────────────
+
+/** Whether the session usage badge is visible (default: false — opt-in). */
+export function getShowUsage(): boolean {
+  return localStorage.getItem(LS_SHOW_USAGE) === "true";
+}
+
+export function setShowUsage(show: boolean): void {
+  localStorage.setItem(LS_SHOW_USAGE, String(show));
 }

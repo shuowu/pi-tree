@@ -15,8 +15,8 @@ import { DictQuickCardStack } from "./DictionaryPanel";
 import { SessionUsageBadge } from "./SessionUsageBadge";
 
 import { fetchModels, updateSession, viewScope } from "../api";
-import { getBranchesCollapsed } from "../utils/preferences";
-import { PanelLeft, PanelRight, Home, Layers, Settings } from "lucide-react";
+import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
+import { PanelLeft, PanelRight, Home, Layers, Settings, Zap } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import "./Reader.css";
@@ -27,6 +27,7 @@ export function Reader() {
   const { userId } = useUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showSettings, setShowSettings] = useState(false);
+  const [showUsage, setShowUsage] = useState(() => getShowUsage());
 
   // ---------------------------------------------------------------------------
   // Hooks
@@ -120,11 +121,20 @@ export function Reader() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, source.id, session.sessionId, session.sessionContext, session.updateLocalSessionContext]);
 
+  const toggleUsage = useCallback(() => {
+    setShowUsage(prev => {
+      const next = !prev;
+      saveShowUsage(next);
+      return next;
+    });
+  }, []);
+
   const panelToggles = [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },
     { id: "sessions", icon: <Layers size={16} />, label: "Sessions", active: false, onClick: session.handleBackToSessions },
     { id: "nav", icon: <PanelLeft size={16} />, label: "Session Tree", active: panel.sidebarOpen, onClick: panel.toggleNavigator },
     { id: "right-panel", icon: <PanelRight size={16} />, label: "Right Panel", active: panel.rightPanelOpen, onClick: panel.toggleRightPanel },
+    { id: "usage", icon: <Zap size={16} />, label: "Usage", active: showUsage, onClick: toggleUsage },
     { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettings, onClick: () => setShowSettings(true) },
   ];
 
@@ -174,7 +184,7 @@ export function Reader() {
           panelToggles={panelToggles}
           sessionLabel={session.sessionLabel}
         />
-        {session.sessionId !== null && (
+        {showUsage && session.sessionId !== null && (
           <SessionUsageBadge sessionId={session.sessionId} />
         )}
         {showBookSetup ? (
