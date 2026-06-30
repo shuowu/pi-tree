@@ -129,6 +129,12 @@ export function Reader() {
     });
   }, []);
 
+  const renderUsageBadge = useMemo(() => {
+    if (!showUsage || session.sessionId === null) return undefined;
+    const sid = session.sessionId;
+    return () => <SessionUsageBadge sessionId={sid} />;
+  }, [showUsage, session.sessionId]);
+
   const panelToggles = [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },
     { id: "sessions", icon: <Layers size={16} />, label: "Sessions", active: false, onClick: session.handleBackToSessions },
@@ -184,9 +190,6 @@ export function Reader() {
           panelToggles={panelToggles}
           sessionLabel={session.sessionLabel}
         />
-        {showUsage && session.sessionId !== null && (
-          <SessionUsageBadge sessionId={session.sessionId} />
-        )}
         {showBookSetup ? (
           <SourceSetupState
             source={currentSource}
@@ -224,6 +227,7 @@ export function Reader() {
               onFork={session.handleFork}
               onStop={session.handleStopGeneration}
               parentContext={session.parentContext}
+              renderAboveInput={renderUsageBadge}
             />
           </>
         ) : null}

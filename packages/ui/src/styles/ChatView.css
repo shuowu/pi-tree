@@ -334,7 +334,8 @@
 
 .pit-chat-input-meta {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
   max-width: var(--pit-chat-max-width);
   padding: 0 var(--pit-space-1) var(--pit-space-1);

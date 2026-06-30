@@ -69,6 +69,8 @@ interface ChatViewProps {
   onStop?: () => void;
   /** Ancestor messages from root to current scope for 'Show full path' */
   parentContext?: ChatMessage[];
+  /** Optional render prop for content above the input area (e.g. usage badge) */
+  renderAboveInput?: () => React.ReactNode;
 }
 
 export function ChatView({
@@ -99,6 +101,7 @@ export function ChatView({
   onFork,
   onStop,
   parentContext,
+  renderAboveInput,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
@@ -485,13 +488,16 @@ export function ChatView({
             <ChevronDown size={14} />
           </button>
         )}
-        {modelName && (
+        {(modelName || renderAboveInput) && (
           <div className="pit-chat-input-meta">
-            <ModelPicker
-              currentModel={modelName}
-              models={availableModels}
-              onModelChange={onModelChange}
-            />
+            {renderAboveInput?.()}
+            {modelName && (
+              <ModelPicker
+                currentModel={modelName}
+                models={availableModels}
+                onModelChange={onModelChange}
+              />
+            )}
           </div>
         )}
         <div className="pit-chat-input-area-wrapper">
