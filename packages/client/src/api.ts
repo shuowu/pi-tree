@@ -828,3 +828,49 @@ export async function fetchProfiles(): Promise<Record<string, ProfileInfo>> {
   if (!res.ok) throw new Error(`Failed to fetch profiles: ${res.status}`);
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Usage
+// ---------------------------------------------------------------------------
+
+export interface UsageStats {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  messageCount: number;
+  costTotal?: number;
+  byModel: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    messageCount: number;
+  }>;
+}
+
+export async function fetchSessionUsage(sessionId: number): Promise<UsageStats> {
+  const res = await fetch(`${API}/usage/session/${sessionId}`);
+  if (!res.ok) return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, messageCount: 0, byModel: {} };
+  return res.json();
+}
+
+export async function fetchUserUsage(userId: string, opts?: { from?: string; to?: string }): Promise<UsageStats> {
+  const params = new URLSearchParams();
+  if (opts?.from) params.set("from", opts.from);
+  if (opts?.to) params.set("to", opts.to);
+  const qs = params.toString();
+  const res = await fetch(`${API}/usage/${userId}${qs ? `?${qs}` : ""}`);
+  if (!res.ok) return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, messageCount: 0, byModel: {} };
+  return res.json();
+}
+
+export async function fetchSourceUsage(userId: string, sourceId: string, opts?: { from?: string; to?: string }): Promise<UsageStats> {
+  const params = new URLSearchParams();
+  if (opts?.from) params.set("from", opts.from);
+  if (opts?.to) params.set("to", opts.to);
+  const qs = params.toString();
+  const res = await fetch(`${API}/usage/${userId}/${sourceId}${qs ? `?${qs}` : ""}`);
+  if (!res.ok) return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, messageCount: 0, byModel: {} };
+  return res.json();
+}

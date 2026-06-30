@@ -129,3 +129,27 @@ export const sourceTags = sqliteTable("source_tags", {
   tagId: integer("tag_id").notNull().references(() => tags.id, { onDelete: "cascade" }),
 }, () => []);
 
+// ---------------------------------------------------------------------------
+// Token Usage — per-message AI token consumption tracking
+// ---------------------------------------------------------------------------
+
+export const messageUsage = sqliteTable("message_usage", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sessionId: integer("session_id")
+    .notNull()
+    .references(() => userSessions.id, { onDelete: "cascade" }),
+  nodeId: text("node_id").notNull(),
+  model: text("model").notNull(),
+  provider: text("provider").notNull().default(""),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+  cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  costTotal: real("cost_total"),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  sessionIdx: index("mu_session_idx").on(table.sessionId),
+  createdIdx: index("mu_created_idx").on(table.createdAt),
+}));
+

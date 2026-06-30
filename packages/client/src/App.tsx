@@ -9,6 +9,7 @@ import { Library } from "./components/Library";
 import { SourceLayout } from "./components/SourceLayout";
 import { Reader } from "./components/Reader";
 import { SessionsPage } from "./components/SessionsPage";
+import { UsageDashboard } from "./components/UsageDashboard";
 import { SpotlightSearch } from "./components/SpotlightSearch";
 import { AddSourceModal } from "./components/AddSourceModal";
 import { SettingsModal } from "./components/SettingsModal";
@@ -50,6 +51,7 @@ function AppRoutes() {
           <Route index element={<Reader />} />
           <Route path="sessions" element={<SessionsPage />} />
         </Route>
+        <Route path="/usage" element={<UsageDashboard />} />
         {/* Catch-all: redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

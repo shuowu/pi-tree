@@ -11,6 +11,7 @@ import { dictionaryRoutes } from "./routes/dictionary.js";
 import { routerRoutes } from "./routes/router.js";
 import { modelRoutes } from "./routes/models.js";
 import { configRoutes } from "./routes/config.js";
+import { usageRoutes } from "./routes/usage.js";
 
 import { getAgentRegistry } from "./services/agent-registry.js";
 import { VERSION } from "./version.js";
@@ -66,6 +67,7 @@ app.route("/api/dict", dictionaryRoutes);
 app.route("/api/router", routerRoutes);
 app.route("/api/models", modelRoutes);
 app.route("/api/config", configRoutes);
+app.route("/api/usage", usageRoutes);
 
 // Profiles introspection — list all available session profiles
 app.get("/api/profiles", (c) => {

@@ -26,6 +26,7 @@ export {
   glossaryEntries,
   tags,
   sourceTags,
+  messageUsage,
 } from "./schema.js";
 
 // ---------------------------------------------------------------------------

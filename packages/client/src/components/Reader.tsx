@@ -12,6 +12,7 @@ import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
 import { DictQuickCardStack } from "./DictionaryPanel";
+import { SessionUsageBadge } from "./SessionUsageBadge";
 
 import { fetchModels, updateSession, viewScope } from "../api";
 import { getBranchesCollapsed } from "../utils/preferences";
@@ -173,6 +174,9 @@ export function Reader() {
           panelToggles={panelToggles}
           sessionLabel={session.sessionLabel}
         />
+        {session.sessionId !== null && (
+          <SessionUsageBadge sessionId={session.sessionId} />
+        )}
         {showBookSetup ? (
           <SourceSetupState
             source={currentSource}

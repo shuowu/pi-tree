@@ -1,0 +1,56 @@
+.session-usage-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-subtle);
+  letter-spacing: 0.01em;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.session-usage-badge svg {
+  color: var(--amber);
+  flex-shrink: 0;
+}
+
+.session-usage-tokens {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.session-usage-separator {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.session-usage-detail {
+  color: var(--text-tertiary);
+}
+
+.session-usage-cost {
+  color: var(--green);
+  font-weight: 500;
+}
+
+.session-usage-model {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* Hide detail on small screens */
+@media (max-width: 600px) {
+  .session-usage-detail,
+  .session-usage-model,
+  .session-usage-cost {
+    display: none;
+  }
+  .session-usage-separator:not(:first-of-type) {
+    display: none;
+  }
+}

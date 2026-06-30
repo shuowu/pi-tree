@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import type { SourceSession } from "@pi-tree/shared";
 import { fetchSessions } from "../api";
 import { useUser } from "../UserContext";
-import { GitFork, LogOut, Search } from "lucide-react";
+import { GitFork, LogOut, Search, Zap } from "lucide-react";
 import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
 import { AddSourceModal } from "./AddSourceModal";
@@ -114,6 +114,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
           <button className="home-quick-chip" onClick={() => navigate("/library")}>📚 Library</button>
           <button className="home-quick-chip" onClick={() => setShowAddSource(true)}>➕ Add Source</button>
           <button className="home-quick-chip" onClick={() => setShowSettingsModal(true)}>⚙️ Settings</button>
+          <button className="home-quick-chip" onClick={() => navigate("/usage")}><Zap size={14} /> Usage</button>
         </div>
       </div>
 

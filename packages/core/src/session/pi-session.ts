@@ -88,6 +88,18 @@ export interface PiSessionConfig {
   systemContext?: string;
 }
 
+/** Raw token usage captured from an AI response. Mapped to shared TokenUsage by the server. */
+export interface RawTokenUsage {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+  model: string;
+  provider: string;
+  cost?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+}
+
 // ---------------------------------------------------------------------------
 // PiSession
 // ---------------------------------------------------------------------------
@@ -320,6 +332,7 @@ export class PiSession {
   async sendMessage(message: string): Promise<{
     response: string;
     entryId: string;
+    usage?: RawTokenUsage;
   }> {
     if (!this.agent) {
       if (this.agentCreationError) {
@@ -332,9 +345,9 @@ export class PiSession {
     // Prepend deferred context to the first message
     const fullMessage = this.consumePendingContext(message);
 
-    // Collect the full response via events
     let fullResponse = "";
     let responseEntryId = "";
+    let usage: RawTokenUsage | undefined;
     let providerError: string | undefined;
 
     const unsubscribe = this.agent.subscribe((event: AgentSessionEvent) => {
@@ -348,6 +361,8 @@ export class PiSession {
         // Capture the entry ID from the session manager
         const leaf = this.sm.getLeafEntry();
         if (leaf) responseEntryId = leaf.id;
+        // Capture token usage from assistant messages
+        usage = accumulateUsage(usage, event.message);
       }
       // Capture provider errors surfaced after retry exhaustion
       if (event.type === "auto_retry_end" && !event.success && event.finalError) {
@@ -366,7 +381,7 @@ export class PiSession {
       throw new Error(providerError);
     }
 
-    return { response: fullResponse, entryId: responseEntryId };
+    return { response: fullResponse, entryId: responseEntryId, usage };
   }
 
   /**
@@ -380,7 +395,7 @@ export class PiSession {
     onCompaction?: (event: { type: "compaction_start" | "compaction_end"; reason: string }) => Promise<void>,
     onToolResult?: (info: { toolName: string; result: unknown; isError: boolean }) => Promise<void>,
     signal?: AbortSignal,
-  ): Promise<{ response: string; entryId: string }> {
+  ): Promise<{ response: string; entryId: string; usage?: RawTokenUsage }> {
     if (!this.agent) {
       if (this.agentCreationError) {
         throw new Error(`AI session failed to initialize: ${this.agentCreationError}`);
@@ -398,6 +413,7 @@ export class PiSession {
 
     let fullResponse = "";
     let responseEntryId = "";
+    let usage: RawTokenUsage | undefined;
     let providerError: string | undefined;
     let chain = Promise.resolve();
 
@@ -425,6 +441,8 @@ export class PiSession {
         if (event.type === "message_end") {
           const leaf = this.sm.getLeafEntry();
           if (leaf) responseEntryId = leaf.id;
+          // Capture token usage from assistant messages (accumulated across tool-call steps)
+          usage = accumulateUsage(usage, event.message);
           // Reset for the next turn — only keep the final turn's text.
           // This clears preamble like "Let me look that up…" before a tool
           // call so the client only shows the real answer.
@@ -463,7 +481,7 @@ export class PiSession {
       // On abort, return the partial response instead of throwing
       if (signal?.aborted) {
         await chain.catch(() => {});
-        return { response: fullResponse, entryId: responseEntryId };
+        return { response: fullResponse, entryId: responseEntryId, usage };
       }
       throw err;
     } finally {
@@ -479,7 +497,7 @@ export class PiSession {
       throw new Error(providerError);
     }
 
-    return { response: fullResponse, entryId: responseEntryId };
+    return { response: fullResponse, entryId: responseEntryId, usage };
   }
 
   /**
@@ -1140,3 +1158,51 @@ export class PiSession {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Usage accumulation helper (module-level, used by PiSession methods)
+// ---------------------------------------------------------------------------
+
+/**
+ * Accumulate token usage from an assistant message event.
+ * Multi-step interactions (tool calls) produce multiple message_end events —
+ * this function sums usage across all of them.
+ */
+function accumulateUsage(
+  existing: RawTokenUsage | undefined,
+  message: unknown,
+): RawTokenUsage | undefined {
+  const msg = message as any;
+  if (msg?.role !== "assistant" || !msg.usage) return existing;
+
+  const u = msg.usage;
+  if (existing) {
+    existing.input += u.input ?? 0;
+    existing.output += u.output ?? 0;
+    existing.cacheRead += u.cacheRead ?? 0;
+    existing.cacheWrite += u.cacheWrite ?? 0;
+    existing.totalTokens += u.totalTokens ?? 0;
+    existing.model = msg.model ?? existing.model;
+    existing.provider = msg.provider ?? existing.provider;
+    if (u.cost && existing.cost) {
+      existing.cost.input += u.cost.input ?? 0;
+      existing.cost.output += u.cost.output ?? 0;
+      existing.cost.cacheRead += u.cost.cacheRead ?? 0;
+      existing.cost.cacheWrite += u.cost.cacheWrite ?? 0;
+      existing.cost.total += u.cost.total ?? 0;
+    } else if (u.cost) {
+      existing.cost = { ...u.cost };
+    }
+    return existing;
+  }
+
+  return {
+    input: u.input ?? 0,
+    output: u.output ?? 0,
+    cacheRead: u.cacheRead ?? 0,
+    cacheWrite: u.cacheWrite ?? 0,
+    totalTokens: u.totalTokens ?? 0,
+    model: msg.model ?? "",
+    provider: msg.provider ?? "",
+    cost: u.cost ? { ...u.cost } : undefined,
+  };
+}

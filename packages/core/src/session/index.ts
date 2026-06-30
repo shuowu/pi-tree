@@ -1,5 +1,5 @@
 export { PiSession } from "./pi-session.js";
-export type { PiSessionConfig } from "./pi-session.js";
+export type { PiSessionConfig, RawTokenUsage } from "./pi-session.js";
 export { configureModelRegistry, type ModelSetupResult } from "./model-setup.js";
 export {
   findNode,

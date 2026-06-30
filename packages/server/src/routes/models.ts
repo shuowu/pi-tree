@@ -86,18 +86,23 @@ modelRoutes.get("/", async (c) => {
     ...modelsJsonProviders,
   ]);
 
-  // Filter to relevant providers + always include the current model
+  // Filter to allowed providers only — no escape hatch for currentModel
+  // to avoid leaking built-in SDK providers (e.g. openrouter) that share
+  // model IDs with user-defined providers from models.json.
   const filtered = allModels.filter(
-    (m) =>
-      allowedProviders.has(m.provider) ||
-      m.id === cfg.readingModel,
+    (m) => allowedProviders.has(m.provider),
   );
 
-  // Deduplicate by model ID — prefer the configured provider's entry.
+  // Deduplicate by model ID — prefer models.json providers, then the
+  // env-configured provider, over built-in SDK entries.
   const seen = new Map<string, (typeof filtered)[number]>();
   for (const m of filtered) {
     const existing = seen.get(m.id);
-    if (!existing || m.provider === cfg.provider) {
+    if (
+      !existing ||
+      m.provider === cfg.provider ||
+      modelsJsonProviders.has(m.provider)
+    ) {
       seen.set(m.id, m);
     }
   }

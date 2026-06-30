@@ -532,7 +532,7 @@ export class TreeManager {
     message: string,
     viewNodeId?: string | null,
     opts?: { forceBranch?: boolean },
-  ): Promise<SessionState & { response: string }> {
+  ): Promise<SessionState & { response: string; usage?: import("@pi-tree/core").RawTokenUsage }> {
     const tree = this.buildTreeView();
     const effectiveViewNodeId = viewNodeId ?? tree.id ?? null;
 
@@ -563,7 +563,7 @@ export class TreeManager {
       }
     }
 
-    const { response } = await this.piSession.sendMessage(message);
+    const { response, usage } = await this.piSession.sendMessage(message);
 
     // After any branching (explicit or auto), redirect scope to the new
     // branch so follow-up messages continue linearly instead of
@@ -581,6 +581,7 @@ export class TreeManager {
     return {
       ...this.getSessionState(scopeNodeId ?? null),
       response,
+      usage,
     };
   }
 
@@ -630,7 +631,7 @@ export class TreeManager {
       async () => callbacks.onTreeUpdate({ tree: this.buildTreeView() }),
     );
 
-    const { response } = await this.piSession.sendMessageStreaming(
+    const { response, usage } = await this.piSession.sendMessageStreaming(
       message,
       wrappedOnToken,
       callbacks.onTurnEnd,
@@ -655,6 +656,7 @@ export class TreeManager {
     await callbacks.onDone({
       ...this.getSessionState(scopeNodeId),
       response,
+      usage,
     });
   }
 

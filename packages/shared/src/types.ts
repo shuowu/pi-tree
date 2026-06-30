@@ -354,6 +354,54 @@ export const DEFAULT_SERVER_CONFIG: ServerConfig = {
 };
 
 // ---------------------------------------------------------------------------
+// Token Usage — per-message token consumption tracking
+// ---------------------------------------------------------------------------
+
+/** Token usage data captured from AI model responses */
+export interface TokenUsage {
+  /** Input/prompt tokens */
+  inputTokens: number;
+  /** Output/completion tokens */
+  outputTokens: number;
+  /** Tokens read from cache (prompt caching) */
+  cacheReadTokens: number;
+  /** Tokens written to cache */
+  cacheWriteTokens: number;
+  /** Total tokens (inputTokens + outputTokens) */
+  totalTokens: number;
+  /** Model that generated this response */
+  model: string;
+  /** Provider that served the request */
+  provider: string;
+  /** Cost breakdown from the AI SDK (when model pricing is configured) */
+  cost?: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    total: number;
+  };
+}
+
+/** Aggregated token usage stats */
+export interface UsageStats {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  messageCount: number;
+  costTotal?: number;
+  /** Per-model breakdown */
+  byModel: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    messageCount: number;
+  }>;
+}
+
+// ---------------------------------------------------------------------------
 // Intent Classification — server decides branch vs continue
 // ---------------------------------------------------------------------------
 

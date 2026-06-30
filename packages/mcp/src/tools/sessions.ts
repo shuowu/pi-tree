@@ -70,8 +70,8 @@ export function registerSessionTools(
       sourceId: z.string().describe("Source ID (e.g. book folder name)"),
     },
     async ({ userId, sourceId }) => {
-      const db = getDb();
-      const rows = db
+      const db = await getDb();
+      const rows = await db
         .select()
         .from(userSessions)
         .where(
@@ -116,9 +116,9 @@ export function registerSessionTools(
     async ({ userId, sourceId, title, mode }) => {
       const context: SessionContext = { mode };
       const now = new Date().toISOString();
-      const db = getDb();
+      const db = await getDb();
 
-      const result = db
+      const result = await db
         .insert(userSessions)
         .values({
           userId,
@@ -133,7 +133,7 @@ export function registerSessionTools(
         .run();
 
       const newId = Number(result.lastInsertRowid);
-      const row = db
+      const row = await db
         .select()
         .from(userSessions)
         .where(eq(userSessions.id, newId))

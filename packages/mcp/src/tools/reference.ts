@@ -72,7 +72,7 @@ export function registerReferenceTools(
       bookId: z.string().describe("Book ID"),
     },
     async ({ userId, bookId }) => {
-      const entries = dictionaryService.getGlossaryEntries(
+      const entries = await dictionaryService.getGlossaryEntries(
         userId,
         bookId,
       );
