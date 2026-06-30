@@ -348,6 +348,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  margin-left: auto;
   background: var(--pit-bg-hover);
   padding: 2px 8px;
   border-radius: var(--pit-radius-full);
