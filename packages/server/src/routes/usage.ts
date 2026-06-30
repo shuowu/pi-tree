@@ -7,7 +7,7 @@
  */
 
 import { Hono } from "hono";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, or, gte, lte } from "drizzle-orm";
 import { getDb, messageUsage, userSessions } from "../db/index.js";
 
 export const usageRoutes = new Hono();
@@ -123,15 +123,22 @@ usageRoutes.get("/:userId", async (c) => {
 
   const db = await getDb();
 
-  // Query directly by userId column — includes session, router, and lookup usage
-  const whereConditions = [eq(messageUsage.userId, userId)];
-  if (from) whereConditions.push(gte(messageUsage.createdAt, from));
-  if (to) whereConditions.push(lte(messageUsage.createdAt, to));
+  // Match both new rows (userId column set) and legacy rows (userId='', join through session)
+  const dateConditions = [];
+  if (from) dateConditions.push(gte(messageUsage.createdAt, from));
+  if (to) dateConditions.push(lte(messageUsage.createdAt, to));
 
   const rows = await db
     .select(usageColumns)
     .from(messageUsage)
-    .where(and(...whereConditions))
+    .leftJoin(userSessions, eq(messageUsage.sessionId, userSessions.id))
+    .where(and(
+      or(
+        eq(messageUsage.userId, userId),
+        and(eq(messageUsage.userId, ""), eq(userSessions.userId, userId)),
+      ),
+      ...dateConditions,
+    ))
     .all();
   return c.json(aggregateUsage(rows));
 });
