@@ -136,8 +136,9 @@ export const sourceTags = sqliteTable("source_tags", {
 export const messageUsage = sqliteTable("message_usage", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   sessionId: integer("session_id")
-    .notNull()
     .references(() => userSessions.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().default(""),
+  category: text("category").notNull().default("session"), // 'session' | 'router' | 'lookup'
   nodeId: text("node_id").notNull(),
   model: text("model").notNull(),
   provider: text("provider").notNull().default(""),
@@ -150,6 +151,7 @@ export const messageUsage = sqliteTable("message_usage", {
   createdAt: text("created_at").notNull(),
 }, (table) => ({
   sessionIdx: index("mu_session_idx").on(table.sessionId),
+  userIdx: index("mu_user_idx").on(table.userId),
   createdIdx: index("mu_created_idx").on(table.createdAt),
 }));
 

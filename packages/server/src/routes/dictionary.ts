@@ -17,13 +17,39 @@ dictionaryRoutes.post("/lookup/stream", async (c) => {
 
   return streamSSE(c, async (stream) => {
     try {
-      const definition = await dictService.streamLookup(body.term, {
+      const { definition, usage } = await dictService.streamLookup(body.term, {
         sourceId: body.sourceId,
         context: body.context,
         onToken: async (token: string) => {
           await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
         },
       });
+
+      // Persist lookup usage if we have a userId and captured usage
+      if (body.userId && usage) {
+        try {
+          const { getDb, messageUsage } = await import("../db/index.js");
+          const db = await getDb();
+          await db.insert(messageUsage).values({
+            sessionId: null,
+            userId: body.userId,
+            category: "lookup",
+            nodeId: body.term,
+            model: usage.model,
+            provider: usage.provider,
+            inputTokens: usage.input,
+            outputTokens: usage.output,
+            cacheReadTokens: usage.cacheRead,
+            cacheWriteTokens: usage.cacheWrite,
+            totalTokens: usage.totalTokens,
+            costTotal: usage.cost ? usage.cost.total : null,
+            createdAt: new Date().toISOString(),
+          }).run();
+        } catch (err) {
+          console.warn("[dictionary] Failed to persist lookup usage:", err);
+        }
+      }
+
       await stream.writeSSE({
         data: JSON.stringify({ type: "done", definition }),
       });

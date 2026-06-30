@@ -2,6 +2,7 @@
  * Usage routes — token consumption tracking and analytics.
  *
  * Provides per-session, per-source, and per-user usage statistics.
+ * Includes session messages, router chat, and dictionary lookups.
  * Mounted at `/api/usage`.
  */
 
@@ -24,6 +25,7 @@ function aggregateUsage(rows: Array<{
   total_tokens: number;
   model: string;
   cost_total: number | null;
+  category?: string;
 }>) {
   let inputTokens = 0;
   let outputTokens = 0;
@@ -32,6 +34,12 @@ function aggregateUsage(rows: Array<{
   let totalTokens = 0;
   let costTotal = 0;
   const byModel: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    messageCount: number;
+  }> = {};
+  const byCategory: Record<string, {
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
@@ -53,6 +61,15 @@ function aggregateUsage(rows: Array<{
     byModel[row.model].outputTokens += row.output_tokens;
     byModel[row.model].totalTokens += row.total_tokens;
     byModel[row.model].messageCount += 1;
+
+    const cat = row.category ?? "session";
+    if (!byCategory[cat]) {
+      byCategory[cat] = { inputTokens: 0, outputTokens: 0, totalTokens: 0, messageCount: 0 };
+    }
+    byCategory[cat].inputTokens += row.input_tokens;
+    byCategory[cat].outputTokens += row.output_tokens;
+    byCategory[cat].totalTokens += row.total_tokens;
+    byCategory[cat].messageCount += 1;
   }
 
   return {
@@ -64,6 +81,7 @@ function aggregateUsage(rows: Array<{
     costTotal: costTotal || undefined,
     messageCount: rows.length,
     byModel,
+    byCategory,
   };
 }
 
@@ -76,6 +94,7 @@ const usageColumns = {
   total_tokens: messageUsage.totalTokens,
   model: messageUsage.model,
   cost_total: messageUsage.costTotal,
+  category: messageUsage.category,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -104,14 +123,14 @@ usageRoutes.get("/:userId", async (c) => {
 
   const db = await getDb();
 
-  const whereConditions = [eq(userSessions.userId, userId)];
+  // Query directly by userId column — includes session, router, and lookup usage
+  const whereConditions = [eq(messageUsage.userId, userId)];
   if (from) whereConditions.push(gte(messageUsage.createdAt, from));
   if (to) whereConditions.push(lte(messageUsage.createdAt, to));
 
   const rows = await db
     .select(usageColumns)
     .from(messageUsage)
-    .innerJoin(userSessions, eq(messageUsage.sessionId, userSessions.id))
     .where(and(...whereConditions))
     .all();
   return c.json(aggregateUsage(rows));
@@ -125,6 +144,7 @@ usageRoutes.get("/:userId/:sourceId", async (c) => {
   const to = c.req.query("to");
 
   const db = await getDb();
+  // Source-scoped queries still need the session join (source is on userSessions)
   const whereConditions = [
     eq(userSessions.userId, userId),
     eq(userSessions.sourceId, sourceId),

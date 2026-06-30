@@ -15,6 +15,13 @@
       "when": 1782829497724,
       "tag": "0001_add-message-usage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782848533599,
+      "tag": "0002_add-usage-category",
+      "breakpoints": true
     }
   ]
 }

@@ -123,8 +123,41 @@ sessionRoutes.post("/message/stream", async (c) => {
     forceBranch?: boolean;
   }>();
 
+  /** Persist token usage from an onDone result to the database. */
+  const persistUsage = async (
+    result: Record<string, unknown>,
+    opts: { userId: string; sessionId?: number; category?: string },
+  ) => {
+    const usage = result.usage as Record<string, unknown> | undefined;
+    if (!usage) return;
+    try {
+      const { getDb, messageUsage } = await import("../db/index.js");
+      const db = await getDb();
+      await db.insert(messageUsage).values({
+        sessionId: opts.sessionId ?? null,
+        userId: opts.userId,
+        category: opts.category ?? "session",
+        nodeId: String(result.activeNodeId ?? ""),
+        model: String(usage.model ?? ""),
+        provider: String(usage.provider ?? ""),
+        inputTokens: Number(usage.input) || 0,
+        outputTokens: Number(usage.output) || 0,
+        cacheReadTokens: Number(usage.cacheRead) || 0,
+        cacheWriteTokens: Number(usage.cacheWrite) || 0,
+        totalTokens: Number(usage.totalTokens) || 0,
+        costTotal: usage.cost ? Number((usage.cost as any).total) || null : null,
+        createdAt: new Date().toISOString(),
+      }).run();
+    } catch (err) {
+      console.warn("[session] Failed to persist token usage:", err);
+    }
+  };
+
   /** Shared streaming callbacks factory */
-  const makeCallbacks = (stream: Parameters<Parameters<typeof streamSSE>[1]>[0], dbSessionId?: number) => ({
+  const makeCallbacks = (
+    stream: Parameters<Parameters<typeof streamSSE>[1]>[0],
+    usageOpts: { userId: string; sessionId?: number; category?: string },
+  ) => ({
     onToken: async (token: string) => {
       await stream.writeSSE({ data: JSON.stringify({ type: "token", token }) });
     },
@@ -152,31 +185,7 @@ sessionRoutes.post("/message/stream", async (c) => {
       });
     },
     onDone: async (result: Record<string, unknown>) => {
-      // Persist token usage to the database
-      if (dbSessionId != null) {
-        const usage = result.usage as Record<string, unknown> | undefined;
-        if (usage) {
-          try {
-            const { getDb, messageUsage } = await import("../db/index.js");
-            const db = await getDb();
-            await db.insert(messageUsage).values({
-              sessionId: dbSessionId,
-              nodeId: String(result.activeNodeId ?? ""),
-              model: String(usage.model ?? ""),
-              provider: String(usage.provider ?? ""),
-              inputTokens: Number(usage.input) || 0,
-              outputTokens: Number(usage.output) || 0,
-              cacheReadTokens: Number(usage.cacheRead) || 0,
-              cacheWriteTokens: Number(usage.cacheWrite) || 0,
-              totalTokens: Number(usage.totalTokens) || 0,
-              costTotal: usage.cost ? Number((usage.cost as any).total) || null : null,
-              createdAt: new Date().toISOString(),
-            }).run();
-          } catch (err) {
-            console.warn("[session] Failed to persist token usage:", err);
-          }
-        }
-      }
+      await persistUsage(result, usageOpts);
       await stream.writeSSE({
         data: JSON.stringify({ type: "done", ...result }),
       });
@@ -195,14 +204,17 @@ sessionRoutes.post("/message/stream", async (c) => {
       };
 
       if (body.sessionKey) {
+        const userId = extractUserId(body);
+        // Determine category from sessionKey prefix (e.g. "router:shuo:123")
+        const category = body.sessionKey.startsWith("router:") ? "router" : "session";
         await withSessionLockByKey(body.sessionKey, async (manager) => {
-          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream), opts);
+          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream, { userId, category }), opts);
         }, onQueued);
       } else {
         const userId = extractUserId(body);
         const sessionId = extractSessionId(body);
         await withSessionLock(userId, body.sourceId!, sessionId, async (manager) => {
-          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream, sessionId), opts);
+          await manager.handleMessageStreaming(body.message, body.viewNodeId ?? null, makeCallbacks(stream, { userId, sessionId }), opts);
         }, onQueued);
       }
     } catch (err) {

@@ -399,6 +399,13 @@ export interface UsageStats {
     totalTokens: number;
     messageCount: number;
   }>;
+  /** Per-category breakdown (session, router, lookup) */
+  byCategory?: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    messageCount: number;
+  }>;
 }
 
 // ---------------------------------------------------------------------------

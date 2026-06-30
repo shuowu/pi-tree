@@ -68,6 +68,8 @@ export class DictionaryService {
   /**
    * Stream a dictionary lookup. Creates a fresh in-memory session,
    * sends the prompt, streams tokens, then disposes the session.
+   *
+   * Returns the full response text and optional raw token usage.
    */
   async streamLookup(
     term: string,
@@ -76,7 +78,7 @@ export class DictionaryService {
       context?: string;
       onToken: (token: string) => Promise<void>;
     },
-  ): Promise<string> {
+  ): Promise<{ definition: string; usage?: { input: number; output: number; cacheRead: number; cacheWrite: number; totalTokens: number; model: string; provider: string; cost?: { total: number } } }> {
     const template = this.resolveLookupPrompt(opts.sourceId);
     const sourceTitle = opts.sourceId?.replace(/_/g, " ") ?? "";
     const prompt = this.renderLookupTemplate(template, {
@@ -89,6 +91,7 @@ export class DictionaryService {
     try {
       agent = await this.createLookupAgent();
       let fullResponse = "";
+      let capturedUsage: { input: number; output: number; cacheRead: number; cacheWrite: number; totalTokens: number; model: string; provider: string; cost?: { total: number } } | undefined;
 
       const unsubscribe = agent.subscribe(
         async (event: AgentSessionEvent) => {
@@ -100,6 +103,23 @@ export class DictionaryService {
             fullResponse += delta;
             await opts.onToken(delta);
           }
+          // Capture usage from message_end
+          if (event.type === "message_end" && event.message) {
+            const msg = event.message as any;
+            if (msg.role === "assistant" && msg.usage) {
+              const u = msg.usage;
+              capturedUsage = {
+                input: u.input ?? 0,
+                output: u.output ?? 0,
+                cacheRead: u.cacheRead ?? 0,
+                cacheWrite: u.cacheWrite ?? 0,
+                totalTokens: u.totalTokens ?? 0,
+                model: msg.model ?? "",
+                provider: msg.provider ?? "",
+                cost: u.cost ? { total: u.cost.total ?? 0 } : undefined,
+              };
+            }
+          }
         },
       );
 
@@ -109,7 +129,7 @@ export class DictionaryService {
         unsubscribe();
       }
 
-      return fullResponse;
+      return { definition: fullResponse, usage: capturedUsage };
     } finally {
       agent?.dispose();
     }
