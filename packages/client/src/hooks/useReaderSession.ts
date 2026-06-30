@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { formatErrorMessage } from "../utils/formatError";
+
 import type {
   ChatMessage,
   BreadcrumbItem,
@@ -201,6 +208,20 @@ export function useReaderSession(
         if (activeStream.result) {
           applySessionData(activeStream.result);
           updateUrl(activeStream.result.viewNodeId, sessionId, true);
+          // Fallback warning when the model returns an empty response without
+          // a dedicated error event (e.g. the provider silently returned nothing).
+          if (
+            !activeStream.result.response &&
+            !activeStream.accumulatedText?.trim()
+          ) {
+            const emptyMsg: ChatMessage = {
+              id: `empty-${Date.now()}`,
+              role: "assistant",
+              content: "⚠️ The AI model returned an empty response. Check your API key and provider status.",
+              timestamp: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, emptyMsg]);
+          }
         } else if (activeStream.accumulatedText?.trim()) {
           // Abort / stop: no server result, but we have locally accumulated text.
           // Keep it as a regular message so the partial response isn't lost.
@@ -232,7 +253,7 @@ export function useReaderSession(
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
             role: "assistant",
-            content: `⚠️ Error: ${activeStream.error.message}`,
+            content: `⚠️ ${formatErrorMessage(activeStream.error.message)}`,
             timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, errorMsg]);

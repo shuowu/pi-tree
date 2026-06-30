@@ -49,7 +49,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.78.0",
+    "@earendil-works/pi-coding-agent": "^0.80.2",
     "@hono/node-server": "^1.14.0",
     "@libsql/client": "^0.17.4",
     "@lingo-reader/mobi-parser": "^0.4.6",

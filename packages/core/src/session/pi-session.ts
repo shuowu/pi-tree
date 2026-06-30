@@ -335,6 +335,7 @@ export class PiSession {
     // Collect the full response via events
     let fullResponse = "";
     let responseEntryId = "";
+    let providerError: string | undefined;
 
     const unsubscribe = this.agent.subscribe((event: AgentSessionEvent) => {
       if (
@@ -348,12 +349,21 @@ export class PiSession {
         const leaf = this.sm.getLeafEntry();
         if (leaf) responseEntryId = leaf.id;
       }
+      // Capture provider errors surfaced after retry exhaustion
+      if (event.type === "auto_retry_end" && !event.success && event.finalError) {
+        providerError = event.finalError;
+      }
     });
 
     try {
       await this.agent.prompt(fullMessage);
     } finally {
       unsubscribe();
+    }
+
+    // If all retries failed and no response was produced, throw the provider error
+    if (providerError && !fullResponse.trim()) {
+      throw new Error(providerError);
     }
 
     return { response: fullResponse, entryId: responseEntryId };
@@ -388,6 +398,7 @@ export class PiSession {
 
     let fullResponse = "";
     let responseEntryId = "";
+    let providerError: string | undefined;
     let chain = Promise.resolve();
 
     // Wire up abort signal to stop the Pi SDK agent
@@ -437,6 +448,10 @@ export class PiSession {
         if (event.type === "compaction_end" && onCompaction) {
           chain = chain.then(() => onCompaction({ type: "compaction_end", reason: event.reason }));
         }
+        // Capture provider errors surfaced after retry exhaustion
+        if (event.type === "auto_retry_end" && !event.success && event.finalError) {
+          providerError = event.finalError;
+        }
       },
     );
 
@@ -457,6 +472,11 @@ export class PiSession {
       if (signal && onAbort) {
         signal.removeEventListener("abort", onAbort);
       }
+    }
+
+    // If all retries failed and no response was produced, throw the provider error
+    if (providerError && !fullResponse.trim()) {
+      throw new Error(providerError);
     }
 
     return { response: fullResponse, entryId: responseEntryId };

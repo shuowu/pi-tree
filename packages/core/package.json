@@ -30,7 +30,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.78.0"
+    "@earendil-works/pi-coding-agent": "^0.80.2"
   },
   "devDependencies": {
     "@copilotkit/aimock": "^1.31.0",

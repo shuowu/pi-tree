@@ -5,6 +5,7 @@ import { Marked } from "marked";
 import { fetchRouterSession, sendMessageStreaming, routeDeterministic } from "../api";
 import { useSourceMentions, parseMentionQuery, type MentionSuggestion } from "../hooks/useSourceMentions";
 import { getSourceTypeConfig } from "../source-types";
+import { formatErrorMessage } from "../utils/formatError";
 import "./RouterChat.css";
 
 const marked = new Marked({
@@ -248,7 +249,7 @@ export function RouterChat({ userId }: RouterChatProps) {
               setActiveToolCall(null);
               setMessages((prev) => [
                 ...prev,
-                { id: nextMsgId(), role: "assistant", content: `Error: ${err.message}` },
+                { id: nextMsgId(), role: "assistant", content: `⚠️ ${formatErrorMessage(err.message)}` },
               ]);
             },
           },
