@@ -335,13 +335,19 @@
 .pit-chat-input-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: var(--pit-space-2);
   width: 100%;
   max-width: var(--pit-chat-max-width);
   padding: 0 var(--pit-space-1) var(--pit-space-1);
   font-size: var(--pit-text-xs);
   color: var(--pit-text-muted);
   user-select: none;
+}
+
+/* Push usage badge (or any renderAboveInput content) to the left */
+.pit-chat-input-meta > :first-child:not(:last-child) {
+  margin-right: auto;
 }
 
 .pit-chat-model-badge {
@@ -860,6 +866,7 @@
 
 /* ── Chat Quote Preview ── */
 .pit-chat-input-area-wrapper {
+  position: relative;
   max-width: var(--pit-chat-max-width);
   width: 100%;
   display: flex;
