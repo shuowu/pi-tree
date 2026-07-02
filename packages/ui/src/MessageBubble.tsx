@@ -1,6 +1,7 @@
 import { useRef, useMemo } from "react";
 import { useMermaid } from "./hooks/useMermaid.js";
 import type { ChatMessage } from "@pi-tree/core/types";
+import { ToolSteps } from "./ToolSteps.js";
 import "./marked-config.js"; // side-effect: registers KaTeX + link extensions
 import { marked } from "marked";
 
@@ -29,6 +30,9 @@ export function MessageBubble({
     <div className={`pit-chat-message pit-chat-message-${message.role}`}>
       {isAssistant && <div className="pit-chat-avatar">✦</div>}
       <div className="pit-chat-bubble">
+        {isAssistant && message.toolSteps && message.toolSteps.length > 0 && (
+          <ToolSteps steps={message.toolSteps} />
+        )}
         {isMarkdown ? (
           <div
             ref={contentRef}

@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { sendMessageStreaming } from "./api";
-import type { TreeNodeView, SessionState } from "@pi-tree/core/types";
+import type { TreeNodeView, SessionState, ToolStep } from "@pi-tree/core/types";
 
 export interface ActiveStreamState {
   gen: number;
@@ -15,6 +15,7 @@ export interface ActiveStreamState {
   accumulatedText: string;
   isQueued: boolean;
   activeToolCall: { toolName: string; args: Record<string, unknown> } | null;
+  completedSteps: ToolStep[];
   isCompacting: boolean;
   status: "streaming" | "done" | "error";
   result?: SessionState & { response: string };
@@ -76,6 +77,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
           accumulatedText: "",
           isQueued: false,
           activeToolCall: null,
+          completedSteps: [],
           isCompacting: false,
           status: "streaming",
         },
@@ -144,6 +146,37 @@ export function StreamProvider({ children }: { children: ReactNode }) {
                   ...stream,
                   accumulatedText: "",
                   activeToolCall: info,
+                  completedSteps: [
+                    ...stream.completedSteps,
+                    { toolName: info.toolName, args: info.args, status: "running" as const },
+                  ],
+                },
+              };
+            });
+          },
+          onToolResult: (info) => {
+            const currentGen = streamGensRef.current[key];
+            if (nextGen !== currentGen) return;
+
+            setStreams((prev) => {
+              const stream = prev[key];
+              if (!stream || stream.gen !== nextGen) return prev;
+              // Find the last running step and mark it done/error
+              const updatedSteps = [...stream.completedSteps];
+              for (let i = updatedSteps.length - 1; i >= 0; i--) {
+                if (updatedSteps[i].status === "running") {
+                  updatedSteps[i] = {
+                    ...updatedSteps[i],
+                    status: info.isError ? "error" : "done",
+                  };
+                  break;
+                }
+              }
+              return {
+                ...prev,
+                [key]: {
+                  ...stream,
+                  completedSteps: updatedSteps,
                 },
               };
             });

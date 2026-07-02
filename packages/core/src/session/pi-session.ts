@@ -17,6 +17,7 @@ import type {
   SectionLabelMeta,
   PiTreeData,
   AnnotatedTreeNode,
+  ToolStep,
 } from "../types/index.js";
 import {
   createAgentSession,
@@ -815,15 +816,15 @@ export class PiSession {
    */
   getMessageContentMap(): Map<
     string,
-    { role: string; content: string; timestamp: string }
+    { role: string; content: string; timestamp: string; toolSteps?: ToolStep[] }
   > {
     const map = new Map<
       string,
-      { role: string; content: string; timestamp: string }
+      { role: string; content: string; timestamp: string; toolSteps?: ToolStep[] }
     >();
     const piTree = this.sm.getTree();
 
-    const walk = (nodes: SessionTreeNode[]) => {
+    const walk = (nodes: SessionTreeNode[], pendingSteps: ToolStep[]) => {
       for (const node of nodes) {
         const entry = node.entry;
         if (entry.type === "message" && "message" in entry) {
@@ -831,9 +832,37 @@ export class PiSession {
           // Only include user and assistant messages in the content map
           // (skip tool results, system, and other internal roles)
           if (msg.role !== "user" && msg.role !== "assistant") {
-            walk(node.children);
+            // Pass current pendingSteps through for toolResult and other roles
+            const childSteps = node.children.length > 1
+              ? [...pendingSteps]
+              : pendingSteps;
+            walk(node.children, childSteps);
             continue;
           }
+
+          // Check if this assistant message has toolCall parts (intermediate message)
+          if (msg.role === "assistant" && Array.isArray(msg.content)) {
+            const toolCallParts = (msg.content as Array<{ type: string; name?: string; arguments?: Record<string, unknown> }>)
+              .filter((c) => c.type === "toolCall");
+            if (toolCallParts.length > 0) {
+              // Extract tool steps and accumulate
+              for (const part of toolCallParts) {
+                pendingSteps.push({
+                  toolName: part.name!,
+                  args: part.arguments ?? {},
+                  status: "done",
+                });
+              }
+              // Skip this intermediate message — don't add to content map
+              // Copy pendingSteps at fork points to avoid shared mutation
+              const childSteps = node.children.length > 1
+                ? [...pendingSteps]
+                : pendingSteps;
+              walk(node.children, childSteps);
+              continue;
+            }
+          }
+
           let content = Array.isArray(msg.content)
             ? (msg.content as Array<{ type: string; text?: string }>)
                 .filter((c) => c.type === "text")
@@ -872,16 +901,31 @@ export class PiSession {
             }
           }
 
-          map.set(entry.id, {
+          const mapEntry: { role: string; content: string; timestamp: string; toolSteps?: ToolStep[] } = {
             role: msg.role,
             content,
             timestamp: entry.timestamp,
-          });
+          };
+
+          // Attach accumulated tool steps to assistant text messages
+          if (msg.role === "assistant" && pendingSteps.length > 0) {
+            mapEntry.toolSteps = [...pendingSteps];
+          }
+
+          map.set(entry.id, mapEntry);
         }
-        walk(node.children);
+        // For user messages, reset pendingSteps; for assistant text, also reset
+        // For non-message nodes, pass through current pendingSteps
+        const isMessage = entry.type === "message" && "message" in entry;
+        const nextSteps = isMessage ? [] : pendingSteps;
+        // Copy at fork points to avoid shared mutation
+        const childSteps = node.children.length > 1
+          ? [...nextSteps]
+          : nextSteps;
+        walk(node.children, childSteps);
       }
     };
-    walk(piTree);
+    walk(piTree, []);
     return map;
   }
 

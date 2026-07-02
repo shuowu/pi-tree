@@ -8,9 +8,12 @@ import { marked } from "marked";
  * Industry-standard pattern (ChatGPT, Claude, Gemini): markdown renders in
  * real-time with a pulsing avatar + blinking cursor to signal generation.
  * When streaming ends, content moves to MessageBubble and indicators vanish.
+ *
+ * When `inline` is true, renders only the content div without the outer
+ * message/avatar/bubble wrapper — used when embedded inside a parent bubble.
  */
-export const StreamingBubble = forwardRef<HTMLDivElement, { content: string; isCompacting?: boolean }>(
-  function StreamingBubble({ content, isCompacting }, ref) {
+export const StreamingBubble = forwardRef<HTMLDivElement, { content: string; isCompacting?: boolean; inline?: boolean }>(
+  function StreamingBubble({ content, isCompacting, inline }, ref) {
     const contentRef = useRef<HTMLDivElement>(null);
     const html = useMemo(() => {
       return marked.parse(content) as string;
@@ -20,21 +23,31 @@ export const StreamingBubble = forwardRef<HTMLDivElement, { content: string; isC
     // Once streaming ends, content moves to MessageBubble which renders mermaid.
     useMermaid(contentRef, html, /* enabled */ false);
 
+    const inner = (
+      <>
+        <div
+          ref={contentRef}
+          className="pit-chat-content pit-markdown"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        {isCompacting && (
+          <div className="pit-compaction-indicator">
+            <span className="pit-compaction-dot" />
+            Organizing reading notes…
+          </div>
+        )}
+      </>
+    );
+
+    if (inline) {
+      return <div ref={ref}>{inner}</div>;
+    }
+
     return (
       <div ref={ref} className="pit-chat-message pit-chat-message-assistant pit-streaming">
         <div className="pit-chat-avatar">✦</div>
         <div className="pit-chat-bubble">
-          <div
-            ref={contentRef}
-            className="pit-chat-content pit-markdown"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-          {isCompacting && (
-            <div className="pit-compaction-indicator">
-              <span className="pit-compaction-dot" />
-              Organizing reading notes…
-            </div>
-          )}
+          {inner}
         </div>
       </div>
     );

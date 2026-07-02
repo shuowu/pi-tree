@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, BranchOption } from "@pi-tree/core/types";
+import type { ChatMessage, BranchOption, ToolStep } from "@pi-tree/core/types";
 import { MessageBubble } from "./MessageBubble.js";
 import { StreamingBubble } from "./StreamingBubble.js";
 import { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
-import { ToolCallIndicator } from "./ToolCallIndicator.js";
+import { ToolSteps } from "./ToolSteps.js";
 import { ModelPicker, type ModelInfo } from "./ModelPicker.js";
 import { BookOpen, ChevronDown, GitBranch, Loader, Square } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
@@ -71,6 +71,8 @@ interface ChatViewProps {
   parentContext?: ChatMessage[];
   /** Optional render prop for content above the input area (e.g. usage badge) */
   renderAboveInput?: () => React.ReactNode;
+  /** Completed tool steps for the current streaming response */
+  completedSteps?: ToolStep[];
 }
 
 export function ChatView({
@@ -102,6 +104,7 @@ export function ChatView({
   onStop,
   parentContext,
   renderAboveInput,
+  completedSteps,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
@@ -411,30 +414,45 @@ export function ChatView({
           <MessageBubble key={msg.id} message={msg} onFork={onFork ?? onDrillDown} isLoading={isLoading} />
         ))}
 
-        {isLoading && streamingContent !== null && streamingContent.length > 0 && (
-          <StreamingBubble ref={streamingBubbleRef} content={streamingContent} isCompacting={isCompacting} />
-        )}
-
-        {isLoading && activeToolCall && (
-          <ToolCallIndicator toolName={activeToolCall.toolName} args={activeToolCall.args} />
-        )}
-
-        {isLoading && !activeToolCall && (streamingContent === null || streamingContent.length === 0) && (
-          <div className="pit-chat-message pit-chat-message-assistant">
+        {isLoading && (completedSteps?.length || streamingContent || activeToolCall || !isQueued) && (
+          <div className="pit-chat-message pit-chat-message-assistant pit-streaming">
             <div className="pit-chat-avatar">✦</div>
             <div className="pit-chat-bubble">
-              {isQueued ? (
-                <div className="pit-chat-queued">
-                  <span className="pit-queued-spinner" />
-                  Finishing a response on another branch — yours is next
+              {completedSteps && completedSteps.length > 0 && (
+                <ToolSteps steps={completedSteps} isStreaming />
+              )}
+              {streamingContent !== null && streamingContent.length > 0 ? (
+                <StreamingBubble ref={streamingBubbleRef} content={streamingContent} isCompacting={isCompacting} inline />
+              ) : activeToolCall ? (
+                <div className="pit-tool-call-indicator">
+                  <span className="pit-tool-call-spinner" />
+                  <span className="pit-tool-call-label">
+                    {activeToolCall.toolName === "read"
+                      ? `Reading ${((activeToolCall.args.path ?? activeToolCall.args.file ?? "") as string).split("/").slice(-2).join("/") || "book content"}`
+                      : activeToolCall.toolName === "grep"
+                        ? `Searching for "${(activeToolCall.args.pattern ?? activeToolCall.args.query ?? "") as string}"`
+                        : `Running ${activeToolCall.toolName}`}
+                  </span>
                 </div>
-              ) : (
+              ) : !completedSteps?.length && (
                 <div className="pit-chat-loading">
                   <span className="pit-dot" />
                   <span className="pit-dot" />
                   <span className="pit-dot" />
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {isLoading && isQueued && !completedSteps?.length && !streamingContent && !activeToolCall && (
+          <div className="pit-chat-message pit-chat-message-assistant">
+            <div className="pit-chat-avatar">✦</div>
+            <div className="pit-chat-bubble">
+              <div className="pit-chat-queued">
+                <span className="pit-queued-spinner" />
+                Finishing a response on another branch — yours is next
+              </div>
             </div>
           </div>
         )}

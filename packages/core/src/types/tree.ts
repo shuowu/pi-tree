@@ -22,6 +22,16 @@ export interface TreeNodeView {
 }
 
 // ---------------------------------------------------------------------------
+// Tool Step — intermediate tool call executed during an AI response
+// ---------------------------------------------------------------------------
+
+export interface ToolStep {
+  toolName: string;
+  args: Record<string, unknown>;
+  status: "running" | "done" | "error";
+}
+
+// ---------------------------------------------------------------------------
 // Chat Message — individual message in a conversation
 // ---------------------------------------------------------------------------
 
@@ -33,6 +43,8 @@ export interface ChatMessage {
   timestamp: string;
   /** If this message triggered a branch, the new node id */
   branchedToNodeId?: string;
+  /** Tool calls executed by the AI to produce this response */
+  toolSteps?: ToolStep[];
 }
 
 // ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import type {
   BreadcrumbItem,
   TreeNodeView,
   BranchOption,
+  ToolStep,
 } from "@pi-tree/core/types";
 import type {
   Source,
@@ -92,6 +93,7 @@ export function useReaderSession(
   const [isCompacting, setIsCompacting] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
   const [activeToolCall, setActiveToolCall] = useState<{ toolName: string; args: Record<string, unknown> } | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<ToolStep[]>([]);
   // Track which tree nodes have in-flight AI responses (for tree spinner)
   const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(new Set());
   // Counter incremented on explicit navigation (not streaming completion).
@@ -182,12 +184,14 @@ export function useReaderSession(
         setStreamingContent(stripSystemContext(activeStream.accumulatedText));
         setIsQueued(activeStream.isQueued);
         setActiveToolCall(activeStream.activeToolCall);
+        setCompletedSteps(activeStream.completedSteps);
         setIsCompacting(activeStream.isCompacting);
         setIsLoading(true);
       } else {
         setStreamingContent(null);
         setIsQueued(false);
         setActiveToolCall(null);
+        setCompletedSteps([]);
         setIsCompacting(false);
       }
     } else if (activeStream.status === "done") {
@@ -205,6 +209,7 @@ export function useReaderSession(
         setIsCompacting(false);
         setIsQueued(false);
         setActiveToolCall(null);
+        setCompletedSteps([]);
         if (activeStream.result) {
           applySessionData(activeStream.result);
           updateUrl(activeStream.result.viewNodeId, sessionId, true);
@@ -249,6 +254,7 @@ export function useReaderSession(
         setIsCompacting(false);
         setIsQueued(false);
         setActiveToolCall(null);
+        setCompletedSteps([]);
         if (activeStream.error) {
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
@@ -670,6 +676,7 @@ export function useReaderSession(
     streamingContent,
     isCompacting,
     activeToolCall,
+    completedSteps,
     viewNodeId,
     sessionLabel,
     sessionContext,

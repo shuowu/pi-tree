@@ -10,6 +10,7 @@ import type {
   ChatMessage,
   BranchOption,
   BreadcrumbItem,
+  ToolStep,
 } from "../types/index.js";
 
 // ─── Predicates ────────────────────────────────────────────────────────────────
@@ -251,7 +252,7 @@ export function needsAutoBranch(
 
 export type ContentMap = Map<
   string,
-  { role: string; content: string; timestamp: string }
+  { role: string; content: string; timestamp: string; toolSteps?: ToolStep[] }
 >;
 
 export interface ScopeResult {
@@ -377,6 +378,7 @@ function pushMessage(
       role: data.role as "user" | "assistant",
       content: data.content,
       timestamp: data.timestamp,
+      toolSteps: data.toolSteps,
     });
   }
 }

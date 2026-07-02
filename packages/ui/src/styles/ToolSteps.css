@@ -1,0 +1,85 @@
+/* ── ToolSteps accordion ── */
+
+.pit-tool-steps {
+  padding: var(--pit-space-1, 4px) 0;
+}
+
+.pit-tool-steps-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--pit-space-1, 4px);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.82em;
+  color: var(--pit-text-secondary, var(--text-secondary, #888));
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.pit-tool-steps-toggle:hover {
+  color: var(--pit-text-primary, var(--text-primary, #ccc));
+}
+
+.pit-tool-steps-chevron {
+  display: inline-block;
+  font-size: 1.1em;
+  transition: transform 0.15s ease;
+  transform: rotate(0deg);
+}
+
+.pit-tool-steps-chevron.pit-expanded {
+  transform: rotate(90deg);
+}
+
+.pit-tool-steps-count {
+  font-weight: 500;
+}
+
+.pit-tool-steps-streaming {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* ── Step list ── */
+
+.pit-tool-steps-list {
+  margin-left: 1.2em;
+  padding-top: var(--pit-space-1, 4px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pit-tool-step-item {
+  display: flex;
+  align-items: center;
+  gap: var(--pit-space-1, 4px);
+  font-size: 0.82em;
+  line-height: 1.4;
+}
+
+.pit-tool-step-status {
+  flex-shrink: 0;
+  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pit-tool-step-done {
+  color: var(--pit-accent, #4caf50);
+}
+
+.pit-tool-step-error {
+  color: #e53935;
+}
+
+.pit-tool-step-running {
+  /* spinner inherits from .pit-tool-call-spinner defined in ChatView.css */
+}
+
+.pit-tool-step-label {
+  color: var(--pit-text-secondary, var(--text-secondary, #888));
+}

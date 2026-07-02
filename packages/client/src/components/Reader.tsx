@@ -228,6 +228,7 @@ export function Reader() {
               onStop={session.handleStopGeneration}
               parentContext={session.parentContext}
               renderAboveInput={renderUsageBadge}
+              completedSteps={session.completedSteps}
             />
           </>
         ) : null}
