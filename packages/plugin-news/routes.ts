@@ -218,9 +218,9 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
 
   return {
     routes,
-    cleanup: () => {
+    cleanup: async () => {
       if (crawlInterval) clearInterval(crawlInterval);
-      closeNewsDb();
+      await closeNewsDb();
     },
   };
 }

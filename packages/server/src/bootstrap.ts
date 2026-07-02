@@ -12,6 +12,7 @@ import { UserServiceImpl } from "./services/user-service.js";
 import { getJobQueue } from "./services/job-queue.js";
 import { jobRoutes } from "./routes/jobs.js";
 import { AgentTaskServiceImpl } from "./services/agent-task.js";
+import { MemoService } from "./services/memo-service.js";
 
 /**
  * Resolve core plugin directories by finding their installed package locations.
@@ -147,6 +148,7 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
     },
     ...(mcpBridge.hasServers() ? { mcpBridge } : {}),
     dataPath,
+    memos: MemoService.getInstance(),
     // Raw DB access (backward compat, power users)
     db: getDb,
     schema: { sources, userSessions, users },

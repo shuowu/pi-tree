@@ -24,6 +24,7 @@ export type {
   RegistryService,
   ExtensionConfig,
   AgentTaskService,
+  MemoServiceInterface,
   PluginRouteContext,
   PluginSetupResult,
   PluginManifest,

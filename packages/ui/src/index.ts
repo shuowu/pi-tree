@@ -8,6 +8,7 @@ export { ToolCallIndicator } from "./ToolCallIndicator.js";
 export { ToolSteps } from "./ToolSteps.js";
 export { ModelPicker, type ModelInfo } from "./ModelPicker.js";
 export { SelectionToolbar } from "./SelectionToolbar.js";
+export { SlashCommandMenu, type SlashCommand } from "./SlashCommandMenu.js";
 
 // Hooks
 export { useMermaid } from "./hooks/useMermaid.js";

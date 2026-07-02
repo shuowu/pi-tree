@@ -6,7 +6,7 @@ import { useSourceProcessing } from "../hooks/useSourceProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo } from "@pi-tree/ui";
+import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo, type SlashCommand } from "@pi-tree/ui";
 import { SourceSetupState } from "./SourceSetupState";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
@@ -14,9 +14,9 @@ import { RightPanel } from "./RightPanel";
 import { DictQuickCardStack } from "./DictionaryPanel";
 import { SessionUsageBadge } from "./SessionUsageBadge";
 
-import { fetchModels, updateSession, viewScope } from "../api";
+import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo } from "../api";
 import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
-import { PanelLeft, PanelRight, Home, Layers, Settings, Zap } from "lucide-react";
+import { PanelLeft, PanelRight, Home, Layers, Settings, Zap, StickyNote, Search } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import "./Reader.css";
@@ -75,6 +75,108 @@ export function Reader() {
 
   const defaultBranchesCollapsed = useMemo(() => getBranchesCollapsed(), []);
 
+  // Memo state
+  const [memoCount, setMemoCount] = useState(0);
+  const [memoToast, setMemoToast] = useState<string | null>(null);
+
+  // Fetch memo count for badge
+  useEffect(() => {
+    if (!userId) return;
+    fetchMemos(userId, { sourceId: source.id }).then(all => setMemoCount(all.length)).catch(() => {});
+  }, [userId, source.id]);
+
+  const showMemoToast = useCallback((message: string) => {
+    setMemoToast(message);
+    setTimeout(() => setMemoToast(null), 2500);
+  }, []);
+
+  // Slash commands
+  const slashCommands = useMemo<SlashCommand[]>(() => [
+    {
+      name: 'memo',
+      label: '/memo [text]',
+      description: 'Save a memo from this conversation',
+      icon: <StickyNote size={16} />,
+    },
+    {
+      name: 'recall',
+      label: '/recall <query>',
+      description: 'Search your saved memos',
+      icon: <Search size={16} />,
+    },
+  ], []);
+
+  const handleSlashCommand = useCallback(async (
+    command: string,
+    args: string,
+    context: { lastAssistantMessage?: string },
+  ) => {
+    if (!userId) return;
+
+    if (command === 'memo') {
+      const aiContent = context.lastAssistantMessage;
+      const userNote = args?.trim() || undefined;
+
+      // Build content: combine user note + AI response, or use whichever is available
+      let content: string;
+      if (userNote && aiContent) {
+        content = `> ${userNote}\n\n${aiContent}`;
+      } else if (aiContent) {
+        content = aiContent;
+      } else if (userNote) {
+        content = userNote;
+      } else {
+        showMemoToast('Nothing to save — type /memo <text> or send a message first');
+        return;
+      }
+
+      const title = content.slice(0, 60).replace(/\n/g, ' ') + (content.length > 60 ? '…' : '');
+      try {
+        const memo = await createMemo(userId, {
+          title,
+          content,
+          sourceId: source.id,
+          sessionId: session.sessionId ?? undefined,
+          origin: 'command',
+        });
+        setMemoCount(c => c + 1);
+        showMemoToast('Memo saved ✓');
+        window.dispatchEvent(new Event('pi-tree:memos-changed'));
+
+        // Background enrichment — fire and forget
+        const topicPath = session.breadcrumb?.map(b => b.label).join(' > ') || undefined;
+        enrichMemo(userId, memo.id, {
+          sourceTitle: source.title,
+          topicPath,
+          userNote,
+        }).then(() => {
+          window.dispatchEvent(new Event('pi-tree:memos-changed'));
+        }).catch(() => {});
+      } catch (err) {
+        console.error('Failed to save memo:', err);
+        showMemoToast('Failed to save memo');
+      }
+    } else if (command === 'recall') {
+      if (!args) {
+        showMemoToast('Usage: /recall <search query>');
+        return;
+      }
+      try {
+        const results = await searchMemos(userId, args);
+        if (results.length === 0) {
+          showMemoToast('No memos found for "' + args + '"');
+        } else {
+          showMemoToast(`Found ${results.length} memo${results.length > 1 ? 's' : ''} — check Memos panel`);
+          panel.setRightPanelOpen(true);
+          panel.setRightTab('memos');
+        }
+      } catch (err) {
+        console.error('Failed to search memos:', err);
+        showMemoToast('Failed to search memos');
+      }
+    }
+  }, [userId, source.id, source.title, session.sessionId, session.breadcrumb, showMemoToast, panel]);
+
   // Wrap SelectionToolbar as a render prop for the UI package's ChatView
   const renderSelectionToolbar = useCallback(
     (ctx: {
@@ -88,9 +190,37 @@ export function Reader() {
         onDefine={ctx.onDefine}
         onAsk={ctx.onAsk}
         onBranch={ctx.onBranch}
+        onSave={async (text, context) => {
+          if (!userId) return;
+          const title = text.slice(0, 60).replace(/\n/g, ' ') + (text.length > 60 ? '…' : '');
+          try {
+            const memo = await createMemo(userId, {
+              title,
+              content: context ? `> ${text}\n\n${context}` : text,
+              sourceId: source.id,
+              sessionId: session.sessionId ?? undefined,
+              origin: 'selection',
+            });
+            setMemoCount(c => c + 1);
+            showMemoToast('Memo saved ✓');
+            window.dispatchEvent(new Event('pi-tree:memos-changed'));
+
+            // Background enrichment — fire and forget
+            const topicPath = session.breadcrumb?.map(b => b.label).join(' > ') || undefined;
+            enrichMemo(userId, memo.id, {
+              sourceTitle: source.title,
+              topicPath,
+            }).then(() => {
+              window.dispatchEvent(new Event('pi-tree:memos-changed'));
+            }).catch(() => {});
+          } catch (err) {
+            console.error('Failed to save memo:', err);
+            showMemoToast('Failed to save memo');
+          }
+        }}
       />
     ),
-    [],
+    [userId, source.id, source.title, session.sessionId, session.breadcrumb, showMemoToast],
   );
 
   // Wrap viewScope for InlineBranches' fetchBranchPreview prop
@@ -229,6 +359,8 @@ export function Reader() {
               parentContext={session.parentContext}
               renderAboveInput={renderUsageBadge}
               completedSteps={session.completedSteps}
+              slashCommands={slashCommands}
+              onSlashCommand={handleSlashCommand}
             />
           </>
         ) : null}
@@ -247,6 +379,9 @@ export function Reader() {
         onDismissQuickLookup={dict.dismissAllQuickCards}
         onResizeStart={panel.handleRightResizeStart}
         onSendMessage={session.handleSendMessage}
+        userId={userId!}
+        sessionId={session.sessionId ?? undefined}
+        memoCount={memoCount}
       />
 
       {/* Floating dictionary quick card stack — hidden when the right panel
@@ -268,6 +403,10 @@ export function Reader() {
           source={currentSource}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {memoToast && (
+        <div className="memo-toast">{memoToast}</div>
       )}
 
     </div>

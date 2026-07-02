@@ -4,6 +4,6 @@ icon: message-circle
 description: Ask anything about the book — themes, arguments, passages, or comparisons
 defaultPrompt: 'I''d like to explore "{sourceTitle}" through Q&A. What would you like to know?'
 skills: [interactive-reading]
-extensions: [mcp]
+extensions: [mcp, memos]
 exclude_tools: [bash, edit]
 order: 20

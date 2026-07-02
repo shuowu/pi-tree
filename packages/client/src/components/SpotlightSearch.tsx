@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router";
 import type { Source, SourceSession } from "@pi-tree/shared";
-import { fetchSources, fetchSessions } from "../api";
+import { fetchSources, fetchSessions, searchMemos } from "../api";
+import type { Memo } from "../api";
 import { useSourceMentions, type MentionSuggestion } from "../hooks/useSourceMentions";
 import { getSourceTypeConfig } from "../source-types";
 import {
   Search, X, Clock, ArrowRight, MessageSquare,
   Plus, Rss, Settings, Hash, BookOpen,
-  CornerDownLeft,
+  StickyNote, CornerDownLeft,
 } from "lucide-react";
 import "./SpotlightSearch.css";
 
@@ -63,7 +64,8 @@ type ResultItem =
   | { kind: "session"; session: SourceSession }
   | { kind: "command"; command: CommandItem }
   | { kind: "mention"; mention: MentionSuggestion }
-  | { kind: "action"; action: { id: string; label: string; mode: string; sourceId: string } };
+  | { kind: "action"; action: { id: string; label: string; mode: string; sourceId: string } }
+  | { kind: "memo"; memo: Memo };
 
 export function SpotlightSearch({
   userId, isOpen, onClose,
@@ -74,6 +76,7 @@ export function SpotlightSearch({
   const [query, setQuery] = useState("");
   const [sessionResults, setSessionResults] = useState<ResultItem[]>([]);
   const [sourceResults, setSourceResults] = useState<ResultItem[]>([]);
+  const [memoResults, setMemoResults] = useState<ResultItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -97,6 +100,7 @@ export function SpotlightSearch({
   // Static command actions
   const commands: CommandItem[] = useMemo(() => [
     { id: "goto-library", label: "Go to Library", icon: BookOpen, action: () => { onClose(); navigate("/library"); } },
+    { id: "open-memos", label: "Open Memos", icon: StickyNote, action: () => { navigate("/memos"); onClose(); } },
     ...(onAddSource ? [{ id: "add-source", label: "Add Source", icon: Plus, action: () => { onClose(); onAddSource(); } }] : []),
     ...(onSettings ? [{ id: "settings", label: "Settings", icon: Settings, action: () => { onClose(); onSettings(); } }] : []),
   ], [navigate, onClose, onAddSource, onSettings]);
@@ -113,8 +117,8 @@ export function SpotlightSearch({
   const allItems: ResultItem[] = useMemo(() => {
     if (isAtMode) return mentionResults;
     if (scope) return [...scopedSessions, ...scopedSources, ...scopeActions];
-    return [...sessionResults, ...sourceResults, ...filteredCommands];
-  }, [isAtMode, mentionResults, scope, scopedSessions, scopedSources, scopeActions, sessionResults, sourceResults, filteredCommands]);
+    return [...sessionResults, ...sourceResults, ...memoResults, ...filteredCommands];
+  }, [isAtMode, mentionResults, scope, scopedSessions, scopedSources, scopeActions, sessionResults, sourceResults, memoResults, filteredCommands]);
 
   // Focus input when opened, reset state
   useEffect(() => {
@@ -123,6 +127,7 @@ export function SpotlightSearch({
       setQuery("");
       setSessionResults([]);
       setSourceResults([]);
+      setMemoResults([]);
       setSelectedIndex(0);
       setScope(null);
       setScopedSessions([]);
@@ -253,19 +258,24 @@ export function SpotlightSearch({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const [sources, { sessions }] = await Promise.all([
+        const [sources, { sessions }, memos] = await Promise.all([
           fetchSources({ search: searchQuery }),
           fetchSessions(userId, { limit: 5, search: searchQuery }),
+          searchQuery.length >= 2 ? searchMemos(userId, searchQuery) : Promise.resolve([]),
         ]);
 
         setSessionResults(sessions.map((s) => ({ kind: "session" as const, session: s })));
         setSourceResults(
           sources.map((s) => ({ kind: "source" as const, source: s })),
         );
+        setMemoResults(
+          memos.slice(0, 5).map((m) => ({ kind: "memo" as const, memo: m })),
+        );
         setSelectedIndex(0);
       } catch {
         setSessionResults([]);
         setSourceResults([]);
+        setMemoResults([]);
       } finally {
         setLoading(false);
       }
@@ -302,6 +312,9 @@ export function SpotlightSearch({
       } else if (item.kind === "action") {
         onClose();
         navigate(`/source/${item.action.sourceId}?new=${item.action.mode}`);
+      } else if (item.kind === "memo") {
+        onClose();
+        navigate("/memos");
       } else {
         onClose();
         if (item.kind === "session") {
@@ -456,6 +469,28 @@ export function SpotlightSearch({
         </button>
       );
     }
+    if (item.kind === "memo") {
+      const preview = item.memo.content.length > 80
+        ? item.memo.content.slice(0, 80) + "…"
+        : item.memo.content;
+      return (
+        <button
+          key={`memo-${item.memo.id}`}
+          className={`spotlight-result ${i === selectedIndex ? "selected" : ""}`}
+          onClick={() => activateItem(item)}
+          onMouseEnter={() => setSelectedIndex(i)}
+        >
+          <div className="spotlight-result-icon memo">
+            <StickyNote size={16} />
+          </div>
+          <div className="spotlight-result-text">
+            <span className="spotlight-result-title">{item.memo.title}</span>
+            <span className="spotlight-result-meta">{preview}</span>
+          </div>
+          <ArrowRight size={14} className="spotlight-result-arrow" />
+        </button>
+      );
+    }
     // command
     const CmdIcon = item.command.icon;
     return (
@@ -481,6 +516,7 @@ export function SpotlightSearch({
   const actionItems = scope ? scopeActions : [];
   const scopedSourceItems = scope ? scopedSources : [];
   const sourceItems = scope ? [] : sourceResults;
+  const memoItems = scope ? [] : memoResults;
 
   return (
     <div className="spotlight-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -576,12 +612,24 @@ export function SpotlightSearch({
                   </>
                 )}
 
+                {/* Memos section */}
+                {memoItems.length > 0 && (
+                  <>
+                    <div className="spotlight-section-label">
+                      <StickyNote size={12} /> Memos
+                    </div>
+                    {memoItems.map((item, i) =>
+                      renderItem(item, sessionItems.length + scopedSourceItems.length + actionItems.length + sourceItems.length + i),
+                    )}
+                  </>
+                )}
+
                 {/* Commands section */}
                 {filteredCommands.length > 0 && (
                   <>
                     <div className="spotlight-section-label">Actions</div>
                     {filteredCommands.map((item, i) =>
-                      renderItem(item, sessionItems.length + scopedSourceItems.length + actionItems.length + sourceItems.length + i),
+                      renderItem(item, sessionItems.length + scopedSourceItems.length + actionItems.length + sourceItems.length + memoItems.length + i),
                     )}
                   </>
                 )}

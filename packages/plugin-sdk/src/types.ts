@@ -25,6 +25,8 @@ export interface PiTreeServices {
   db: () => Promise<any> | any;
   /** Raw Drizzle schema tables (power users, backward compat) */
   schema: { sources: any; userSessions: any; users: any };
+  /** Memo service — CRUD + search for user memos (optional, may not be available in all contexts) */
+  memos?: MemoServiceInterface;
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +173,47 @@ export interface RegistryService {
 export interface ExtensionConfig {
   /** Jina Reader API key for article extraction (optional) */
   jinaApiKey?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Memo service — user memos CRUD + search
+// ---------------------------------------------------------------------------
+
+export interface MemoServiceInterface {
+  list(
+    userId: string,
+    opts?: {
+      sourceId?: string;
+      tag?: string;
+      pinned?: boolean;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<any[]>;
+  get(userId: string, memoId: number): Promise<any | null>;
+  create(
+    userId: string,
+    input: {
+      title: string;
+      content: string;
+      sourceId?: string;
+      sessionId?: number;
+      nodeId?: string;
+      origin?: string;
+      tags?: string[];
+    },
+  ): Promise<any>;
+  search(
+    userId: string,
+    query: string,
+    opts?: { sourceId?: string; tag?: string; limit?: number },
+  ): Promise<any[]>;
+  append(
+    userId: string,
+    memoId: number,
+    content: string,
+    sourceId?: string,
+  ): Promise<any | null>;
 }
 
 // ---------------------------------------------------------------------------

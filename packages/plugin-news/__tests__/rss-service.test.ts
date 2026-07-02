@@ -78,8 +78,8 @@ describe("RssService (plugin-local)", () => {
     sourceMock = createMockSourceService();
   });
 
-  afterEach(() => {
-    resetNewsDb();
+  afterEach(async () => {
+    await resetNewsDb();
     sourceMock.close();
     try {
       rmSync(tempDir, { recursive: true, force: true });
@@ -96,10 +96,10 @@ describe("RssService (plugin-local)", () => {
     });
   }
 
-  it("should seed default feeds on first run", () => {
+  it("should seed default feeds on first run", async () => {
     const rssService = createService();
-    rssService.seedDefaultFeeds();
-    const feeds = rssService.listFeeds();
+    await rssService.seedDefaultFeeds();
+    const feeds = await rssService.listFeeds();
 
     expect(feeds).toBeInstanceOf(Array);
     expect(feeds.length).toBeGreaterThan(0);
@@ -107,12 +107,12 @@ describe("RssService (plugin-local)", () => {
     expect(feeds[0].tags).toContain("tech");
   });
 
-  it("should not re-seed when feeds already exist", () => {
+  it("should not re-seed when feeds already exist", async () => {
     const rssService = createService();
-    rssService.seedDefaultFeeds();
+    await rssService.seedDefaultFeeds();
 
     // Add a custom feed
-    rssService.addFeed({
+    await rssService.addFeed({
       id: "my-custom-feed",
       name: "My Custom Feed",
       url: "https://example.com/feed.xml",
@@ -120,75 +120,75 @@ describe("RssService (plugin-local)", () => {
     });
 
     // Seed again — should not overwrite
-    rssService.seedDefaultFeeds();
-    const feeds = rssService.listFeeds();
+    await rssService.seedDefaultFeeds();
+    const feeds = await rssService.listFeeds();
     expect(feeds.some(f => f.id === "my-custom-feed")).toBe(true);
   });
 
-  it("should add and remove feeds via DB", () => {
+  it("should add and remove feeds via DB", async () => {
     const rssService = createService();
-    rssService.seedDefaultFeeds();
+    await rssService.seedDefaultFeeds();
 
-    rssService.addFeed({
+    await rssService.addFeed({
       id: "test-feed",
       name: "Test Feed",
       url: "https://example.com/test.xml",
       tags: ["test"]
     });
 
-    let feeds = rssService.listFeeds();
+    let feeds = await rssService.listFeeds();
     expect(feeds.some(f => f.id === "test-feed")).toBe(true);
 
-    const deleted = rssService.removeFeed("test-feed");
+    const deleted = await rssService.removeFeed("test-feed");
     expect(deleted).toBe(true);
 
-    feeds = rssService.listFeeds();
+    feeds = await rssService.listFeeds();
     expect(feeds.some(f => f.id === "test-feed")).toBe(false);
   });
 
-  it("should return false when removing non-existent feed", () => {
+  it("should return false when removing non-existent feed", async () => {
     const rssService = createService();
-    rssService.seedDefaultFeeds();
-    const deleted = rssService.removeFeed("non-existent");
+    await rssService.seedDefaultFeeds();
+    const deleted = await rssService.removeFeed("non-existent");
     expect(deleted).toBe(false);
   });
 
-  it("should return tags from DB feeds", () => {
+  it("should return tags from DB feeds", async () => {
     const rssService = createService();
-    rssService.seedDefaultFeeds();
+    await rssService.seedDefaultFeeds();
 
-    const allTags = rssService.getAllFeedTags();
+    const allTags = await rssService.getAllFeedTags();
     expect(allTags).toContain("tech");
 
     // Add a sports feed
-    rssService.addFeed({
+    await rssService.addFeed({
       id: "espn",
       name: "ESPN",
       url: "https://www.espn.com/espn/rss/news",
       tags: ["sports"]
     });
 
-    const updatedTags = rssService.getAllFeedTags();
+    const updatedTags = await rssService.getAllFeedTags();
     expect(updatedTags).toContain("sports");
     expect(updatedTags).toContain("tech");
   });
 
-  it("should filter feeds by tags", () => {
+  it("should filter feeds by tags", async () => {
     const rssService = createService();
-    rssService.seedDefaultFeeds();
+    await rssService.seedDefaultFeeds();
 
-    rssService.addFeed({
+    await rssService.addFeed({
       id: "espn",
       name: "ESPN",
       url: "https://www.espn.com/espn/rss/news",
       tags: ["sports"]
     });
 
-    const sportFeeds = rssService.getFeedsByTags(["sports"]);
+    const sportFeeds = await rssService.getFeedsByTags(["sports"]);
     expect(sportFeeds.length).toBeGreaterThanOrEqual(1);
     expect(sportFeeds.some(f => f.id === "espn")).toBe(true);
 
-    const techFeeds = rssService.getFeedsByTags(["tech"]);
+    const techFeeds = await rssService.getFeedsByTags(["tech"]);
     expect(techFeeds.length).toBeGreaterThan(0);
     expect(techFeeds.every(f => f.tags.includes("tech"))).toBe(true);
   });

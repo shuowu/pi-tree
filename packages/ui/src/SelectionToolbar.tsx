@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookA, GitBranch, Quote } from "lucide-react";
+import { BookA, GitBranch, Pin, Quote } from "lucide-react";
 import "./SelectionToolbar.css";
 
 interface SelectionToolbarProps {
@@ -9,6 +9,8 @@ interface SelectionToolbarProps {
   onAsk?: (text: string) => void;
   /** Branch: quotes text and starts a new branch */
   onBranch?: (text: string) => void;
+  /** Save: saves selected text as a memo */
+  onSave?: (text: string, context?: string) => void;
   /** Container element to listen for selections in */
   containerRef: React.RefObject<HTMLElement | null>;
 }
@@ -22,6 +24,7 @@ export function SelectionToolbar({
   onDefine,
   onAsk,
   onBranch,
+  onSave,
   containerRef,
 }: SelectionToolbarProps) {
   const [selectedText, setSelectedText] = useState<string | null>(null);
@@ -192,6 +195,34 @@ export function SelectionToolbar({
     dismiss();
   };
 
+  const handleSave = () => {
+    const selection = window.getSelection();
+    let context: string | undefined;
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const container =
+        range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+          ? range.commonAncestorContainer.parentElement
+          : (range.commonAncestorContainer as HTMLElement);
+      const blockParent = container?.closest('.pit-chat-content, p, blockquote, li');
+      if (blockParent) {
+        const fullText = blockParent.textContent ?? '';
+        const selText = selectedText ?? '';
+        const idx = fullText.indexOf(selText);
+        if (idx >= 0) {
+          const start = Math.max(0, idx - 100);
+          const end = Math.min(fullText.length, idx + selText.length + 100);
+          context = fullText.slice(start, end).trim();
+        } else {
+          context = fullText.slice(0, 200).trim();
+        }
+      }
+    }
+    onSave!(selectedText!, context);
+    window.getSelection()?.removeAllRanges();
+    dismiss();
+  };
+
   return (
     <div
       ref={toolbarRef}
@@ -215,6 +246,11 @@ export function SelectionToolbar({
         <button className="pit-selection-btn" onClick={handleDefine} title="Look up in dictionary">
           <BookA size={14} /> Define
         </button>
+        {onSave && (
+          <button className="pit-selection-btn" onClick={handleSave} title="Save as memo">
+            <Pin size={14} /> Save
+          </button>
+        )}
       </div>
     </div>
   );

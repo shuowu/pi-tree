@@ -2,5 +2,5 @@ name: router
 label: Session Router
 description: Home page chat — routes users to the right source/session
 skills: [session-router]
-extensions: [router]
+extensions: [router, memos]
 exclude_tools: [bash, edit]

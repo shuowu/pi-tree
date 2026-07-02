@@ -1,5 +1,5 @@
 name: _default
 label: Default
 skills: [interactive-reading]
-extensions: [mcp]
+extensions: [mcp, memos]
 exclude_tools: [bash, edit]

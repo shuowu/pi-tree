@@ -1,0 +1,78 @@
+/* ── Slash Command Menu ── */
+
+.pit-slash-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--pit-bg-tertiary, var(--bg-tertiary));
+  border: 1px solid var(--pit-border, var(--border));
+  border-radius: var(--pit-radius-lg, var(--radius-lg, 8px));
+  box-shadow: var(--pit-shadow-lg, var(--shadow-lg));
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 300;
+  animation: pitSlashMenuIn 0.15s ease;
+  padding: 4px;
+}
+
+@keyframes pitSlashMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pit-slash-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--pit-radius-md, var(--radius-md, 6px));
+  cursor: pointer;
+  text-align: left;
+  color: var(--pit-text-secondary, var(--text-secondary));
+  font-family: var(--pit-font-sans, var(--font-sans, system-ui, sans-serif));
+  transition: background var(--pit-transition-fast, var(--transition-fast, 0.15s));
+}
+
+.pit-slash-menu-item:hover,
+.pit-slash-menu-item-active {
+  background: var(--pit-bg-hover, var(--bg-hover));
+  color: var(--pit-text-primary, var(--text-primary));
+}
+
+.pit-slash-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--pit-accent, var(--accent));
+}
+
+.pit-slash-menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pit-slash-menu-label {
+  font-size: var(--pit-text-sm, var(--text-sm, 0.875rem));
+  font-weight: 500;
+}
+
+.pit-slash-menu-desc {
+  font-size: var(--pit-text-xs, var(--text-xs, 0.75rem));
+  color: var(--pit-text-tertiary, var(--text-tertiary));
+}

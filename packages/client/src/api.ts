@@ -874,3 +874,135 @@ export async function fetchSourceUsage(userId: string, sourceId: string, opts?: 
   if (!res.ok) return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, messageCount: 0, byModel: {} };
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Memos
+// ---------------------------------------------------------------------------
+
+export interface Memo {
+  id: number;
+  userId: string;
+  title: string;
+  content: string;
+  sourceId: string | null;
+  sessionId: number | null;
+  nodeId: string | null;
+  origin: string;
+  pinned: boolean;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemoCreate {
+  title: string;
+  content: string;
+  sourceId?: string;
+  sessionId?: number;
+  nodeId?: string;
+  origin?: string;
+  tags?: string[];
+}
+
+export interface MemoUpdate {
+  title?: string;
+  content?: string;
+  pinned?: boolean;
+  tags?: string[];
+}
+
+export async function fetchMemos(
+  userId: string,
+  opts?: { sourceId?: string; pinned?: boolean; tag?: string; limit?: number; offset?: number },
+): Promise<Memo[]> {
+  const params = new URLSearchParams();
+  if (opts?.sourceId) params.set('sourceId', opts.sourceId);
+  if (opts?.pinned !== undefined) params.set('pinned', String(opts.pinned));
+  if (opts?.tag) params.set('tag', opts.tag);
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  if (opts?.offset) params.set('offset', String(opts.offset));
+  const qs = params.toString();
+  const res = await fetch(`${API}/memos/${userId}${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(`Failed to fetch memos: ${res.status}`);
+  const data = await res.json();
+  return data.memos ?? [];
+}
+
+export async function createMemo(
+  userId: string,
+  input: MemoCreate,
+): Promise<Memo> {
+  const res = await fetch(`${API}/memos/${userId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Create memo failed' }));
+    throw new Error(err.error || `Create memo failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateMemo(
+  userId: string,
+  memoId: number,
+  input: MemoUpdate,
+): Promise<Memo> {
+  const res = await fetch(`${API}/memos/${userId}/${memoId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Failed to update memo: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteMemo(
+  userId: string,
+  memoId: number,
+): Promise<void> {
+  const res = await fetch(`${API}/memos/${userId}/${memoId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Failed to delete memo: ${res.status}`);
+}
+
+export async function appendMemo(
+  userId: string,
+  memoId: number,
+  content: string,
+  sourceId?: string,
+): Promise<Memo> {
+  const res = await fetch(`${API}/memos/${userId}/${memoId}/append`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, sourceId }),
+  });
+  if (!res.ok) throw new Error(`Failed to append to memo: ${res.status}`);
+  return res.json();
+}
+
+export async function searchMemos(
+  userId: string,
+  query: string,
+): Promise<Memo[]> {
+  const res = await fetch(`${API}/memos/${userId}/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.memos ?? [];
+}
+
+export async function enrichMemo(
+  userId: string,
+  memoId: number,
+  context?: { sourceTitle?: string; topicPath?: string; userNote?: string },
+): Promise<Memo> {
+  const res = await fetch(`${API}/memos/${userId}/${memoId}/enrich`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(context ?? {}),
+  });
+  if (!res.ok) throw new Error('Failed to enrich memo');
+  return res.json();
+}

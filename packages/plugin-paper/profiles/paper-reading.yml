@@ -4,5 +4,5 @@ icon: scroll-text
 description: Search, read, and discuss academic papers
 defaultPrompt: Let's explore papers. What topic or paper would you like to start with?
 skills: [paper-reading]
-extensions: [paper, mcp]
+extensions: [paper, mcp, memos]
 exclude_tools: [bash, edit]

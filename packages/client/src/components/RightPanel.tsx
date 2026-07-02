@@ -1,13 +1,14 @@
 import type { DictEntry } from "./DictionaryPanel";
 import { DictionaryPanel } from "./DictionaryPanel";
 import { AnalysisPanel } from "./AnalysisPanel";
+import { MemosPanel } from "./MemosPanel";
 import { getSourceTypeConfig } from "../source-types";
-import { X } from "lucide-react";
+import { X, StickyNote } from "lucide-react";
 
 interface RightPanelProps {
   isOpen: boolean;
-  rightTab: "dict" | "content" | "analysis";
-  onTabChange: (tab: "dict" | "content" | "analysis") => void;
+  rightTab: "dict" | "content" | "analysis" | "memos";
+  onTabChange: (tab: "dict" | "content" | "analysis" | "memos") => void;
   onClose: () => void;
   dictEntries: DictEntry[];
   onDictRemove: (id: string) => void;
@@ -17,6 +18,9 @@ interface RightPanelProps {
   onDismissQuickLookup: () => void;
   onResizeStart: (e: React.MouseEvent) => void;
   onSendMessage?: (message: string) => void;
+  userId: string;
+  sessionId?: number;
+  memoCount?: number;
 }
 
 export function RightPanel({
@@ -32,6 +36,9 @@ export function RightPanel({
   onDismissQuickLookup,
   onResizeStart,
   onSendMessage,
+  userId,
+  sessionId,
+  memoCount,
 }: RightPanelProps) {
   const config = getSourceTypeConfig(sourceType ?? "");
   const PanelComponent = config.contentPanel;
@@ -69,6 +76,17 @@ export function RightPanel({
             >
               Analysis
             </button>
+            <button
+              className={`right-sidebar-tab ${rightTab === "memos" ? "active" : ""}`}
+              onClick={() => onTabChange("memos")}
+              data-testid="right-tab-memos"
+            >
+              <StickyNote size={12} style={{ marginRight: 4 }} />
+              Memos
+              {(memoCount ?? 0) > 0 && (
+                <span className="right-sidebar-count">{memoCount}</span>
+              )}
+            </button>
           </div>
           <button
             className="right-sidebar-close"
@@ -93,6 +111,9 @@ export function RightPanel({
           )}
           <div style={{ display: rightTab === "analysis" ? "contents" : "none" }}>
             <AnalysisPanel sourceId={sourceId} />
+          </div>
+          <div style={{ display: rightTab === "memos" ? "contents" : "none" }}>
+            <MemosPanel sourceId={sourceId} userId={userId} sessionId={sessionId} />
           </div>
         </div>
       </aside>

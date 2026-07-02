@@ -85,7 +85,16 @@ export async function getNewsDb(dataDir: string) {
   return dbPromise;
 }
 
-export function closeNewsDb() {
+export async function closeNewsDb() {
+  // Await any in-flight DB initialization (e.g. migrate()) before closing,
+  // otherwise the client gets closed while migrate() is still running.
+  if (dbPromise) {
+    try {
+      await dbPromise;
+    } catch {
+      // Ignore — we're closing anyway
+    }
+  }
   if (client) {
     client.close();
     client = null;
@@ -97,6 +106,6 @@ export function closeNewsDb() {
 /**
  * Reset the news DB connection. Used in tests to get a fresh DB.
  */
-export function resetNewsDb() {
-  closeNewsDb();
+export async function resetNewsDb() {
+  await closeNewsDb();
 }

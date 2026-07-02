@@ -420,3 +420,39 @@ export type UserIntent =
   | { type: "lateral_move"; target: string }
   | { type: "cross_source"; otherSource: string; topic: string }
   | { type: "toc_navigate"; outlineEntry: OutlineEntry };
+
+// ---------------------------------------------------------------------------
+// Memos
+// ---------------------------------------------------------------------------
+
+export interface Memo {
+  id: number;
+  userId: string;
+  title: string;
+  content: string;
+  sourceId: string | null;
+  sessionId: number | null;
+  nodeId: string | null;
+  origin: 'selection' | 'message' | 'command' | 'ai_suggested' | 'manual';
+  pinned: boolean;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemoCreate {
+  title: string;
+  content: string;
+  sourceId?: string;
+  sessionId?: number;
+  nodeId?: string;
+  origin?: Memo['origin'];
+  tags?: string[];
+}
+
+export interface MemoUpdate {
+  title?: string;
+  content?: string;
+  pinned?: boolean;
+  tags?: string[];
+}

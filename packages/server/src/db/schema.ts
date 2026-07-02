@@ -155,3 +155,34 @@ export const messageUsage = sqliteTable("message_usage", {
   createdIdx: index("mu_created_idx").on(table.createdAt),
 }));
 
+// ---------------------------------------------------------------------------
+// Memos — user notes with optional source/session/node binding
+// ---------------------------------------------------------------------------
+
+export const memos = sqliteTable("memos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  sourceId: text("source_id"),  // nullable — cross-source memos have no source
+  sessionId: integer("session_id").references(() => userSessions.id, { onDelete: "set null" }),
+  nodeId: text("node_id"),
+  origin: text("origin").notNull().default("manual"),  // 'selection' | 'message' | 'command' | 'ai_suggested' | 'manual'
+  pinned: integer("pinned").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => ({
+  userIdx: index("memo_user_idx").on(table.userId),
+  userSourceIdx: index("memo_user_source_idx").on(table.userId, table.sourceId),
+  updatedIdx: index("memo_updated_idx").on(table.updatedAt),
+}));
+
+// ---------------------------------------------------------------------------
+// Memo ↔ Tag junction
+// ---------------------------------------------------------------------------
+
+export const memoTags = sqliteTable("memo_tags", {
+  memoId: integer("memo_id").notNull().references(() => memos.id, { onDelete: "cascade" }),
+  tagId: integer("tag_id").notNull().references(() => tags.id, { onDelete: "cascade" }),
+}, () => []);
+

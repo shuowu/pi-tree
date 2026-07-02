@@ -4,5 +4,5 @@ icon: newspaper
 description: Browse feeds, scan topics, or get a news overview
 source_type: news
 skills: [news-reading]
-extensions: [news, mcp]
+extensions: [news, mcp, memos]
 exclude_tools: [bash, edit]

@@ -5,6 +5,7 @@ import { StreamingBubble } from "./StreamingBubble.js";
 import { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
 import { ToolSteps } from "./ToolSteps.js";
 import { ModelPicker, type ModelInfo } from "./ModelPicker.js";
+import { SlashCommandMenu, type SlashCommand } from './SlashCommandMenu.js';
 import { BookOpen, ChevronDown, GitBranch, Loader, Square } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
 import "./styles/ChatView.css";
@@ -73,6 +74,12 @@ interface ChatViewProps {
   renderAboveInput?: () => React.ReactNode;
   /** Completed tool steps for the current streaming response */
   completedSteps?: ToolStep[];
+  /** Available slash commands */
+  slashCommands?: SlashCommand[];
+  /** Handler for slash command execution */
+  onSlashCommand?: (command: string, args: string, context: {
+    lastAssistantMessage?: string;
+  }) => void;
 }
 
 export function ChatView({
@@ -105,11 +112,14 @@ export function ChatView({
   parentContext,
   renderAboveInput,
   completedSteps,
+  slashCommands,
+  onSlashCommand,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [pendingBranch, setPendingBranch] = useState(false);
   const [showAncestors, setShowAncestors] = useState(false);
+  const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const streamingBubbleRef = useRef<HTMLDivElement>(null);
@@ -310,8 +320,35 @@ export function ChatView({
     }
   }, [input]);
 
+  // Reset slash menu selection when input changes
+  useEffect(() => {
+    setSlashMenuIndex(0);
+  }, [input]);
+
+  // Slash command detection
+  const isSlashMode = slashCommands && slashCommands.length > 0 && input.startsWith('/');
+  const slashFilter = isSlashMode ? input.slice(1).split(' ')[0] : '';
+  const filteredSlashCommands = isSlashMode
+    ? slashCommands.filter(cmd => cmd.name.toLowerCase().startsWith(slashFilter.toLowerCase()))
+    : [];
+
   const handleSubmit = () => {
     const trimmed = input.trim();
+    // Intercept slash commands
+    if (trimmed.startsWith('/') && onSlashCommand && slashCommands?.length) {
+      const spaceIndex = trimmed.indexOf(' ');
+      const cmdName = spaceIndex > 0 ? trimmed.slice(1, spaceIndex) : trimmed.slice(1);
+      const args = spaceIndex > 0 ? trimmed.slice(spaceIndex + 1).trim() : '';
+      const matched = slashCommands.find(c => c.name === cmdName);
+      if (matched) {
+        const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
+        onSlashCommand(cmdName, args, {
+          lastAssistantMessage: lastAssistantMsg?.content,
+        });
+        setInput('');
+        return;
+      }
+    }
     if ((!trimmed && !quotedText) || isLoading) return;
 
     let finalMessage: string;
@@ -330,6 +367,27 @@ export function ChatView({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Slash command menu navigation
+    if (isSlashMode && filteredSlashCommands.length > 0) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashMenuIndex(i => Math.max(0, i - 1));
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashMenuIndex(i => Math.min(filteredSlashCommands.length - 1, i + 1));
+        return;
+      }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && !input.includes(' '))) {
+        if (filteredSlashCommands[slashMenuIndex]) {
+          e.preventDefault();
+          setInput('/' + filteredSlashCommands[slashMenuIndex].name + ' ');
+          setSlashMenuIndex(0);
+          return;
+        }
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -519,6 +577,18 @@ export function ChatView({
           </div>
         )}
         <div className="pit-chat-input-area-wrapper">
+          {isSlashMode && filteredSlashCommands.length > 0 && (
+            <SlashCommandMenu
+              commands={slashCommands!}
+              filter={slashFilter}
+              selectedIndex={slashMenuIndex}
+              onSelect={(cmd) => {
+                setInput('/' + cmd.name + ' ');
+                setSlashMenuIndex(0);
+                textareaRef.current?.focus();
+              }}
+            />
+          )}
           {quotedText && (
             <div className={`pit-chat-quote-preview${pendingBranch ? " pit-chat-quote-branch" : ""}`}>
               <div className="pit-chat-quote-content">

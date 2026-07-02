@@ -27,6 +27,8 @@ export {
   tags,
   sourceTags,
   messageUsage,
+  memos,
+  memoTags,
 } from "./schema.js";
 
 // ---------------------------------------------------------------------------

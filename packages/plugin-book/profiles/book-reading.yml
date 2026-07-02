@@ -4,6 +4,6 @@ icon: book-open
 description: Guided chapter-by-chapter exploration with briefings, discussions, and deep dives
 defaultPrompt: 'Let''s start reading "{sourceTitle}".'
 skills: [interactive-reading]
-extensions: [mcp]
+extensions: [mcp, memos]
 exclude_tools: [bash, edit]
 order: 10

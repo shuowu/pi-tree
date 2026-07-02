@@ -14,6 +14,7 @@ import type { McpBridge } from "../services/mcp-bridge.js";
 import type { SourceService } from "../services/source-service.js";
 import type { SessionService } from "../services/session-service.js";
 import type { UserService } from "../services/user-service.js";
+import type { MemoService } from "../services/memo-service.js";
 import type { RegistryService, ExtensionConfig } from "@pi-tree/plugin-sdk";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,8 @@ export interface ExtensionServices {
   mcpBridge?: McpBridge;
   /** Absolute path to the mutable data directory */
   dataPath: string;
+  /** Memo service — CRUD + search for user memos (optional) */
+  memos?: MemoService;
 
   // --- Raw DB access (backward compat, power users) ---
 
