@@ -26,3 +26,6 @@ packages/electron/release/
 
 # Plugin build output
 packages/plugin-*/dist/
+
+# Playwright MCP artifacts
+.playwright-mcp/

@@ -17,7 +17,7 @@
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  transition: all var(--transition-base);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base);
 }
 
 .session-card:hover {
@@ -110,7 +110,7 @@ button.session-card-readonly:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .session-card-action-btn:hover {
@@ -131,7 +131,7 @@ button.session-card-readonly:disabled {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
   white-space: nowrap;
 }
 

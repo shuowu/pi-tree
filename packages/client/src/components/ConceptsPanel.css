@@ -31,7 +31,7 @@
   color: var(--text-secondary, #a89a8c);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .concepts-graph-btn:hover {

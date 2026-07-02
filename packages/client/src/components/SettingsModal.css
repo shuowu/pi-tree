@@ -79,7 +79,7 @@
   border-radius: var(--radius-md, 8px);
   color: var(--text-muted, #7c7c7c);
   cursor: pointer;
-  transition: all var(--transition-fast, 0.15s ease);
+  transition: color var(--transition-fast, 0.15s ease), border-color var(--transition-fast, 0.15s ease), background-color var(--transition-fast, 0.15s ease);
 }
 
 .settings-close:hover {
@@ -154,7 +154,7 @@
   border-radius: var(--radius-lg, 10px);
   color: var(--text-primary, #111111);
   outline: none;
-  transition: all var(--transition-fast, 0.15s ease);
+  transition: border-color var(--transition-fast, 0.15s ease), background-color var(--transition-fast, 0.15s ease), box-shadow var(--transition-fast, 0.15s ease);
 }
 
 .form-group input:focus,
@@ -247,7 +247,7 @@
   padding: 10px 20px;
   border-radius: var(--radius-lg, 10px);
   cursor: pointer;
-  transition: all var(--transition-fast, 0.15s ease);
+  transition: background-color var(--transition-fast, 0.15s ease), color var(--transition-fast, 0.15s ease), box-shadow var(--transition-fast, 0.15s ease);
 }
 
 .btn-secondary {
@@ -404,7 +404,7 @@
   border-radius: var(--radius-lg, 10px);
   color: var(--text-primary, #111111);
   outline: none;
-  transition: all var(--transition-fast, 0.15s ease);
+  transition: border-color var(--transition-fast, 0.15s ease), background-color var(--transition-fast, 0.15s ease), box-shadow var(--transition-fast, 0.15s ease);
   resize: vertical;
   min-height: 120px;
   max-height: 300px;
@@ -458,7 +458,7 @@
   border: 1px solid transparent;
   color: #ffffff;
   cursor: pointer;
-  transition: all var(--transition-fast, 0.15s ease);
+  transition: background-color var(--transition-fast, 0.15s ease);
 }
 
 .dict-prompt-actions .save-prompt-btn:hover:not(:disabled) {

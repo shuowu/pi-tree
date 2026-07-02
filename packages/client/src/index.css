@@ -291,10 +291,14 @@
   padding: 0;
 }
 
-html, body, #root {
+html {
   height: 100%;
+  background: var(--bg-primary);
+}
+
+body, #root {
+  min-height: 100%;
   width: 100%;
-  overflow: auto;
 }
 
 body {
@@ -305,7 +309,6 @@ body {
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ── Scrollbar ── */

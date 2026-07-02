@@ -54,7 +54,7 @@
   border-radius: var(--radius-lg);
   cursor: pointer;
   text-align: left;
-  transition: all var(--transition-base);
+  transition: border-color var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
 }
 
 .setup-option:hover:not(:disabled) {
