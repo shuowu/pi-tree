@@ -12,20 +12,15 @@ import { useState, useCallback, useRef } from "react";
 import type { Source } from "@pi-tree/shared";
 import { fetchSources, fetchNewsFeeds, type ClientFeedConfig } from "../api";
 import { getSourceTypeConfig } from "../source-types";
+import { filterMentionItems } from "./mention-filter.js";
+import type { MentionSuggestion } from "./mention-filter.js";
 
-export interface MentionSuggestion {
-  id: string;
-  /** Display label in dropdown */
-  label: string;
-  /** Secondary text (author, feed tags, feed count) */
-  sublabel?: string;
-  /** Source type for icon selection */
-  type: string;
-  /** Discriminator: category / source / feed / tag */
-  kind: "category" | "source" | "feed" | "tag";
-  /** Text inserted into the input on selection (includes @) */
-  insertText: string;
-}
+// Re-export pure functions and types for existing consumers
+export { filterMentionItems, parseMentionQuery } from "./mention-filter.js";
+export type { MentionSuggestion } from "./mention-filter.js";
+
+/** Re-fetch if data is stale (5 min) so newly added feeds/tags appear */
+const STALE_MS = 5 * 60 * 1000;
 
 /**
  * Fetches and caches sources + news feeds for @-mention autocomplete.
@@ -33,16 +28,24 @@ export interface MentionSuggestion {
 export function useSourceMentions() {
   const [allItems, setAllItems] = useState<MentionSuggestion[]>([]);
   const loadedRef = useRef(false);
+  const loadedAtRef = useRef(0);
 
-  // Lazy-load sources + feeds on first trigger
+  // Lazy-load sources + feeds on first trigger (retries on failure)
   const ensureLoaded = useCallback(async () => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
+    const now = Date.now();
+    if (loadedRef.current && now - loadedAtRef.current < STALE_MS) return;
+    loadedRef.current = true; // prevent concurrent fetches
     try {
+      let feedsFailed = false;
       const [sources, feeds] = await Promise.all([
         fetchSources().catch(() => [] as Source[]),
-        fetchNewsFeeds().catch(() => [] as ClientFeedConfig[]),
+        fetchNewsFeeds().catch(() => { feedsFailed = true; return [] as ClientFeedConfig[]; }),
       ]);
+
+      // If feeds fetch failed (transient 500), render sources-only but allow retry
+      if (feedsFailed) {
+        loadedRef.current = false;
+      }
 
       const items: MentionSuggestion[] = [];
 
@@ -111,8 +114,10 @@ export function useSourceMentions() {
       }
 
       setAllItems([...categories, ...items]);
+      loadedAtRef.current = now;
     } catch {
-      // Silently fail — mention autocomplete is non-critical
+      // Silently fail — but allow retry on next @
+      loadedRef.current = false;
     }
   }, []);
 
@@ -120,53 +125,9 @@ export function useSourceMentions() {
    *  Each space-separated word must appear somewhere in label, sublabel, or insertText.
    *  e.g. "ne ai" matches "News #ai" because "ne" ⊂ "News" AND "ai" ⊂ "#ai". */
   const filterItems = useCallback(
-    (query: string): MentionSuggestion[] => {
-      if (!query) {
-        // Show a balanced mix: categories first, then sources, feeds, tags
-        const categories = allItems.filter((i) => i.kind === "category");
-        const sources = allItems.filter((i) => i.kind === "source").slice(0, 5);
-        const feeds = allItems.filter((i) => i.kind === "feed");
-        const tags = allItems.filter((i) => i.kind === "tag");
-        return [...categories, ...sources, ...feeds, ...tags].slice(0, 14);
-      }
-      const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-      if (words.length === 0) return allItems.slice(0, 12);
-      return allItems
-        .filter((item) => {
-          const haystack = `${item.label} ${item.sublabel ?? ""} ${item.insertText}`.toLowerCase();
-          return words.every((w) => haystack.includes(w));
-        })
-        .slice(0, 10);
-    },
+    (query: string): MentionSuggestion[] => filterMentionItems(allItems, query),
     [allItems],
   );
 
   return { ensureLoaded, filterItems, allItems };
-}
-
-/**
- * Parses the @-mention being actively edited at the cursor position.
- * Supports multiple @mentions — finds the one the cursor is inside.
- *
- * Examples:
- *  - "hello @pri|"                → { query: "pri", startIndex: 6 }
- *  - "@Dune compare with @Pri|"   → { query: "Pri", startIndex: 20 }
- *  - "@Dune| compare"             → { query: "Dune", startIndex: 0 }
- *  - "hello|"                     → null
- */
-export function parseMentionQuery(
-  text: string,
-  cursorPos: number,
-): { query: string; startIndex: number } | null {
-  // Look backwards from cursor for the nearest @
-  const beforeCursor = text.slice(0, cursorPos);
-  const atIndex = beforeCursor.lastIndexOf("@");
-  if (atIndex === -1) return null;
-
-  // @ must be at start of input or preceded by whitespace
-  if (atIndex > 0 && !/\s/.test(beforeCursor[atIndex - 1])) return null;
-
-  const query = beforeCursor.slice(atIndex + 1);
-
-  return { query, startIndex: atIndex };
 }
