@@ -46,8 +46,9 @@ jobs:
             type=semver,pattern={{major}}
             # On manual dispatch with custom tag
             type=raw,value=${{ inputs.tag_override }},enable=${{ inputs.tag_override != '' }}
-            # On manual dispatch without custom tag: use short SHA
+            # On manual dispatch without custom tag: use short SHA + latest
             type=sha,enable=${{ github.event_name == 'workflow_dispatch' && inputs.tag_override == '' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' && inputs.tag_override == '' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -90,6 +91,7 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=${{ inputs.tag_override }},enable=${{ inputs.tag_override != '' }}
             type=sha,enable=${{ github.event_name == 'workflow_dispatch' && inputs.tag_override == '' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' && inputs.tag_override == '' }}
 
       - name: Build and push RSS Crawler
         uses: docker/build-push-action@v6
