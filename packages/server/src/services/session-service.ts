@@ -126,6 +126,19 @@ export class SessionServiceImpl implements SessionService {
     return row?.userId;
   }
 
+  async resolveSessionId(sessionFile: string): Promise<number | undefined> {
+    const db = await this.getDb();
+    const us = this.userSessions;
+
+    const row = await db
+      .select({ id: us.id })
+      .from(us)
+      .where(eq(us.sessionFile, sessionFile))
+      .get();
+
+    return row?.id;
+  }
+
   async getById(sessionId: number): Promise<SessionInfo | null> {
     const db = await this.getDb();
     const us = this.userSessions;

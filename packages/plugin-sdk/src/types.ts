@@ -101,6 +101,7 @@ export interface SessionService {
     },
   ): Promise<SessionInfo>;
   resolveUserId(sessionFile: string): Promise<string | undefined>;
+  resolveSessionId(sessionFile: string): Promise<number | undefined>;
   /** Look up a single session by its numeric ID. */
   getById(sessionId: number): Promise<SessionInfo | null>;
 }

@@ -80,12 +80,17 @@ The memo is saved to the user's personal memo collection and can be recalled lat
           );
         }
 
-        // Resolve sourceId: prefer explicit param, then extract from session file
+        // Resolve sourceId & sessionId: prefer explicit param, then extract from session file
         let sourceId = params.source_id;
-        if (!sourceId && ctx?.sessionManager) {
+        let sessionId: number | undefined;
+        
+        if (ctx?.sessionManager) {
           const sessionFile = ctx.sessionManager.getSessionFile();
           if (sessionFile) {
-            sourceId = extractSourceId(sessionFile);
+            if (!sourceId) {
+              sourceId = extractSourceId(sessionFile);
+            }
+            sessionId = await services.sessions.resolveSessionId(sessionFile);
           }
         }
 
@@ -93,6 +98,7 @@ The memo is saved to the user's personal memo collection and can be recalled lat
           title: params.title,
           content: params.content,
           sourceId: sourceId ?? undefined,
+          sessionId: sessionId ?? undefined,
           origin: "ai_suggested",
           tags: params.tags,
         });

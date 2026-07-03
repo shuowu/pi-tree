@@ -952,7 +952,7 @@ export async function fetchMemos(
   opts?: { sourceId?: string; pinned?: boolean; tag?: string; limit?: number; offset?: number },
 ): Promise<Memo[]> {
   const params = new URLSearchParams();
-  if (opts?.sourceId) params.set('sourceId', opts.sourceId);
+  if (opts?.sourceId) params.set('source', opts.sourceId);
   if (opts?.pinned !== undefined) params.set('pinned', String(opts.pinned));
   if (opts?.tag) params.set('tag', opts.tag);
   if (opts?.limit) params.set('limit', String(opts.limit));
