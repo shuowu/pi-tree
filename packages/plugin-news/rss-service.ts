@@ -203,8 +203,9 @@ export class RssService implements IRssService {
   }
 
   /**
-   * Seed default feeds into the database if no feeds exist yet.
-   * Called once on startup. Reads from feeds.local.yml (user override)
+   * Sync default feeds into the database — adds any feeds from config
+   * that don't already exist in the DB (upsert by id).
+   * Called on every startup. Reads from feeds.local.yml (user override)
    * or the shipped default-feeds.yml.
    */
   public async seedDefaultFeeds(): Promise<void> {
@@ -212,10 +213,6 @@ export class RssService implements IRssService {
 
     // Always ensure the canonical news source exists (idempotent)
     this.ensureNewsSource();
-
-    // Only seed feeds if no feeds exist
-    const existing = await db.select({ id: rssFeeds.id }).from(rssFeeds).limit(1).all();
-    if (existing.length > 0) return;
 
     // Load defaults — prefer local override over shipped config
     const pluginDir = dirname(fileURLToPath(import.meta.url));
@@ -227,8 +224,15 @@ export class RssService implements IRssService {
     const raw = readFileSync(feedsPath, "utf-8");
     const defaultFeeds = yaml.load(raw) as FeedConfig[];
 
+    // Get existing feed IDs for diff
+    const existingRows = await db.select({ id: rssFeeds.id }).from(rssFeeds).all();
+    const existingIds = new Set(existingRows.map(r => r.id));
+
+    const newFeeds = defaultFeeds.filter(f => !existingIds.has(f.id));
+    if (newFeeds.length === 0) return;
+
     const now = new Date().toISOString();
-    for (const feed of defaultFeeds) {
+    for (const feed of newFeeds) {
       await db.insert(rssFeeds)
         .values({
           id: feed.id,
@@ -245,7 +249,7 @@ export class RssService implements IRssService {
     }
 
     const source = feedsPath === localPath ? "feeds.local.yml" : "default-feeds.yml";
-    console.log(`[news] Seeded ${defaultFeeds.length} default feeds from ${source}`);
+    console.log(`[news] Added ${newFeeds.length} new feeds from ${source} (${existingIds.size} existing)`);
   }
 
   /** List all active feeds from DB */

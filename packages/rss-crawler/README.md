@@ -46,6 +46,7 @@ npm run start -w @pi-tree/rss-crawler
 |----------|---------|-------------|
 | `PORT` | `3948` | HTTP server port |
 | `DATA_DIR` | `~/.local/share/pi-tree-crawler` | Data directory for SQLite DB and feed state |
+| `CRAWLER_DATA` | `./data` | Host path for Docker bind mount (used in `docker-compose.yml`) |
 | `RSS_API_KEY` | _(none)_ | Optional bearer token for API auth |
 | `RSS_CRAWL_INTERVAL_MIN` | `15` | Minutes between automatic crawl cycles |
 
@@ -112,7 +113,7 @@ services:
       - RSS_REMOTE_URL=http://rss-crawler:3948
       - RSS_API_KEY=${RSS_API_KEY:-}
     volumes:
-      - pi-tree-data:/data
+      - ${PI_TREE_DATA:-./pi-tree-data}:/data
 
   rss-crawler:
     image: ghcr.io/shuowu/pi-tree-rss-crawler:latest
@@ -124,16 +125,13 @@ services:
       - RSS_CRAWL_INTERVAL_MIN=30
       - RSS_API_KEY=${RSS_API_KEY:-}
     volumes:
-      - crawler-data:/data
-
-volumes:
-  pi-tree-data:
-  crawler-data:
+      - ${CRAWLER_DATA:-./crawler-data}:/data
 ```
 
 ## Data
 
-All state is stored in `DATA_DIR`:
+All state is stored in `DATA_DIR` (bind-mounted to the host):
 
 - `news.db` — SQLite database with feed configs and crawled items
-- Default feeds are seeded from `packages/plugin-news/config/default-feeds.yml` on first run
+- Default feeds are synced from `packages/plugin-news/config/default-feeds.yml` on every startup — new feeds in the config are automatically added without affecting existing feeds
+

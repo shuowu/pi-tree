@@ -14,7 +14,6 @@ services:
       - RSS_CRAWL_INTERVAL_MIN=15
       - RSS_API_KEY=${RSS_API_KEY:-}
     volumes:
-      - crawler-data:/data
-
-volumes:
-  crawler-data:
+      # Bind mount — crawler data persists on host filesystem across rebuilds.
+      # Set CRAWLER_DATA in .env to your NAS data directory (default: ./data).
+      - ${CRAWLER_DATA:-./data}:/data
