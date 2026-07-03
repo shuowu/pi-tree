@@ -21,6 +21,8 @@ interface RightPanelProps {
   userId: string;
   sessionId?: number;
   memoCount?: number;
+  /** Whether this source has analysis files; hides the tab when false */
+  hasAnalysis?: boolean;
 }
 
 export function RightPanel({
@@ -39,6 +41,7 @@ export function RightPanel({
   userId,
   sessionId,
   memoCount,
+  hasAnalysis,
 }: RightPanelProps) {
   const config = getSourceTypeConfig(sourceType ?? "");
   const PanelComponent = config.contentPanel;
@@ -69,13 +72,15 @@ export function RightPanel({
                 {config.label}
               </button>
             )}
-            <button
-              className={`right-sidebar-tab ${rightTab === "analysis" ? "active" : ""}`}
-              onClick={() => onTabChange("analysis")}
-              data-testid="right-tab-analysis"
-            >
-              Analysis
-            </button>
+            {hasAnalysis && (
+              <button
+                className={`right-sidebar-tab ${rightTab === "analysis" ? "active" : ""}`}
+                onClick={() => onTabChange("analysis")}
+                data-testid="right-tab-analysis"
+              >
+                Analysis
+              </button>
+            )}
             <button
               className={`right-sidebar-tab ${rightTab === "memos" ? "active" : ""}`}
               onClick={() => onTabChange("memos")}
@@ -109,9 +114,11 @@ export function RightPanel({
               />
             </div>
           )}
-          <div style={{ display: rightTab === "analysis" ? "contents" : "none" }}>
-            <AnalysisPanel sourceId={sourceId} />
-          </div>
+          {hasAnalysis && (
+            <div style={{ display: rightTab === "analysis" ? "contents" : "none" }}>
+              <AnalysisPanel sourceId={sourceId} />
+            </div>
+          )}
           <div style={{ display: rightTab === "memos" ? "contents" : "none" }}>
             <MemosPanel sourceId={sourceId} userId={userId} sessionId={sessionId} />
           </div>

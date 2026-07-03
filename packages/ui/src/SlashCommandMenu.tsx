@@ -8,6 +8,12 @@ export interface SlashCommand {
   icon: React.ReactNode;
 }
 
+/** Returned by onSlashCommand to optionally send a message through the chat. */
+export interface SlashCommandResult {
+  /** If set, ChatView sends this string as a normal user message to the AI. */
+  sendAsMessage?: string;
+}
+
 interface SlashCommandMenuProps {
   commands: SlashCommand[];
   filter: string;

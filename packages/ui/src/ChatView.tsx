@@ -5,7 +5,7 @@ import { StreamingBubble } from "./StreamingBubble.js";
 import { InlineBranches, type BranchPreviewData } from "./InlineBranches.js";
 import { ToolSteps } from "./ToolSteps.js";
 import { ModelPicker, type ModelInfo } from "./ModelPicker.js";
-import { SlashCommandMenu, type SlashCommand } from './SlashCommandMenu.js';
+import { SlashCommandMenu, type SlashCommand, type SlashCommandResult } from './SlashCommandMenu.js';
 import { BookOpen, ChevronDown, GitBranch, Loader, Square } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
 import "./styles/ChatView.css";
@@ -76,10 +76,11 @@ interface ChatViewProps {
   completedSteps?: ToolStep[];
   /** Available slash commands */
   slashCommands?: SlashCommand[];
-  /** Handler for slash command execution */
+  /** Handler for slash command execution.
+   *  Return `{ sendAsMessage }` to inject a message through the normal chat flow. */
   onSlashCommand?: (command: string, args: string, context: {
     lastAssistantMessage?: string;
-  }) => void;
+  }) => void | SlashCommandResult | Promise<void | SlashCommandResult>;
 }
 
 export function ChatView({
@@ -127,15 +128,14 @@ export function ChatView({
   // Auto-scroll state: tracks whether we should follow streaming content.
   // Starts true (follow by default) and becomes false if the user scrolls up.
   const autoScrollRef = useRef(true);
-  // Flag to distinguish programmatic scrolls (from scrollIntoView) from user
-  // scrolls. When true, the scroll handler skips auto-scroll toggling so that
-  // a programmatic scroll-to-bottom doesn't re-enable auto-scroll after the
-  // user intentionally scrolled away.
-  const programmaticScrollRef = useRef(false);
   // Track overall loading lifecycle (stable across multi-turn tool calls).
   // Unlike streamingContent (which goes falsy between turns), isLoading stays
   // true for the entire interaction, so we use it to detect the true start/end.
   const wasLoadingRef = useRef(false);
+  // Tracks whether a real user scroll gesture is in progress. Set by wheel/
+  // touchmove listeners (which ONLY fire from user input, never from
+  // programmatic scrolls), consumed by the scroll handler.
+  const userScrollIntentRef = useRef(false);
 
 
   // Client-side filter: hide unused placeholder branches from the user.
@@ -158,41 +158,59 @@ export function ChatView({
 
   // Track whether user is near the bottom (for scroll-to-bottom button)
   // Also detect user-initiated scrolls during loading to disable auto-scroll.
+  //
+  // Strategy: wheel/touchmove events ONLY fire from real user input (never
+  // from programmatic scrollIntoView calls). We set userScrollIntentRef on
+  // those events, then read it in the scroll handler to decide whether to
+  // update autoScrollRef. This eliminates race conditions where scrollIntoView
+  // fires multiple scroll events or interleaves with user gestures.
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
+
+    const markUserIntent = () => {
+      userScrollIntentRef.current = true;
+    };
 
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
       const nearBottom = distanceFromBottom < 300;
 
       // Only trigger a rerender when the boolean actually flips.
-      // Without this guard, every scroll tick calls setIsNearBottom
-      // and rerenders the entire ChatView (all messages, branches, etc.).
       if (nearBottom !== isNearBottomRef.current) {
         isNearBottomRef.current = nearBottom;
         setIsNearBottom(nearBottom);
       }
 
-      // While the AI is responding (isLoading covers streaming, tool calls,
-      // and gaps between turns), track whether the user scrolled away.
-      // If they scroll back to the bottom, re-enable auto-scroll.
-      // Skip this logic for programmatic scrolls (auto-scroll-to-bottom)
-      // to avoid re-enabling auto-scroll when the user has scrolled away.
-      if (wasLoadingRef.current) {
-        if (programmaticScrollRef.current) {
-          programmaticScrollRef.current = false;
-        } else {
-          autoScrollRef.current = nearBottom;
-        }
+      // While the AI is responding, track whether the user scrolled away.
+      // Only update autoScrollRef when we know this scroll came from the
+      // user (wheel/touchmove set the intent flag). Programmatic scrolls
+      // (from scrollIntoView) never set the flag, so they're ignored.
+      if (wasLoadingRef.current && userScrollIntentRef.current) {
+        autoScrollRef.current = nearBottom;
       }
+      userScrollIntentRef.current = false;
     };
 
+    const onKeyScroll = (e: KeyboardEvent) => {
+      const scrollKeys = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
+      if (scrollKeys.has(e.key)) userScrollIntentRef.current = true;
+    };
+
+    el.addEventListener("wheel", markUserIntent, { passive: true });
+    el.addEventListener("touchmove", markUserIntent, { passive: true });
+    el.addEventListener("keydown", onKeyScroll, { passive: true });
     el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    return () => {
+      el.removeEventListener("wheel", markUserIntent);
+      el.removeEventListener("touchmove", markUserIntent);
+      el.removeEventListener("keydown", onKeyScroll);
+      el.removeEventListener("scroll", onScroll);
+    };
   }, []);
 
   const scrollToBottom = useCallback(() => {
+    autoScrollRef.current = true;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
@@ -251,7 +269,6 @@ export function ChatView({
     const isActive = streamingContent !== null && streamingContent.length > 0;
 
     if (isActive && autoScrollRef.current) {
-      programmaticScrollRef.current = true;
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
     }
   }, [streamingContent]);
@@ -354,10 +371,16 @@ export function ChatView({
       const matched = slashCommands.find(c => c.name === cmdName);
       if (matched) {
         const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
-        onSlashCommand(cmdName, args, {
+        const result = onSlashCommand(cmdName, args, {
           lastAssistantMessage: lastAssistantMsg?.content,
         });
         setInput('');
+        // If the handler returns sendAsMessage, send it through the normal chat flow
+        Promise.resolve(result).then((r) => {
+          if (r && 'sendAsMessage' in r && r.sendAsMessage) {
+            onSendMessage(r.sendAsMessage);
+          }
+        });
         return;
       }
     }

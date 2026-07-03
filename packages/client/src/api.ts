@@ -180,6 +180,18 @@ export async function fetchHeadings(sourceId: string): Promise<ContentHeading[]>
   return data.headings ?? [];
 }
 
+/** Check whether a source has any analysis files. */
+export async function fetchHasAnalysis(sourceId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API}/library/sources/${sourceId}/analysis`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Array.isArray(data.files) && data.files.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function uploadSource(file: File, meta: {
   title: string; author: string; year?: number;
 }): Promise<Source> {

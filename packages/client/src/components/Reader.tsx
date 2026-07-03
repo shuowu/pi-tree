@@ -6,7 +6,7 @@ import { useSourceProcessing } from "../hooks/useSourceProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo, type SlashCommand } from "@pi-tree/ui";
+import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo, type SlashCommand, type SlashCommandResult } from "@pi-tree/ui";
 import { SourceSetupState } from "./SourceSetupState";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
@@ -14,11 +14,11 @@ import { RightPanel } from "./RightPanel";
 import { DictQuickCardStack } from "./DictionaryPanel";
 import { SessionUsageBadge } from "./SessionUsageBadge";
 
-import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo } from "../api";
+import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis } from "../api";
 import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
-import { PanelLeft, PanelRight, Home, Layers, Settings, Zap, StickyNote, Search } from "lucide-react";
+import { PanelLeft, PanelRight, Home, Layers, Settings, Zap, StickyNote, Search, FileText } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import "./Reader.css";
 
 export function Reader() {
@@ -85,6 +85,27 @@ export function Reader() {
     fetchMemos(userId, { sourceId: source.id }).then(all => setMemoCount(all.length)).catch(() => {});
   }, [userId, source.id]);
 
+  // Detect when the AI's save_memo tool completes — refresh memos panel
+  const prevStepsRef = useRef(session.completedSteps);
+  useEffect(() => {
+    const prev = prevStepsRef.current;
+    prevStepsRef.current = session.completedSteps;
+    // Look for newly completed save_memo steps
+    if (session.completedSteps.length > prev.length) {
+      const newSteps = session.completedSteps.slice(prev.length);
+      if (newSteps.some(s => s.toolName === 'save_memo' && s.status === 'done')) {
+        setMemoCount(c => c + 1);
+        window.dispatchEvent(new Event('pi-tree:memos-changed'));
+      }
+    }
+  }, [session.completedSteps]);
+
+  // Analysis tab visibility — only show when the source has analysis files
+  const [hasAnalysis, setHasAnalysis] = useState(false);
+  useEffect(() => {
+    fetchHasAnalysis(source.id).then(setHasAnalysis);
+  }, [source.id]);
+
   const showMemoToast = useCallback((message: string) => {
     setMemoToast(message);
     setTimeout(() => setMemoToast(null), 2500);
@@ -103,6 +124,12 @@ export function Reader() {
       label: '/recall <query>',
       description: 'Search your saved memos',
       icon: <Search size={16} />,
+    },
+    {
+      name: 'summarize',
+      label: '/summarize',
+      description: 'Summarize this conversation and save as a memo',
+      icon: <FileText size={16} />,
     },
   ], []);
 
@@ -174,6 +201,13 @@ export function Reader() {
         console.error('Failed to search memos:', err);
         showMemoToast('Failed to search memos');
       }
+    } else if (command === 'summarize') {
+      // Delegate to the AI — it will summarize and call save_memo
+      const topicPath = session.breadcrumb?.map(b => b.label).join(' > ') || '';
+      const hint = topicPath ? ` (current topic path: ${topicPath})` : '';
+      return {
+        sendAsMessage: `Summarize our conversation so far${hint}. Cover the main topics we discussed, key insights, and any conclusions. Then save the summary as a memo.`,
+      } satisfies SlashCommandResult;
     }
   }, [userId, source.id, source.title, session.sessionId, session.breadcrumb, showMemoToast, panel]);
 
@@ -382,6 +416,7 @@ export function Reader() {
         userId={userId!}
         sessionId={session.sessionId ?? undefined}
         memoCount={memoCount}
+        hasAnalysis={hasAnalysis}
       />
 
       {/* Floating dictionary quick card stack — hidden when the right panel
