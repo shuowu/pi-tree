@@ -127,6 +127,11 @@ export function ChatView({
   // Auto-scroll state: tracks whether we should follow streaming content.
   // Starts true (follow by default) and becomes false if the user scrolls up.
   const autoScrollRef = useRef(true);
+  // Flag to distinguish programmatic scrolls (from scrollIntoView) from user
+  // scrolls. When true, the scroll handler skips auto-scroll toggling so that
+  // a programmatic scroll-to-bottom doesn't re-enable auto-scroll after the
+  // user intentionally scrolled away.
+  const programmaticScrollRef = useRef(false);
   // Track overall loading lifecycle (stable across multi-turn tool calls).
   // Unlike streamingContent (which goes falsy between turns), isLoading stays
   // true for the entire interaction, so we use it to detect the true start/end.
@@ -172,8 +177,14 @@ export function ChatView({
       // While the AI is responding (isLoading covers streaming, tool calls,
       // and gaps between turns), track whether the user scrolled away.
       // If they scroll back to the bottom, re-enable auto-scroll.
+      // Skip this logic for programmatic scrolls (auto-scroll-to-bottom)
+      // to avoid re-enabling auto-scroll when the user has scrolled away.
       if (wasLoadingRef.current) {
-        autoScrollRef.current = nearBottom;
+        if (programmaticScrollRef.current) {
+          programmaticScrollRef.current = false;
+        } else {
+          autoScrollRef.current = nearBottom;
+        }
       }
     };
 
@@ -240,6 +251,7 @@ export function ChatView({
     const isActive = streamingContent !== null && streamingContent.length > 0;
 
     if (isActive && autoScrollRef.current) {
+      programmaticScrollRef.current = true;
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
     }
   }, [streamingContent]);

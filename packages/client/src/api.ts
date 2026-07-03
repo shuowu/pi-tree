@@ -679,31 +679,55 @@ export async function streamLookup(
   let buffer = "";
   let fullDefinition = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  // Inactivity timeout — if no data arrives for 30s, abort.
+  // Resets on each chunk so long-running but active streams aren't cut off.
+  const TIMEOUT_MS = 30_000;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const resetTimeout = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      reader.cancel();
+    }, TIMEOUT_MS);
+  };
+  resetTimeout();
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n\n");
-    buffer = lines.pop() ?? "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      resetTimeout();
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const data = line.slice(6);
-      if (data === "[DONE]") continue;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n");
+      buffer = lines.pop() ?? "";
 
-      try {
-        const event = JSON.parse(data);
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6);
+        if (data === "[DONE]") continue;
+
+        let event: any;
+        try {
+          event = JSON.parse(data);
+        } catch {
+          continue; // skip unparseable SSE chunks
+        }
         if (event.type === "token") {
           onToken(event.token);
           fullDefinition += event.token;
         } else if (event.type === "done") {
           fullDefinition = event.definition || fullDefinition;
+        } else if (event.type === "error") {
+          throw new Error(event.error || "Lookup failed");
         }
-      } catch {
-        // skip
       }
     }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!fullDefinition) {
+    throw new Error("Lookup returned no content — the model may be unavailable.");
   }
 
   return fullDefinition;

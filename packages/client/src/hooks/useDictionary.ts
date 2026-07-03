@@ -50,11 +50,11 @@ export function useDictionary(
             ),
           );
         })
-        .catch(() => {
+        .catch((err) => {
           setDictEntries((prev) =>
             prev.map((e) =>
               e.id === entryId
-                ? { ...e, definition: "Lookup failed.", streaming: false }
+                ? { ...e, definition: err?.message || "Lookup failed.", streaming: false }
                 : e,
             ),
           );
