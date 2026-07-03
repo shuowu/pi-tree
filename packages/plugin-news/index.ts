@@ -121,7 +121,7 @@ export default definePiTreeExtension((pi, services) => {
     parameters: Type.Object({}),
     async execute() {
       if (remoteUrl) {
-        return textResult("RSS crawling is managed by the remote crawler service — feeds are refreshed automatically. Use get_latest_rss to read the latest items.");
+        return jsonResult({ refreshed: false, mode: "remote", message: "Feeds are crawled automatically by the remote service. Data is already fresh." });
       }
       try {
         const stats = await rssService.crawlAllFeeds();

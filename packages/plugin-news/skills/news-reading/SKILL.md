@@ -16,7 +16,6 @@ AI-assisted news aggregation, trend analysis, and story deep-dives using tree-st
 You have access to these native news tools:
 - `get_rss_feeds_status()` — Check feed configurations and last fetch status.
 - `get_feed_tags()` — List all available feed tags with associated feeds. Use this to understand what topic categories exist.
-- `trigger_rss_refresh()` — Fetch latest items from all RSS feeds.
 - `get_latest_rss(feeds, tags, days, limit)` — Retrieve chronological RSS items. Supports filtering by feed IDs OR tags.
 - `search_rss(keyword, feeds, tags, days, limit)` — Substring search feed titles and summaries. Supports tag filtering.
 - `aggregate_rss(feeds, tags, days, similarity_threshold, limit)` — Group and deduplicate stories across feeds. Supports tag filtering.
@@ -56,12 +55,9 @@ If the first message is a generic request (not a focus directive), use all feeds
 
 ## Workflow
 
-### Step 1: Pre-flight Freshness Check
+### Step 1: Fetch Data Immediately
 
-On **every** session start or user request for news, **immediately** call the tools — do NOT read the filesystem:
-1. Call `get_rss_feeds_status()` to inspect status.
-2. If the last crawl was >1 hour old or no items are present, call `trigger_rss_refresh()` to fetch fresh RSS entries.
-3. Wait for the stats response, then proceed.
+On **every** session start or user request for news, **immediately** call the RSS tools — do NOT read the filesystem. Feeds are kept fresh automatically, so go straight to fetching data.
 
 ### Step 2: Determine Tree Node Context
 
