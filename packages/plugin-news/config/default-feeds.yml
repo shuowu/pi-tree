@@ -61,38 +61,3 @@
   url: https://www.ft.com/rss/home
   tags: [finance, world]
 
-# ── Reddit ────────────────────────────────────────────
-- id: reddit-technology
-  name: Reddit – r/technology
-  url: https://www.reddit.com/r/technology/top.rss?t=day
-  tags: [tech, reddit]
-
-- id: reddit-programming
-  name: Reddit – r/programming
-  url: https://www.reddit.com/r/programming/top.rss?t=day
-  tags: [tech, programming, reddit]
-
-- id: reddit-machinelearning
-  name: Reddit – r/MachineLearning
-  url: https://www.reddit.com/r/MachineLearning/top.rss?t=day
-  tags: [ai, reddit]
-
-- id: reddit-localllama
-  name: Reddit – r/LocalLLaMA
-  url: https://www.reddit.com/r/LocalLLaMA/top.rss?t=day
-  tags: [ai, reddit]
-
-- id: reddit-selfhosted
-  name: Reddit – r/selfhosted
-  url: https://www.reddit.com/r/selfhosted/top.rss?t=day
-  tags: [tech, selfhosted, reddit]
-
-- id: reddit-worldnews
-  name: Reddit – r/worldnews
-  url: https://www.reddit.com/r/worldnews/top.rss?t=day
-  tags: [world, reddit]
-
-- id: reddit-science
-  name: Reddit – r/science
-  url: https://www.reddit.com/r/science/top.rss?t=day
-  tags: [science, reddit]
