@@ -60,6 +60,22 @@ export interface AggregatedRssGroup {
   sourceCount: number;
 }
 
+// ---------------------------------------------------------------------------
+// IRssService — public query/mutation interface
+// ---------------------------------------------------------------------------
+
+export interface IRssService {
+  listFeeds(): Promise<FeedConfig[]>;
+  addFeed(feed: FeedConfig): Promise<void>;
+  removeFeed(feedId: string): Promise<boolean>;
+  updateFeed(feedId: string, updates: Partial<Pick<FeedConfig, "name" | "url" | "tags">>): Promise<boolean>;
+  getFeedsByTags(filterTags: string[]): Promise<FeedConfig[]>;
+  getAllFeedTags(): Promise<string[]>;
+  getLatestRss(options?: { feeds?: string[]; tags?: string[]; days?: number; limit?: number; keyword?: string }): Promise<RssItemData[]>;
+  aggregateRss(options?: { feeds?: string[]; tags?: string[]; days?: number; similarityThreshold?: number; limit?: number; includeUrl?: boolean }): Promise<AggregatedRssGroup[]>;
+  crawlAllFeeds(): Promise<CrawlStats[]>;
+}
+
 // Stopwords for inverted index candidate filtering
 const STOPWORDS = new Set([
   "the", "and", "for", "that", "with", "this", "from", "are", "was", "were",
@@ -126,15 +142,34 @@ export interface RssServiceConfig {
   dataDir: string;
   /** Shared data path ($DATA_PATH) */
   dataPath: string;
-  /** Typed source service for core sources table access */
-  sources: SourceService;
+  /** Typed source service for core sources table access (optional — not needed in standalone crawler mode) */
+  sources?: SourceService;
 }
 
-export class RssService {
+/**
+ * Save a generated analysis or summary to the local filesystem.
+ * Standalone function — usable without RssService instance.
+ */
+export function saveNewsAnalysis(dataPath: string, title: string, content: string, type: "analyses" | "summaries"): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+  const date = new Date().toISOString().split("T")[0];
+  const filename = `${date}_${slug}.md`;
+  const dir = join(dataPath, "sources", "news", type);
+  mkdirSync(dir, { recursive: true });
+  const filePath = join(dir, filename);
+  writeFileSync(filePath, content, "utf-8");
+  return join("sources", "news", type, filename);
+}
+
+export class RssService implements IRssService {
   private parser: Parser;
   private dataDir: string;
   private dataPath: string;
-  private sources: SourceService;
+  private sources?: SourceService;
 
   constructor(config: RssServiceConfig) {
     this.parser = new Parser();
@@ -155,6 +190,7 @@ export class RssService {
    * Ensure the canonical news source row exists in the core sources table.
    */
   private ensureNewsSource(): void {
+    if (!this.sources) return;  // standalone crawler mode — no core sources table
     this.sources.create({
       id: NEWS_SOURCE_ID,
       type: "news",
@@ -653,20 +689,9 @@ export class RssService {
 
   /**
    * Save a generated analysis or summary to the local filesystem.
-   * Writes to DATA_PATH/news/[type]/[YYYY-MM-DD_slug].md
+   * Delegates to the standalone saveNewsAnalysis() function.
    */
   public saveAnalysis(title: string, content: string, type: "analyses" | "summaries"): string {
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
-    const date = new Date().toISOString().split("T")[0];
-    const filename = `${date}_${slug}.md`;
-    const dir = join(this.dataPath, "sources", NEWS_SOURCE_ID, type);
-    mkdirSync(dir, { recursive: true });
-    const filePath = join(dir, filename);
-    writeFileSync(filePath, content, "utf-8");
-    return join("sources", NEWS_SOURCE_ID, type, filename);
+    return saveNewsAnalysis(this.dataPath, title, content, type);
   }
 }

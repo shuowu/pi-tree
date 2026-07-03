@@ -1,13 +1,17 @@
 import { Type } from "typebox";
 import { definePiTreeExtension, jsonResult, textResult, toolError, fetchViaJina } from "@pi-tree/plugin-sdk";
-import { RssService } from "./rss-service.js";
+import { RssService, saveNewsAnalysis, type IRssService } from "./rss-service.js";
+import { RemoteRssClient } from "./rss-client.js";
 
 export default definePiTreeExtension((pi, services) => {
-  const rssService = new RssService({
-    dataDir: services.getPluginDataDir("news"),
-    dataPath: services.dataPath,
-    sources: services.sources,
-  });
+  const remoteUrl = process.env.RSS_REMOTE_URL;
+  const rssService: IRssService = remoteUrl
+    ? new RemoteRssClient(remoteUrl, process.env.RSS_API_KEY)
+    : new RssService({
+        dataDir: services.getPluginDataDir("news"),
+        dataPath: services.dataPath,
+        sources: services.sources,
+      });
 
   // 1. Get Latest RSS
   pi.registerTool({
@@ -116,6 +120,9 @@ export default definePiTreeExtension((pi, services) => {
     description: "Manually trigger an RSS data refresh. Fetches all enabled RSS feeds, saves items to database, and updates feed statuses.",
     parameters: Type.Object({}),
     async execute() {
+      if (remoteUrl) {
+        return textResult("RSS crawling is managed by the remote crawler service — feeds are refreshed automatically. Use get_latest_rss to read the latest items.");
+      }
       try {
         const stats = await rssService.crawlAllFeeds();
         return jsonResult(stats);
@@ -179,7 +186,7 @@ export default definePiTreeExtension((pi, services) => {
     }),
     async execute(_toolCallId, params) {
       try {
-        const relativePath = rssService.saveAnalysis(params.title, params.content, params.type);
+        const relativePath = saveNewsAnalysis(services.dataPath, params.title, params.content, params.type);
         return textResult(`Successfully saved report to: ${relativePath}`);
       } catch (err: any) {
         throw toolError("save news analysis", err);

@@ -21,6 +21,7 @@ packages/
   client/         — React + Vite frontend (pages, app-specific panels, wiring to @pi-tree/ui)
   electron/       — Electron desktop app shell
   mcp/            — MCP server exposing pi-tree tools
+  rss-crawler/    — Standalone RSS crawler for NAS/home server deployment (optional)
 ```
 
 Each plugin package (`packages/plugin-*`) is an independent workspace with its own `package.json` and dependencies.
@@ -154,6 +155,28 @@ Plugins depend only on `@pi-tree/plugin-sdk` and use `definePiTreeExtension()` �
 they have no imports from server internals. Services are injected at runtime via `globalThis.__piTreeServices`.
 
 Plugins declare `badges` in `piTree.sourceType` manifest — each badge checks a source field for truthiness or equality and renders on the library card.
+
+### RSS Remote Crawler (`packages/rss-crawler/`)
+
+The news plugin supports two modes for RSS feed crawling:
+
+1. **Local mode** (default): `RssService` runs in-process with a local SQLite DB and `setInterval` crawl loop. No extra config needed — this is what single-machine users get.
+2. **Remote mode**: When `RSS_REMOTE_URL` is set, the plugin delegates all RSS operations to a standalone crawler service running on a NAS/home server. The crawl loop, feed DB, and article storage all live on the remote.
+
+**Env vars** (for remote mode on the pi-tree side):
+- `RSS_REMOTE_URL` — e.g. `http://nas.local:3948` — switches the plugin to remote mode
+- `RSS_API_KEY` — optional bearer token for auth (must match the crawler's `RSS_API_KEY`)
+
+**Standalone crawler** (`packages/rss-crawler/`):
+- Lightweight Hono HTTP service that wraps `RssService`
+- Runs periodic crawl via `setInterval` (default: every 15 min)
+- Exposes REST API: `/api/feeds`, `/api/items`, `/api/aggregate`, `/api/crawl`, `/api/tags`, `/health`
+- Dockerizable for NAS deployment (see `packages/rss-crawler/Dockerfile`)
+- Config: `PORT` (default 3948), `DATA_DIR`, `RSS_API_KEY`, `RSS_CRAWL_INTERVAL_MIN`
+
+Key interfaces:
+- `IRssService` — shared interface in `rss-service.ts` implemented by both `RssService` (local) and `RemoteRssClient` (remote)
+- `RemoteRssClient` — HTTP client in `rss-client.ts` that proxies `IRssService` calls to the remote crawler
 
 ### MCP Client Bridge (`src/services/mcp-bridge.ts`)
 

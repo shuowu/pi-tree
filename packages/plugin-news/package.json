@@ -3,6 +3,13 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./rss-service": "./rss-service.ts",
+    "./rss-client": "./rss-client.ts",
+    "./db": "./db.ts",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "build": "tsc",
     "db:generate": "drizzle-kit generate",

@@ -1,41 +1,65 @@
 import { Hono } from "hono";
-import { RssService, type FeedConfig } from "./rss-service.js";
+import { RssService, type FeedConfig, type IRssService } from "./rss-service.js";
+import { RemoteRssClient } from "./rss-client.js";
 import { readdirSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { closeNewsDb } from "./db.js";
 import type { PluginRouteContext, PluginSetupResult } from "@pi-tree/plugin-sdk";
 
 export function setup(ctx: PluginRouteContext): PluginSetupResult {
-  const rssService = new RssService({
-    dataDir: ctx.dataDir,
-    dataPath: ctx.dataPath,
-    sources: ctx.sources,
+  const remoteUrl = process.env.RSS_REMOTE_URL;
+  const isRemote = Boolean(remoteUrl);
+
+  const rssService: IRssService = isRemote
+    ? new RemoteRssClient(remoteUrl!, process.env.RSS_API_KEY)
+    : new RssService({
+        dataDir: ctx.dataDir,
+        dataPath: ctx.dataPath,
+        sources: ctx.sources,
+      });
+
+  // Ensure canonical news source in core DB (always, both modes)
+  ctx.sources.create({
+    id: "news",
+    type: "news",
+    title: "News Feed",
+    author: "",
+    source: "system",
+    status: "ready",
+    metadata: { description: "Aggregated RSS news feeds" },
   });
 
-  // Seed default feeds on first run
-  rssService.seedDefaultFeeds()
-    .then(() => console.log("✅ [news] RSS feeds initialized."))
-    .catch((err) => console.error("❌ [news] Failed to seed default feeds:", err));
-
-  // RSS cron scheduling
+  // Local-only: seed feeds + crawl loop
   let crawlInterval: ReturnType<typeof setInterval> | undefined;
-  if (process.env.PI_MOCK !== "true") {
-    const crawlIntervalMin = Number(process.env.RSS_CRAWL_INTERVAL_MIN ?? 30);
-    const crawlIntervalMs = crawlIntervalMin * 60 * 1000;
+  if (!isRemote) {
+    const localService = rssService as RssService;
 
-    // Startup crawl check
-    rssService.checkAndCrawlIfStale(crawlIntervalMs)
-      .catch((err) => console.error("[news] Startup crawl check failed:", err));
+    // Seed default feeds on first run
+    localService.seedDefaultFeeds()
+      .then(() => console.log("✅ [news] RSS feeds initialized."))
+      .catch((err) => console.error("❌ [news] Failed to seed default feeds:", err));
 
-    // Background interval
-    crawlInterval = setInterval(() => {
-      rssService.crawlAllFeeds()
-        .then((stats) => {
-          const fetched = stats.reduce((acc, s) => acc + s.itemsFetched, 0);
-          if (fetched > 0) console.log(`⏰ [news] Crawl: ${fetched} new items.`);
-        })
-        .catch((err) => console.error("[news] Scheduled crawl failed:", err));
-    }, crawlIntervalMs);
+    // RSS cron scheduling
+    if (process.env.PI_MOCK !== "true") {
+      const crawlIntervalMin = Number(process.env.RSS_CRAWL_INTERVAL_MIN ?? 30);
+      const crawlIntervalMs = crawlIntervalMin * 60 * 1000;
+
+      // Startup crawl check
+      localService.checkAndCrawlIfStale(crawlIntervalMs)
+        .catch((err) => console.error("[news] Startup crawl check failed:", err));
+
+      // Background interval
+      crawlInterval = setInterval(() => {
+        localService.crawlAllFeeds()
+          .then((stats) => {
+            const fetched = stats.reduce((acc, s) => acc + s.itemsFetched, 0);
+            if (fetched > 0) console.log(`⏰ [news] Crawl: ${fetched} new items.`);
+          })
+          .catch((err) => console.error("[news] Scheduled crawl failed:", err));
+      }, crawlIntervalMs);
+    }
+  } else {
+    console.log(`📡 [news] Remote mode — crawling delegated to ${remoteUrl}`);
   }
 
   const routes = new Hono();
@@ -220,7 +244,7 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
     routes,
     cleanup: async () => {
       if (crawlInterval) clearInterval(crawlInterval);
-      await closeNewsDb();
+      if (!isRemote) await closeNewsDb();
     },
   };
 }

@@ -1,0 +1,20 @@
+services:
+  rss-crawler:
+    # Use the published image from GitHub Container Registry (multi-arch: amd64+arm64)
+    image: ghcr.io/shuowu/pi-tree-rss-crawler:latest
+    # To build locally instead, comment the image line above and uncomment:
+    # build:
+    #   context: ../..  # monorepo root
+    #   dockerfile: packages/rss-crawler/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3948:3948"
+    environment:
+      - PORT=3948
+      - RSS_CRAWL_INTERVAL_MIN=15
+      - RSS_API_KEY=${RSS_API_KEY:-}
+    volumes:
+      - crawler-data:/data
+
+volumes:
+  crawler-data:
