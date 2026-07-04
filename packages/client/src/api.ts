@@ -718,15 +718,15 @@ export async function streamLookup(
         const data = line.slice(6);
         if (data === "[DONE]") continue;
 
-        let event: any;
+        let event: { type: string; token?: string; definition?: string; error?: string };
         try {
           event = JSON.parse(data);
         } catch {
           continue; // skip unparseable SSE chunks
         }
         if (event.type === "token") {
-          onToken(event.token);
-          fullDefinition += event.token;
+          onToken(event.token ?? "");
+          fullDefinition += event.token ?? "";
         } else if (event.type === "done") {
           fullDefinition = event.definition || fullDefinition;
         } else if (event.type === "error") {
@@ -966,16 +966,16 @@ export async function summarizeBranch(
         const data = line.slice(6);
         if (data === '[DONE]') continue;
 
-        let event: any;
+        let event: { type: string; token?: string; memo?: Memo; error?: string };
         try {
           event = JSON.parse(data);
         } catch {
           continue;
         }
         if (event.type === 'token') {
-          onToken(event.token);
+          onToken(event.token ?? '');
         } else if (event.type === 'done') {
-          memo = event.memo;
+          memo = event.memo ?? null;
         } else if (event.type === 'error') {
           throw new Error(event.error || 'Summarize failed');
         }
