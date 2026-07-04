@@ -52,9 +52,9 @@ test.describe("Home page", () => {
     await loginAs(page, TEST_USER, "E2E Home");
     await page.goto("/");
 
-    const libraryChip = page.locator(".home-quick-chip", { hasText: "Library" });
-    await expect(libraryChip).toBeVisible({ timeout: 5_000 });
-    await libraryChip.click();
+    const libraryLink = page.locator(".app-header-nav-link", { hasText: "Library" });
+    await expect(libraryLink).toBeVisible({ timeout: 5_000 });
+    await libraryLink.click();
 
     await page.waitForURL("**/library**", { timeout: 5_000 });
   });
