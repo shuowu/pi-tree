@@ -390,3 +390,120 @@ sessionRoutes.put("/config/:userId/:sourceId", async (c) => {
   manager.updateConfig(config);
   return c.json({ ok: true });
 });
+
+/** Summarize the current branch and save as memo (SSE stream) */
+sessionRoutes.post("/summarize-branch", async (c) => {
+  const body = await c.req.json<{
+    sourceId: string;
+    viewNodeId: string;
+    userId?: string;
+    sessionId?: number;
+    breadcrumbLabels?: string[];
+  }>();
+  const userId = extractUserId(body);
+  const sessionId = extractSessionId(body);
+
+  return streamSSE(c, async (stream) => {
+    try {
+      // 1. Get the active session and extract scoped messages
+      const manager = await getSession(userId, body.sourceId, sessionId);
+      const state = manager.getSessionState(body.viewNodeId);
+      const branchMessages = state.messages ?? [];
+
+      if (branchMessages.length === 0) {
+        await stream.writeSSE({ data: JSON.stringify({ type: "error", error: "No messages in this branch to summarize" }) });
+        return;
+      }
+
+      // 2. Format branch messages into a transcript
+      const transcript = branchMessages
+        .map((m) => `[${m.role === "user" ? "User" : "Assistant"}]: ${m.content}`)
+        .join("\n\n");
+
+      const branchLabel = body.breadcrumbLabels?.slice(-1)[0] || "this branch";
+      const topicPath = body.breadcrumbLabels?.join(" > ") || "";
+
+      const prompt = `You are summarizing a branch of a tree-structured conversation. Below is the COMPLETE transcript of ONLY this branch — nothing else. Produce a structured summary covering the key points, insights, and conclusions.${topicPath ? `\n\nBranch path: ${topicPath}` : ""}\n\n--- TRANSCRIPT START ---\n${transcript}\n--- TRANSCRIPT END ---\n\nWrite a concise, well-structured summary in markdown. Use headings for major topics. Be specific — include names, numbers, and key details.`;
+
+      // 3. Create ephemeral in-memory AI session for one-shot summarization
+      const { createAgentSession, SessionManager } = await import("@earendil-works/pi-coding-agent");
+      const { configureModelRegistry } = await import("@pi-tree/core");
+      const { getServerConfig } = await import("../config.js");
+      const serverConfig = getServerConfig();
+      const { join } = await import("node:path");
+
+      const repoRoot = join(import.meta.dirname, "../../..");
+      const { authStorage, modelRegistry, selectedModel } = configureModelRegistry({
+        ...serverConfig,
+        readingModel: serverConfig.lookupModel || serverConfig.readingModel,
+      });
+
+      const { session: agent } = await createAgentSession({
+        cwd: repoRoot,
+        tools: [],
+        sessionManager: SessionManager.inMemory(),
+        authStorage,
+        modelRegistry,
+        ...(selectedModel ? { model: selectedModel } : {}),
+      });
+
+      // 4. Stream the AI response
+      let fullResponse = "";
+      let chain = Promise.resolve();
+
+      const unsubscribe = agent.subscribe((event: any) => {
+        if (
+          event.type === "message_update" &&
+          event.assistantMessageEvent?.type === "text_delta"
+        ) {
+          const delta = event.assistantMessageEvent.delta ?? "";
+          fullResponse += delta;
+          chain = chain.then(() =>
+            stream.writeSSE({ data: JSON.stringify({ type: "token", token: delta }) })
+          );
+        }
+      });
+
+      try {
+        await agent.prompt(prompt);
+        await chain;
+      } finally {
+        unsubscribe();
+        agent.dispose();
+      }
+
+      // 5. Save as memo
+      const { MemoService } = await import("../services/memo-service.js");
+      const memoService = MemoService.getInstance();
+      const title = branchLabel !== "this branch"
+        ? `Summary: ${branchLabel}`
+        : `Branch Summary — ${new Date().toLocaleDateString()}`;
+
+      const memo = await memoService.create(userId, {
+        title,
+        content: fullResponse,
+        sourceId: body.sourceId,
+        sessionId: sessionId ?? state.sessionId ?? undefined,
+        origin: "command",
+        tags: ["summary"],
+      });
+
+      // 6. Background-enrich the memo (title + tags from AI)
+      const sourceTitle = body.sourceId.replace(/_/g, " ");
+      memoService.enrich(userId, memo.id, {
+        sourceTitle,
+        topicPath,
+      }).catch(() => {});
+
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "done", memo }),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[summarize-branch] Error:", err);
+      await stream.writeSSE({
+        data: JSON.stringify({ type: "error", error: message }),
+      });
+    }
+  });
+});

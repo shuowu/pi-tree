@@ -912,6 +912,84 @@ export async function fetchSourceUsage(userId: string, sourceId: string, opts?: 
 }
 
 // ---------------------------------------------------------------------------
+// Branch Summarization
+// ---------------------------------------------------------------------------
+
+/**
+ * Summarize the current branch via a one-shot LLM call (SSE stream).
+ * Returns the created memo when done.
+ */
+export async function summarizeBranch(
+  userId: string,
+  sourceId: string,
+  sessionId: number,
+  viewNodeId: string,
+  breadcrumbLabels: string[],
+  onToken: (token: string) => void,
+): Promise<Memo> {
+  const res = await fetch(`${API}/session/summarize-branch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, sourceId, sessionId, viewNodeId, breadcrumbLabels }),
+  });
+
+  if (!res.ok) throw new Error(`Summarize failed: ${res.status}`);
+  if (!res.body) throw new Error('No response body');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let memo: Memo | null = null;
+
+  const TIMEOUT_MS = 60_000; // summarization can take longer
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const resetTimeout = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      reader.cancel();
+    }, TIMEOUT_MS);
+  };
+  resetTimeout();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      resetTimeout();
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+
+        let event: any;
+        try {
+          event = JSON.parse(data);
+        } catch {
+          continue;
+        }
+        if (event.type === 'token') {
+          onToken(event.token);
+        } else if (event.type === 'done') {
+          memo = event.memo;
+        } else if (event.type === 'error') {
+          throw new Error(event.error || 'Summarize failed');
+        }
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!memo) throw new Error('Summarization completed without result');
+  return memo;
+}
+
+// ---------------------------------------------------------------------------
 // Memos
 // ---------------------------------------------------------------------------
 

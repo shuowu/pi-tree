@@ -6,7 +6,7 @@ import { useSourceProcessing } from "../hooks/useSourceProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo, type SlashCommand, type SlashCommandResult } from "@pi-tree/ui";
+import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo, type SlashCommand } from "@pi-tree/ui";
 import { SourceSetupState } from "./SourceSetupState";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
@@ -14,7 +14,7 @@ import { RightPanel } from "./RightPanel";
 import { DictQuickCardStack } from "./DictionaryPanel";
 import { SessionUsageBadge } from "./SessionUsageBadge";
 
-import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis } from "../api";
+import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis, summarizeBranch } from "../api";
 import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
 import { PanelLeft, PanelRight, Home, Layers, Settings, Zap, StickyNote, Search, FileText } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
@@ -209,14 +209,34 @@ export function Reader() {
         showMemoToast('Failed to search memos');
       }
     } else if (command === 'summarize') {
-      // Delegate to the AI — it will summarize and call save_memo
-      const topicPath = session.breadcrumb?.map(b => b.label).join(' > ') || '';
-      const hint = topicPath ? ` (current topic path: ${topicPath})` : '';
-      return {
-        sendAsMessage: `Summarize our conversation so far${hint}. Cover the main topics we discussed, key insights, and any conclusions. Then save the summary as a memo.`,
-      } satisfies SlashCommandResult;
+      // One-shot branch summarization — extracts only current branch messages
+      // server-side and summarizes via ephemeral LLM call (no session pollution)
+      if (!session.sessionId || !session.viewNodeId) {
+        showMemoToast('No active session to summarize');
+        return;
+      }
+
+      const breadcrumbLabels = session.breadcrumb?.map(b => b.label) ?? [];
+      showMemoToast('Summarizing…');
+
+      try {
+        await summarizeBranch(
+          userId,
+          source.id,
+          session.sessionId,
+          session.viewNodeId,
+          breadcrumbLabels,
+          () => {}, // onToken — could wire to streaming display later
+        );
+        setMemoCount(c => c + 1);
+        showMemoToast('Summary saved ✓');
+        window.dispatchEvent(new Event('pi-tree:memos-changed'));
+      } catch (err) {
+        console.error('Failed to summarize branch:', err);
+        showMemoToast('Failed to summarize');
+      }
     }
-  }, [userId, source.id, source.title, session.sessionId, session.breadcrumb, showMemoToast, panel]);
+  }, [userId, source.id, source.title, session.sessionId, session.viewNodeId, session.breadcrumb, showMemoToast, panel]);
 
   // Wrap SelectionToolbar as a render prop for the UI package's ChatView
   const renderSelectionToolbar = useCallback(
