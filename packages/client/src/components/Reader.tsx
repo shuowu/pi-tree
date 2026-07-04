@@ -106,6 +106,13 @@ export function Reader() {
     fetchHasAnalysis(source.id).then(setHasAnalysis);
   }, [source.id]);
 
+  // If the analysis tab is selected but no analysis exists, fall back
+  useEffect(() => {
+    if (!hasAnalysis && panel.rightTab === 'analysis') {
+      panel.setRightTab('dict');
+    }
+  }, [hasAnalysis, panel.rightTab, panel]);
+
   const showMemoToast = useCallback((message: string) => {
     setMemoToast(message);
     setTimeout(() => setMemoToast(null), 2500);

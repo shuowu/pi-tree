@@ -380,7 +380,7 @@ export function ChatView({
           if (r && 'sendAsMessage' in r && r.sendAsMessage) {
             onSendMessage(r.sendAsMessage);
           }
-        });
+        }).catch(console.error);
         return;
       }
     }

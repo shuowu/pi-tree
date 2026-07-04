@@ -38,6 +38,8 @@ export interface SessionService {
   create(userId: string, sourceId: string, opts: CreateSessionOpts): Promise<SessionInfo>;
   /** Resolve the userId that owns a given session file path. */
   resolveUserId(sessionFile: string): Promise<string | undefined>;
+  /** Resolve the session's numeric ID from its file path. */
+  resolveSessionId(sessionFile: string): Promise<number | undefined>;
   /** Look up a single session by its numeric ID. */
   getById(sessionId: number): Promise<SessionInfo | null>;
 }
