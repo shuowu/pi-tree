@@ -27,6 +27,8 @@ export interface PiTreeServices {
   schema: { sources: any; userSessions: any; users: any };
   /** Memo service — CRUD + search for user memos (optional, may not be available in all contexts) */
   memos?: MemoServiceInterface;
+  /** Content cursor service — track per-user stream positions (e.g. RSS feed read watermarks) */
+  cursors: CursorService;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +117,15 @@ export interface UserInfo {
 export interface UserService {
   get(id: string): Promise<UserInfo | null>;
   ensureExists(id: string): Promise<UserInfo>;
+}
+
+export interface CursorService {
+  /** Get cursor values for specific stream keys. */
+  get(userId: string, streamKeys: string[]): Promise<Map<string, string>>;
+  /** Set cursor values (upsert). */
+  set(userId: string, entries: Array<{ key: string; value: string }>): Promise<void>;
+  /** Get all cursors matching a key prefix (e.g. "news/feed/"). */
+  getByPrefix(userId: string, prefix: string): Promise<Map<string, string>>;
 }
 
 // ---------------------------------------------------------------------------

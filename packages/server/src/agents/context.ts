@@ -15,6 +15,7 @@ import type { SourceService } from "../services/source-service.js";
 import type { SessionService } from "../services/session-service.js";
 import type { UserService } from "../services/user-service.js";
 import type { MemoService } from "../services/memo-service.js";
+import type { CursorService } from "../services/cursor-service.js";
 import type { RegistryService, ExtensionConfig } from "@pi-tree/plugin-sdk";
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,8 @@ export interface ExtensionServices {
   dataPath: string;
   /** Memo service — CRUD + search for user memos (optional) */
   memos?: MemoService;
+  /** Content cursor service — track per-user stream positions (e.g. RSS feed read watermarks) */
+  cursors: CursorService;
 
   // --- Raw DB access (backward compat, power users) ---
 

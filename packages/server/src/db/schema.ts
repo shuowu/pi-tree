@@ -9,7 +9,7 @@
  * Domain-specific collections (e.g. rss_feeds) live in plugin-owned databases.
  */
 
-import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
 // Users — simple identity, no auth
@@ -186,3 +186,17 @@ export const memoTags = sqliteTable("memo_tags", {
   tagId: integer("tag_id").notNull().references(() => tags.id, { onDelete: "cascade" }),
 }, () => []);
 
+// ---------------------------------------------------------------------------
+// Content Cursors — per-user stream position tracking (generic watermarks)
+// ---------------------------------------------------------------------------
+
+export const contentCursors = sqliteTable("content_cursors", {
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  streamKey: text("stream_key").notNull(),  // plugin-namespaced: "news/feed/hackernews"
+  cursorValue: text("cursor_value").notNull(),  // ISO timestamp or any string marker
+  updatedAt: text("updated_at").notNull(),
+}, (table) => ({
+  pk: uniqueIndex("content_cursors_pk").on(table.userId, table.streamKey),
+}));

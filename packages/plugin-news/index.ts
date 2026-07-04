@@ -13,6 +13,20 @@ export default definePiTreeExtension((pi, services) => {
         sources: services.sources,
       });
 
+  // Stream key prefix for news feed cursors
+  const CURSOR_PREFIX = "news/feed/";
+
+  // Helper: resolve userId from extension context
+  async function resolveUserId(ctx: any): Promise<string | undefined> {
+    if (ctx?.sessionManager) {
+      try {
+        const sessionFile = ctx.sessionManager.getSessionFile();
+        if (sessionFile) return await services.sessions.resolveUserId(sessionFile);
+      } catch { /* fall through */ }
+    }
+    return undefined;
+  }
+
   // 1. Get Latest RSS
   pi.registerTool({
     name: "get_latest_rss",
@@ -22,16 +36,34 @@ export default definePiTreeExtension((pi, services) => {
       feeds: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed IDs to filter by." })),
       tags: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed tags to filter by (e.g., ['ai', 'tech']). Returns items from feeds matching any of these tags." })),
       days: Type.Optional(Type.Number({ description: "Number of recent days to query, default 3." })),
-      limit: Type.Optional(Type.Number({ description: "Max items to return, default 50." }))
+      limit: Type.Optional(Type.Number({ description: "Max items to return, default 50." })),
+      since_last_read: Type.Optional(Type.Boolean({ description: "If true, only return items published after the per-feed read watermark. Prevents showing previously seen news." }))
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
-        const items = await rssService.getLatestRss({
+        let items = await rssService.getLatestRss({
           feeds: params.feeds,
           tags: params.tags,
           days: params.days,
           limit: params.limit
         });
+
+        // Apply per-feed watermark filtering
+        if (params.since_last_read) {
+          const userId = await resolveUserId(ctx);
+          if (userId) {
+            const feedIds = [...new Set(items.map(i => i.feedId))];
+            const keys = feedIds.map(id => `${CURSOR_PREFIX}${id}`);
+            const cursors = await services.cursors.get(userId, keys);
+            if (cursors.size > 0) {
+              items = items.filter(item => {
+                const mark = cursors.get(`${CURSOR_PREFIX}${item.feedId}`);
+                return !mark || !item.publishedAt || item.publishedAt > mark;
+              });
+            }
+          }
+        }
+
         return jsonResult(items);
       } catch (err: any) {
         throw toolError("get latest RSS", err);
@@ -49,17 +81,35 @@ export default definePiTreeExtension((pi, services) => {
       feeds: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed IDs to filter by." })),
       tags: Type.Optional(Type.Array(Type.String(), { description: "Optional list of feed tags to filter by (e.g., ['ai', 'tech']). Returns items from feeds matching any of these tags." })),
       days: Type.Optional(Type.Number({ description: "Number of recent days to search, default 7." })),
-      limit: Type.Optional(Type.Number({ description: "Max items to return, default 50." }))
+      limit: Type.Optional(Type.Number({ description: "Max items to return, default 50." })),
+      since_last_read: Type.Optional(Type.Boolean({ description: "If true, only return items published after the per-feed read watermark. Prevents showing previously seen news." }))
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
-        const items = await rssService.getLatestRss({
+        let items = await rssService.getLatestRss({
           keyword: params.keyword,
           feeds: params.feeds,
           tags: params.tags,
           days: params.days ?? 7,
           limit: params.limit
         });
+
+        // Apply per-feed watermark filtering
+        if (params.since_last_read) {
+          const userId = await resolveUserId(ctx);
+          if (userId) {
+            const feedIds = [...new Set(items.map(i => i.feedId))];
+            const keys = feedIds.map(id => `${CURSOR_PREFIX}${id}`);
+            const cursors = await services.cursors.get(userId, keys);
+            if (cursors.size > 0) {
+              items = items.filter(item => {
+                const mark = cursors.get(`${CURSOR_PREFIX}${item.feedId}`);
+                return !mark || !item.publishedAt || item.publishedAt > mark;
+              });
+            }
+          }
+        }
+
         return jsonResult(items);
       } catch (err: any) {
         throw toolError("search RSS", err);
@@ -78,11 +128,12 @@ export default definePiTreeExtension((pi, services) => {
       days: Type.Optional(Type.Number({ description: "Number of recent days to aggregate, default 3." })),
       similarity_threshold: Type.Optional(Type.Number({ description: "Similarity threshold between 0.3 and 1.0. Higher = fewer merges (default 0.85)." })),
       limit: Type.Optional(Type.Number({ description: "Max groups to return, default 50." })),
-      include_url: Type.Optional(Type.Boolean({ description: "Include article URLs in source metadata (default true)." }))
+      include_url: Type.Optional(Type.Boolean({ description: "Include article URLs in source metadata (default true)." })),
+      since_last_read: Type.Optional(Type.Boolean({ description: "If true, only return items published after the per-feed read watermark. Prevents showing previously seen news." }))
     }),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
-        const groups = await rssService.aggregateRss({
+        let groups = await rssService.aggregateRss({
           feeds: params.feeds,
           tags: params.tags,
           days: params.days,
@@ -90,6 +141,34 @@ export default definePiTreeExtension((pi, services) => {
           limit: params.limit,
           includeUrl: params.include_url
         });
+
+        // Apply per-feed watermark filtering to aggregated groups
+        if (params.since_last_read) {
+          const userId = await resolveUserId(ctx);
+          if (userId) {
+            const allFeedIds = [...new Set(groups.flatMap(g => g.feedIds))];
+            const keys = allFeedIds.map(id => `${CURSOR_PREFIX}${id}`);
+            const cursors = await services.cursors.get(userId, keys);
+            if (cursors.size > 0) {
+              groups = groups.map(group => {
+                const filteredSources = group.sources.filter(src => {
+                  const mark = cursors.get(`${CURSOR_PREFIX}${src.feedId}`);
+                  return !mark || !src.publishedAt || src.publishedAt > mark;
+                });
+                if (filteredSources.length === 0) return null;
+                return {
+                  ...group,
+                  sources: filteredSources,
+                  sourceCount: filteredSources.length,
+                  feeds: [...new Set(filteredSources.map(s => s.feedName))],
+                  feedIds: [...new Set(filteredSources.map(s => s.feedId))],
+                  isCrossFeed: new Set(filteredSources.map(s => s.feedId)).size > 1,
+                };
+              }).filter(Boolean) as typeof groups;
+            }
+          }
+        }
+
         return jsonResult(groups);
       } catch (err: any) {
         throw toolError("aggregate RSS", err);
@@ -190,6 +269,47 @@ export default definePiTreeExtension((pi, services) => {
         return textResult(`Successfully saved report to: ${relativePath}`);
       } catch (err: any) {
         throw toolError("save news analysis", err);
+      }
+    }
+  });
+
+  // 9. Mark Feeds as Read
+  pi.registerTool({
+    name: "mark_feeds_read",
+    label: "Mark Feeds as Read",
+    description: "Update the read watermark for feeds after presenting a news briefing. Prevents overlap in future sessions. Call this after your initial briefing scan.",
+    parameters: Type.Object({
+      feeds: Type.Optional(Type.Array(Type.String(), { description: "Feed IDs to mark as read. If omitted with no tags, marks all active feeds." })),
+      tags: Type.Optional(Type.Array(Type.String(), { description: "Feed tags to mark as read (resolved to feed IDs)." })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      try {
+        const userId = await resolveUserId(ctx);
+        if (!userId) throw new Error("Cannot determine user — watermark not updated.");
+
+        let feedIds: string[];
+        if (params.feeds?.length) {
+          feedIds = params.feeds;
+        } else if (params.tags?.length) {
+          const tagFeeds = await rssService.getFeedsByTags(params.tags);
+          feedIds = tagFeeds.map(f => f.id);
+        } else {
+          const allFeeds = await rssService.listFeeds();
+          feedIds = allFeeds.map(f => f.id);
+        }
+
+        const now = new Date().toISOString();
+        await services.cursors.set(userId,
+          feedIds.map(id => ({ key: `${CURSOR_PREFIX}${id}`, value: now }))
+        );
+
+        return jsonResult({
+          marked: feedIds.length,
+          feedIds,
+          readAt: now,
+        });
+      } catch (err: any) {
+        throw toolError("mark feeds read", err);
       }
     }
   });

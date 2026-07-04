@@ -13,6 +13,8 @@ import { getJobQueue } from "./services/job-queue.js";
 import { jobRoutes } from "./routes/jobs.js";
 import { AgentTaskServiceImpl } from "./services/agent-task.js";
 import { MemoService } from "./services/memo-service.js";
+import { CursorServiceImpl } from "./services/cursor-service.js";
+import { contentCursors } from "./db/schema.js";
 
 /**
  * Resolve core plugin directories by finding their installed package locations.
@@ -76,6 +78,7 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
   const sourceService = new SourceServiceImpl(getDb, sources);
   const sessionService = new SessionServiceImpl(getDb, userSessions, users);
   const userService = new UserServiceImpl(getDb, users);
+  const cursorService = new CursorServiceImpl(getDb, contentCursors);
 
   // Initialize job queue
   const jobQueue = getJobQueue();
@@ -149,6 +152,7 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
     ...(mcpBridge.hasServers() ? { mcpBridge } : {}),
     dataPath,
     memos: MemoService.getInstance(),
+    cursors: cursorService,
     // Raw DB access (backward compat, power users)
     db: getDb,
     schema: { sources, userSessions, users },

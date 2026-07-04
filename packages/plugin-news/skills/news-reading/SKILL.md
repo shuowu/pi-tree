@@ -16,11 +16,12 @@ AI-assisted news aggregation, trend analysis, and story deep-dives using tree-st
 You have access to these native news tools:
 - `get_rss_feeds_status()` — Check feed configurations and last fetch status.
 - `get_feed_tags()` — List all available feed tags with associated feeds. Use this to understand what topic categories exist.
-- `get_latest_rss(feeds, tags, days, limit)` — Retrieve chronological RSS items. Supports filtering by feed IDs OR tags.
-- `search_rss(keyword, feeds, tags, days, limit)` — Substring search feed titles and summaries. Supports tag filtering.
-- `aggregate_rss(feeds, tags, days, similarity_threshold, limit)` — Group and deduplicate stories across feeds. Supports tag filtering.
+- `get_latest_rss(feeds, tags, days, limit, since_last_read)` — Retrieve chronological RSS items. Supports filtering by feed IDs OR tags.
+- `search_rss(keyword, feeds, tags, days, limit, since_last_read)` — Substring search feed titles and summaries. Supports tag filtering.
+- `aggregate_rss(feeds, tags, days, similarity_threshold, limit, since_last_read)` — Group and deduplicate stories across feeds. Supports tag filtering.
 - `read_article(url)` — Fetch clean Markdown content from an article URL.
 - `save_news_analysis(title, content, type)` — Save the markdown report to the local filesystem.
+- `mark_feeds_read(feeds?, tags?)` — Update read watermarks after presenting a briefing. Prevents overlap in future sessions.
 
 ---
 
@@ -53,6 +54,22 @@ If the first message is a generic request (not a focus directive), use all feeds
 
 ---
 
+## Read Watermarks (Avoiding Overlap)
+
+The system tracks which articles you've already shown the user, per feed. To use this:
+
+1. **Always pass `since_last_read=true`** in your initial data fetch — this filters out previously shown articles
+2. **Call `mark_feeds_read()`** after presenting a briefing to advance the watermarks:
+   - Unscoped session: `mark_feeds_read()` (marks all feeds)
+   - Tag-scoped session: `mark_feeds_read(tags=["ai"])` (marks only matching feeds)
+   - Feed-scoped session: `mark_feeds_read(feeds=["hackernews"])` (marks only that feed)
+3. The `days` parameter still acts as a safety net — items older than N days are excluded even without a watermark
+4. If the result set is empty (user is caught up), say so and offer to widen the window: "You're up to date! Want me to scan the last 7 days instead?"
+
+**Do NOT call `mark_feeds_read` during deep dives or follow-up questions** — only after the initial briefing scan.
+
+---
+
 ## Workflow
 
 ### Step 1: Fetch Data Immediately
@@ -65,7 +82,7 @@ Your behavior adapts automatically depending on where you are in the conversatio
 
 #### Context A: Root Node (The Broad Scan)
 If the user starts the session or asks for a general update:
-1. Call `aggregate_rss(days=3, similarity_threshold=0.80, limit=50)` to scan and group stories across feeds.
+1. Call `aggregate_rss(since_last_read=true, days=3, similarity_threshold=0.80, limit=50)` to scan and group stories across feeds.
    - If the user specified a topic, add the matching `tags` parameter.
 2. Categorize the grouped stories into sections derived from the feed tags and story content.
    Use `get_feed_tags()` output to inform section names — create topic sections that match the actual data.
@@ -93,6 +110,10 @@ If the user asks to go deeper on a story, or if the system creates a branch:
    - Sentiment snapshot (overall tone in the community/outlets).
    - Practical or investment implications.
 4. Present the analysis and answer follow-up questions within the branch.
+
+### Step 2.5: Mark Feeds as Read
+
+After presenting the root node briefing, call `mark_feeds_read()` scoped to the same feeds/tags used in your query. This prevents overlap in future sessions.
 
 ### Step 3: Save Analyses — ONLY on User Request
 
