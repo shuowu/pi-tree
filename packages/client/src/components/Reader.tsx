@@ -13,10 +13,11 @@ import { Sidebar } from "./Sidebar";
 import { RightPanel } from "./RightPanel";
 import { DictQuickCardStack } from "./DictionaryPanel";
 import { SessionUsageBadge } from "./SessionUsageBadge";
+import { NavMenu } from "./NavMenu";
 
 import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis, summarizeBranch } from "../api";
 import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
-import { PanelLeft, PanelRight, Home, Layers, Settings, Zap, StickyNote, Search, FileText } from "lucide-react";
+import { PanelLeft, PanelRight, Layers, Settings, Zap, StickyNote, Search, FileText } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import "./Reader.css";
@@ -291,7 +292,7 @@ export function Reader() {
     [],
   );
 
-  const goBack = () => navigate("/");
+
 
   const handleModelChange = useCallback(async (modelId: string) => {
     if (!userId || session.sessionId === null) return;
@@ -327,7 +328,6 @@ export function Reader() {
   }, [showUsage, session.sessionId]);
 
   const panelToggles = [
-    { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: goBack },
     { id: "sessions", icon: <Layers size={16} />, label: "Sessions", active: false, onClick: session.handleBackToSessions },
     { id: "nav", icon: <PanelLeft size={16} />, label: "Session Tree", active: panel.sidebarOpen, onClick: panel.toggleNavigator },
     { id: "right-panel", icon: <PanelRight size={16} />, label: "Right Panel", active: panel.rightPanelOpen, onClick: panel.toggleRightPanel },
@@ -380,6 +380,7 @@ export function Reader() {
           isScoped={session.viewNodeId !== null}
           panelToggles={panelToggles}
           sessionLabel={session.sessionLabel}
+          leftSlot={<NavMenu />}
         />
         {showBookSetup ? (
           <SourceSetupState

@@ -6,13 +6,13 @@ import {
   StickyNote, Pin, Trash2, ChevronDown, ChevronRight,
   Edit3, Plus, Search, X, ExternalLink, MessageSquare,
 } from 'lucide-react';
-import { Breadcrumb } from '@pi-tree/ui';
+import { AppHeader } from './AppHeader';
 import {
   fetchMemos, searchMemos, updateMemo, deleteMemo, appendMemo, createMemo, fetchSources,
 } from '../api.js';
 import type { Memo } from '../api.js';
 import { useUser } from '../UserContext.js';
-import { Home } from 'lucide-react';
+
 import './MemosPage.css';
 
 export function MemosPage() {
@@ -47,10 +47,7 @@ export function MemosPage() {
   // Debounced search
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const panelToggles = useMemo(() => [
-    { id: 'home', icon: <Home size={16} />, label: 'Home', active: false, onClick: () => navigate('/') },
-  ], []);
+
 
   // Load sources for the dropdown
   useEffect(() => {
@@ -254,13 +251,7 @@ export function MemosPage() {
 
   return (
     <div className="memos-page">
-      <Breadcrumb
-        items={[]}
-        onNavigate={() => {}}
-        bookTitle="Memos"
-        isScoped={false}
-        panelToggles={panelToggles}
-      />
+      <AppHeader />
 
       <div className="memos-page-content">
         {/* Header with title + new memo button */}

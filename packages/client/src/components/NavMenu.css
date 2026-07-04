@@ -1,0 +1,66 @@
+/* ── NavMenu — dropdown navigation for session pages ── */
+
+.nav-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.nav-menu-trigger {
+  /* Inherits .pit-panel-toggle styles from Breadcrumb.css */
+}
+
+.nav-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  min-width: 140px;
+  padding: 4px;
+  background: var(--bg-secondary, #f3e8d2);
+  border: 1px solid var(--border, #d8ccb4);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(60, 40, 20, 0.08));
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: nav-menu-appear 0.12s ease-out;
+}
+
+@keyframes nav-menu-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nav-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 6px var(--space-3, 12px);
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  background: none;
+  color: var(--text-secondary, #5c4d3c);
+  font-size: var(--text-sm, 0.8125rem);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  white-space: nowrap;
+  text-align: left;
+  width: 100%;
+}
+
+.nav-menu-item:hover {
+  background: var(--bg-hover, #e0d3b8);
+  color: var(--text-primary, #3b2e1e);
+}
+
+.nav-menu-item:active {
+  background: var(--bg-active, #d8cbae);
+}

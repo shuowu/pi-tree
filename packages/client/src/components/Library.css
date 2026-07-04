@@ -3,85 +3,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-8) var(--space-6);
+  padding: 0 var(--space-6) var(--space-8);
   overflow-x: hidden;
 }
 
-.library-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 860px;
-  margin-bottom: var(--space-8);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-
-.library-header-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.library-back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.library-back-btn:hover {
-  background: var(--border);
-  color: var(--text-primary);
-}
-
-.library-header-left h1 {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  white-space: nowrap;
-}
-
-.library-header-left h1 span {
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.library-header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.library-github-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  transition: color 0.15s ease;
-}
-
-.library-github-link:hover {
-  color: var(--text-primary);
-}
 
 
 
@@ -358,6 +283,24 @@
   flex-direction: column;
   gap: var(--space-3);
   margin-bottom: var(--space-6);
+}
+
+.library-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.library-toolbar .library-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.library-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .library-search {

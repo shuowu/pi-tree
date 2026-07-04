@@ -19,6 +19,8 @@ interface BreadcrumbProps {
   panelToggles?: PanelToggle[];
   /** Currently active session name, shown as a subtle label */
   sessionLabel?: string | null;
+  /** Optional element rendered before the breadcrumb items (e.g. NavMenu) */
+  leftSlot?: ReactNode;
 }
 
 /** Truncate a label to maxLen chars */
@@ -27,13 +29,14 @@ function truncate(text: string, maxLen: number): string {
   return text.slice(0, maxLen) + "…";
 }
 
-export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggles, sessionLabel }: BreadcrumbProps) {
+export function Breadcrumb({ items, onNavigate, bookTitle, isScoped, panelToggles, sessionLabel, leftSlot }: BreadcrumbProps) {
   // Only show the last 2 breadcrumb items; collapse earlier ones into "…"
   const collapsed = items.length > 2;
   const visibleItems = collapsed ? items.slice(-2) : items;
 
   return (
     <nav className="pit-breadcrumb-bar" aria-label="Reading path">
+      {leftSlot}
       <div className="pit-breadcrumb-items">
         {isScoped ? (
           <button className="pit-breadcrumb-link pit-breadcrumb-root" onClick={() => onNavigate("")}>

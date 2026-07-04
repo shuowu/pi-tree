@@ -3,8 +3,8 @@ import { useNavigate } from "react-router";
 import type { Source } from "@pi-tree/shared";
 import { fetchUserUsage, fetchSourceUsage, fetchSources, type UsageStats } from "../api";
 import { useUser } from "../UserContext";
-import { Home, Zap, ArrowUpDown, MessageSquare, DollarSign, Cpu, BookOpen } from "lucide-react";
-import { Breadcrumb } from "@pi-tree/ui";
+import { Zap, ArrowUpDown, MessageSquare, DollarSign, Cpu, BookOpen } from "lucide-react";
+import { AppHeader } from "./AppHeader";
 import "./UsageDashboard.css";
 
 /** Format a number with K/M suffixes */
@@ -98,9 +98,7 @@ export function UsageDashboard() {
       .sort(([, a], [, b]) => b.totalTokens - a.totalTokens);
   }, [usage]);
 
-  const panelToggles = useMemo(() => [
-    { id: "home", icon: <Home size={16} />, label: "Home", active: false, onClick: () => navigate("/") },
-  ], [navigate]);
+
 
   const inputRatio = usage && usage.totalTokens > 0
     ? Math.round((usage.inputTokens / usage.totalTokens) * 100)
@@ -108,13 +106,7 @@ export function UsageDashboard() {
 
   return (
     <div className="usage-dashboard">
-      <Breadcrumb
-        items={[]}
-        onNavigate={() => {}}
-        bookTitle="Usage Dashboard"
-        isScoped={false}
-        panelToggles={panelToggles}
-      />
+      <AppHeader />
 
       <div className="usage-content">
         {/* Time range selector */}
