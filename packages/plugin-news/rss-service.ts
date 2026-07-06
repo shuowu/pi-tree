@@ -8,6 +8,28 @@ import { getNewsDb, rssFeeds, rssItems } from "./db.js";
 import type { SourceService } from "@pi-tree/plugin-sdk";
 
 // ---------------------------------------------------------------------------
+// Date helpers
+//
+// Feed dates arrive in mixed formats (RFC-822 "Wed, 24 Jun 2026 23:57:37 GMT"
+// from item.pubDate, ISO 8601 from item.isoDate). Comparing/sorting these as
+// raw strings is wrong — RFC-822 strings don't order chronologically and never
+// compare correctly against ISO cutoffs. Always parse to epoch ms for compares,
+// and normalize to ISO 8601 on write so stored values are consistent.
+// ---------------------------------------------------------------------------
+
+/** Parse any supported date string to epoch ms, or NaN if unparseable/empty. */
+export function toEpochMs(value?: string | null): number {
+  if (!value) return NaN;
+  return new Date(value).getTime();
+}
+
+/** Normalize a date string to ISO 8601, or null if unparseable/empty. */
+export function toIsoOrNull(value?: string | null): string | null {
+  const ms = toEpochMs(value);
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -370,7 +392,9 @@ export class RssService implements IRssService {
           if (!title || !url) continue;
 
           const guid = item.guid || item.id || url;
-          const publishedAt = item.pubDate || item.isoDate || now;
+          // Prefer rss-parser's ISO date; fall back to RFC-822 pubDate. Normalize
+          // to ISO 8601 so stored values sort and compare chronologically.
+          const publishedAt = toIsoOrNull(item.isoDate || item.pubDate) || now;
           const summary = item.contentSnippet || item.summary || item.content || "";
           const author = item.creator || item.author || "";
 
@@ -454,9 +478,11 @@ export class RssService implements IRssService {
     // Filter by date range
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    const cutoffStr = cutoffDate.toISOString();
+    const cutoffMs = cutoffDate.getTime();
 
-    // Query DB items
+    // Query DB items. Ordering is done in-memory below by parsed timestamp —
+    // a SQL ORDER BY on published_at sorts lexicographically, which is wrong for
+    // any non-ISO date string (legacy rows may be RFC-822).
     const query = db
       .select({
         id: rssItems.id,
@@ -471,8 +497,7 @@ export class RssService implements IRssService {
         createdAt: rssItems.createdAt
       })
       .from(rssItems)
-      .innerJoin(rssFeeds, eq(rssItems.feedId, rssFeeds.id))
-      .orderBy(desc(rssItems.publishedAt));
+      .innerJoin(rssFeeds, eq(rssItems.feedId, rssFeeds.id));
 
     const results = await query.all();
 
@@ -491,7 +516,10 @@ export class RssService implements IRssService {
 
     // Filter in-memory for dates, optional feed IDs, and keywords
     const filtered = results.filter((item) => {
-      if (item.publishedAt && item.publishedAt < cutoffStr) return false;
+      const ms = toEpochMs(item.publishedAt);
+      // Drop items older than the cutoff. Unparseable dates are kept (can't
+      // reliably age them out) rather than silently discarded.
+      if (!Number.isNaN(ms) && ms < cutoffMs) return false;
       if (feedFilter && feedFilter.length > 0 && !feedFilter.includes(item.feedId)) return false;
       if (options?.keyword) {
         const kw = options.keyword.toLowerCase();
@@ -500,6 +528,13 @@ export class RssService implements IRssService {
         if (!matchesTitle && !matchesSummary) return false;
       }
       return true;
+    });
+
+    // Sort newest-first by parsed timestamp (unparseable dates sort last).
+    filtered.sort((a, b) => {
+      const ta = toEpochMs(a.publishedAt);
+      const tb = toEpochMs(b.publishedAt);
+      return (Number.isNaN(tb) ? -Infinity : tb) - (Number.isNaN(ta) ? -Infinity : ta);
     });
 
     return filtered.slice(0, limit);
@@ -654,13 +689,16 @@ export class RssService implements IRssService {
         // Incremental weight for multiple sources covering the same story
         group.aggregateWeight += compareItem.weight * 0.5;
 
-        // Min/Max published time boundary
+        // Min/Max published time boundary (compare by parsed timestamp)
         const cmpPub = compareNews.publishedAt;
-        if (cmpPub) {
-          if (!group.earliestPublishedAt || cmpPub < group.earliestPublishedAt) {
+        const cmpMs = toEpochMs(cmpPub);
+        if (cmpPub && !Number.isNaN(cmpMs)) {
+          const earliestMs = toEpochMs(group.earliestPublishedAt);
+          const latestMs = toEpochMs(group.latestPublishedAt);
+          if (Number.isNaN(earliestMs) || cmpMs < earliestMs) {
             group.earliestPublishedAt = cmpPub;
           }
-          if (!group.latestPublishedAt || cmpPub > group.latestPublishedAt) {
+          if (Number.isNaN(latestMs) || cmpMs > latestMs) {
             group.latestPublishedAt = cmpPub;
           }
         }

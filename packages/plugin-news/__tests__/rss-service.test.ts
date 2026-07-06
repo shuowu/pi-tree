@@ -4,9 +4,11 @@ import { mkdirSync, rmSync } from "node:fs";
 import {
   RssService,
   calculateSequenceSimilarity,
-  calculateJaccardSimilarity
+  calculateJaccardSimilarity,
+  toEpochMs,
+  toIsoOrNull
 } from "../rss-service.ts";
-import { resetNewsDb } from "../db.ts";
+import { resetNewsDb, getNewsDb, rssItems } from "../db.ts";
 import type { SourceService, SourceInfo, CreateSourceInput } from "@pi-tree/plugin-sdk";
 
 /**
@@ -65,6 +67,23 @@ describe("Similarity Helper Functions", () => {
     const sim = calculateSequenceSimilarity("Apple releases new iOS update", "Apple launches new iOS updates");
     expect(sim).toBeGreaterThan(0.7);
     expect(sim).toBeLessThan(1.0);
+  });
+});
+
+describe("Date helpers", () => {
+  it("parses RFC-822 and ISO to the same epoch ms", () => {
+    const rfc = "Wed, 24 Jun 2026 23:57:37 GMT";
+    const iso = "2026-06-24T23:57:37.000Z";
+    expect(toEpochMs(rfc)).toBe(toEpochMs(iso));
+    expect(toIsoOrNull(rfc)).toBe(iso);
+  });
+
+  it("returns NaN/null for empty or unparseable input", () => {
+    expect(Number.isNaN(toEpochMs(undefined))).toBe(true);
+    expect(Number.isNaN(toEpochMs(""))).toBe(true);
+    expect(Number.isNaN(toEpochMs("not a date"))).toBe(true);
+    expect(toIsoOrNull(null)).toBeNull();
+    expect(toIsoOrNull("not a date")).toBeNull();
   });
 });
 
@@ -191,5 +210,43 @@ describe("RssService (plugin-local)", () => {
     const techFeeds = await rssService.getFeedsByTags(["tech"]);
     expect(techFeeds.length).toBeGreaterThan(0);
     expect(techFeeds.every(f => f.tags.includes("tech"))).toBe(true);
+  });
+
+  it("getLatestRss filters by age and sorts newest-first across mixed date formats", async () => {
+    const rssService = createService();
+    await rssService.addFeed({
+      id: "t",
+      name: "Test Feed",
+      url: "https://example.com/feed.xml",
+      tags: ["test"]
+    });
+
+    const db = await getNewsDb(join(tempDir, "plugins", "news"));
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    const insert = async (url: string, publishedAt: string) => {
+      await db.insert(rssItems).values({
+        title: url, feedId: "t", url, guid: url,
+        publishedAt, summary: "", author: "",
+        createdAt: nowIso, updatedAt: nowIso,
+      }).run();
+    };
+
+    // RFC-822 dates (as stored by rss-parser's pubDate) — the exact format that
+    // broke lexicographic comparison. One old, two recent, out of order.
+    const oneDayAgo = new Date(now - 24 * 3600 * 1000).toUTCString();
+    const twoHoursAgo = new Date(now - 2 * 3600 * 1000).toUTCString();
+    await insert("https://example.com/old", "Wed, 30 Sep 2015 00:00:00 +0000");
+    await insert("https://example.com/day-ago", oneDayAgo);
+    await insert("https://example.com/recent", twoHoursAgo);
+
+    const items = await rssService.getLatestRss({ days: 3 });
+
+    // Old item (>3 days) must be excluded despite RFC-822 vs ISO cutoff mismatch.
+    expect(items.map(i => i.url)).not.toContain("https://example.com/old");
+    expect(items).toHaveLength(2);
+    // Newest-first ordering by parsed timestamp, not lexicographic string sort.
+    expect(items[0].url).toBe("https://example.com/recent");
+    expect(items[1].url).toBe("https://example.com/day-ago");
   });
 });

@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import { definePiTreeExtension, jsonResult, textResult, toolError, fetchViaJina } from "@pi-tree/plugin-sdk";
-import { RssService, saveNewsAnalysis, type IRssService } from "./rss-service.js";
+import { RssService, saveNewsAnalysis, toEpochMs, type IRssService } from "./rss-service.js";
 import { RemoteRssClient } from "./rss-client.js";
 
 export default definePiTreeExtension((pi, services) => {
@@ -58,7 +58,12 @@ export default definePiTreeExtension((pi, services) => {
             if (cursors.size > 0) {
               items = items.filter(item => {
                 const mark = cursors.get(`${CURSOR_PREFIX}${item.feedId}`);
-                return !mark || !item.publishedAt || item.publishedAt > mark;
+                if (!mark) return true;
+                const itemMs = toEpochMs(item.publishedAt);
+                const markMs = toEpochMs(mark);
+                // Keep items with unparseable dates; only drop those provably at/before the mark.
+                if (Number.isNaN(itemMs) || Number.isNaN(markMs)) return true;
+                return itemMs > markMs;
               });
             }
           }
@@ -104,7 +109,12 @@ export default definePiTreeExtension((pi, services) => {
             if (cursors.size > 0) {
               items = items.filter(item => {
                 const mark = cursors.get(`${CURSOR_PREFIX}${item.feedId}`);
-                return !mark || !item.publishedAt || item.publishedAt > mark;
+                if (!mark) return true;
+                const itemMs = toEpochMs(item.publishedAt);
+                const markMs = toEpochMs(mark);
+                // Keep items with unparseable dates; only drop those provably at/before the mark.
+                if (Number.isNaN(itemMs) || Number.isNaN(markMs)) return true;
+                return itemMs > markMs;
               });
             }
           }
@@ -153,7 +163,11 @@ export default definePiTreeExtension((pi, services) => {
               groups = groups.map(group => {
                 const filteredSources = group.sources.filter(src => {
                   const mark = cursors.get(`${CURSOR_PREFIX}${src.feedId}`);
-                  return !mark || !src.publishedAt || src.publishedAt > mark;
+                  if (!mark) return true;
+                  const srcMs = toEpochMs(src.publishedAt);
+                  const markMs = toEpochMs(mark);
+                  if (Number.isNaN(srcMs) || Number.isNaN(markMs)) return true;
+                  return srcMs > markMs;
                 });
                 if (filteredSources.length === 0) return null;
                 return {
