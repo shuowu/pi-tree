@@ -5,7 +5,17 @@ description: Set up pi-tree in minutes — Docker (recommended) or from source.
 
 # Getting Started
 
-Pick a setup method and you'll be reading in minutes.
+Pick a setup method and you'll be reading in minutes. Whichever you choose, pi-tree needs an AI model to read with you — a cloud API key or a local model.
+
+::: details Don't have an API key? It takes about two minutes
+Pi-tree works great with cheap, fast models — no expensive frontier model required.
+
+1. Create a free account with [DeepSeek](https://platform.deepseek.com/) or [Google AI Studio](https://aistudio.google.com/) (Gemini has a free tier)
+2. Generate an API key from the dashboard
+3. Paste it into your `.env` file (or the desktop app's Settings page)
+
+Reading an entire book typically costs a few cents with DeepSeek — or nothing at all with a free local model via [Ollama](https://ollama.com/download). See [Models & Providers](/docs/models) for recommendations.
+:::
 
 :::tabs
 == Docker (Recommended)

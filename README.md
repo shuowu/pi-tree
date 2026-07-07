@@ -44,6 +44,8 @@ Reading feeds a knowledge layer that works across all your sources:
 
 ## Getting Started
 
+Pi-tree needs an AI model to read with you — an API key from a cloud provider, or a local model. No key yet? [It takes two minutes](#getting-an-api-key-2-minutes).
+
 ### Docker (recommended)
 
 ```bash
@@ -76,6 +78,16 @@ Dev server runs on `:3947`, client on `:5947`. Open http://localhost:5947.
 Download from the [**Releases page**](https://github.com/shuowu/pi-tree/releases/latest) — available for macOS, Linux, and Windows. No Node.js, no Docker, no terminal needed.
 
 Open the app, enter an API key (or point to a local Ollama server), and start reading.
+
+### Getting an API key (2 minutes)
+
+Pi-tree works great with cheap, fast models — no expensive frontier model required:
+
+1. Create a free account with [DeepSeek](https://platform.deepseek.com/) or [Google AI Studio](https://aistudio.google.com/) (Gemini has a free tier)
+2. Generate an API key from the dashboard
+3. Paste it into your `.env` file (or the desktop app's Settings page)
+
+Reading an entire book typically costs a few cents with DeepSeek — or nothing at all with a free local model via [Ollama](https://ollama.com/download).
 
 ## Why Pi-tree?
 
