@@ -173,9 +173,13 @@ export function RouterChat({ userId }: RouterChatProps) {
         try {
           const routeResult = await routeDeterministic(userId, trimmed);
           if (routeResult.resolved && routeResult.url) {
+            const redirectMsg =
+              routeResult.action === "navigate"
+                ? `Taking you to **${routeResult.sourceTitle ?? "Discover"}**…`
+                : `Opening **${routeResult.sourceTitle ?? "session"}**…`;
             setMessages((prev) => [
               ...prev,
-              { id: nextMsgId(), role: "assistant" as const, content: `Opening **${routeResult.sourceTitle ?? "session"}**…` },
+              { id: nextMsgId(), role: "assistant" as const, content: redirectMsg },
             ]);
             setIsStreaming(false);
             setIsRedirecting(true);
@@ -209,8 +213,12 @@ export function RouterChat({ userId }: RouterChatProps) {
               setActiveToolCall(toolName);
             },
             onToolResult({ toolName, result, isError }) {
-              // When create_session or open_session completes, capture the URL
-              if ((toolName === "create_session" || toolName === "open_session") && !isError && result) {
+              // When a navigation tool completes, capture the URL for auto-redirect
+              if (
+                (toolName === "create_session" || toolName === "open_session" || toolName === "navigate_to") &&
+                !isError &&
+                result
+              ) {
                 try {
                   const parsed = typeof result === "string" ? JSON.parse(result) : result;
                   // The tool returns { content: [{ type: "text", text: "{...}" }] }

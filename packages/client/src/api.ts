@@ -1120,3 +1120,158 @@ export async function enrichMemo(
   if (!res.ok) throw new Error('Failed to enrich memo');
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Discover — reading-list suggestions
+// ---------------------------------------------------------------------------
+
+export interface DiscoverCandidate {
+  kind: "shelf" | "acquire";
+  sourceType: string;
+  title: string;
+  author?: string;
+  year?: number | null;
+  coverUrl?: string | null;
+  url?: string | null;
+  reason: string;
+  sourceId?: string;
+  ids?: Record<string, string>;
+  score?: number;
+  addFeed?: { id: string; name: string; url: string; tags: string[] };
+}
+
+/** Add a recommended paper to the library (metadata-only; content fetched in-session). Returns the new source id, or null. */
+export async function addPaperSource(p: {
+  title: string;
+  author?: string;
+  year?: number | null;
+  arxivId?: string;
+}): Promise<string | null> {
+  const res = await fetch(`${API}/library/sources/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: p.title,
+      author: p.author,
+      year: p.year ?? undefined,
+      type: "paper",
+      metadata: p.arxivId ? { arxivId: p.arxivId } : undefined,
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  return data?.id ?? null;
+}
+
+/** Subscribe a recommended feed to the News collection. Returns true on success. */
+export async function addNewsFeed(feed: { id: string; name: string; url: string; tags: string[] }): Promise<boolean> {
+  const res = await fetch(`${API}/news/feeds`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(feed),
+  });
+  const data = await res.json().catch(() => ({ success: false }));
+  return res.ok && data.success !== false;
+}
+
+export interface ReadingListConfigClient {
+  mode: "off" | "on-demand" | "auto";
+  count: number;
+  diversity: number;
+  allowExternalLookup: boolean;
+  autoTrigger: "on-finish" | "periodic" | "on-open";
+  model?: string;
+  /** Source types the user can target (one per registered provider). */
+  availableSourceTypes?: string[];
+}
+
+export async function fetchDiscoverConfig(): Promise<ReadingListConfigClient> {
+  const res = await fetch(`${API}/discover/config`);
+  if (!res.ok) throw new Error(`Failed to load discover config: ${res.status}`);
+  return res.json();
+}
+
+export interface CachedDiscoverClient {
+  candidates: DiscoverCandidate[];
+  topics: string[];
+  generatedAt: string;
+  sourceTypes: string[] | null;
+}
+
+/** The user's most recent discover run (cached), or null. */
+export async function fetchLatestDiscover(userId: string): Promise<CachedDiscoverClient | null> {
+  const res = await fetch(`${API}/discover/latest?userId=${encodeURIComponent(userId)}`);
+  if (!res.ok) return null;
+  return res.json(); // may be null
+}
+
+export type DiscoverStreamEvent =
+  | { type: "status"; phase: string; message: string }
+  | { type: "done"; candidates: DiscoverCandidate[]; topics: string[] }
+  | { type: "error"; error: string };
+
+/**
+ * Run the discover pipeline and stream progress + results.
+ * Returns the final candidate list.
+ */
+export async function streamDiscover(
+  userId: string,
+  onEvent: (event: DiscoverStreamEvent) => void,
+  sourceTypes?: string[],
+): Promise<{ candidates: DiscoverCandidate[]; topics: string[] }> {
+  const res = await fetch(`${API}/discover/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, sourceTypes }),
+  });
+  if (!res.ok) throw new Error(`Discover failed: ${res.status}`);
+  if (!res.body) throw new Error("No response body");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: { candidates: DiscoverCandidate[]; topics: string[] } = { candidates: [], topics: [] };
+
+  // Grounding + LLM can take a while; allow a generous inactivity window.
+  const TIMEOUT_MS = 90_000;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const resetTimeout = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => reader.cancel(), TIMEOUT_MS);
+  };
+  resetTimeout();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      resetTimeout();
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6);
+        if (data === "[DONE]") continue;
+        let event: DiscoverStreamEvent;
+        try {
+          event = JSON.parse(data);
+        } catch {
+          continue;
+        }
+        onEvent(event);
+        if (event.type === "done") {
+          result = { candidates: event.candidates, topics: event.topics };
+        } else if (event.type === "error") {
+          throw new Error(event.error || "Discover failed");
+        }
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  return result;
+}

@@ -1,0 +1,347 @@
+.discover-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.discover-content {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+/* Header — matches the Memos/Usage page-header convention */
+.discover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.discover-header-text {
+  min-width: 0;
+}
+
+.discover-title {
+  font-size: var(--text-xl, 1.25rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.discover-subtitle,
+.discover-generated {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.discover-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.discover-run-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.discover-run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Source-type selector */
+.discover-filter {
+  margin-bottom: var(--space-4);
+}
+
+.discover-types {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.discover-types-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.discover-types-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: var(--space-1);
+}
+
+.discover-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.discover-type-chip:hover:not(:disabled) {
+  color: var(--text-secondary);
+  border-color: var(--text-tertiary);
+}
+
+.discover-type-chip.active {
+  background: var(--accent-dim);
+  border-color: transparent;
+  color: var(--accent);
+}
+
+.discover-type-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Status / notes */
+.discover-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 var(--space-4);
+}
+
+.discover-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.discover-step.current {
+  color: var(--text-secondary);
+}
+
+.discover-step.done {
+  color: var(--text-tertiary);
+}
+
+.discover-step.done svg {
+  color: var(--accent);
+}
+
+.discover-note,
+.discover-error {
+  font-size: var(--text-sm);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.discover-note {
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.discover-note code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
+.discover-error {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+/* Topics */
+.discover-topics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.discover-topics-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.discover-topic-chip {
+  font-size: var(--text-xs);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+/* Sections + grid */
+.discover-section {
+  margin-bottom: var(--space-6);
+}
+
+.discover-section h2 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-3);
+}
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-3);
+}
+
+/* Card */
+.discover-card {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.discover-card:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.discover-card-cover {
+  flex-shrink: 0;
+  width: 64px;
+  height: 96px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.discover-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.discover-card-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.discover-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.discover-card-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 2px;
+  line-height: 1.25;
+}
+
+.discover-card-meta {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2);
+}
+
+.discover-card-reason {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0 0 var(--space-3);
+  flex: 1;
+}
+
+.discover-card-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.discover-card-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.discover-card-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.discover-card-btn.primary {
+  background: var(--accent-dim);
+  border-color: transparent;
+  color: var(--accent);
+}
+
+.discover-card-btn.primary:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Empty / placeholder */
+.discover-placeholder,
+.discover-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4);
+  color: var(--text-tertiary);
+  text-align: center;
+  font-size: var(--text-sm);
+}
+
+/* Spinner */
+.spin {
+  animation: discover-spin 1s linear infinite;
+}
+
+@keyframes discover-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

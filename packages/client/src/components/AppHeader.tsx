@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router";
 import { useUser } from "../UserContext";
-import { GitFork, Search, LogOut, BookOpen, StickyNote, Zap } from "lucide-react";
+import { GitFork, Search, LogOut, BookOpen, StickyNote, Zap, Compass } from "lucide-react";
 import "./AppHeader.css";
 
 interface AppHeaderProps {
@@ -10,6 +10,7 @@ interface AppHeaderProps {
 
 const NAV_ITEMS = [
   { path: "/library", label: "Library", icon: BookOpen },
+  { path: "/discover", label: "Discover", icon: Compass },
   { path: "/memos", label: "Memos", icon: StickyNote },
   { path: "/usage", label: "Usage", icon: Zap },
 ] as const;

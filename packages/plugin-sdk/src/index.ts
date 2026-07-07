@@ -11,6 +11,16 @@ export type {
   JinaFetchOptions,
 } from "./helpers.js";
 export type {
+  OwnedSource,
+  InterestModel,
+  CandidateKind,
+  Candidate,
+  LlmRunner,
+  DiscoverContext,
+  DiscoverProvider,
+  DiscoverRegistryApi,
+} from "./discover.js";
+export type {
   PiTreeServices,
   SourceService,
   SourceInfo,
@@ -28,4 +38,6 @@ export type {
   PluginRouteContext,
   PluginSetupResult,
   PluginManifest,
+  RouterDestination,
+  RouterRegistryApi,
 } from "./types.js";

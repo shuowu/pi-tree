@@ -45,7 +45,8 @@
         ]
       },
       "cardSubtitle": "{author}"
-    }
+    },
+    "routes": "./routes.ts"
   },
   "pi": {
     "extensions": [
@@ -57,6 +58,7 @@
   },
   "dependencies": {
     "@pi-tree/plugin-sdk": "*",
+    "hono": "^4.7.0",
     "typebox": "^1.2.6"
   }
 }

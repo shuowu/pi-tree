@@ -15,6 +15,9 @@ import { AgentTaskServiceImpl } from "./services/agent-task.js";
 import { MemoService } from "./services/memo-service.js";
 import { CursorServiceImpl } from "./services/cursor-service.js";
 import { contentCursors } from "./db/schema.js";
+import { DiscoverRegistry } from "./services/discover/registry.js";
+import { RouterDestinationRegistry } from "./services/destination-registry.js";
+import type { DiscoverProvider, RouterDestination } from "@pi-tree/plugin-sdk";
 
 /**
  * Resolve core plugin directories by finding their installed package locations.
@@ -168,6 +171,16 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
     extensionsPath: process.env.EXTENSIONS_PATH,
   });
 
+  // Register built-in router destinations (features, not sources).
+  RouterDestinationRegistry.getInstance().register({
+    id: "discover",
+    label: "Discover",
+    description:
+      "Recommends NEW books, papers, and feeds (not already in the library) based on the user's reading. Route here for suggestion/recommendation requests — 'suggest new books', 'what should I read next', 'any new papers in my area', 'feeds to follow', 'discover something new' — in any language.",
+    url: "/discover?run=1",
+    sourceTypeFilter: true,
+  });
+
   // Mount plugin-registered routes
   const registry = getAgentRegistry();
 
@@ -200,6 +213,12 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
           config: { jinaApiKey: process.env.JINA_API_KEY },
           jobQueue,
           agentTask,
+          discover: {
+            registerProvider: (provider: DiscoverProvider) => DiscoverRegistry.getInstance().register(provider),
+          },
+          router: {
+            registerDestination: (dest: RouterDestination) => RouterDestinationRegistry.getInstance().register(dest),
+          },
         });
         const routes = result.routes ?? result;
         app.route(route.prefix, routes);

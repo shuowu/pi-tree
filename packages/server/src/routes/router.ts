@@ -17,6 +17,8 @@ import {
 import { parseMentions, type ParsedMention } from "../agents/extensions/router/mention-parser.js";
 import { getExtensionServices } from "../agents/context.js";
 import { getAgentRegistry } from "../services/agent-registry.js";
+import { classifyIntent } from "../services/intent-classifier.js";
+import { RouterDestinationRegistry } from "../services/destination-registry.js";
 
 export const routerRoutes = new Hono();
 
@@ -101,8 +103,24 @@ routerRoutes.post("/route", async (c) => {
     // YouTube URLs need LLM (source creation + transcript fetch)
     if (parsed.youtubeUrl) return c.json({ resolved: false });
 
-    // No mentions → LLM fallback
-    if (parsed.mentions.length === 0) return c.json({ resolved: false });
+    // No mentions → classify natural-language intent with one constrained LLM
+    // call (cross-language). If it maps to a feature destination, route there
+    // deterministically; otherwise fall through to the full LLM router.
+    if (parsed.mentions.length === 0) {
+      const { destination, sourceTypes } = await classifyIntent(message);
+      if (destination) {
+        const dest = RouterDestinationRegistry.getInstance().get(destination);
+        if (dest) {
+          let url = dest.url;
+          // Carry the named content types through as a filter, if the destination supports it.
+          if (dest.sourceTypeFilter && sourceTypes.length) {
+            url += `${url.includes("?") ? "&" : "?"}types=${sourceTypes.join(",")}`;
+          }
+          return c.json({ resolved: true, action: "navigate", url, sourceTitle: dest.label });
+        }
+      }
+      return c.json({ resolved: false });
+    }
 
     // Any errors or unresolved mentions → LLM fallback
     if (parsed.mentions.some((m) => m.error || !m.sourceId)) return c.json({ resolved: false });

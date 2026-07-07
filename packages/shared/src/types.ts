@@ -298,11 +298,33 @@ export interface LookupConfig {
   promptTemplate: string;
 }
 
+/**
+ * Reading-list / "Discover" configuration.
+ *
+ * Controls the on-demand agent that suggests what to read next, grounded in
+ * what you've already read. See local-docs/READING-LIST.md.
+ */
+export interface ReadingListConfig {
+  /** off = feature disabled, on-demand = only when triggered, auto = proactive (reserved, not wired in MVP) */
+  mode: "off" | "on-demand" | "auto";
+  /** How many suggestions to return per section */
+  count: number;
+  /** 0 = tightly on-topic … 1 = deliberately broaden the boundary */
+  diversity: number;
+  /** Gate for the grounded lane (Open Library lookups). false = library-only, fully local. */
+  allowExternalLookup: boolean;
+  /** When mode === "auto": what triggers a refresh. Reserved for a later phase. */
+  autoTrigger: "on-finish" | "periodic" | "on-open";
+  /** Model override for discovery. Falls back to readingModel when unset. */
+  model?: string;
+}
+
 export interface ReaderConfig {
   summary: SummaryConfig;
   compaction: CompactionConfig;
   navigation: NavigationConfig;
   lookup: LookupConfig;
+  readingList: ReadingListConfig;
 }
 
 export const DEFAULT_CONFIG: ReaderConfig = {
@@ -323,6 +345,13 @@ export const DEFAULT_CONFIG: ReaderConfig = {
   },
   lookup: {
     promptTemplate: 'Define "{{term}}" concisely.',
+  },
+  readingList: {
+    mode: "on-demand",
+    count: 5,
+    diversity: 0.3,
+    allowExternalLookup: true,
+    autoTrigger: "on-finish",
   },
 };
 

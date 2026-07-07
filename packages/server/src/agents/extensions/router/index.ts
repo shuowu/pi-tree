@@ -4,6 +4,7 @@ import { definePiTreeExtension } from "@pi-tree/plugin-sdk";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseMentions } from "./mention-parser.js";
+import { RouterDestinationRegistry } from "../../../services/destination-registry.js";
 
 export default definePiTreeExtension((pi, services) => {
   /**
@@ -361,6 +362,36 @@ export default definePiTreeExtension((pi, services) => {
       }
     }
   });
+
+  // 4b. Navigate To — route to a feature/page destination (not a source).
+  // Choices come from the RouterDestinationRegistry, so new routable pages are
+  // added by registering a destination — no changes to this tool.
+  const destinations = RouterDestinationRegistry.getInstance().all();
+  if (destinations.length > 0) {
+    const destList = destinations.map((d) => `- "${d.id}": ${d.label} — ${d.description}`).join("\n");
+    pi.registerTool({
+      name: "navigate_to",
+      label: "Navigate To",
+      description:
+        "Route the user to a feature page (not a specific source/session). Use for intent that matches a destination below — in ANY language. Do NOT list library sources for these; the destination handles it. The frontend auto-redirects when this returns.\n\nAvailable destinations:\n" +
+        destList,
+      parameters: Type.Object({
+        destination: Type.String({ description: "The destination id to navigate to (one of the ids listed above)." }),
+      }),
+      async execute(_toolCallId, params) {
+        const dest = RouterDestinationRegistry.getInstance().get(params.destination);
+        if (!dest) {
+          throw new Error(
+            `Unknown destination "${params.destination}". Valid: ${RouterDestinationRegistry.getInstance().all().map((d) => d.id).join(", ")}`,
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify({ url: dest.url, destination: dest.id }, null, 2) }],
+          details: undefined,
+        };
+      },
+    });
+  }
 
   // 5. List Profiles — for router to discover custom session modes
   pi.registerTool({

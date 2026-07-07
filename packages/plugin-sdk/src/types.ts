@@ -283,6 +283,40 @@ export interface PluginRouteContext {
   };
   /** Service for running headless agent tasks (e.g. generating outlines) */
   agentTask: AgentTaskService;
+  /** Reading-list registry — register a DiscoverProvider for this plugin's source type */
+  discover: import("./discover.js").DiscoverRegistryApi;
+  /** Router registry — register a page/feature the home router can navigate users to */
+  router: RouterRegistryApi;
+}
+
+// ---------------------------------------------------------------------------
+// Router destinations — extensible routing targets for the home-page router
+// ---------------------------------------------------------------------------
+
+/**
+ * A navigable destination the home-page router can send users to (a feature/page,
+ * as opposed to a source/session). The LLM router picks one by `id` based on
+ * `description`. Register via `PluginRouteContext.router.registerDestination`.
+ */
+export interface RouterDestination {
+  /** Stable id the router selects by (e.g. "discover"). */
+  id: string;
+  /** Human-readable label. */
+  label: string;
+  /** When to route here — intent hints the LLM uses to decide. */
+  description: string;
+  /** Client-side navigation URL (e.g. "/discover?run=1"). */
+  url: string;
+  /**
+   * If true, the router may append a `types=<comma-separated>` query param when
+   * the user's message names specific content types (e.g. "book suggestions" →
+   * `?run=1&types=book`). The destination page is responsible for reading it.
+   */
+  sourceTypeFilter?: boolean;
+}
+
+export interface RouterRegistryApi {
+  registerDestination(destination: RouterDestination): void;
 }
 
 /**

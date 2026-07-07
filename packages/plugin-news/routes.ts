@@ -4,6 +4,7 @@ import { RemoteRssClient } from "./rss-client.js";
 import { readdirSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { closeNewsDb } from "./db.js";
+import { NewsFeedDiscoverProvider } from "./discover.js";
 import type { PluginRouteContext, PluginSetupResult } from "@pi-tree/plugin-sdk";
 
 export function setup(ctx: PluginRouteContext): PluginSetupResult {
@@ -17,6 +18,9 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
         dataPath: ctx.dataPath,
         sources: ctx.sources,
       });
+
+  // Register the reading-list provider — recommends new feeds to subscribe to.
+  ctx.discover.registerProvider(new NewsFeedDiscoverProvider(rssService));
 
   // Ensure canonical news source in core DB (always, both modes)
   ctx.sources.create({

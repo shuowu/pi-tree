@@ -11,6 +11,7 @@ import { Reader } from "./components/Reader";
 import { SessionsPage } from "./components/SessionsPage";
 import { UsageDashboard } from "./components/UsageDashboard";
 import { MemosPage } from "./components/MemosPage";
+import { DiscoverPage } from "./components/DiscoverPage";
 import { SpotlightSearch } from "./components/SpotlightSearch";
 import { AddSourceModal } from "./components/AddSourceModal";
 import { SettingsModal } from "./components/SettingsModal";
@@ -54,6 +55,7 @@ function AppRoutes() {
         </Route>
         <Route path="/usage" element={<UsageDashboard />} />
         <Route path="/memos" element={<MemosPage />} />
+        <Route path="/discover" element={<DiscoverPage />} />
         {/* Catch-all: redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
