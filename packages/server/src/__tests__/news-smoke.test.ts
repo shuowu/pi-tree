@@ -54,6 +54,7 @@ beforeAll(async () => {
     sessions: { listForSource: async () => [], create: async () => ({} as any), resolveUserId: async () => undefined, getById: async () => null },
     users: { get: async () => null, ensureExists: async (id: string) => ({ id, displayName: id }) },
     registry: { getProfiles: () => new Map(), getSourceTypes: () => [], resolveProfile: () => ({ skills: [], extensions: [] }) },
+    discover: { registerProvider: () => {} },
     config: {},
   });
 
