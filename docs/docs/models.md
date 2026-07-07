@@ -149,6 +149,10 @@ volumes:
 You can change models at runtime through the **Settings UI** — no restart needed. This is especially useful with multi-provider setups: switch between a local model for casual reading and a cloud model for complex analysis on the fly.
 :::
 
+## Usage Dashboard
+
+Pi-tree tracks token usage (input, output, cache) and estimated cost for every AI interaction — reading sessions, router chat, and dictionary lookups. The **Usage** page breaks it down by time range, source, and provider, and each session shows a live usage badge above the chat input. Everything is stored locally in your database; nothing is reported anywhere.
+
 ## What's Next?
 
 - **[Getting Started](/docs/getting-started)** — Set up pi-tree for the first time

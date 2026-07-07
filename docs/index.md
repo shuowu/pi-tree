@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Pi-tree
   text: AI that reads with you
-  tagline: "AI makes you productive where you already understand. It confuses you where you don't. Pi-tree works on the boundary — helping you cross from confusion into comprehension, not skip past it."
+  tagline: "Load books, research papers, news feeds, and YouTube videos — then explore them in branching, tree-structured AI conversations. Local-first, open source, bring your own key."
   actions:
     - theme: brand
       text: Get Started
@@ -22,20 +22,22 @@ features:
     details: Books (EPUB, MOBI, PDF), news feeds (RSS/Atom), research papers, YouTube videos — all stored as sources with AI-powered conversational exploration.
     linkText: See all source types →
     link: /docs/features
+  - icon: ✨
+    title: Discover
+    details: Ask "what should I read next?" — recommendations for new books, papers, and feeds grounded in your actual reading history, each with a reason tied to what you read. One click adds them to your library.
+    linkText: See it in action →
+    link: /docs/features#discover
+  - icon: 🧠
+    title: Memos & Concepts
+    details: Save takeaways as searchable memos, and let pi-tree extract concepts from every source into a cross-source knowledge graph — ideas link up across books, papers, and videos.
   - icon: 🏠
     title: Local-First
-    details: Everything runs on your machine. No cloud account, no subscription. Works with cloud APIs or fully offline with Ollama / local models.
-  - icon: 🖥️
-    title: Desktop App
-    details: Download and run — no Node.js, no Docker, no terminal. Available for macOS, Linux, and Windows.
+    details: Everything runs on your machine — desktop app, Docker, or from source. No cloud account, no subscription. Works with cloud APIs or fully offline with Ollama / local models.
   - icon: 🔌
-    title: Plugin Architecture
-    details: "Three levels of customization: drop in a skill file to change AI behavior, add a YAML profile to create a new source type, or build a full plugin with its own tools, routes, and UI."
+    title: Plugins & MCP
+    details: "Three levels of customization: drop in a skill file, add a YAML profile for a new source type, or build a full plugin. Connect external MCP servers with no code changes."
     linkText: Plugin guide →
     link: /docs/examples
-  - icon: 🧩
-    title: MCP Bridge
-    details: Connect external MCP servers for web search, academic databases, or any MCP-compatible tool — no code changes needed.
 ---
 
 <div class="demo-showcase">
@@ -52,7 +54,7 @@ features:
 
 ## Why Pi-tree?
 
-Most AI tools help you skip past material. That works when you already understand the domain. When you don't, skipping is exactly the problem. Pi-tree treats reading as a process worth having — one that expands what you're capable of understanding.
+**AI makes you productive where you already understand. It confuses you where you don't.** Most AI tools help you skip past material — paste, summarize, move on. That works when you already understand the domain; when you don't, skipping is exactly the problem. Pi-tree treats reading as a process worth having — one that expands what you're capable of understanding.
 
 <div class="comparison-table-wrapper">
 
@@ -127,27 +129,11 @@ Local-first — no cloud, no telemetry, no phone-home. But "local" isn't the int
 
 Most AI agents get **broad access** — shell, filesystem, network — and rely on you to supervise. Pi-tree flips this: each session type declares exactly which tools the agent can use, and everything else is blocked.
 
-- 🛡️ **Session-scoped permissions** — Each session type declares exactly which tools the agent can use. A book reading session gets 5-8 purpose-built tools. No shell. No file editing. No database writes.
-- 🔌 **Plugin isolation** — Each source type is an independent plugin with scoped access. Plugins can't reach server internals — services are injected at runtime.
-- 📝 **Declarative profiles** — Capabilities are configured in YAML. Audit them, override them, create your own. `exclude_tools: [bash, edit]` is the default for all user-facing sessions.
+- 🛡️ **Session-scoped permissions** — Each session type declares in YAML exactly which tools the agent can use. A book reading session gets 5-8 purpose-built tools. No shell. No file editing. No database writes. Audit the profiles, override them, create your own.
 - 📡 **Fully offline** — pair with [Ollama](https://ollama.com) for air-gapped operation. No internet required.
 - 📖 **Open source** — AGPL-3.0. Audit the code, fork it, self-host it.
 
 Pi-tree's agent is a **reading companion**, not a general-purpose agent. The permission model reflects that.
-
-</div>
-
-<div class="problem-section">
-
-## The Problem
-
-AI accelerates people inside their circle of competence and bewilders them outside it. Ask a domain expert a smart question and AI gives them a brilliant answer. Ask a beginner the same question and they get a confident-sounding paragraph they can't evaluate. Summaries, Q&A, "explain like I'm five" — they all assume you know enough to judge the output. When you don't, AI doesn't bridge the gap. It wallpapers over it.
-
-<p class="lead">
-Real comprehension isn't linear. You branch — <em>"wait, how does this connect to X?"</em> — then come back. You re-read something with new context. You accumulate a personal vocabulary of terms and ideas. You push your boundary outward, one concept at a time. Flat chat threads can't capture any of this.
-</p>
-
-**Pi-tree fixes this.** Each source gets a tree-structured conversation where branches happen on semantic shifts, you can zoom in and out freely, every user gets their own path, and everything stays local on your machine. The goal isn't to give you the answer faster — it's to expand the territory where you can evaluate answers for yourself.
 
 [Learn more about the vision →](/vision)
 

@@ -611,6 +611,16 @@ curl -X POST http://localhost:3847/api/news/crawl
 
 Feeds are crawled automatically every 30 minutes by default. Set `RSS_CRAWL_INTERVAL_MIN` to change the interval. On startup, feeds are crawled immediately if they're stale (no crawl in the last interval).
 
+### Remote Crawler (NAS Deployment)
+
+If pi-tree itself doesn't run 24/7 (e.g. a laptop), you can offload crawling to a standalone crawler service on an always-on machine like a NAS. Run the `ghcr.io/shuowu/pi-tree-rss-crawler` image there and point pi-tree at it:
+
+```bash
+RSS_REMOTE_URL=http://your-nas:3948
+```
+
+In remote mode, pi-tree proxies all feed operations to the crawler and skips local crawling entirely. See `packages/rss-crawler/README.md` for the crawler's full API and Docker Compose setup.
+
 ### Data Storage
 
 News data lives under `<DATA_PATH>/sources/news/`:

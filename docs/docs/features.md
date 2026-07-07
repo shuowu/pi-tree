@@ -80,6 +80,49 @@ Search arXiv directly from the chat. The AI fetches paper metadata, reads the fu
 - Full arXiv metadata (authors, publication date, categories)
 - Structured summary of the Transformer architecture with technical details
 
+## Discover
+
+Ask *"what should I read next?"* — in the home chat or from the **Discover** page — and pi-tree recommends what to read next based on what you've actually read. It reads your interest signals (sessions, memos, concepts) and suggests **new** sources you don't already own:
+
+- 📚 **Books** — candidates grounded against Open Library, with a link out to each work
+- 📄 **Papers** — matched on arXiv, with **Add to library → Read now** in one click
+- 📰 **Feeds** — RSS sites and YouTube channels, added to your feeds in one click
+
+<!-- TODO: add /images/screenshots/discover.png -->
+
+Every recommendation carries a **reason tied to your own reading history** — not "people also liked," but *"extends 'base rates,' which you went back and forth on across three sessions of Thinking, Fast and Slow."* Cross-modal connections are the point: reading a book can surface the paper it cites or the feed that covers the same space.
+
+**How it works:**
+1. Use the **Look for** chips to restrict which source types run (or leave all on)
+2. Providers stream their progress live as they search and ground candidates
+3. Results are cached per user — return to the page and your last run is instant, with a "Generated X ago" timestamp
+
+Like everything else, Discover is plugin-driven: each source plugin registers a `DiscoverProvider`, so custom source types can plug into the same pipeline.
+
+## Memos
+
+Memos are living notes derived from your conversations — a knowledge layer that persists across sources and sessions, searchable via full-text search.
+
+**Capture** — four gestures, from manual to AI-suggested:
+- `/memo [annotation]` — save the last AI response with your note attached
+- 📌 on the selection toolbar — save any highlighted text
+- The AI itself suggests saving key takeaways as you read
+- Create one from scratch on the **Memos** page
+
+**Recall** — `/recall <query>` searches your memos mid-conversation, ⌘K spotlight search finds them from anywhere, and the standalone Memos page supports filtering, inline editing, and appending. Every memo links back to the session it came from, so you can always navigate to the original context.
+
+## Concept Layer
+
+Pi-tree extracts key concepts from every source — books, papers, YouTube videos — into a personal knowledge graph.
+
+- **Concepts panel** in the Analysis tab, with links to the chapters where each concept appears and one-click **Ask** actions to start a conversation about it
+- **Knowledge graph** visualization showing how concepts connect across your library — ideas from a book link up with the paper and the video that touch the same territory
+- **Concept badges** on library cards show what's been extracted; reprocess any source incrementally or in bulk
+
+## Dictionary & Glossary
+
+Select any word or phrase while reading to look it up in context — definitions appear as stacked cards you can expand, and live in a Dictionary tab in the right panel. Lookups accumulate into a per-source glossary, so the vocabulary you build while reading a book stays with that book. Set `PI_LOOKUP_MODEL` to route lookups to a cheaper, faster model than your main reading model.
+
 ## The Three-Panel Layout
 
 Every session follows the same pattern:
