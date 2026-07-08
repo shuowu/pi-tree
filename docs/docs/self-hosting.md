@@ -17,6 +17,10 @@ This guide covers everything you need to configure, customize, and extend your p
 | `PI_MODEL` | — | Model ID for reading sessions (e.g., `claude-sonnet-4-20250514`) |
 | `PI_LOOKUP_MODEL` | — | Model ID for dictionary lookups (can be a cheaper/faster model) |
 | `DATA_PATH` | `~/.local/share/pi-tree` | Root for all state: sessions, database, library, user skills |
+| `PI_TREE_DB_URL` | — | Remote sqld/libsql-server URL for the main database (`http://` or `libsql://`). Unset = local file at `<DATA_PATH>/pi-tree.db`. See [Remote Database](#remote-database) |
+| `PI_TREE_DB_AUTH_TOKEN` | — | JWT auth token for `PI_TREE_DB_URL` (if the sqld server has auth enabled) |
+| `PI_TREE_NEWS_DB_URL` | — | Remote sqld URL for the news plugin database. Unset = local file at `<DATA_PATH>/plugins/news/news.db` |
+| `PI_TREE_NEWS_DB_AUTH_TOKEN` | — | JWT auth token for `PI_TREE_NEWS_DB_URL` |
 | `SKILLS_PATH` | `<DATA_PATH>/skills` | Custom skills directory |
 | `EXTENSIONS_PATH` | `<DATA_PATH>/extensions` | Custom extensions directory |
 | `PORT` | `3847` | Server port |
@@ -258,6 +262,39 @@ docker compose up --build
 ```
 
 This builds the image from the `Dockerfile` in the repository root and starts the container.
+
+## Remote Database (sqld) {#remote-database}
+
+By default pi-tree stores its databases as SQLite files under `DATA_PATH`. That's the right choice as long as `DATA_PATH` is on a **local disk**. It is *not* safe when `DATA_PATH` lives on a network filesystem (SSHFS, NFS, SMB): SQLite's WAL mode coordinates through memory-mapped shared memory, which network filesystems can't provide coherently, causing intermittent `SQLITE_CORRUPT: database disk image is malformed` errors — even with a single writer.
+
+If you want your data on another machine (e.g. a NAS, so multiple machines can share one library), run [sqld / libsql-server](https://github.com/tursodatabase/libsql) on that machine and point pi-tree at it over HTTP instead:
+
+```bash
+PI_TREE_DB_URL=http://your-nas:8880        # main database
+PI_TREE_NEWS_DB_URL=http://your-nas:8881   # news plugin database
+```
+
+Pi-tree already uses `@libsql/client`, so no other configuration changes — schema migrations still run automatically on startup, and unsetting the variables falls back to local files. This is also the correct multi-machine setup: sqld is a single writer process, so concurrent clients are properly serialized instead of fighting over file locks.
+
+A ready-made Compose file for the sqld side (two instances plus a nightly backup job) lives at [`config/nas/docker-compose.sqld.yml`](https://github.com/shuowu/pi-tree/blob/master/config/nas/docker-compose.sqld.yml). Copy it and `config/nas/sqld-backup.sh` to the target machine and run `docker-compose up -d`.
+
+### Seeding from an existing database
+
+To migrate existing SQLite files into sqld:
+
+1. Stop pi-tree, then checkpoint and verify each file on a local disk:
+   `PRAGMA wal_checkpoint(TRUNCATE); PRAGMA integrity_check;`
+2. Stop the sqld container.
+3. Replace `<sqld-volume>/iku.db/dbs/default/data` with your file, deleting `data-wal`, `data-shm`, and the `wallog` directory next to it.
+4. Start the container. The log line `recovering from database file` confirms sqld adopted your data. Verify with a row-count comparison before switching pi-tree over.
+
+### Backups and restore
+
+The bundled `sqld-backup.sh` runs nightly inside an alpine container, using the SQLite backup API (safe against a live writer) plus an integrity check, keeping 14 dated copies per database. Restoring a backup is the same procedure as seeding, using a file from the backup directory.
+
+:::warning
+sqld ships without authentication by default — anyone on the network can read and write. On a trusted home LAN that may be acceptable; otherwise configure sqld's JWT auth and set `PI_TREE_DB_AUTH_TOKEN` / `PI_TREE_NEWS_DB_AUTH_TOKEN`.
+:::
 
 ## Custom Skills
 

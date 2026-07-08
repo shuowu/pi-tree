@@ -1,0 +1,55 @@
+# sqld (libsql-server) deployment for pi-tree — runs on an always-on machine
+# (e.g. a Synology NAS) so the SQLite databases live on that machine's LOCAL
+# disk and are served over HTTP. Never open pi-tree's SQLite files directly
+# over a network filesystem (SSHFS/NFS/SMB): WAL shared memory is incoherent
+# there and causes intermittent SQLITE_CORRUPT errors.
+#
+# Deployed at: /volume1/Docker/pi-tree-sqld/docker-compose.yml
+# Point pi-tree at it with (see docs/docs/self-hosting.md):
+#   PI_TREE_DB_URL=http://<nas-host>:8880
+#   PI_TREE_NEWS_DB_URL=http://<nas-host>:8881
+#
+# Seeding from an existing SQLite file:
+#   1. Checkpoint it (PRAGMA wal_checkpoint(TRUNCATE)) and integrity-check it.
+#   2. Stop the sqld container.
+#   3. Replace <volume>/iku.db/dbs/default/data with your file; delete
+#      data-wal, data-shm, and the wallog directory next to it.
+#   4. Start the container — the log line "recovering from database file"
+#      confirms sqld adopted it.
+#
+# Restoring a backup = the same procedure with a file from /backups.
+
+services:
+  sqld-main:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    container_name: pi-tree-sqld-main
+    restart: unless-stopped
+    ports:
+      - "8880:8080"
+    volumes:
+      - /volume1/Docker/pi-tree-sqld/main-data:/var/lib/sqld
+
+  sqld-news:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    container_name: pi-tree-sqld-news
+    restart: unless-stopped
+    ports:
+      - "8881:8080"
+    volumes:
+      - /volume1/Docker/pi-tree-sqld/news-data:/var/lib/sqld
+
+  # Nightly backups via the SQLite backup API (safe against live writers).
+  # keinos/sqlite3 ships the sqlite3 CLI preinstalled — no package install at
+  # startup (apk inside plain alpine hits seccomp "Permission denied" on
+  # Synology's older Docker daemon, and needs network on every recreate).
+  sqld-backup:
+    image: keinos/sqlite3:latest
+    container_name: pi-tree-sqld-backup
+    restart: unless-stopped
+    # Root: needs write access to sqld's -shm files (read locks) and /backups.
+    user: "0:0"
+    volumes:
+      - /volume1/Docker/pi-tree-sqld:/data
+      - /volume1/Docker/pi-tree-backups/auto:/backups
+      - /volume1/Docker/pi-tree-sqld/sqld-backup.sh:/sqld-backup.sh:ro
+    entrypoint: ["sh", "/sqld-backup.sh"]
