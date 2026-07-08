@@ -259,6 +259,80 @@ describe("ChatView", () => {
     });
   });
 
+  // ── Streaming auto-scroll (follow) ─────────────────────────────────────
+
+  describe("streaming auto-scroll", () => {
+    // The streaming follow effect scrolls with behavior "instant"; other
+    // scrolls (new user message, scroll-to-bottom button) use "smooth".
+    const instantScrolls = () =>
+      (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.filter(
+        ([arg]) => arg?.behavior === "instant",
+      );
+
+    const streamingProps = { ...defaultProps, isLoading: true, streamingContent: "Hello" };
+
+    it("follows streaming content by default", () => {
+      const { rerender } = render(<ChatView {...streamingProps} />);
+      vi.clearAllMocks();
+
+      rerender(<ChatView {...streamingProps} streamingContent="Hello world" />);
+
+      expect(instantScrolls().length).toBeGreaterThan(0);
+    });
+
+    it("stops following immediately when the user wheels up", () => {
+      const { container, rerender } = render(<ChatView {...streamingProps} />);
+      const messagesEl = container.querySelector(".pit-chat-messages")!;
+      vi.clearAllMocks();
+
+      fireEvent.wheel(messagesEl, { deltaY: -100 });
+      rerender(<ChatView {...streamingProps} streamingContent="Hello world" />);
+
+      expect(instantScrolls()).toHaveLength(0);
+    });
+
+    it("stays stopped when a coalesced scroll event reports the bottom position", () => {
+      // Regression: during streaming, the user's wheel-up and our programmatic
+      // snap-to-bottom coalesce into one scroll event that reports "at bottom".
+      // That event must not re-engage follow.
+      const { container, rerender } = render(<ChatView {...streamingProps} />);
+      const messagesEl = container.querySelector(".pit-chat-messages")!;
+      vi.clearAllMocks();
+
+      fireEvent.wheel(messagesEl, { deltaY: -100 });
+      // jsdom geometry (all zeros) makes distanceFromBottom = 0, i.e. "at bottom"
+      fireEvent.scroll(messagesEl);
+      rerender(<ChatView {...streamingProps} streamingContent="Hello world" />);
+
+      expect(instantScrolls()).toHaveLength(0);
+    });
+
+    it("re-engages follow when the user scrolls back down to the bottom", () => {
+      const { container, rerender } = render(<ChatView {...streamingProps} />);
+      const messagesEl = container.querySelector(".pit-chat-messages")!;
+      vi.clearAllMocks();
+
+      fireEvent.wheel(messagesEl, { deltaY: -100 }); // break follow
+      fireEvent.wheel(messagesEl, { deltaY: 100 }); // scroll back down…
+      fireEvent.scroll(messagesEl); // …landing at the bottom (jsdom geometry)
+      rerender(<ChatView {...streamingProps} streamingContent="Hello world" />);
+
+      expect(instantScrolls().length).toBeGreaterThan(0);
+    });
+
+    it("stops following when the user drags a finger down (touch scroll up)", () => {
+      const { container, rerender } = render(<ChatView {...streamingProps} />);
+      const messagesEl = container.querySelector(".pit-chat-messages")!;
+      vi.clearAllMocks();
+
+      fireEvent.touchStart(messagesEl, { touches: [{ clientY: 100 }] });
+      fireEvent.touchMove(messagesEl, { touches: [{ clientY: 200 }] });
+      rerender(<ChatView {...streamingProps} streamingContent="Hello world" />);
+
+      expect(instantScrolls()).toHaveLength(0);
+    });
+  });
+
   // ── Quote flow ─────────────────────────────────────────────────────────
 
   describe("quote flow", () => {

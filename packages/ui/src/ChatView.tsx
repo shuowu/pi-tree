@@ -10,6 +10,11 @@ import { BookOpen, ChevronDown, GitBranch, Loader, Square } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
 import "./styles/ChatView.css";
 
+/** Distance (px) from the bottom within which the scroll-to-bottom button hides */
+const NEAR_BOTTOM_THRESHOLD = 300;
+/** Distance (px) from the bottom within which a user scroll re-engages follow */
+const FOLLOW_REENGAGE_THRESHOLD = 40;
+
 interface ChatViewProps {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -132,10 +137,13 @@ export function ChatView({
   // Unlike streamingContent (which goes falsy between turns), isLoading stays
   // true for the entire interaction, so we use it to detect the true start/end.
   const wasLoadingRef = useRef(false);
-  // Tracks whether a real user scroll gesture is in progress. Set by wheel/
-  // touchmove listeners (which ONLY fire from user input, never from
-  // programmatic scrolls), consumed by the scroll handler.
-  const userScrollIntentRef = useRef(false);
+  // Direction of the most recent user scroll gesture. Set by wheel/touch/key
+  // listeners (which ONLY fire from user input, never from programmatic
+  // scrolls), consumed by the scroll handler to decide follow re-engagement.
+  const userScrollIntentRef = useRef<"up" | "down" | null>(null);
+  // Last observed scrollTop, for detecting scroll direction in the handler
+  // (catches scrollbar drags, which fire no wheel/touch/key events).
+  const lastScrollTopRef = useRef(0);
 
 
   // Client-side filter: hide unused placeholder branches from the user.
@@ -157,24 +165,61 @@ export function ChatView({
   }, [scrollDir, onScrollDirectionChange]);
 
   // Track whether user is near the bottom (for scroll-to-bottom button)
-  // Also detect user-initiated scrolls during loading to disable auto-scroll.
+  // and manage streaming follow state (ChatGPT-style).
   //
-  // Strategy: wheel/touchmove events ONLY fire from real user input (never
-  // from programmatic scrollIntoView calls). We set userScrollIntentRef on
-  // those events, then read it in the scroll handler to decide whether to
-  // update autoScrollRef. This eliminates race conditions where scrollIntoView
-  // fires multiple scroll events or interleaves with user gestures.
+  // Breaking follow must happen synchronously in the input handlers (wheel
+  // up, finger drag down, PageUp/ArrowUp) — NOT in the scroll handler.
+  // During streaming, our per-token scrollIntoView calls fire scroll events
+  // that the browser coalesces with the user's gesture into one event
+  // reporting the bottom position, so the scroll handler can never reliably
+  // see the user scrolling away. The scroll handler only handles
+  // re-engagement (user returns to the bottom) plus a direction-based
+  // backstop for scrollbar drags, which produce no wheel/touch/key events.
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
 
-    const markUserIntent = () => {
-      userScrollIntentRef.current = true;
+    lastScrollTopRef.current = el.scrollTop;
+
+    const breakFollow = () => {
+      if (wasLoadingRef.current) autoScrollRef.current = false;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      userScrollIntentRef.current = e.deltaY < 0 ? "up" : "down";
+      if (e.deltaY < 0) breakFollow();
+    };
+
+    let lastTouchY: number | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      lastTouchY = e.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY;
+      if (y === undefined || lastTouchY === null) return;
+      // Finger moving down drags the content down — i.e. scrolling up
+      const scrollingUp = y > lastTouchY;
+      userScrollIntentRef.current = scrollingUp ? "up" : "down";
+      if (scrollingUp) breakFollow();
+      lastTouchY = y;
+    };
+
+    const upKeys = new Set(["ArrowUp", "PageUp", "Home"]);
+    const downKeys = new Set(["ArrowDown", "PageDown", "End", " "]);
+    const onKeyScroll = (e: KeyboardEvent) => {
+      if (upKeys.has(e.key)) {
+        userScrollIntentRef.current = "up";
+        breakFollow();
+      } else if (downKeys.has(e.key)) {
+        userScrollIntentRef.current = "down";
+      }
     };
 
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      const nearBottom = distanceFromBottom < 300;
+      const scrolledUp = el.scrollTop < lastScrollTopRef.current;
+      lastScrollTopRef.current = el.scrollTop;
+      const nearBottom = distanceFromBottom < NEAR_BOTTOM_THRESHOLD;
 
       // Only trigger a rerender when the boolean actually flips.
       if (nearBottom !== isNearBottomRef.current) {
@@ -182,28 +227,32 @@ export function ChatView({
         setIsNearBottom(nearBottom);
       }
 
-      // While the AI is responding, track whether the user scrolled away.
-      // Only update autoScrollRef when we know this scroll came from the
-      // user (wheel/touchmove set the intent flag). Programmatic scrolls
-      // (from scrollIntoView) never set the flag, so they're ignored.
-      if (wasLoadingRef.current && userScrollIntentRef.current) {
-        autoScrollRef.current = nearBottom;
+      if (wasLoadingRef.current) {
+        if (scrolledUp && distanceFromBottom > FOLLOW_REENGAGE_THRESHOLD) {
+          // Scrollbar-drag backstop: our programmatic follow scrolls always
+          // land at the bottom, so an upward scroll that ends away from it
+          // can only come from the user.
+          autoScrollRef.current = false;
+        } else if (
+          userScrollIntentRef.current === "down" &&
+          distanceFromBottom <= FOLLOW_REENGAGE_THRESHOLD
+        ) {
+          // User deliberately scrolled back to the bottom — resume following.
+          autoScrollRef.current = true;
+        }
       }
-      userScrollIntentRef.current = false;
+      userScrollIntentRef.current = null;
     };
 
-    const onKeyScroll = (e: KeyboardEvent) => {
-      const scrollKeys = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
-      if (scrollKeys.has(e.key)) userScrollIntentRef.current = true;
-    };
-
-    el.addEventListener("wheel", markUserIntent, { passive: true });
-    el.addEventListener("touchmove", markUserIntent, { passive: true });
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: true });
     el.addEventListener("keydown", onKeyScroll, { passive: true });
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      el.removeEventListener("wheel", markUserIntent);
-      el.removeEventListener("touchmove", markUserIntent);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("keydown", onKeyScroll);
       el.removeEventListener("scroll", onScroll);
     };
