@@ -20,6 +20,11 @@ COPY packages/electron/package.json ./packages/electron/
 
 RUN npm ci
 
+# Guard: npm treats optional-dependency install failures (e.g. a flaky
+# registry fetch of @libsql/linux-x64-gnu) as non-fatal, which would ship an
+# image that crash-loops at startup. Fail the build here instead.
+RUN node -e "require('libsql')"
+
 # ── Stage 2: Build all packages (shared → core → server → client) ────
 FROM deps AS build
 
