@@ -1,6 +1,6 @@
 {
   "name": "@pi-tree/plugin-sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "SDK for building pi-tree plugins. Provides typed services, route helpers, and manifest types for self-contained Pi packages.",
   "type": "module",
   "exports": {
