@@ -67,9 +67,23 @@ export async function getNewsDb(dataDir: string) {
   if (dbPromise) return dbPromise;
 
   dbPromise = (async () => {
-    mkdirSync(dataDir, { recursive: true });
-    const dbPath = join(dataDir, "news.db");
-    client = createClient({ url: `file:${dbPath}` });
+    // PI_TREE_NEWS_DB_URL points at a remote sqld/libsql-server endpoint
+    // (http:// or libsql://) — used when the data dir is on a network
+    // filesystem, where local SQLite files are unsafe.
+    const remoteUrl = process.env.PI_TREE_NEWS_DB_URL;
+    if (remoteUrl) {
+      console.log(`[news-db] Connecting to remote database at ${remoteUrl}`);
+      client = createClient({
+        url: remoteUrl,
+        ...(process.env.PI_TREE_NEWS_DB_AUTH_TOKEN
+          ? { authToken: process.env.PI_TREE_NEWS_DB_AUTH_TOKEN }
+          : {}),
+      });
+    } else {
+      mkdirSync(dataDir, { recursive: true });
+      const dbPath = join(dataDir, "news.db");
+      client = createClient({ url: `file:${dbPath}` });
+    }
 
     const db = drizzle(client);
 

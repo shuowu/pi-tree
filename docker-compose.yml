@@ -4,7 +4,9 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-3847}:${PORT:-3847}"
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     volumes:
       # Bind mount — data persists across rebuilds on the host filesystem.
       # Set PI_TREE_DATA in .env to your data directory (default: ./data).
