@@ -846,6 +846,25 @@ export class TreeManager {
     return stripPlaceholders(this.buildTreeView());
   }
 
+  /**
+   * Full-tree snapshot for exports: the placeholder-stripped tree plus the
+   * message content for every node, as a plain JSON-serializable object.
+   */
+  getExportSnapshot(): {
+    tree: TreeNodeView;
+    contents: Record<
+      string,
+      { role: string; content: string; timestamp: string; toolSteps?: import("@pi-tree/core").ToolStep[] }
+    >;
+  } {
+    const tree = stripPlaceholders(this.buildTreeView());
+    const contents: ReturnType<TreeManager["getExportSnapshot"]>["contents"] = {};
+    for (const [id, entry] of this.piSession.getMessageContentMap()) {
+      contents[id] = entry;
+    }
+    return { tree, contents };
+  }
+
   getBreadcrumb(): BreadcrumbItem[] {
     return this.piSession.getBreadcrumb().map((b) => ({
       nodeId: b.entryId,

@@ -4,8 +4,9 @@
   "version": "0.3.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run build:viewer && vite",
+    "build": "tsc -b && vite build && vite build --config vite.viewer.config.ts",
+    "build:viewer": "vite build --config vite.viewer.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run"
@@ -37,6 +38,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
+    "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^4.1.8"
   }
 }

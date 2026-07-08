@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import type { SourceSession } from "@pi-tree/shared";
-import { Pencil, Trash2, Check, X } from "lucide-react";
+import { Pencil, Trash2, Check, X, Download } from "lucide-react";
 import "./SessionList.css";
 
 // ---------------------------------------------------------------------------
@@ -61,6 +61,7 @@ interface SessionCardProps {
   onStartDelete?: () => void;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
+  onExport?: (format: "html" | "jsonl") => void;
   isLoading: boolean;
   /** If true, the card is readonly — no rename/delete actions, click anywhere to select */
   readonly: boolean;
@@ -83,9 +84,12 @@ function SessionCard({
   onStartDelete,
   onConfirmDelete,
   onCancelDelete,
+  onExport,
   isLoading,
   readonly,
 }: SessionCardProps) {
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   if (readonly) {
     return (
       <button
@@ -157,6 +161,34 @@ function SessionCard({
             </span>
           </div>
           <div className="session-card-actions">
+            {onExport && (
+              <div
+                className="session-card-export"
+                onMouseLeave={() => setShowExportMenu(false)}
+              >
+                <button
+                  className="session-card-action-btn"
+                  onClick={(e) => { e.stopPropagation(); setShowExportMenu((v) => !v); }}
+                  title="Export session"
+                >
+                  <Download size={13} />
+                </button>
+                {showExportMenu && (
+                  <div className="session-card-export-menu">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onExport("html"); setShowExportMenu(false); }}
+                    >
+                      Web page (.html)
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onExport("jsonl"); setShowExportMenu(false); }}
+                    >
+                      Data file (.jsonl)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <button
               className="session-card-action-btn"
               onClick={(e) => { e.stopPropagation(); onStartRename?.(); }}
@@ -202,6 +234,8 @@ interface SessionListProps {
   onDeleteSession?: (sessionId: number) => void;
   /** If omitted, the list is readonly — no rename actions */
   onRenameSession?: (sessionId: number, newTitle: string) => void;
+  /** If provided, each card gets an export menu (html / jsonl) */
+  onExportSession?: (sessionId: number, format: "html" | "jsonl") => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -214,6 +248,7 @@ export function SessionList({
   onSelectSession,
   onDeleteSession,
   onRenameSession,
+  onExportSession,
   isLoading = false,
   className,
 }: SessionListProps) {
@@ -281,6 +316,11 @@ export function SessionList({
           onStartDelete={() => setDeletingId(session.id)}
           onConfirmDelete={() => confirmDelete(session.id)}
           onCancelDelete={() => setDeletingId(null)}
+          onExport={
+            onExportSession
+              ? (format) => onExportSession(session.id, format)
+              : undefined
+          }
           isLoading={isLoading}
           readonly={readonly}
         />

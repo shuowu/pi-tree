@@ -344,6 +344,38 @@ export async function createSession(
 }
 
 /**
+ * Build the download URL for a session export.
+ * `html` — standalone read-only viewer; `jsonl` — re-importable bundle.
+ */
+export function exportSessionUrl(
+  userId: string,
+  sourceId: string,
+  sessionId: number,
+  format: "html" | "jsonl",
+  nodeId?: string,
+): string {
+  const base = `${API}/export/${encodeURIComponent(userId)}/${encodeURIComponent(sourceId)}/${sessionId}/${format}`;
+  return nodeId ? `${base}?nodeId=${encodeURIComponent(nodeId)}` : base;
+}
+
+/**
+ * Import a session from a jsonl export bundle. Returns the created session
+ * (its sourceId may differ from the page it was imported on).
+ */
+export async function importSession(userId: string, bundleText: string): Promise<SourceSession> {
+  const res = await fetch(`${API}/import/${encodeURIComponent(userId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/jsonl" },
+    body: bundleText,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Import failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
  * Update a session's title or context.
  */
 export async function updateSession(

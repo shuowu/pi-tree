@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import type { Source, SourceSession } from "@pi-tree/shared";
 import type { ProfileInfo } from "../api";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Upload } from "lucide-react";
 import { Sparkles } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
 import { resolveIcon } from "../utils/resolve-icon";
@@ -28,6 +28,9 @@ interface SessionPickerProps {
   onNewSession: (mode: SessionMode, customTitle?: string, initialQuery?: string, profile?: string) => void;
   onDeleteSession: (sessionId: number) => void;
   onRenameSession: (sessionId: number, newTitle: string) => void;
+  onExportSession?: (sessionId: number, format: "html" | "jsonl") => void;
+  /** Import a .pi-tree.jsonl bundle file */
+  onImportFile?: (file: File) => void;
   isLoading: boolean;
 }
 
@@ -39,8 +42,11 @@ export function SessionPicker({
   onNewSession,
   onDeleteSession,
   onRenameSession,
+  onExportSession,
+  onImportFile,
   isLoading,
 }: SessionPickerProps) {
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [showProfilePicker, setShowProfilePicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [modeFilter, setModeFilter] = useState<string | null>(null);
@@ -141,6 +147,31 @@ export function SessionPicker({
     }
   };
 
+  const importControl = onImportFile ? (
+    <>
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".jsonl,application/jsonl,application/x-jsonlines"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onImportFile(file);
+          e.target.value = ""; // allow re-importing the same file
+        }}
+      />
+      <button
+        className="session-picker-import-btn"
+        onClick={() => importInputRef.current?.click()}
+        disabled={isLoading}
+        title="Import a session exported as .jsonl"
+      >
+        <Upload size={13} />
+        Import
+      </button>
+    </>
+  ) : null;
+
   const renderModeIcon = (session: SourceSession) => {
     const mode = session.context.mode;
     const profileKey = `${source.type}.${mode}`;
@@ -179,6 +210,7 @@ export function SessionPicker({
                 <Plus size={16} />
                 Start Session
               </button>
+              {importControl}
             </>
           ) : (
             <>
@@ -277,6 +309,7 @@ export function SessionPicker({
               ? `${sessions.length} session${sessions.length !== 1 ? "s" : ""}`
               : `${filteredSessions.length} of ${sessions.length} sessions`}
           </p>
+          {importControl}
         </div>
 
         {/* Search + mode filter toolbar */}
@@ -327,6 +360,7 @@ export function SessionPicker({
               onSelectSession={onSelectSession}
               onDeleteSession={onDeleteSession}
               onRenameSession={onRenameSession}
+              onExportSession={onExportSession}
               isLoading={isLoading}
               className="session-picker-list"
             />

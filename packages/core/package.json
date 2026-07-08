@@ -20,6 +20,11 @@
       "source": "./src/types/index.ts",
       "types": "./dist/types/index.d.ts",
       "import": "./dist/types/index.js"
+    },
+    "./tree-nav": {
+      "source": "./src/session/tree-nav.ts",
+      "types": "./dist/session/tree-nav.d.ts",
+      "import": "./dist/session/tree-nav.js"
     }
   },
   "scripts": {

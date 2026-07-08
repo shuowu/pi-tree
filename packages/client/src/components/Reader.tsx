@@ -15,7 +15,7 @@ import { DictQuickCardStack } from "./DictionaryPanel";
 import { SessionUsageBadge } from "./SessionUsageBadge";
 import { NavMenu } from "./NavMenu";
 
-import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis, summarizeBranch } from "../api";
+import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis, summarizeBranch, exportSessionUrl } from "../api";
 import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
 import { PanelLeft, PanelRight, Layers, Settings, Zap, StickyNote, Search, FileText } from "lucide-react";
 import { getSourceTypeConfig } from "../source-types";
@@ -366,6 +366,15 @@ export function Reader() {
         onNavigate={session.handleNavigate}
         onDeleteNode={session.handleDeleteNode}
         onRenameNode={session.handleRenameNode}
+        onExportNode={(nodeId) => {
+          if (!userId || session.sessionId === null) return;
+          const a = document.createElement("a");
+          a.href = exportSessionUrl(userId, source.id, session.sessionId, "html", nodeId);
+          a.download = "";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }}
         isOpen={panel.sidebarOpen}
         onClose={() => panel.setSidebarOpen(false)}
       />

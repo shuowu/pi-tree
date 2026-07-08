@@ -1,0 +1,98 @@
+/* Layout for the standalone export viewer.
+   Component styling (tree entries, chat bubbles, breadcrumb) comes from the
+   app's own stylesheets — this file only arranges the page. */
+
+.viewer {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+/* ── Tree panel — static column (the app's .sidebar is a fixed overlay) ── */
+
+.viewer-sidebar {
+  width: var(--sidebar-width, 300px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.viewer-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.viewer-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.viewer-sidebar-footer {
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.viewer-sidebar-footer a {
+  color: var(--text-muted);
+}
+
+/* ── Main column ── */
+
+.viewer-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer-chat {
+  width: 100%;
+  max-width: var(--chat-max-width, 780px);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.viewer-empty-scope {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--space-6) 0;
+}
+
+.viewer-no-snapshot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: var(--text-muted);
+  font-family: var(--font-sans, sans-serif);
+}
+
+@media (max-width: 768px) {
+  .viewer {
+    flex-direction: column;
+  }
+  .viewer-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 240px;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}

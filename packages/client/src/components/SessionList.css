@@ -122,6 +122,44 @@ button.session-card-readonly:disabled {
   color: var(--red);
 }
 
+/* ── Export dropdown ── */
+
+.session-card-export {
+  position: relative;
+  display: flex;
+}
+
+.session-card-export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  padding: var(--space-1);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.session-card-export-menu button {
+  background: none;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.session-card-export-menu button:hover {
+  background: var(--bg-hover);
+}
+
 .session-card-resume-btn {
   font-size: var(--text-sm);
   font-weight: 500;

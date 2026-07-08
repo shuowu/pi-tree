@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import type { SourceSession, SessionContext } from "@pi-tree/shared";
-import { fetchSessions, createSession, updateSession, deleteSession, fetchProfiles } from "../api";
+import { fetchSessions, createSession, updateSession, deleteSession, fetchProfiles, exportSessionUrl, importSession } from "../api";
 import type { ProfileInfo } from "../api";
 import { useUser } from "../UserContext";
 import { SessionPicker } from "./SessionPicker";
@@ -86,6 +86,30 @@ export function SessionsPage() {
     }
   };
 
+  const handleExportSession = (sessionId: number, format: "html" | "jsonl") => {
+    if (!userId) return;
+    const a = document.createElement("a");
+    a.href = exportSessionUrl(userId, source.id, sessionId, format);
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const handleImportFile = async (file: File) => {
+    if (!userId) return;
+    setIsLoading(true);
+    try {
+      const text = await file.text();
+      const session = await importSession(userId, text);
+      // The bundle carries its own source — navigate to wherever it landed
+      navigate(`/source/${session.sourceId}?session=${session.id}`);
+    } catch (err) {
+      setIsLoading(false);
+      alert(err instanceof Error ? err.message : "Import failed");
+    }
+  };
+
   const panelToggles = useMemo(() => [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: () => navigate("/") },
     { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettings, onClick: () => setShowSettings(true) },
@@ -109,6 +133,8 @@ export function SessionsPage() {
         onNewSession={handleNewSession}
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
+        onExportSession={handleExportSession}
+        onImportFile={handleImportFile}
         isLoading={isLoading}
       />
 

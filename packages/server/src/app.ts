@@ -14,6 +14,7 @@ import { configRoutes } from "./routes/config.js";
 import { usageRoutes } from "./routes/usage.js";
 import { memoRoutes } from "./routes/memos.js";
 import { discoverRoutes } from "./routes/discover.js";
+import { exportRoutes, importRoutes } from "./routes/transfer.js";
 
 import { getAgentRegistry } from "./services/agent-registry.js";
 import { VERSION } from "./version.js";
@@ -72,6 +73,8 @@ app.route("/api/config", configRoutes);
 app.route("/api/usage", usageRoutes);
 app.route("/api/memos", memoRoutes);
 app.route("/api/discover", discoverRoutes);
+app.route("/api/export", exportRoutes);
+app.route("/api/import", importRoutes);
 
 // Profiles introspection — list all available session profiles
 app.get("/api/profiles", (c) => {

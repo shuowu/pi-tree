@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { type TreeNodeView } from "@pi-tree/core/types";
-import { GitBranch, HelpCircle, X, Trash2, Pencil } from "lucide-react";
+import { GitBranch, HelpCircle, X, Trash2, Pencil, Download } from "lucide-react";
 import { buildTooltip } from "../utils/tree-utils";
 import "./Sidebar.css";
 
@@ -23,11 +23,13 @@ interface SidebarProps {
   onNavigate: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onRenameNode?: (nodeId: string, newLabel: string) => void;
+  /** Export the branch rooted at this node as a standalone HTML file */
+  onExportNode?: (nodeId: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDeleteNode, onRenameNode, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDeleteNode, onRenameNode, onExportNode, isOpen, onClose }: SidebarProps) {
   return (
     <aside className={`sidebar ${isOpen ? "open" : ""}`} data-testid="sidebar">
       <div className="sidebar-header">
@@ -58,6 +60,7 @@ export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDel
           onNavigate={onNavigate}
           onDeleteNode={onDeleteNode}
           onRenameNode={onRenameNode}
+          onExportNode={onExportNode}
         />
       </div>
     </aside>
@@ -65,14 +68,17 @@ export function Sidebar({ tree, viewNodeId, generatingNodeIds, onNavigate, onDel
 }
 
 // ── Tree View (Session Tree) ──
+// Exported for reuse by the standalone export viewer (src/viewer/), which
+// renders the same tree read-only (omit onDeleteNode/onRenameNode).
 
-function TreeView({
+export function TreeView({
   tree,
   viewNodeId,
   generatingNodeIds,
   onNavigate,
   onDeleteNode,
   onRenameNode,
+  onExportNode,
 }: {
   tree: TreeNodeView | null;
   viewNodeId: string | null;
@@ -80,6 +86,7 @@ function TreeView({
   onNavigate: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onRenameNode?: (nodeId: string, newLabel: string) => void;
+  onExportNode?: (nodeId: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string; label: string } | null>(null);
@@ -123,6 +130,8 @@ function TreeView({
   const handleContextMenu = (e: React.MouseEvent, nodeId: string, label: string) => {
     // Don't show context menu for the root node
     if (nodeId === tree.id) return;
+    // Read-only mode (export viewer) — no actions, keep native context menu
+    if (!onDeleteNode && !onRenameNode && !onExportNode) return;
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, nodeId, label });
   };
@@ -193,6 +202,18 @@ function TreeView({
             <button className="tree-context-item" onClick={handleStartRename}>
               <Pencil size={12} />
               Rename
+            </button>
+          )}
+          {onExportNode && (
+            <button
+              className="tree-context-item"
+              onClick={() => {
+                onExportNode(contextMenu.nodeId);
+                setContextMenu(null);
+              }}
+            >
+              <Download size={12} />
+              Export branch
             </button>
           )}
           {onDeleteNode && (
