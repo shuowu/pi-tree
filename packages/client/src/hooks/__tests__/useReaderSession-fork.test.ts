@@ -98,6 +98,7 @@ function createHookArgs() {
     setSidebarOpen: vi.fn(),
     setDictEntries: vi.fn(),
     navigate: vi.fn(),
+    notify: vi.fn(),
   };
   return { source, searchParams, setSearchParams, deps };
 }

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { resolveSendContext, shouldApplyStreamResult } from "../send-context";
+import {
+  resolveSendContext,
+  resolveStreamDoneAction,
+  shouldApplyStreamResult,
+} from "../send-context";
 
 // =============================================================================
 // resolveSendContext — determines sendingNodeId, forceBranch, and ref update
@@ -88,6 +92,69 @@ describe("shouldApplyStreamResult", () => {
 
   it("returns false when sendingNodeId is null but lastViewNodeId is not", () => {
     expect(shouldApplyStreamResult("node_A", null)).toBe(false);
+  });
+});
+
+// =============================================================================
+// resolveStreamDoneAction — auto-nav vs notify on stream completion
+// =============================================================================
+
+describe("resolveStreamDoneAction", () => {
+  it("applies (auto-navs) when the user is still following a branching result", () => {
+    expect(
+      resolveStreamDoneAction({
+        lastViewNodeId: "node_A",
+        sendingNodeId: "node_A",
+        resultViewNodeId: "new_branch",
+        isFollowing: true,
+      }),
+    ).toBe("apply");
+  });
+
+  it("stays and notifies when the user scrolled away and the result branched", () => {
+    expect(
+      resolveStreamDoneAction({
+        lastViewNodeId: "node_A",
+        sendingNodeId: "node_A",
+        resultViewNodeId: "new_branch",
+        isFollowing: false,
+      }),
+    ).toBe("stay-notify");
+  });
+
+  it("applies a non-branching result even when the user scrolled away", () => {
+    // Same-node completion doesn't move the view, so scroll position is
+    // preserved by ChatView — no need to suppress.
+    expect(
+      resolveStreamDoneAction({
+        lastViewNodeId: "node_A",
+        sendingNodeId: "node_A",
+        resultViewNodeId: "node_A",
+        isFollowing: false,
+      }),
+    ).toBe("apply");
+  });
+
+  it("skips and notifies when the user navigated to a different node", () => {
+    expect(
+      resolveStreamDoneAction({
+        lastViewNodeId: "node_B",
+        sendingNodeId: "node_A",
+        resultViewNodeId: "new_branch",
+        isFollowing: true,
+      }),
+    ).toBe("skip-notify");
+  });
+
+  it("handles root scope (null) branching to a new node while scrolled away", () => {
+    expect(
+      resolveStreamDoneAction({
+        lastViewNodeId: null,
+        sendingNodeId: null,
+        resultViewNodeId: "new_branch",
+        isFollowing: false,
+      }),
+    ).toBe("stay-notify");
   });
 });
 

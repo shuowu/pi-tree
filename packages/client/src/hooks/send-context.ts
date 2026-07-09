@@ -40,3 +40,30 @@ export function shouldApplyStreamResult(
 ): boolean {
   return lastViewNodeId === sendingNodeId;
 }
+
+/**
+ * Decide what the stream-done handler should do with a successful result.
+ *
+ * - "apply": apply the result and follow it (auto-nav to the result node).
+ * - "stay-notify": the response branched to a new node but the user scrolled
+ *   away to read something — keep the current view and show a notification.
+ * - "skip-notify": the user navigated to a different node entirely — don't
+ *   touch the view, just show a notification.
+ */
+export function resolveStreamDoneAction(params: {
+  lastViewNodeId: string | null;
+  sendingNodeId: string | null;
+  resultViewNodeId: string | null;
+  /** Whether the user is still following the live stream (hasn't scrolled away) */
+  isFollowing: boolean;
+}): "apply" | "stay-notify" | "skip-notify" {
+  const { lastViewNodeId, sendingNodeId, resultViewNodeId, isFollowing } = params;
+  if (!shouldApplyStreamResult(lastViewNodeId, sendingNodeId)) {
+    return "skip-notify";
+  }
+  const branched = resultViewNodeId !== sendingNodeId;
+  if (branched && !isFollowing) {
+    return "stay-notify";
+  }
+  return "apply";
+}

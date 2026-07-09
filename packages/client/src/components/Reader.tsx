@@ -44,11 +44,29 @@ export function Reader() {
     source.id,
   );
 
+  // Toast — plain info toasts (memos) auto-dismiss quickly; toasts carrying a
+  // nodeId are clickable and navigate to that node (e.g. "response ready in a
+  // new branch" when auto-nav was suppressed because the user was reading).
+  const [toast, setToast] = useState<{ message: string; nodeId?: string | null } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((next: { message: string; nodeId?: string | null }, durationMs: number) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast(next);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), durationMs);
+  }, []);
+  const showMemoToast = useCallback((message: string) => {
+    showToast({ message }, 2500);
+  }, [showToast]);
+  const notify = useCallback((message: string, nodeId: string | null) => {
+    showToast({ message, nodeId }, 6000);
+  }, [showToast]);
+
   const session = useReaderSession(userId, source, searchParams, setSearchParams, {
     isMobile: panel.isMobile,
     setSidebarOpen: panel.setSidebarOpen,
     setDictEntries: dict.setDictEntries,
     navigate,
+    notify,
   });
 
   // Clear dictionary entries when session changes — dict is session-scoped
@@ -78,7 +96,6 @@ export function Reader() {
 
   // Memo state
   const [memoCount, setMemoCount] = useState(0);
-  const [memoToast, setMemoToast] = useState<string | null>(null);
 
   // Fetch memo count for badge
   useEffect(() => {
@@ -113,11 +130,6 @@ export function Reader() {
       panel.setRightTab('dict');
     }
   }, [hasAnalysis, panel.rightTab, panel]);
-
-  const showMemoToast = useCallback((message: string) => {
-    setMemoToast(message);
-    setTimeout(() => setMemoToast(null), 2500);
-  }, []);
 
   // Slash commands
   const slashCommands = useMemo<SlashCommand[]>(() => [
@@ -416,6 +428,7 @@ export function Reader() {
               userId={userId!}
               onDefine={dict.handleDefine}
               onScrollDirectionChange={panel.setScrollDirection}
+              onFollowChange={session.handleFollowChange}
               scrollTopTrigger={session.scrollTopTrigger}
               modelName={modelName}
               renderSelectionToolbar={renderSelectionToolbar}
@@ -477,8 +490,22 @@ export function Reader() {
         />
       )}
 
-      {memoToast && (
-        <div className="memo-toast">{memoToast}</div>
+      {toast && (
+        toast.nodeId !== undefined ? (
+          <button
+            className="memo-toast memo-toast--action"
+            onClick={() => {
+              if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+              setToast(null);
+              session.handleNavigate(toast.nodeId ?? "");
+            }}
+          >
+            {toast.message}
+            <span className="memo-toast-view">View →</span>
+          </button>
+        ) : (
+          <div className="memo-toast">{toast.message}</div>
+        )
       )}
 
     </div>

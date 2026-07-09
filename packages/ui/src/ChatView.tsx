@@ -40,6 +40,10 @@ interface ChatViewProps {
   onDefine: (term: string, context?: string) => void;
   /** Reports scroll direction changes for shy-header behavior */
   onScrollDirectionChange?: (direction: ScrollDirection) => void;
+  /** Reports whether the view is following the live stream (auto-scroll).
+   *  Becomes false when the user scrolls away during generation, true again
+   *  when they return to the bottom or a new interaction starts. */
+  onFollowChange?: (following: boolean) => void;
   /** Counter incremented on explicit navigation — triggers scroll-to-top */
   scrollTopTrigger: number;
   /** Model name to display in the input area, if any */
@@ -104,6 +108,7 @@ export function ChatView({
   userId,
   onDefine,
   onScrollDirectionChange,
+  onFollowChange,
   scrollTopTrigger,
   modelName,
   renderSelectionToolbar,
@@ -145,6 +150,20 @@ export function ChatView({
   // (catches scrollbar drags, which fire no wheel/touch/key events).
   const lastScrollTopRef = useRef(0);
 
+  // All follow-state changes go through setFollowing so the parent can be
+  // notified (e.g. to suppress auto-nav to a new branch when the user has
+  // scrolled away). Callback kept in a ref so the mount-once listener effect
+  // doesn't need it as a dependency.
+  const onFollowChangeRef = useRef(onFollowChange);
+  useEffect(() => {
+    onFollowChangeRef.current = onFollowChange;
+  }, [onFollowChange]);
+  const setFollowing = useCallback((following: boolean) => {
+    if (autoScrollRef.current === following) return;
+    autoScrollRef.current = following;
+    onFollowChangeRef.current?.(following);
+  }, []);
+
 
   // Client-side filter: hide unused placeholder branches from the user.
   // An unused placeholder has status="placeholder" and messageCount=0.
@@ -182,7 +201,7 @@ export function ChatView({
     lastScrollTopRef.current = el.scrollTop;
 
     const breakFollow = () => {
-      if (wasLoadingRef.current) autoScrollRef.current = false;
+      if (wasLoadingRef.current) setFollowing(false);
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -232,13 +251,13 @@ export function ChatView({
           // Scrollbar-drag backstop: our programmatic follow scrolls always
           // land at the bottom, so an upward scroll that ends away from it
           // can only come from the user.
-          autoScrollRef.current = false;
+          setFollowing(false);
         } else if (
           userScrollIntentRef.current === "down" &&
           distanceFromBottom <= FOLLOW_REENGAGE_THRESHOLD
         ) {
           // User deliberately scrolled back to the bottom — resume following.
-          autoScrollRef.current = true;
+          setFollowing(true);
         }
       }
       userScrollIntentRef.current = null;
@@ -256,12 +275,12 @@ export function ChatView({
       el.removeEventListener("keydown", onKeyScroll);
       el.removeEventListener("scroll", onScroll);
     };
-  }, []);
+  }, [setFollowing]);
 
   const scrollToBottom = useCallback(() => {
-    autoScrollRef.current = true;
+    setFollowing(true);
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  }, [setFollowing]);
 
   // ---------------------------------------------------------------------------
   // Scroll management — ChatGPT/Claude-style auto-scroll
@@ -301,7 +320,7 @@ export function ChatView({
 
     // When a new interaction begins, enable auto-scroll
     if (justStartedLoading) {
-      autoScrollRef.current = true;
+      setFollowing(true);
     }
 
     // When loading ends completely, save scroll position before React
@@ -309,7 +328,7 @@ export function ChatView({
     if (justEndedLoading) {
       savedScrollTopRef.current = messagesContainerRef.current?.scrollTop ?? null;
     }
-  }, [isLoading]);
+  }, [isLoading, setFollowing]);
 
   // Auto-scroll during streaming: on every content update, scroll to bottom
   // if the user hasn't scrolled away. Gated by autoScrollRef which is only

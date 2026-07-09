@@ -31,7 +31,11 @@ import {
 } from "../api";
 import type { DictEntry } from "../components/DictionaryPanel";
 import { useStream } from "../StreamContext";
-import { resolveSendContext, shouldApplyStreamResult } from "./send-context";
+import {
+  resolveSendContext,
+  resolveStreamDoneAction,
+  shouldApplyStreamResult,
+} from "./send-context";
 
 /**
  * Strip system context markers echoed by weaker models in their responses.
@@ -63,6 +67,8 @@ interface UseReaderSessionDeps {
   setSidebarOpen: (open: boolean) => void;
   setDictEntries: React.Dispatch<React.SetStateAction<DictEntry[]>>;
   navigate: (to: string, opts?: { replace?: boolean }) => void;
+  /** Show a toast; when nodeId is given the toast navigates there on click */
+  notify: (message: string, nodeId: string | null) => void;
 }
 export function useReaderSession(
   userId: string | null,
@@ -71,7 +77,7 @@ export function useReaderSession(
   setSearchParams: ReturnType<typeof import("react-router").useSearchParams>[1],
   deps: UseReaderSessionDeps,
 ) {
-  const { isMobile, setSidebarOpen, setDictEntries, navigate } = deps;
+  const { isMobile, setSidebarOpen, setDictEntries, navigate, notify } = deps;
 
   // ---------------------------------------------------------------------------
   // Session state
@@ -113,6 +119,15 @@ export function useReaderSession(
   // When set, the next message is routed to the fork scope (parent level)
   // instead of the current viewNodeId, so branching happens at the right level.
   const pendingForkScopeRef = useRef<string | null>(null);
+
+  // Whether the user is still following the live stream (hasn't scrolled away
+  // to read something else). Reported by ChatView via handleFollowChange.
+  // When false, a completed response that branched to a new node must NOT
+  // auto-navigate — we notify instead.
+  const isFollowingRef = useRef(true);
+  const handleFollowChange = useCallback((following: boolean) => {
+    isFollowingRef.current = following;
+  }, []);
 
 
 
@@ -211,21 +226,48 @@ export function useReaderSession(
         setActiveToolCall(null);
         setCompletedSteps([]);
         if (activeStream.result) {
-          applySessionData(activeStream.result);
-          updateUrl(activeStream.result.viewNodeId, sessionId, true);
-          // Fallback warning when the model returns an empty response without
-          // a dedicated error event (e.g. the provider silently returned nothing).
-          if (
-            !activeStream.result.response &&
-            !activeStream.accumulatedText?.trim()
-          ) {
-            const emptyMsg: ChatMessage = {
-              id: `empty-${Date.now()}`,
-              role: "assistant",
-              content: "⚠️ The AI model returned an empty response. Check your API key and provider status.",
-              timestamp: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, emptyMsg]);
+          const result = activeStream.result;
+          const action = resolveStreamDoneAction({
+            lastViewNodeId: lastViewNodeIdRef.current,
+            sendingNodeId,
+            resultViewNodeId: result.viewNodeId,
+            isFollowing: isFollowingRef.current,
+          });
+          if (action === "stay-notify") {
+            // The response branched to a new node, but the user scrolled away
+            // to read something — don't yank the view. Keep the streamed text
+            // in place as a message, refresh the tree so the new branch shows
+            // up, and offer navigation via toast instead.
+            setTree(result.tree);
+            const text = stripSystemContext(activeStream.accumulatedText ?? "").trim();
+            if (text) {
+              const branchedMsg: ChatMessage = {
+                id: `branched-${Date.now()}`,
+                role: "assistant",
+                content: text,
+                timestamp: new Date().toISOString(),
+              };
+              setMessages((prev) => [...prev, branchedMsg]);
+            }
+            const label = result.breadcrumb[result.breadcrumb.length - 1]?.label;
+            notify(
+              label ? `Response ready in “${label}”` : "Response ready in a new branch",
+              result.viewNodeId,
+            );
+          } else {
+            applySessionData(result);
+            updateUrl(result.viewNodeId, sessionId, true);
+            // Fallback warning when the model returns an empty response without
+            // a dedicated error event (e.g. the provider silently returned nothing).
+            if (!result.response && !activeStream.accumulatedText?.trim()) {
+              const emptyMsg: ChatMessage = {
+                id: `empty-${Date.now()}`,
+                role: "assistant",
+                content: "⚠️ The AI model returned an empty response. Check your API key and provider status.",
+                timestamp: new Date().toISOString(),
+              };
+              setMessages((prev) => [...prev, emptyMsg]);
+            }
           }
         } else if (activeStream.accumulatedText?.trim()) {
           // Abort / stop: no server result, but we have locally accumulated text.
@@ -238,6 +280,17 @@ export function useReaderSession(
           };
           setMessages((prev) => [...prev, stoppedMsg]);
         }
+      } else if (activeStream.result) {
+        // The user navigated to a different node while this response was
+        // generating — leave their view alone, refresh the tree, and notify
+        // (previously this case was dropped silently).
+        const result = activeStream.result;
+        setTree(result.tree);
+        const label = result.breadcrumb[result.breadcrumb.length - 1]?.label;
+        notify(
+          label ? `Response ready in “${label}”` : "Response ready",
+          result.viewNodeId,
+        );
       }
       clearStream(source.id, sessionId!);
     } else if (activeStream.status === "error") {
@@ -267,7 +320,7 @@ export function useReaderSession(
       }
       clearStream(source.id, sessionId!);
     }
-  }, [streams, viewNodeId, source.id, sessionId, userId, applySessionData, updateUrl, clearStream]);
+  }, [streams, viewNodeId, source.id, sessionId, userId, applySessionData, updateUrl, clearStream, notify]);
 
   const handleSendMessage = useCallback(
     async (message: string, opts?: { forceBranch?: boolean }) => {
@@ -291,6 +344,11 @@ export function useReaderSession(
       if (sendingNodeId) {
         setGeneratingNodeIds((prev) => new Set(prev).add(sendingNodeId));
       }
+
+      // A new interaction starts in follow mode (ChatView also resets this
+      // when isLoading flips, but do it here so the state is correct even
+      // before ChatView's effect runs).
+      isFollowingRef.current = true;
 
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -690,6 +748,7 @@ export function useReaderSession(
     }, [source.id, stopStream]),
     handleNavigate,
     handleBackToRoot,
+    handleFollowChange,
     handleDeleteSession,
     handleBackToSessions,
     handleSelectMode,

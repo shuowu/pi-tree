@@ -145,6 +145,28 @@ body.is-resizing-panels .reader-main {
   pointer-events: none;
 }
 
+/* Clickable variant — navigates on click, stays visible longer (6s) */
+.memo-toast--action {
+  animation: memoToastIn 0.25s ease, memoToastOut 0.25s ease 5.75s;
+  pointer-events: auto;
+  cursor: pointer;
+  border: 1px solid var(--border, transparent);
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.memo-toast--action:hover {
+  background: var(--bg-secondary);
+}
+
+.memo-toast-view {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 @keyframes memoToastIn {
   from {
     opacity: 0;
