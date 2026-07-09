@@ -5,7 +5,8 @@ import { processSource, fetchJobStatus, type Job } from "../api";
 export function useSourceProcessing(source: Source) {
   const [currentSource, setCurrentSource] = useState<Source>(source);
   const [prevSource, setPrevSource] = useState<Source>(source);
-  const [currentJob, setCurrentJob] = useState<Job | null>(null);
+  // undefined = not fetched yet; null = no job exists for this source
+  const [currentJob, setCurrentJob] = useState<Job | null | undefined>(undefined);
 
   if (source.id !== prevSource.id || source.status !== prevSource.status) {
     setPrevSource(source);
@@ -13,7 +14,11 @@ export function useSourceProcessing(source: Source) {
   }
 
   useEffect(() => {
-    if (currentSource.status === "processing" || currentSource.status === "pending") {
+    if (
+      currentSource.status === "processing" ||
+      currentSource.status === "pending" ||
+      currentSource.status === "failed"
+    ) {
       fetchJobStatus(currentSource.id).then(setCurrentJob);
     }
   }, [currentSource.status, currentSource.id]);

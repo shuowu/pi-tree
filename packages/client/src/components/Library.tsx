@@ -145,11 +145,6 @@ export function Library() {
     try {
       const data = await fetchJobs();
       setJobs(data);
-      // Auto-expand jobs list if there are active jobs
-      const hasActive = data.some(j => j.status === "pending" || j.status === "processing");
-      if (hasActive) {
-        setShowJobs(true);
-      }
     } catch (err) {
       console.error("Failed to load background jobs:", err);
     }
@@ -172,19 +167,29 @@ export function Library() {
     loadJobs();
   }, [loadJobs]);
 
-  // Polling loop for active jobs
+  // Poll jobs continuously — fast while jobs are active, slow when idle so
+  // jobs enqueued elsewhere (other tabs, agent sessions) still show up
   useEffect(() => {
     const hasActiveJobs = jobs.some(j => j.status === "pending" || j.status === "processing");
-    if (!hasActiveJobs) return;
-
-    const timer = setInterval(() => {
-      loadJobs();
-    }, 3000);
-
+    const timer = setInterval(loadJobs, hasActiveJobs ? 3000 : 10000);
     return () => clearInterval(timer);
   }, [jobs, loadJobs]);
 
-  // If a job completes/fails, reload sources to reflect new statuses/metadata
+  // Refresh jobs immediately when the tab regains focus
+  useEffect(() => {
+    const onFocus = () => {
+      if (!document.hidden) loadJobs();
+    };
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadJobs]);
+
+  // If a job appears or completes/fails, reload sources to reflect new
+  // statuses/metadata and auto-expand the jobs panel for new jobs
   const prevJobsRef = useRef<JobWithSource[]>([]);
   useEffect(() => {
     const statusChanged = jobs.some(job => {
@@ -194,6 +199,9 @@ export function Library() {
 
     const newJobsAdded = jobs.length > prevJobsRef.current.length;
 
+    if (newJobsAdded && jobs.some(j => j.status === "pending" || j.status === "processing")) {
+      setShowJobs(true);
+    }
     if (statusChanged || newJobsAdded) {
       load(searchQuery, selectedTags);
     }

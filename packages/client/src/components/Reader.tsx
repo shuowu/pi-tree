@@ -352,6 +352,7 @@ export function Reader() {
   const showBookSetup = sourceConfig.hasProcessing && (
     currentSource.status === "processing" ||
     currentSource.status === "pending" ||
+    currentSource.status === "failed" ||
     (currentSource.hasMarkdown && !currentSource.hasOutline && session.sessionId === null)
   );
 
