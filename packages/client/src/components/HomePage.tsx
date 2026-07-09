@@ -64,7 +64,6 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
   }, [loadRecentSessions]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRecentSessions();
   }, [loadRecentSessions]);
 

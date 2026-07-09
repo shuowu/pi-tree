@@ -19,7 +19,7 @@ function GenericAddSourceForm({ config, sourceType, onSuccess, onError }: Generi
   const [submitting, setSubmitting] = useState(false);
 
   const addSource = config.addSource!;
-  const fields = addSource.fields ?? [];
+  const fields = useMemo(() => addSource.fields ?? [], [addSource]);
   const requiredFields = fields.filter(f => f.required);
   const requiredSatisfied = requiredFields.every(f => values[f.key]?.trim());
   const canSubmit = !submitting && requiredSatisfied;

@@ -123,7 +123,6 @@ export function SpotlightSearch({
   // Focus input when opened, reset state
   useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuery("");
       setSessionResults([]);
       setSourceResults([]);
@@ -190,7 +189,6 @@ export function SpotlightSearch({
   // Skip actions for category scopes (too many sources to pick from)
   useEffect(() => {
     if (!scope) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setScopeActions([]);
       return;
     }
@@ -234,7 +232,6 @@ export function SpotlightSearch({
     const searchQuery = query.trim();
 
     if (!searchQuery) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
       Promise.all([
         fetchSessions(userId, { limit: 5 }),
@@ -368,7 +365,6 @@ export function SpotlightSearch({
 
   // Reset selectedIndex when results change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIndex(0);
   }, [allItems.length]);
 

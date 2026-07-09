@@ -69,7 +69,6 @@ export function Library() {
 
   // Clear selected tags that become invisible when switching tabs
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTags(prev => {
       const filtered = prev.filter(t => visibleTags.includes(t));
       return filtered.length === prev.length ? prev : filtered;
@@ -118,7 +117,6 @@ export function Library() {
 
   // Load sources when search/tags change
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(searchQuery, selectedTags);
   }, [searchQuery, selectedTags, load]);
 
@@ -126,7 +124,6 @@ export function Library() {
 
   // Load tags on mount
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadTags();
   }, [loadTags]);
 
@@ -163,7 +160,6 @@ export function Library() {
 
   // Load jobs on mount
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadJobs();
   }, [loadJobs]);
 

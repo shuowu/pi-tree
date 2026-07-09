@@ -19,9 +19,11 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      // React-hooks v5 is overly strict — these block standard fetch-in-useEffect patterns
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/refs': 'warn',
+      // React-hooks v5 is overly strict — these flag standard fetch-in-useEffect
+      // patterns. We keep the lint gate strict (--max-warnings 0), so there is no
+      // "warning" tier: a rule is either an error or off. These are off.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/refs': 'off',
     },
   },
 ])

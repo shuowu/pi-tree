@@ -7,7 +7,7 @@
     "dev": "npm run build:viewer && vite",
     "build": "tsc -b && vite build && vite build --config vite.viewer.config.ts",
     "build:viewer": "vite build --config vite.viewer.config.ts",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run"
   },
