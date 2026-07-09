@@ -84,8 +84,9 @@ test.describe("Session management", () => {
     const firstCard = page.locator(".session-card").first();
     await firstCard.hover();
 
-    // Click the rename/edit button
-    const renameBtn = firstCard.locator(".session-card-action-btn").first();
+    // Click the rename/edit button (by title — other action buttons like
+    // Export share the same class)
+    const renameBtn = firstCard.locator('button[title="Rename session"]');
     await renameBtn.click();
 
     // The edit input should appear
