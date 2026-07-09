@@ -34,6 +34,33 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
+const ZIP_EOCD_SIG = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+const ZIP64_EOCD_SIG = Buffer.from([0x50, 0x4b, 0x06, 0x06]);
+// EOCD record is 22 bytes + up to 65535 bytes of zip comment
+const ZIP_EOCD_SEARCH_WINDOW = 65_557;
+
+/**
+ * Cheap structural checks so corrupt uploads are rejected right away with a
+ * clear message, instead of failing later in a background job with a cryptic
+ * parser error.
+ */
+function validateUploadedFile(ext: string, buffer: Buffer): string | null {
+  if (ext === ".epub") {
+    if (buffer.length < 22 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
+      return "This EPUB is not a valid ZIP archive — the file may be corrupt or mislabeled. Try re-downloading it.";
+    }
+    const tail = buffer.subarray(Math.max(0, buffer.length - ZIP_EOCD_SEARCH_WINDOW));
+    if (!tail.includes(ZIP_EOCD_SIG) && !tail.includes(ZIP64_EOCD_SIG)) {
+      return "This EPUB file is truncated or corrupt — its ZIP directory is missing, which usually means the download was cut off. Re-download the book and try again.";
+    }
+  } else if (ext === ".pdf") {
+    if (!buffer.subarray(0, 1024).includes("%PDF-")) {
+      return "This file does not look like a valid PDF — the file may be corrupt or mislabeled. Try re-downloading it.";
+    }
+  }
+  return null;
+}
+
 /** List all sources in the library (with optional search/tag/type filter) */
 libraryRoutes.get("/sources", async (c) => {
   const search = c.req.query("search");
@@ -366,6 +393,11 @@ libraryRoutes.post("/sources", async (c) => {
     const filename = (file as File).name ?? "upload";
     const ext = extname(filename).toLowerCase();
 
+    const validationError = validateUploadedFile(ext, buffer);
+    if (validationError) {
+      return c.json({ error: validationError }, 400);
+    }
+
     // Generate source ID
     const parts = [title as string, author as string];
     if (year && !isNaN(year)) parts.push(String(year));
@@ -445,9 +477,13 @@ libraryRoutes.post("/sources", async (c) => {
       })
       .run();
 
-    // Auto-enqueue processing (or concept extraction) for eligible source types
+    // Auto-enqueue processing (or concept extraction) for eligible source types.
+    // Await so the job exists before the client's post-upload jobs refresh —
+    // enqueue only registers the job; the actual processing runs async.
     const jobQueue = getJobQueue();
-    jobQueue.enqueue(sourceId).catch(() => {/* fire-and-forget */});
+    try {
+      await jobQueue.enqueue(sourceId);
+    } catch {/* processing failures surface via the job itself */}
 
     return c.json(
       {

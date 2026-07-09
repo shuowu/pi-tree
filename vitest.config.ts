@@ -29,6 +29,14 @@ export default defineConfig({
       },
       {
         test: {
+          name: "plugin-book",
+          root: "packages/plugin-book",
+          include: ["**/__tests__/**/*.test.{ts,tsx}"],
+          exclude: ["**/node_modules/**", "**/dist/**"],
+        },
+      },
+      {
+        test: {
           name: "plugin-paper",
           root: "packages/plugin-paper",
           include: ["__tests__/**/*.test.{ts,tsx}"],

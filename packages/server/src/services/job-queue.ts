@@ -131,6 +131,8 @@ export class JobQueue {
       job.error = err instanceof Error ? err.message : String(err);
       job.completedAt = new Date().toISOString();
       console.error(`[job-queue] Failed: ${job.sourceId}`, err);
+      // Surface the failure on the source card, not just the jobs panel
+      await this.sourcesService?.update(job.sourceId, { status: "failed" }).catch(() => {});
     }
   }
 
