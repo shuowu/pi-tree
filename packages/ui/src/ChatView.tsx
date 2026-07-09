@@ -83,6 +83,10 @@ interface ChatViewProps {
   renderAboveInput?: () => React.ReactNode;
   /** Completed tool steps for the current streaming response */
   completedSteps?: ToolStep[];
+  /** Messages queued behind the in-flight response (sent when it finishes) */
+  queuedSends?: { id: string; message: string }[];
+  /** Called when the user removes a queued message before it is sent */
+  onCancelQueued?: (id: string) => void;
   /** Available slash commands */
   slashCommands?: SlashCommand[];
   /** Handler for slash command execution.
@@ -123,6 +127,8 @@ export function ChatView({
   parentContext,
   renderAboveInput,
   completedSteps,
+  queuedSends,
+  onCancelQueued,
   slashCommands,
   onSlashCommand,
 }: ChatViewProps) {
@@ -452,7 +458,7 @@ export function ChatView({
         return;
       }
     }
-    if ((!trimmed && !quotedText) || isLoading) return;
+    if (!trimmed && !quotedText) return;
 
     let finalMessage: string;
     if (quotedText) {
@@ -503,11 +509,13 @@ export function ChatView({
     ? pendingBranch
       ? "Ask about this, or press Enter to branch…"
       : "Press Enter to explain, or type your question…"
-    : willBranch
-      ? "New branch from this point…"
-      : isScoped
-        ? "Continue this thread…"
-        : placeholderText ?? "Ask about the book, or try: deep dive, next chapter, zoom out…";
+    : isLoading
+      ? "Ask a follow-up — it sends when this response finishes…"
+      : willBranch
+        ? "New branch from this point…"
+        : isScoped
+          ? "Continue this thread…"
+          : placeholderText ?? "Ask about the book, or try: deep dive, next chapter, zoom out…";
 
   const handleAsk = useCallback(
     (text: string) => {
@@ -680,6 +688,27 @@ export function ChatView({
           </div>
         )}
         <div className="pit-chat-input-area-wrapper">
+          {queuedSends && queuedSends.length > 0 && (
+            <div className="pit-chat-queued-sends" data-testid="queued-sends">
+              {queuedSends.map((q) => (
+                <div key={q.id} className="pit-chat-queued-send">
+                  <Loader size={12} className="pit-chat-queued-send-icon" />
+                  <span className="pit-chat-queued-send-label">Queued</span>
+                  <span className="pit-chat-queued-send-text">{q.message}</span>
+                  {onCancelQueued && (
+                    <button
+                      className="pit-chat-queued-send-remove"
+                      onClick={() => onCancelQueued(q.id)}
+                      title="Remove queued message"
+                      aria-label="Remove queued message"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           {isSlashMode && filteredSlashCommands.length > 0 && (
             <SlashCommandMenu
               commands={slashCommands!}
@@ -724,9 +753,8 @@ export function ChatView({
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               rows={1}
-              disabled={isLoading}
             />
-            {isLoading && onStop ? (
+            {isLoading && onStop && (
               <button
                 className="pit-chat-stop"
                 onClick={onStop}
@@ -735,12 +763,14 @@ export function ChatView({
               >
                 <Square size={14} />
               </button>
-            ) : (
+            )}
+            {(!isLoading || !onStop || input.trim().length > 0) && (
               <button
                 className="pit-chat-send"
                 onClick={handleSubmit}
-                disabled={!input.trim() || isLoading}
-                aria-label="Send message"
+                disabled={!input.trim()}
+                aria-label={isLoading ? "Queue message" : "Send message"}
+                title={isLoading ? "Send when the current response finishes" : undefined}
                 data-testid="chat-send"
               >
                 ↑

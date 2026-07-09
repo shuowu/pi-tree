@@ -111,6 +111,36 @@ test.describe("Reading session (mocked AI)", () => {
     ).toContainText("book", { timeout: 10_000 });
   });
 
+  test("message sent while streaming is queued, then sent automatically", async ({ page }) => {
+    await loginAs(page, TEST_USER, "E2E Reader");
+    await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);
+
+    await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 10_000 });
+
+    // Kick off a slow response (fixture streams for a few seconds)
+    await page.fill(sel.chatInput, "Slow question for queueing");
+    await page.press(sel.chatInput, "Enter");
+
+    // The input must stay usable while the response streams — queue a follow-up
+    await expect(page.locator(sel.chatInput)).toBeEnabled();
+    await page.fill(sel.chatInput, "Queued follow-up question");
+    await page.press(sel.chatInput, "Enter");
+
+    // The follow-up shows as queued (not yet sent)
+    await expect(page.getByTestId("queued-sends")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId("queued-sends")).toContainText("Queued follow-up question");
+
+    // First response completes, then the queued message fires automatically
+    // and gets its own response — chained after the first one.
+    await expect(
+      page.locator(`${sel.assistantMessage} ${sel.messageContent}`).last(),
+    ).toContainText("queued follow-up answer", { timeout: 30_000 });
+
+    // Queue indicator is gone once the message was sent
+    await expect(page.getByTestId("queued-sends")).toHaveCount(0);
+  });
+
   test("keyboard submit (Enter) works", async ({ page }) => {
     await loginAs(page, TEST_USER, "E2E Reader");
     await page.goto(`/source/${TEST_SOURCE}?session=${sessionId}`);

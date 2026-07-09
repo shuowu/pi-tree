@@ -25,6 +25,15 @@
       "response": { "content": "Here is the Beta response exploring a different direction." }
     },
     {
+      "match": { "model": "mock-model", "userMessage": "Slow question for queueing" },
+      "response": { "content": "This slow response streams gradually so a follow-up message can be queued while it is still generating." },
+      "streamingProfile": { "ttft": 400, "tps": 6 }
+    },
+    {
+      "match": { "model": "mock-model", "userMessage": "Queued follow-up question" },
+      "response": { "content": "Here is the queued follow-up answer." }
+    },
+    {
       "match": { "model": "mock-model", "userMessage": "Tell me about the library" },
       "response": { "content": "Here is an overview of your library and available sources." }
     },

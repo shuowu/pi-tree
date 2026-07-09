@@ -444,6 +444,8 @@ export function Reader() {
               parentContext={session.parentContext}
               renderAboveInput={renderUsageBadge}
               completedSteps={session.completedSteps}
+              queuedSends={session.queuedSends}
+              onCancelQueued={session.handleCancelQueued}
               slashCommands={slashCommands}
               onSlashCommand={handleSlashCommand}
             />

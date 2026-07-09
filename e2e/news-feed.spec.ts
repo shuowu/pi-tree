@@ -45,11 +45,15 @@ test.describe("News domain", () => {
     await page.goto(`/source/${NEWS_SOURCE_ID}?session=${sessionId}`);
 
     await expect(page.locator(sel.chatView)).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator(sel.chatInput)).toBeEnabled({ timeout: 15_000 });
 
-    // News sources get a different placeholder than books
-    const placeholder = await page.locator(sel.chatInput).getAttribute("placeholder");
-    expect(placeholder).toMatch(/news/i);
+    // News sources get a different placeholder than books. While an initial
+    // auto-sent message is streaming the input shows the queue hint, so poll
+    // until generation finishes and the news placeholder appears.
+    await expect(page.locator(sel.chatInput)).toHaveAttribute(
+      "placeholder",
+      /news/i,
+      { timeout: 15_000 },
+    );
   });
 
   test("send a news question → mock AI responds", async ({ page }) => {

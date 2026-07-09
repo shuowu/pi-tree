@@ -109,9 +109,48 @@ describe("ChatView", () => {
   // ── Input behavior ─────────────────────────────────────────────────────
 
   describe("input behavior", () => {
-    it("disables textarea when loading", () => {
+    it("keeps textarea enabled while loading (messages queue)", () => {
       render(<ChatView {...defaultProps} isLoading={true} />);
-      expect(screen.getByRole("textbox")).toBeDisabled();
+      expect(screen.getByRole("textbox")).not.toBeDisabled();
+    });
+
+    it("still submits while loading so the message can be queued", () => {
+      const onSendMessage = vi.fn();
+      render(<ChatView {...defaultProps} isLoading={true} onSendMessage={onSendMessage} />);
+
+      const textarea = screen.getByRole("textbox");
+      fireEvent.change(textarea, { target: { value: "follow up" } });
+      fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
+
+      expect(onSendMessage).toHaveBeenCalledWith("follow up", undefined);
+    });
+
+    it("shows both stop and send buttons while loading with input text", () => {
+      render(
+        <ChatView {...defaultProps} isLoading={true} onStop={vi.fn()} />,
+      );
+      expect(screen.getByRole("button", { name: "Stop generation" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Queue message" })).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "later" } });
+      expect(screen.getByRole("button", { name: "Stop generation" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Queue message" })).toBeInTheDocument();
+    });
+
+    it("renders queued sends with a cancel button", () => {
+      const onCancelQueued = vi.fn();
+      render(
+        <ChatView
+          {...defaultProps}
+          isLoading={true}
+          queuedSends={[{ id: "q1", message: "pending question" }]}
+          onCancelQueued={onCancelQueued}
+        />,
+      );
+
+      expect(screen.getByText("pending question")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Remove queued message" }));
+      expect(onCancelQueued).toHaveBeenCalledWith("q1");
     });
 
     it("disables send button when input is empty", () => {

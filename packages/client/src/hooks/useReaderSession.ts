@@ -113,7 +113,33 @@ export function useReaderSession(
   const lastViewNodeIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<number | null>(sessionId);
 
-  const { streams, startMessageStream, clearStream, stopStream } = useStream();
+  const {
+    streams,
+    startMessageStream,
+    clearStream,
+    stopStream,
+    queuedSends,
+    enqueueSend,
+    popQueuedSend,
+    cancelQueuedSend,
+  } = useStream();
+
+  // Latest streams snapshot, readable from stable callbacks without making
+  // them re-create on every token.
+  const streamsRef = useRef(streams);
+  useEffect(() => {
+    streamsRef.current = streams;
+  }, [streams]);
+
+  // Session key of a send this hook just initiated. Set synchronously in
+  // beginSend (before React state reflects the new stream) so a second rapid
+  // send queues instead of clobbering the first.
+  const activeSendKeyRef = useRef<string | null>(null);
+
+  // Where the last completed response landed, per session key. Queued
+  // follow-ups chain to this node so they continue the conversation instead
+  // of branching from the node they were typed at.
+  const lastResultNodeIdRef = useRef<Record<string, string | null>>({});
 
   // Fork scope — set by handleFork, consumed by the next handleSendMessage.
   // When set, the next message is routed to the fork scope (parent level)
@@ -210,8 +236,11 @@ export function useReaderSession(
         setIsCompacting(false);
       }
     } else if (activeStream.status === "done") {
+      if (activeStream.result) {
+        // Remember where the response landed so queued follow-ups can chain
+        lastResultNodeIdRef.current[key] = activeStream.result.viewNodeId;
+      }
       if (sendingNodeId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setGeneratingNodeIds((prev) => {
           const next = new Set(prev);
           next.delete(sendingNodeId);
@@ -322,6 +351,60 @@ export function useReaderSession(
     }
   }, [streams, viewNodeId, source.id, sessionId, userId, applySessionData, updateUrl, clearStream, notify]);
 
+  /** Start a message stream now (assumes no stream is active for the session). */
+  const beginSend = useCallback(
+    (message: string, sendingNodeId: string | null, forceBranch: boolean, fromQueue: boolean) => {
+      if (!userId) return;
+      const sid = sessionIdRef.current;
+      if (sid === null) return;
+
+      const key = `${source.id}:${sid}`;
+      activeSendKeyRef.current = key;
+
+      // Track which node is generating (for tree panel spinner).
+      if (sendingNodeId) {
+        setGeneratingNodeIds((prev) => new Set(prev).add(sendingNodeId));
+      }
+
+      // Only touch the visible chat when the user is looking at the node the
+      // message is sent from. A queued send may fire after the user navigated
+      // elsewhere — its completion is then surfaced via the notify path.
+      if (shouldApplyStreamResult(lastViewNodeIdRef.current, sendingNodeId)) {
+        if (!fromQueue) {
+          // A new interaction starts in follow mode (ChatView also resets this
+          // when isLoading flips, but do it here so the state is correct even
+          // before ChatView's effect runs). Queued sends keep the current
+          // follow state — the user may be reading further up.
+          isFollowingRef.current = true;
+        }
+
+        const userMsg: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: "user",
+          content: message,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setIsLoading(true);
+        setStreamingContent("");
+      }
+
+      startMessageStream(userId, source.id, sid, message, sendingNodeId, (updatedTree) => {
+        setTree(updatedTree);
+      }, forceBranch ? { forceBranch: true } : undefined).catch((err) => {
+        console.error("Stream start failed:", err);
+      }).finally(() => {
+        // The promise settles when the stream completes (or fails to start).
+        // From here on, streams[key] alone gates the queue — it stays set
+        // until the result is consumed via clearStream.
+        if (activeSendKeyRef.current === key) {
+          activeSendKeyRef.current = null;
+        }
+      });
+    },
+    [userId, source.id, startMessageStream],
+  );
+
   const handleSendMessage = useCallback(
     async (message: string, opts?: { forceBranch?: boolean }) => {
       if (!userId) return;
@@ -340,34 +423,49 @@ export function useReaderSession(
       // OR implicit from pendingForkScope (⑂ button).
       const forceBranch = opts?.forceBranch || forkBranch;
 
-      // Track which node is generating (for tree panel spinner).
-      if (sendingNodeId) {
-        setGeneratingNodeIds((prev) => new Set(prev).add(sendingNodeId));
+      // A response is already generating (or its result hasn't been consumed
+      // yet) — queue the message instead of sending. It fires automatically
+      // when the active stream settles (see the drain effect below).
+      const key = `${source.id}:${sid}`;
+      const active = streamsRef.current[key];
+      if (activeSendKeyRef.current === key || active) {
+        // A plain follow-up typed while watching the active stream should
+        // continue the conversation from wherever that response lands, not
+        // branch from the node it was typed at. Explicit branch sends
+        // (forceBranch / typed from a different node) keep their target.
+        const chainToResult =
+          !forceBranch && (!active || active.sendingNodeId === sendingNodeId);
+        enqueueSend(source.id, sid, {
+          id: `queued-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          message,
+          sendingNodeId,
+          forceBranch: forceBranch || undefined,
+          chainToResult: chainToResult || undefined,
+        });
+        return;
       }
 
-      // A new interaction starts in follow mode (ChatView also resets this
-      // when isLoading flips, but do it here so the state is correct even
-      // before ChatView's effect runs).
-      isFollowingRef.current = true;
-
-      const userMsg: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: "user",
-        content: message,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      setIsLoading(true);
-      setStreamingContent("");
-
-      startMessageStream(userId, source.id, sid, message, sendingNodeId, (updatedTree) => {
-        setTree(updatedTree);
-      }, forceBranch ? { forceBranch: true } : undefined).catch((err) => {
-        console.error("Stream start failed:", err);
-      });
+      beginSend(message, sendingNodeId, forceBranch, false);
     },
-    [userId, source.id, startMessageStream],
+    [userId, source.id, beginSend, enqueueSend],
   );
+
+  // Drain the send queue: whenever the current session has no active stream
+  // (and no send is mid-start), fire the next queued message.
+  useEffect(() => {
+    if (!userId || sessionId === null) return;
+    const key = `${source.id}:${sessionId}`;
+    if (streams[key]) return; // stream active, or result not yet consumed
+    if (activeSendKeyRef.current === key) return; // a send is starting up
+    if (!queuedSends[key]?.length) return;
+    const next = popQueuedSend(source.id, sessionId);
+    if (next) {
+      // Chained follow-ups continue from where the last response landed
+      // (falling back to the node captured at enqueue time, e.g. after a stop).
+      const chained = next.chainToResult ? lastResultNodeIdRef.current[key] : undefined;
+      beginSend(next.message, chained !== undefined ? chained : next.sendingNodeId, next.forceBranch ?? false, true);
+    }
+  }, [streams, queuedSends, userId, sessionId, source.id, popQueuedSend, beginSend]);
 
   // ---------------------------------------------------------------------------
   // Navigation
@@ -703,6 +801,19 @@ export function useReaderSession(
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [viewNodeId, handleBackToRoot]);
 
+  // Queued sends for the current session (rendered near the chat input)
+  const sessionQueuedSends =
+    (sessionId !== null ? queuedSends[`${source.id}:${sessionId}`] : undefined) ?? [];
+
+  const handleCancelQueued = useCallback(
+    (id: string) => {
+      const sid = sessionIdRef.current;
+      if (sid === null) return;
+      cancelQueuedSend(source.id, sid, id);
+    },
+    [source.id, cancelQueuedSend],
+  );
+
   // Find the current session title for the breadcrumb
   const activeSession = sessions.find((s) => s.id === sessionId);
   const sessionLabel = activeSession?.title ?? null;
@@ -740,6 +851,8 @@ export function useReaderSession(
     sessionContext,
     scrollTopTrigger,
     profileDescription,
+    queuedSends: sessionQueuedSends,
+    handleCancelQueued,
     handleSendMessage,
     handleStopGeneration: useCallback(() => {
       const sid = sessionIdRef.current;

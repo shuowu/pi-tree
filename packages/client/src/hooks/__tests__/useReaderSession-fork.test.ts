@@ -43,8 +43,13 @@ vi.mock("../../api", () => ({
 const mockStartMessageStream = vi.fn().mockResolvedValue(undefined);
 const mockClearStream = vi.fn();
 const mockStopStream = vi.fn();
+const mockEnqueueSend = vi.fn();
+const mockPopQueuedSend = vi.fn().mockReturnValue(undefined);
+const mockCancelQueuedSend = vi.fn();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let streamsState: Record<string, any> = {};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let queuedSendsState: Record<string, any[]> = {};
 
 vi.mock("../../StreamContext", () => ({
   useStream: () => ({
@@ -52,6 +57,10 @@ vi.mock("../../StreamContext", () => ({
     startMessageStream: mockStartMessageStream,
     clearStream: mockClearStream,
     stopStream: mockStopStream,
+    queuedSends: queuedSendsState,
+    enqueueSend: mockEnqueueSend,
+    popQueuedSend: mockPopQueuedSend,
+    cancelQueuedSend: mockCancelQueuedSend,
   }),
 }));
 
@@ -110,7 +119,9 @@ function createHookArgs() {
 beforeEach(() => {
   vi.clearAllMocks();
   streamsState = {};
+  queuedSendsState = {};
   mockStartSession.mockResolvedValue(makeSessionState(null));
+  mockPopQueuedSend.mockReturnValue(undefined);
 });
 
 describe("useReaderSession — fork-then-send flow", () => {
@@ -266,6 +277,43 @@ describe("useReaderSession — fork-then-send flow", () => {
       null, // viewNodeId is null after backToRoot (root scope)
       expect.any(Function),
       undefined, // no forceBranch
+    );
+  });
+
+  it("queues the message instead of sending when a stream is active", async () => {
+    const { source, searchParams, setSearchParams, deps } = createHookArgs();
+
+    // An in-flight stream for src-1 session 1
+    streamsState = {
+      "src-1:1": {
+        gen: 1,
+        sendingNodeId: "user_q2",
+        accumulatedText: "partial…",
+        isQueued: false,
+        activeToolCall: null,
+        completedSteps: [],
+        isCompacting: false,
+        status: "streaming",
+      },
+    };
+
+    const { result } = renderHook(
+      () => useReaderSession("test-user", source, searchParams, setSearchParams, deps),
+      { wrapper: createWrapper() },
+    );
+
+    // Let the mount effect settle so sessionIdRef is populated
+    await act(async () => {});
+
+    await act(async () => {
+      await result.current.handleSendMessage("queued while busy");
+    });
+
+    expect(mockStartMessageStream).not.toHaveBeenCalled();
+    expect(mockEnqueueSend).toHaveBeenCalledWith(
+      "src-1",
+      1,
+      expect.objectContaining({ message: "queued while busy" }),
     );
   });
 
