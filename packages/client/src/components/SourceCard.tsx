@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { SourceCardProps } from "@pi-tree/ui";
-import { Tag, MoreHorizontal, RefreshCw, Zap, Settings } from "lucide-react";
+import { Tag, MoreHorizontal, RefreshCw, Zap, Settings, CheckCircle2, Circle } from "lucide-react";
 import { getSourceTypeConfig, resolveCardSubtitle } from "../source-types.js";
 import { useNavigate } from "react-router";
 
@@ -11,10 +11,12 @@ export function SourceCard({
   renderCover,
   onUpdateSource,
   onReprocessSource,
+  onToggleFinished,
 }: SourceCardProps) {
   const navigate = useNavigate();
   const typeConfig = getSourceTypeConfig(source.type);
   const TypeIcon = typeConfig.icon;
+  const isFinished = source.metadata?.finished === true;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -33,7 +35,7 @@ export function SourceCard({
 
   return (
     <div
-      className="source-card"
+      className={`source-card${menuOpen ? " menu-open" : ""}`}
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -55,10 +57,16 @@ export function SourceCard({
           <p className="source-card-author">{resolveCardSubtitle(typeConfig.cardSubtitle, source as unknown as Record<string, unknown>)}</p>
         </div>
 
-        {/* Badges from source type config */}
-        {typeConfig.badges && typeConfig.badges.length > 0 && (
+        {/* Badges from source type config + finished status */}
+        {(isFinished || (typeConfig.badges && typeConfig.badges.length > 0)) && (
           <div className="source-card-badges">
-            {typeConfig.badges.map((badge) => {
+            {isFinished && (
+              <span className="badge badge-green source-card-finished-badge">
+                <CheckCircle2 size={11} />
+                Finished
+              </span>
+            )}
+            {(typeConfig.badges ?? []).map((badge) => {
               const src = source as unknown as Record<string, unknown>;
               const meta = (src.metadata ?? {}) as Record<string, unknown>;
               const val = meta[badge.field] ?? src[badge.field];
@@ -88,13 +96,6 @@ export function SourceCard({
         </div>
       )}
 
-      <button
-        className="source-card-tag-btn"
-        onClick={(e) => { e.stopPropagation(); onTagClick(); }}
-        title="Manage tags"
-      >
-        <Tag size={14} />
-      </button>
       {/* More actions menu */}
       <div className="source-card-menu" ref={menuRef}>
         <button
@@ -109,6 +110,30 @@ export function SourceCard({
         </button>
         {menuOpen && (
           <div className="source-card-dropdown">
+            {onToggleFinished && (
+              <button
+                className="source-card-dropdown-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onToggleFinished();
+                }}
+              >
+                {isFinished ? <Circle size={14} /> : <CheckCircle2 size={14} />}
+                {isFinished ? "Mark as unfinished" : "Mark as finished"}
+              </button>
+            )}
+            <button
+              className="source-card-dropdown-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onTagClick();
+              }}
+            >
+              <Tag size={14} />
+              Manage tags
+            </button>
             {onUpdateSource && (
               <button
                 className="source-card-dropdown-item"

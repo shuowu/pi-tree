@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import type { Source } from "@pi-tree/shared";
-import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, processSource, type JobWithSource } from "../api";
-import { Plus, Search, Tag, X, Cpu, LayoutGrid, RefreshCw } from "lucide-react";
+import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, processSource, updateSource, type JobWithSource } from "../api";
+import { Plus, Search, Tag, X, Cpu, LayoutGrid, RefreshCw, CheckCircle2, Circle } from "lucide-react";
 import { SourceCover } from "./SourceCover";
 import { AddSourceModal } from "./AddSourceModal";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
@@ -28,6 +28,7 @@ export function Library() {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [finishedFilter, setFinishedFilter] = useState<"all" | "finished" | "unfinished">("all");
 
   // Build tabs from registered source types (plugin-driven) + compute counts
   const typeTabs = useMemo(() => {
@@ -43,11 +44,18 @@ export function Library() {
     }));
   }, [allSources]);
 
-  // Filter sources by active tab
+  // Filter sources by active tab and finished status
   const sources = useMemo(() => {
-    if (!activeTab) return allSources;
-    return allSources.filter(s => s.type === activeTab);
-  }, [allSources, activeTab]);
+    let result = activeTab ? allSources.filter(s => s.type === activeTab) : allSources;
+    if (finishedFilter !== "all") {
+      result = result.filter(s =>
+        finishedFilter === "finished"
+          ? s.metadata?.finished === true
+          : s.metadata?.finished !== true,
+      );
+    }
+    return result;
+  }, [allSources, activeTab, finishedFilter]);
 
   // Tags relevant to the active tab (or all tags when on "All")
   const visibleTags = useMemo(() => {
@@ -360,20 +368,34 @@ export function Library() {
             );
           })}
         </div>
-        {visibleTags.length > 0 && (
-          <div className="library-tag-filters">
-            {visibleTags.map((tag) => (
-              <button
-                key={tag}
-                className={`tag-filter-chip ${selectedTags.includes(tag) ? "active" : ""}`}
-                onClick={() => toggleTag(tag)}
-              >
-                <Tag size={12} />
-                {tag}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="library-tag-filters">
+          <button
+            className={`tag-filter-chip ${finishedFilter === "finished" ? "active" : ""}`}
+            onClick={() => setFinishedFilter((f) => (f === "finished" ? "all" : "finished"))}
+            title="Show only finished sources"
+          >
+            <CheckCircle2 size={12} />
+            Finished
+          </button>
+          <button
+            className={`tag-filter-chip ${finishedFilter === "unfinished" ? "active" : ""}`}
+            onClick={() => setFinishedFilter((f) => (f === "unfinished" ? "all" : "unfinished"))}
+            title="Show only unfinished sources"
+          >
+            <Circle size={12} />
+            Unfinished
+          </button>
+          {visibleTags.map((tag) => (
+            <button
+              key={tag}
+              className={`tag-filter-chip ${selectedTags.includes(tag) ? "active" : ""}`}
+              onClick={() => toggleTag(tag)}
+            >
+              <Tag size={12} />
+              {tag}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Background jobs tracker */}
@@ -490,6 +512,14 @@ export function Library() {
         );
       })()}
 
+      {/* Empty state when the finished filter matches nothing (no tab selected) */}
+      {!loading && !error && !isEmptyLibrary && sources.length === 0 && !activeTab && finishedFilter !== "all" && (
+        <div className="library-empty-state">
+          {finishedFilter === "finished" ? <CheckCircle2 size={32} strokeWidth={1.5} /> : <Circle size={32} strokeWidth={1.5} />}
+          <p>No {finishedFilter} sources</p>
+        </div>
+      )}
+
       {!loading && !error && !isEmptyLibrary && sources.length > 0 && (
         <div className="library-grid">
           {sources.map((source) => {
@@ -527,6 +557,22 @@ export function Library() {
                 console.error(`Failed to reprocess source ${source.id}:`, err);
               }
             };
+            const handleToggleFinished = async () => {
+              const next = source.metadata?.finished !== true;
+              const finishedAt = next ? new Date().toISOString() : null;
+              try {
+                await updateSource(source.id, { metadata: { finished: next, finishedAt } });
+                setAllSources((prev) =>
+                  prev.map((s) =>
+                    s.id === source.id
+                      ? { ...s, metadata: { ...s.metadata, finished: next, finishedAt } }
+                      : s,
+                  ),
+                );
+              } catch (err) {
+                console.error(`Failed to update finished status for ${source.id}:`, err);
+              }
+            };
 
             if (CustomCard) {
               return (
@@ -538,6 +584,7 @@ export function Library() {
                   renderCover={renderCover}
                   onUpdateSource={handleUpdateSource}
                   onReprocessSource={handleReprocessSource}
+                  onToggleFinished={handleToggleFinished}
                 />
               );
             }
@@ -551,6 +598,7 @@ export function Library() {
                 renderCover={renderCover}
                 onUpdateSource={handleUpdateSource}
                 onReprocessSource={handleReprocessSource}
+                onToggleFinished={handleToggleFinished}
               />
             );
           })}

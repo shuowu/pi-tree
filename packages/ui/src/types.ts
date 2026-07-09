@@ -26,6 +26,8 @@ export interface SourceCardProps {
   onUpdateSource?: () => void;
   /** Trigger full re-processing (force) */
   onReprocessSource?: () => void;
+  /** Toggle the manual finished/done flag (stored in source.metadata.finished) */
+  onToggleFinished?: () => void;
 }
 
 /**

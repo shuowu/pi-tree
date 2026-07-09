@@ -67,6 +67,13 @@
   overflow: hidden;
 }
 
+/* Unclip the card while its actions dropdown is open so the menu can
+   extend past the card bounds, and raise it above sibling cards */
+.source-card.menu-open {
+  overflow: visible;
+  z-index: 20;
+}
+
 .source-card::before {
   content: '';
   position: absolute;
@@ -74,6 +81,7 @@
   left: 0;
   bottom: 0;
   width: 3px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   background: linear-gradient(180deg, var(--accent), var(--accent-hover));
   opacity: 0;
   transition: opacity var(--transition-base);
@@ -136,6 +144,12 @@
 .badge-green {
   background: var(--green-dim);
   color: var(--green);
+}
+
+.source-card-finished-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .badge-amber {
