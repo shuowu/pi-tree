@@ -265,9 +265,9 @@ export class PiSession {
             `You are in a news reading and analysis session.`,
             `Source ID: ${bookId}`,
             ``,
-            `IMPORTANT: Use the RSS extension tools (get_latest_rss, aggregate_rss, trigger_rss_refresh, etc.) to fetch and analyze news data.`,
+            `When the user wants feed content — a briefing, a scan, or a specific story — use the RSS extension tools (get_latest_rss, aggregate_rss, search_rss, read_article) to fetch and analyze it.`,
+            `For conceptual, analytical, or follow-up questions, answer directly (use web search if helpful) — do NOT pull a feed briefing unless the user asks for one.`,
             `Do NOT browse the filesystem for news articles or RSS configuration.`,
-            `If feeds haven't been crawled recently, call trigger_rss_refresh() first.`,
           ].join("\n");
         } else if (sourceType === "router") {
           piSession.pendingContext = [

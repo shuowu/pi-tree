@@ -37,16 +37,11 @@ Read the beginning of the markdown file to capture:
 - Table of contents (if present)
 - All chapter/section headings
 
-For large files, scan in chunks using `read` with offset/limit. The goal is to extract the **skeleton** — headings, subheadings, and structural markers — not the full content.
+Scan the file in chunks using `read` with offset/limit. The goal is to extract the **skeleton** — headings, subheadings, and structural markers — not the full content.
 
-**Efficient heading scan:** Use bash to extract the structure:
-```bash
-grep -n '^#' "markdown/<book>.md" | head -200
-```
+**Efficient heading scan:** The `read` tool returns every line prefixed with its line number (e.g. `225\t### Chapter 1: My Call to Adventure`). Read through the file — in chunks for large books — and pick out every line whose text starts with `#`. Its prefix is exactly the line number you need. You don't have to reproduce the full text; just capture the heading lines and their numbers.
 
-This gives you all headings with line numbers without loading the full file.
-
-**Build the Navigation Map:** From the grep output, generate a compact navigation map (see template). This is the most important section — it's what other skills (`interactive-reading`, `book-analysis`) use for direct `read` offset navigation. Every heading gets its line number preserved as `L<line>`. The map is essentially cleaned grep output: trivially parseable by agents, no table-parsing needed.
+**Build the Navigation Map:** From those heading lines, generate a compact navigation map (see template). This is the most important section — it's what other skills (`interactive-reading`, `book-analysis`) use for direct `read` offset navigation. Every heading gets its line number preserved as `L<line>`. Trivially parseable by agents, no table-parsing needed.
 
 ### 3. Read Key Passages
 
@@ -68,7 +63,7 @@ Create a structured outline with these layers:
 - **Audience & prerequisites**: Who it's for, what background is assumed
 
 #### Layer 2: Navigation Map (always included)
-- Line-number indexed heading tree, generated from `grep -n '^#'`
+- Line-number indexed heading tree, built from the heading lines captured while reading
 - This is the agent's primary lookup for `read` offset navigation
 - Format: `L<line>  <heading>` — trivially parseable, no tables
 
@@ -135,7 +130,7 @@ L375   #### Building the Business
 ...
 ```
 
-Generate from: `grep -n '^#' "<file>" | sed 's/^/L/' | sed 's/:/     /'`
+Build from the heading lines you captured while reading — each entry is `L<line number>  <heading text>`, where the line number is the `read` tool's prefix for that heading.
 Remove noise lines (ads, headers, non-structural content). Keep all structural headings.
 For books with messy markdown (Pandoc/Calibre artifacts), clean the titles:
 - Remove `[]{#id .class}` spans, `{.class}` attributes, `<big>` HTML tags
@@ -188,7 +183,7 @@ Generate from the same data as the Navigation Map. The `level` field uses normal
 - Include only structural headings (parts, chapters, sections)
 - Exclude: index, copyright, metadata, ads, reading break reminders
 - Titles must be clean, human-readable text — no markdown/HTML artifacts
-- Line numbers must be accurate — verify with `grep -n`
+- Line numbers must be accurate — they come directly from the `read` tool's line-number prefixes
 
 ### 6. Offer Next Steps
 
@@ -221,4 +216,4 @@ Ask the user which level they want, or default to **Standard**.
 - For narrative books (novels, memoirs), focus on plot arc and character development instead of arguments
 - For textbooks/reference books, focus on topic hierarchy and dependencies
 - Build on existing outlines rather than overwriting — read first, then update
-- **Line numbers shift after re-conversion** — always re-run `grep -n '^#'` when updating an outline after re-converting a book
+- **Line numbers shift after re-conversion** — always re-scan the file with `read` when updating an outline after re-converting a book

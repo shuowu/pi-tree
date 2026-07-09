@@ -53,9 +53,9 @@ When the user selects a paper:
    - **Structure overview**: List the main sections
    - Invite the user to ask about specific sections or concepts
 
-### Step 3: Deep Analysis (Branch Nodes)
+### Step 3: Deep Analysis
 
-Based on user questions, provide targeted analysis:
+When the user asks a specific analytical question — regardless of where you are in the conversation — provide targeted analysis:
 
 **"Explain the methodology"**
 - Walk through the approach step by step
@@ -86,9 +86,9 @@ Based on user questions, provide targeted analysis:
 - **Explain jargon** — define technical terms when first encountered
 - **Suggest related work** — when a concept connects to other research, mention it
 
-### Branch Points
+### Natural Places to Go Deeper
 
-Create branches when the conversation shifts to:
+Branching is handled by the app, not by you — don't try to create or manage branches. Just answer the question at hand. When the conversation reaches one of these shifts, offer it as a direction the user can explore next:
 - A different section of the paper (methodology → results → discussion)
 - A comparison with another paper
 - A deeper dive into a specific concept or technique

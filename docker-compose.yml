@@ -11,6 +11,13 @@ services:
       # Bind mount — data persists across rebuilds on the host filesystem.
       # Set PI_TREE_DATA in .env to your data directory (default: ./data).
       - ${PI_TREE_DATA:-./data}:/data
+      # Skill files are read from disk at each session start, so mounting them
+      # lets you iterate on SKILL.md with `docker compose restart pi-tree`
+      # instead of a full `--build`. (Core/server .ts changes still need --build.)
+      - ./packages/plugin-news/skills:/app/packages/plugin-news/skills:ro
+      - ./packages/plugin-book/skills:/app/packages/plugin-book/skills:ro
+      - ./packages/plugin-paper/skills:/app/packages/plugin-paper/skills:ro
+      - ./packages/plugin-youtube/skills:/app/packages/plugin-youtube/skills:ro
     environment:
       - DATA_PATH=/data
     extra_hosts:

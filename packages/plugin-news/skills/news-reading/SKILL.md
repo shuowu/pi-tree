@@ -66,22 +66,29 @@ The system tracks which articles you've already shown the user, per feed. To use
 3. The `days` parameter still acts as a safety net — items older than N days are excluded even without a watermark
 4. If the result set is empty (user is caught up), say so and offer to widen the window: "You're up to date! Want me to scan the last 7 days instead?"
 
-**Do NOT call `mark_feeds_read` during deep dives or follow-up questions** — only after the initial briefing scan.
+**Do NOT call `mark_feeds_read` during deep dives or follow-up questions** — only after a broad-scan briefing (Mode A).
 
 ---
 
 ## Workflow
 
-### Step 1: Fetch Data Immediately
+### Step 1: Fetch Feed Data When It's Needed
 
-On **every** session start or user request for news, **immediately** call the RSS tools — do NOT read the filesystem. Feeds are kept fresh automatically, so go straight to fetching data.
+When the user wants feed content — a briefing, a scan, "what's new", or a specific story from the feeds — call the RSS tools right away; do NOT read the filesystem, and skip any freshness pre-check (feeds are kept fresh automatically).
 
-### Step 2: Determine Tree Node Context
+**Do NOT reflexively pull the feed on every message.** When the user asks a conceptual, analytical, or follow-up question about something already on the table, answer *that question* — do not tack on a fresh `get_latest_rss` / `aggregate_rss` briefing (see Mode C).
 
-Your behavior adapts automatically depending on where you are in the conversation tree:
+### Step 2: Match Your Response to What Was Asked
 
-#### Context A: Root Node (The Broad Scan)
-If the user starts the session or asks for a general update:
+Choose your response based on **what the message actually asks for — not where you are in the conversation tree.** Three shapes:
+- A **generic** request ("what's new?") → a broad briefing (**Mode A**), even deep in a branch.
+- A **specific story** request ("zoom in on X") → a targeted deep dive (**Mode B**), even as the first message.
+- A **conceptual / analytical** question ("is this a broader trend?") → discuss and analyze (**Mode C**) — no briefing.
+
+When the intent is ambiguous, default to the broad scan and invite the user to pick an angle to dive into.
+
+#### Mode A: Broad Scan (The Briefing)
+Use this when the message is generic, open-ended, or empty — e.g. "what's new?", "catch me up", "any updates?", "give me an overview", or a session that opens with no specific angle:
 1. Call `aggregate_rss(since_last_read=true, days=3, similarity_threshold=0.80, limit=50)` to scan and group stories across feeds.
    - If the user specified a topic, add the matching `tags` parameter.
 2. Categorize the grouped stories into sections derived from the feed tags and story content.
@@ -89,7 +96,7 @@ If the user starts the session or asks for a general update:
    - Always lead with **Breaking / Major** for stories covered by 3+ sources.
    - Then create topic-specific sections based on the tags and themes present in the aggregated results.
    - Do NOT use hardcoded category names — adapt to whatever feeds are configured.
-3. Present a concise briefing (1-2 sentences per story) showing source counts, and invite the user to pick an angle to branch into.
+3. Present a concise briefing (1-2 sentences per story) showing source counts, and invite the user to pick an angle to dive into.
 4. **Cite your data context** at the top of the briefing — mention which feeds/tags you scanned, how many items you processed, and the time range. Example opening:
    > *Scanned 14 feeds (tech, ai, finance) — 47 stories from the last 3 days, grouped into 12 topics.*
 
@@ -100,8 +107,8 @@ If the user starts the session or asks for a general update:
 For single-source stories: *[TechCrunch](https://techcrunch.com/...)*
 For multi-source stories: *[Hacker News](https://...), [TechCrunch](https://...)*
 
-#### Context B: Branch Nodes (The Deep Dives)
-If the user asks to go deeper on a story, or if the system creates a branch:
+#### Mode B: Deep Dive (Targeted)
+Use this when the message names a specific story, topic, feed, or article, or asks to go deeper — regardless of whether it's the first message of the session or a later follow-up:
 1. Run targeted searches: `search_rss(keyword=...)` with specific keywords.
 2. If the user points to a specific URL or article, call `read_article(url=...)` to retrieve the full-text content.
 3. Synthesize the findings:
@@ -109,11 +116,19 @@ If the user asks to go deeper on a story, or if the system creates a branch:
    - Key drivers and timeline.
    - Sentiment snapshot (overall tone in the community/outlets).
    - Practical or investment implications.
-4. Present the analysis and answer follow-up questions within the branch.
+4. Present the analysis and answer any follow-up questions.
+
+#### Mode C: Discuss & Analyze (No Briefing)
+Use this when the message is an open-ended, conceptual, or analytical question — e.g. "why is this happening?", "is this a broader trend?", "how does X work?", or any follow-up that builds on what's already been discussed:
+1. Answer the question directly, reasoning from the conversation so far.
+2. Use web search — or `search_rss`/`read_article` for a specific story — only to gather supporting evidence for *that* question.
+3. **Do NOT call `get_latest_rss` / `aggregate_rss` or append a feed briefing.** The user is thinking through an idea, not asking for more headlines. Only pull the feed if they explicitly ask for more items or a new scan.
+
+**Rule of thumb:** answer only what was asked. Never append a "here's the latest from …" briefing to a Mode B or Mode C reply.
 
 ### Step 2.5: Mark Feeds as Read
 
-After presenting the root node briefing, call `mark_feeds_read()` scoped to the same feeds/tags used in your query. This prevents overlap in future sessions.
+After presenting a broad-scan briefing (Mode A), call `mark_feeds_read()` scoped to the same feeds/tags used in your query. This prevents overlap in future sessions. Skip this for deep dives (Mode B).
 
 ### Step 3: Save Analyses — ONLY on User Request
 
@@ -123,5 +138,5 @@ When the user requests a save:
 1. Call `save_news_analysis` with:
    - `title`: A slug-friendly title (e.g., "OpenAI Search Launch").
    - `content`: The complete synthesized Markdown report.
-   - `type`: Use "summaries" for root-level briefings, and "analyses" for deep-dive branches.
+   - `type`: Use "summaries" for broad-scan briefings, and "analyses" for deep dives.
 2. Confirm the saved file path to the user.
