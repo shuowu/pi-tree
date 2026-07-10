@@ -6,8 +6,8 @@ import { useUser } from "../UserContext";
 import { AppHeader } from "./AppHeader";
 import { RouterChat } from "./RouterChat";
 import { SettingsModal } from "./SettingsModal";
-import { AddSourceModal } from "./AddSourceModal";
 import { SessionList } from "./SessionList";
+import { useAddSource } from "../AddSourceContext";
 import { getSourceTypeConfig } from "../source-types";
 import "./HomePage.css";
 
@@ -28,7 +28,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
   const navigate = useNavigate();
   const { userId, displayName } = useUser();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showAddSource, setShowAddSource] = useState(false);
+  const { openAddSource } = useAddSource();
   const greeting = useMemo(() => getGreeting(), []);
 
   // Continue section state
@@ -76,7 +76,7 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
         <p className="home-greeting">{greeting}{displayName ? `, ${displayName}` : ""}</p>
         <RouterChat userId={userId!} />
         <div className="home-quick-actions">
-          <button className="home-quick-chip" onClick={() => setShowAddSource(true)}>➕ Add Source</button>
+          <button className="home-quick-chip" onClick={openAddSource}>➕ Add Source</button>
           <button className="home-quick-chip" onClick={() => setShowSettingsModal(true)}>⚙️ Settings</button>
         </div>
       </div>
@@ -128,7 +128,6 @@ export function HomePage({ onOpenSpotlight }: HomePageProps) {
       {showSettingsModal && (
         <SettingsModal onClose={() => setShowSettingsModal(false)} />
       )}
-      {showAddSource && <AddSourceModal onClose={() => setShowAddSource(false)} onSuccess={() => { setShowAddSource(false); navigate("/library"); }} />}
     </div>
   );
 }

@@ -15,6 +15,35 @@
   overflow: hidden !important;
 }
 
+/* Unclip while the actions dropdown is open (base rule loses to the
+   overflow: hidden !important above without this) */
+.youtube-source-card.menu-open {
+  overflow: visible !important;
+  z-index: 20;
+}
+
+/* Finished ("watched") treatment: dim the thumbnail, badge stays readable */
+.youtube-source-card.finished .source-cover-container {
+  opacity: 0.5;
+}
+
+.youtube-watched-overlay {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 6;
+}
+
 .youtube-source-card::before {
   content: '';
   position: absolute;

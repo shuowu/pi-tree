@@ -17,7 +17,8 @@ import { NavMenu } from "./NavMenu";
 
 import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis, summarizeBranch, exportSessionUrl } from "../api";
 import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
-import { PanelLeft, PanelRight, Layers, Settings, Zap, StickyNote, Search, FileText } from "lucide-react";
+import { PanelLeft, PanelRight, Layers, Settings, Zap, StickyNote, Search, FileText, Plus } from "lucide-react";
+import { useAddSource } from "../AddSourceContext";
 import { getSourceTypeConfig } from "../source-types";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import "./Reader.css";
@@ -29,6 +30,7 @@ export function Reader() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showSettings, setShowSettings] = useState(false);
   const [showUsage, setShowUsage] = useState(() => getShowUsage());
+  const { openAddSource } = useAddSource();
 
   // ---------------------------------------------------------------------------
   // Hooks
@@ -344,6 +346,7 @@ export function Reader() {
     { id: "nav", icon: <PanelLeft size={16} />, label: "Session Tree", active: panel.sidebarOpen, onClick: panel.toggleNavigator },
     { id: "right-panel", icon: <PanelRight size={16} />, label: "Right Panel", active: panel.rightPanelOpen, onClick: panel.toggleRightPanel },
     { id: "usage", icon: <Zap size={16} />, label: "Usage", active: showUsage, onClick: toggleUsage },
+    { id: "add-source", icon: <Plus size={16} />, label: "Add Source", active: false, onClick: openAddSource },
     { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettings, onClick: () => setShowSettings(true) },
   ];
 

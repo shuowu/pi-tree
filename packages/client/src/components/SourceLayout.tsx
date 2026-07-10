@@ -25,6 +25,8 @@ export function SourceLayout() {
       return;
     }
 
+    setError(null);
+
     let cancelled = false;
     (async () => {
       try {
@@ -46,7 +48,11 @@ export function SourceLayout() {
     );
   }
 
-  if (!source) {
+  // Guard in render, not an effect: the layout stays mounted across source
+  // param changes, and child effects run before parent effects — rendering
+  // the Outlet with a stale source lets children act on the wrong source
+  // (e.g. Reader replace-navigates back to the old source's sessions page)
+  if (!source || source.id !== sourceId) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", opacity: 0.5 }}>
         Loading…

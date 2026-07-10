@@ -9,6 +9,7 @@ export { ToolSteps } from "./ToolSteps.js";
 export { ModelPicker, type ModelInfo } from "./ModelPicker.js";
 export { SelectionToolbar } from "./SelectionToolbar.js";
 export { SlashCommandMenu, type SlashCommand, type SlashCommandResult } from "./SlashCommandMenu.js";
+export { SourceCardMenu, FinishedBadge, type SourceCardMenuProps } from "./SourceCardMenu.js";
 
 // Hooks
 export { useMermaid } from "./hooks/useMermaid.js";

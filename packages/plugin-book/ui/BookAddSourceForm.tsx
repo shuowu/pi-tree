@@ -70,7 +70,8 @@ export function BookAddSourceForm({ onSuccess, onError }: AddSourceFormProps) {
         const err = await res.json().catch(() => ({ error: "Upload failed" }));
         throw new Error(err.error || `Upload failed: ${res.status}`);
       }
-      onSuccess();
+      const created: { id: string } = await res.json();
+      onSuccess(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Upload failed");
       setSubmitting(false);

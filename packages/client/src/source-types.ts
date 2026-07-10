@@ -23,6 +23,8 @@ export interface SourceTypeConfig {
   autoStartMode?: string;
   /** Whether this source type supports book processing (EPUB conversion, outline generation) */
   hasProcessing: boolean;
+  /** Whether sources of this type can be marked finished. False for continuous types like feed dashboards. */
+  finishable: boolean;
   /** Optional content panel component for the right sidebar's second tab */
   contentPanel?: ComponentType<ContentPanelProps>;
   /** Search placeholder text for the library */
@@ -72,6 +74,7 @@ const GENERIC_CONFIG: SourceTypeConfig = {
   defaultMode: "reading",
   autoStartMode: "reading",
   hasProcessing: false,
+  finishable: true,
   searchPlaceholder: "Search sources...",
   chatPlaceholder: "Ask questions about this source…",
 };
@@ -95,6 +98,7 @@ export async function loadSourceTypes(): Promise<void> {
         defaultMode: st.defaultMode,
         autoStartMode: st.autoStartMode,
         hasProcessing: st.hasProcessing ?? false,
+        finishable: st.finishable ?? true,
         contentPanel: appConfig.contentPanels[st.key],
         searchPlaceholder: st.searchPlaceholder ?? "Search...",
         chatPlaceholder: st.chatPlaceholder ?? "Ask a question…",

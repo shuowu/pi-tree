@@ -4,12 +4,15 @@ import type { Source } from "@pi-tree/shared";
 import { fetchSources, fetchTags, addSourceTag, removeSourceTag, fetchJobs, processSource, updateSource, type JobWithSource } from "../api";
 import { Plus, Search, Tag, X, Cpu, LayoutGrid, RefreshCw, CheckCircle2, Circle } from "lucide-react";
 import { SourceCover } from "./SourceCover";
-import { AddSourceModal } from "./AddSourceModal";
+import { useAddSource } from "../AddSourceContext";
 import { getSourceTypeConfig, SOURCE_TYPE_CONFIGS } from "../source-types";
 import { SourceCard } from "./SourceCard";
 import { AppHeader } from "./AppHeader";
 import appConfig from "../pi-tree.config";
 import "./Library.css";
+
+const FINISHED_FILTER_KEY = "pi-tree:library-finished-filter";
+type FinishedFilter = "all" | "finished" | "unfinished";
 
 export function Library() {
   const navigate = useNavigate();
@@ -18,7 +21,7 @@ export function Library() {
   const [allSources, setAllSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const { openAddSource } = useAddSource();
   const [updateAllRunning, setUpdateAllRunning] = useState(false);
 
 
@@ -28,12 +31,34 @@ export function Library() {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [finishedFilter, setFinishedFilter] = useState<"all" | "finished" | "unfinished">("all");
+  // Default to unfinished so the library surfaces what's left to read/watch;
+  // the last choice persists across visits
+  const [finishedFilter, setFinishedFilter] = useState<FinishedFilter>(() => {
+    const saved = localStorage.getItem(FINISHED_FILTER_KEY);
+    return saved === "all" || saved === "finished" || saved === "unfinished"
+      ? saved
+      : "unfinished";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(FINISHED_FILTER_KEY, finishedFilter);
+  }, [finishedFilter]);
+
+  // Sources matching the finished filter — the pool for tab counts and the grid,
+  // so counts always match what clicking a tab would show
+  const finishedFiltered = useMemo(() => {
+    if (finishedFilter === "all") return allSources;
+    return allSources.filter(s =>
+      finishedFilter === "finished"
+        ? s.metadata?.finished === true
+        : s.metadata?.finished !== true,
+    );
+  }, [allSources, finishedFilter]);
 
   // Build tabs from registered source types (plugin-driven) + compute counts
   const typeTabs = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const s of allSources) {
+    for (const s of finishedFiltered) {
       counts[s.type] = (counts[s.type] || 0) + 1;
     }
     return Object.entries(SOURCE_TYPE_CONFIGS).map(([key, cfg]) => ({
@@ -42,20 +67,21 @@ export function Library() {
       icon: cfg.icon,
       count: counts[key] || 0,
     }));
-  }, [allSources]);
+  }, [finishedFiltered]);
 
-  // Filter sources by active tab and finished status
+  // Filter by active tab, then sort: the finished view is a reading history
+  // (most recently finished first); otherwise most recently active first so
+  // in-progress and fresh sources surface. ISO timestamps compare as strings.
   const sources = useMemo(() => {
-    let result = activeTab ? allSources.filter(s => s.type === activeTab) : allSources;
-    if (finishedFilter !== "all") {
-      result = result.filter(s =>
-        finishedFilter === "finished"
-          ? s.metadata?.finished === true
-          : s.metadata?.finished !== true,
-      );
-    }
-    return result;
-  }, [allSources, activeTab, finishedFilter]);
+    const pool = activeTab ? finishedFiltered.filter(s => s.type === activeTab) : finishedFiltered;
+    const sortKey = (s: Source) =>
+      finishedFilter === "finished"
+        ? String(s.metadata?.finishedAt ?? s.lastActiveAt ?? s.createdAt ?? "")
+        : String(s.lastActiveAt ?? s.createdAt ?? "");
+    return [...pool].sort(
+      (a, b) => sortKey(b).localeCompare(sortKey(a)) || a.title.localeCompare(b.title),
+    );
+  }, [finishedFiltered, activeTab, finishedFilter]);
 
   // Tags relevant to the active tab (or all tags when on "All")
   const visibleTags = useMemo(() => {
@@ -336,7 +362,7 @@ export function Library() {
             )}
             <button
               className="library-add-source-btn"
-              onClick={() => setShowAddModal(true)}
+              onClick={openAddSource}
               title="Add a new source to your library"
             >
               <Plus size={16} strokeWidth={2} />
@@ -353,7 +379,7 @@ export function Library() {
           >
             <LayoutGrid size={15} />
             <span>All</span>
-            <span className="library-tab-count">{allSources.length}</span>
+            <span className="library-tab-count">{finishedFiltered.length}</span>
           </button>
           {typeTabs.map((tab) => {
             const Icon = tab.icon;
@@ -487,7 +513,7 @@ export function Library() {
           <p>No sources yet</p>
           <button
             className="library-empty-action-btn primary"
-            onClick={() => setShowAddModal(true)}
+            onClick={openAddSource}
           >
             <Plus size={16} />
             Add Source
@@ -502,11 +528,15 @@ export function Library() {
         return (
           <div className="library-empty-state">
             <TabIcon size={32} strokeWidth={1.5} />
-            <p>No {tabConfig.label.toLowerCase()}s yet</p>
+            <p>
+              {finishedFilter === "all"
+                ? `No ${tabConfig.label.toLowerCase()}s yet`
+                : `No ${finishedFilter} ${tabConfig.label.toLowerCase()}s`}
+            </p>
             {tabConfig.addSource && (
               <button
                 className="library-empty-action-btn primary"
-                onClick={() => setShowAddModal(true)}
+                onClick={openAddSource}
               >
                 <Plus size={16} />
                 Add {tabConfig.label}
@@ -561,6 +591,7 @@ export function Library() {
                 console.error(`Failed to reprocess source ${source.id}:`, err);
               }
             };
+            const finishable = getSourceTypeConfig(source.type).finishable;
             const handleToggleFinished = async () => {
               const next = source.metadata?.finished !== true;
               const finishedAt = next ? new Date().toISOString() : null;
@@ -588,7 +619,7 @@ export function Library() {
                   renderCover={renderCover}
                   onUpdateSource={handleUpdateSource}
                   onReprocessSource={handleReprocessSource}
-                  onToggleFinished={handleToggleFinished}
+                  onToggleFinished={finishable ? handleToggleFinished : undefined}
                 />
               );
             }
@@ -602,7 +633,7 @@ export function Library() {
                 renderCover={renderCover}
                 onUpdateSource={handleUpdateSource}
                 onReprocessSource={handleReprocessSource}
-                onToggleFinished={handleToggleFinished}
+                onToggleFinished={finishable ? handleToggleFinished : undefined}
               />
             );
           })}
@@ -670,18 +701,6 @@ export function Library() {
             </div>
           </div>
         </div>
-      )}
-
-      {showAddModal && (
-        <AddSourceModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false);
-            load(searchQuery, selectedTags);
-            loadJobs();
-            setShowJobs(true);
-          }}
-        />
       )}
 
 

@@ -10,7 +10,7 @@ import "./AddSourceModal.css";
 interface GenericFormProps {
   config: SourceTypeConfig;
   sourceType: string;
-  onSuccess: () => void;
+  onSuccess: (source?: { id: string }) => void;
   onError: (error: string) => void;
 }
 
@@ -40,13 +40,13 @@ function GenericAddSourceForm({ config, sourceType, onSuccess, onError }: Generi
         }
       }
 
-      await createSource({
+      const created = await createSource({
         title: values.title?.trim() ?? "",
         author: values.author?.trim() || undefined,
         type: sourceType,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       });
-      onSuccess();
+      onSuccess(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Creation failed");
       setSubmitting(false);
@@ -144,7 +144,7 @@ function TypePicker({ types, onSelect }: TypePickerProps) {
 
 interface AddSourceModalProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (source?: { id: string }) => void;
 }
 
 export function AddSourceModal({ onClose, onSuccess }: AddSourceModalProps) {
@@ -202,8 +202,8 @@ export function AddSourceModal({ onClose, onSuccess }: AddSourceModalProps) {
     setError(msg);
   }, []);
 
-  const handleSuccess = useCallback(() => {
-    onSuccess();
+  const handleSuccess = useCallback((source?: { id: string }) => {
+    onSuccess(source);
   }, [onSuccess]);
 
   // No types available

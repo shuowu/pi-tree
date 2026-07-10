@@ -113,7 +113,8 @@ export function YouTubeAddSourceForm({ onSuccess, onError }: AddSourceFormProps)
         const err = await res.json().catch(() => ({ error: "Creation failed" }));
         throw new Error(err.error || `Creation failed: ${res.status}`);
       }
-      onSuccess();
+      const created: { id: string } = await res.json();
+      onSuccess(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Failed to add video");
       setSubmitting(false);

@@ -927,6 +927,12 @@
   z-index: 3;
 }
 
+/* While open, lift the menu above card-content overlays (e.g. the YouTube
+   card's play/duration/watched badges at z-index 5-6) */
+.source-card.menu-open .source-card-menu {
+  z-index: 7;
+}
+
 .source-card-menu-btn {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);

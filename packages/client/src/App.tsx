@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router";
+import { Routes, Route, Navigate } from "react-router";
 import { UserProvider, useUser } from "./UserContext";
 import { StreamProvider } from "./StreamContext";
 import { ThemeProvider } from "./ThemeContext";
@@ -13,17 +13,28 @@ import { UsageDashboard } from "./components/UsageDashboard";
 import { MemosPage } from "./components/MemosPage";
 import { DiscoverPage } from "./components/DiscoverPage";
 import { SpotlightSearch } from "./components/SpotlightSearch";
-import { AddSourceModal } from "./components/AddSourceModal";
 import { SettingsModal } from "./components/SettingsModal";
+import { AddSourceProvider, useAddSource } from "./AddSourceContext";
 import "./App.css";
 
 function AppRoutes() {
   const { userId } = useUser();
-  const [spotlightOpen, setSpotlightOpen] = useState(false);
-  const navigate = useNavigate();
-  const [addSourceOpen, setAddSourceOpen] = useState(false);
 
+  if (!userId) {
+    return <UserPicker />;
+  }
+
+  return (
+    <AddSourceProvider>
+      <AppShell userId={userId} />
+    </AddSourceProvider>
+  );
+}
+
+function AppShell({ userId }: { userId: string }) {
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { openAddSource } = useAddSource();
 
   const openSpotlight = useCallback(() => setSpotlightOpen(true), []);
   const closeSpotlight = useCallback(() => setSpotlightOpen(false), []);
@@ -39,10 +50,6 @@ function AppRoutes() {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, []);
-
-  if (!userId) {
-    return <UserPicker />;
-  }
 
   return (
     <>
@@ -63,15 +70,9 @@ function AppRoutes() {
         userId={userId}
         isOpen={spotlightOpen}
         onClose={closeSpotlight}
-        onAddSource={() => setAddSourceOpen(true)}
+        onAddSource={openAddSource}
         onSettings={() => setSettingsOpen(true)}
       />
-      {addSourceOpen && (
-        <AddSourceModal
-          onClose={() => setAddSourceOpen(false)}
-          onSuccess={() => { setAddSourceOpen(false); navigate("/library"); }}
-        />
-      )}
 
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} />

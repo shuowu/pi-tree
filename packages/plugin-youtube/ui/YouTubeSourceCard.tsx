@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { SourceCardProps } from "@pi-tree/ui";
-import { Tag, Play } from "lucide-react";
+import { SourceCardMenu } from "@pi-tree/ui";
+import { Play, CheckCircle2 } from "lucide-react";
 import "./YouTubeSourceCard.css";
 
 function formatViews(views?: any): string {
@@ -43,8 +45,18 @@ function formatPublishDate(dateStr?: any): string {
   return `${diffYears} ${diffYears === 1 ? "year" : "years"} ago`;
 }
 
-export function YouTubeSourceCard({ source, onClick, onTagClick, renderCover }: SourceCardProps) {
+export function YouTubeSourceCard({
+  source,
+  onClick,
+  onTagClick,
+  renderCover,
+  onUpdateSource,
+  onReprocessSource,
+  onToggleFinished,
+}: SourceCardProps) {
   const meta = source.metadata;
+  const isFinished = meta?.finished === true;
+  const [menuOpen, setMenuOpen] = useState(false);
   const lengthSeconds = typeof meta?.lengthSeconds === "number" ? meta.lengthSeconds : 0;
   
   // Format duration helper (e.g. 5:23 or 1:04:12)
@@ -62,7 +74,7 @@ export function YouTubeSourceCard({ source, onClick, onTagClick, renderCover }: 
 
   return (
     <div
-      className="source-card youtube-source-card"
+      className={`source-card youtube-source-card${menuOpen ? " menu-open" : ""}${isFinished ? " finished" : ""}`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -75,6 +87,12 @@ export function YouTubeSourceCard({ source, onClick, onTagClick, renderCover }: 
             <Play size={18} fill="currentColor" />
           </div>
         </div>
+        {isFinished && (
+          <span className="youtube-watched-overlay">
+            <CheckCircle2 size={12} />
+            Watched
+          </span>
+        )}
         {durationStr && (
           <span className="youtube-duration-overlay" style={{
             position: "absolute",
@@ -115,6 +133,8 @@ export function YouTubeSourceCard({ source, onClick, onTagClick, renderCover }: 
           ) : null}
         </div>
 
+        {/* Finished state is shown by the Watched overlay + dimmed thumbnail;
+            an in-row badge would overflow this fixed-height card */}
         <div className="source-card-badges">
           {source.tags?.map((tag) => (
             <span key={tag} className="badge badge-tag">
@@ -135,16 +155,14 @@ export function YouTubeSourceCard({ source, onClick, onTagClick, renderCover }: 
         </div>
       </div>
       
-      <button
-        className="source-card-tag-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          onTagClick();
-        }}
-        title="Manage tags"
-      >
-        <Tag size={14} />
-      </button>
+      <SourceCardMenu
+        source={source}
+        onTagClick={onTagClick}
+        onUpdateSource={onUpdateSource}
+        onReprocessSource={onReprocessSource}
+        onToggleFinished={onToggleFinished}
+        onOpenChange={setMenuOpen}
+      />
     </div>
   );
 }

@@ -7,8 +7,9 @@ import { useUser } from "../UserContext";
 import { SessionPicker } from "./SessionPicker";
 import { useSource } from "./SourceLayout";
 import { Breadcrumb } from "@pi-tree/ui";
-import { Home, Settings } from "lucide-react";
+import { Home, Settings, Plus } from "lucide-react";
 import { SourceSettingsModal } from "./SourceSettingsModal";
+import { useAddSource } from "../AddSourceContext";
 import "./SessionsPage.css";
 
 type SessionMode = string;
@@ -21,6 +22,7 @@ export function SessionsPage() {
   const [profiles, setProfiles] = useState<Record<string, ProfileInfo>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const { openAddSource } = useAddSource();
 
   useEffect(() => {
     if (!userId) return;
@@ -112,8 +114,9 @@ export function SessionsPage() {
 
   const panelToggles = useMemo(() => [
     { id: "home", icon: <Home size={16} />, label: "Library", active: false, onClick: () => navigate("/") },
+    { id: "add-source", icon: <Plus size={16} />, label: "Add Source", active: false, onClick: openAddSource },
     { id: "settings", icon: <Settings size={16} />, label: "Settings", active: showSettings, onClick: () => setShowSettings(true) },
-  ], [navigate, showSettings]);
+  ], [navigate, showSettings, openAddSource]);
 
   return (
     <div className="sessions-page">

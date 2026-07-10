@@ -397,7 +397,8 @@ export function NewsAddSourceForm({ onSuccess, onError }: AddSourceFormProps) {
 
       {/* Done */}
       <div className="add-source-actions">
-        <button className="add-source-submit" onClick={onSuccess}>
+        {/* No source arg: news is a singleton dashboard, stay in the library */}
+        <button className="add-source-submit" onClick={() => onSuccess()}>
           Done
         </button>
       </div>

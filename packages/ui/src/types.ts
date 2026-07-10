@@ -10,8 +10,13 @@ export interface ContentPanelProps {
 
 /** Props passed to plugin add-source form components by the AddSourceModal */
 export interface AddSourceFormProps {
-  /** Called when the source is successfully created. The modal will close. */
-  onSuccess: () => void;
+  /**
+   * Called when the source is successfully created. The modal will close.
+   * Pass the created source (its id is enough) to let the host navigate
+   * straight to it; omit it to stay in the library (e.g. singleton types
+   * like the news dashboard, where "add" is feed configuration).
+   */
+  onSuccess: (source?: { id: string }) => void;
   /** Called when an error occurs. The modal will display the error. */
   onError: (error: string) => void;
 }

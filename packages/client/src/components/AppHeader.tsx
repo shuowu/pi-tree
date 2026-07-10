@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router";
 import { useUser } from "../UserContext";
-import { GitFork, Search, LogOut, BookOpen, StickyNote, Zap, Compass } from "lucide-react";
+import { useAddSource } from "../AddSourceContext";
+import { GitFork, Search, LogOut, BookOpen, StickyNote, Zap, Compass, Plus } from "lucide-react";
 import "./AppHeader.css";
 
 interface AppHeaderProps {
@@ -19,6 +20,7 @@ export function AppHeader({ onOpenSpotlight }: AppHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { displayName, clearUser } = useUser();
+  const { openAddSource } = useAddSource();
 
   return (
     <header className="app-header">
@@ -43,6 +45,14 @@ export function AppHeader({ onOpenSpotlight }: AppHeaderProps) {
       </nav>
 
       <div className="app-header-right">
+        <button
+          className="app-header-icon-btn"
+          onClick={openAddSource}
+          title="Add source"
+        >
+          <Plus size={16} strokeWidth={2} />
+        </button>
+
         {onOpenSpotlight && (
           <button
             className="app-header-btn"
