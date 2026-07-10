@@ -14,6 +14,7 @@ router-*
 
 # Local dev/test data (in-repo, per-developer)
 .local-data/
+packages/server/.test-data/
 
 # Default Docker data directory
 /data
@@ -29,3 +30,6 @@ packages/plugin-*/dist/
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Local agent tooling (per-developer, may reference local infra)
+.claude/

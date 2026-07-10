@@ -2,6 +2,25 @@
 
 Guidance for working in the pi-tree repo.
 
+## Databases: prod vs dev — read before touching any data
+
+The Docker deployment (UI at :3847) and its NAS sqld databases are
+**production for personal use** and must stay stable. All development,
+testing, and verification uses local data (`.local-data/` for dev servers,
+`packages/server/.test-data/` for tests).
+
+⚠️ The repo `.env` (direnv-exported into every shell) contains
+`PI_TREE_DB_URL`, `PI_TREE_NEWS_DB_URL`, and `RSS_REMOTE_URL` pointing at the
+NAS. The `dev` and `test` scripts in `packages/server` blank these inline —
+keep those guards. Any *ad-hoc* command that can touch the DB (vitest with a
+filter, tsx one-offs, scripts) must do the same:
+
+```bash
+PI_TREE_DB_URL='' PI_TREE_NEWS_DB_URL='' RSS_REMOTE_URL='' npx vitest run <filter>
+```
+
+Never write to the NAS databases without the user's explicit approval.
+
 ## Writing skills
 
 Skills are the `SKILL.md` playbooks that drive each reading session
