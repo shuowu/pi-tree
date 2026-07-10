@@ -29,6 +29,7 @@
       "defaultMode": "news",
       "autoStartMode": "news",
       "hasProcessing": false,
+      "finishable": false,
       "searchPlaceholder": "Search feeds...",
       "chatPlaceholder": "Ask about the news, or try: trends, deep dive, scan AI…",
       "mentionKeyword": "News",

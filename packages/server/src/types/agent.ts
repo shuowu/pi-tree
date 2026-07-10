@@ -139,6 +139,8 @@ export interface SourceTypeEntry {
   autoStartMode?: string;
   /** Whether this source type supports processing (e.g. EPUB conversion) */
   hasProcessing: boolean;
+  /** Whether sources of this type can be marked finished. False for continuous types like feed dashboards. */
+  finishable: boolean;
   /** Whether this source type supports concept extraction */
   concepts: boolean;
   /** Search placeholder text for the library */

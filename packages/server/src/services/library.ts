@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { mkdirSync, existsSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { eq, sql } from "drizzle-orm";
-import { getDb, sources as sourcesTable, tags as tagsTable, sourceTags } from "../db/index.js";
+import { getDb, sources as sourcesTable, tags as tagsTable, sourceTags, userSessions } from "../db/index.js";
 
 /**
  * LibraryService — reads sources from DATA_PATH/library/ on disk.
@@ -119,6 +119,19 @@ export class LibraryService {
 
     // All sources live in DB — uploaded, user-created, system, migrated
     const rows = await db.select().from(sourcesTable).all();
+
+    // Most recent session activity per source (across users) — lets the
+    // client sort by "recently active" (ISO strings compare lexicographically)
+    const activity = await db
+      .select({
+        sourceId: userSessions.sourceId,
+        lastActiveAt: sql<string>`max(${userSessions.lastActiveAt})`,
+      })
+      .from(userSessions)
+      .groupBy(userSessions.sourceId)
+      .all();
+    const lastActiveBySource = new Map(activity.map((a) => [a.sourceId, a.lastActiveAt]));
+
     const result: Source[] = [];
 
     for (const row of rows) {
@@ -161,6 +174,8 @@ export class LibraryService {
         status: (row.status ?? "ready") as Source["status"],
         error: row.error ?? undefined,
         metadata,
+        createdAt: row.createdAt,
+        lastActiveAt: lastActiveBySource.get(row.id),
       });
     }
 

@@ -359,6 +359,7 @@ export class AgentRegistry {
       defaultMode: st.defaultMode ?? "reading",
       autoStartMode: st.autoStartMode,
       hasProcessing: st.hasProcessing ?? false,
+      finishable: st.finishable ?? true,
       concepts: st.concepts ?? false,
       searchPlaceholder: st.searchPlaceholder,
       chatPlaceholder: st.chatPlaceholder,

@@ -358,6 +358,8 @@ export interface PluginManifest {
     autoStartMode?: string;
     /** Whether this source type supports processing (e.g. EPUB conversion) */
     hasProcessing?: boolean;
+    /** Whether sources of this type can be marked finished (default: true). Set false for continuous types like feed dashboards. */
+    finishable?: boolean;
     /** Search placeholder text for the library filter bar */
     searchPlaceholder?: string;
     /** Chat input placeholder text */

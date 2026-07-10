@@ -188,6 +188,12 @@ export interface Source {
   /** Whether the source has a cover image */
   hasCover?: boolean;
 
+  /** ISO timestamp when the source was added */
+  createdAt?: string;
+
+  /** ISO timestamp of the most recent session activity on this source (any user) */
+  lastActiveAt?: string;
+
   /** Cover image URL/path */
   coverUrl?: string;
 

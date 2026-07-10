@@ -75,6 +75,8 @@ export const sourceTypeManifestSchema = z.object({
   autoStartMode: z.string().optional(),
   /** Whether this source type supports processing (e.g. EPUB → Markdown conversion) */
   hasProcessing: z.boolean().optional(),
+  /** Whether sources of this type can be marked finished (default: true). Set false for continuous types like feed dashboards. */
+  finishable: z.boolean().optional(),
   /** Search placeholder text for the library filter bar */
   searchPlaceholder: z.string().optional(),
   /** Chat input placeholder text */
