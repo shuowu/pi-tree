@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { getAgentRegistry } from "../services/agent-registry.js";
 import { getServerConfig, saveServerConfig } from "../config.js";
+import { closeAllSessions } from "../services/session-store.js";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -18,7 +19,19 @@ configRoutes.get("/", (c) => {
 configRoutes.put("/", async (c) => {
   try {
     const body = await c.req.json();
+    const before = getServerConfig();
     const updated = saveServerConfig(body);
+    // Cached sessions bind their model at creation — evict them so the next
+    // request rebuilds against the new model instead of the stale one.
+    if (
+      updated.readingModel !== before.readingModel ||
+      updated.lookupModel !== before.lookupModel
+    ) {
+      const evicted = closeAllSessions();
+      console.log(
+        `[config] Model changed (${before.readingModel} → ${updated.readingModel}); evicted ${evicted} cached session(s)`,
+      );
+    }
     return c.json({
       success: true,
       config: {

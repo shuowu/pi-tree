@@ -258,3 +258,18 @@ export async function withSessionLockByKey<T>(
 export function listSessions(): string[] {
   return [...activeSessions.keys()];
 }
+
+/**
+ * Evict every cached session, aborting any in-flight streams.
+ *
+ * TreeManager resolves its model once at creation, so cached sessions keep
+ * using whatever model was configured when they were built. Call this after
+ * a model change so the next request rebuilds sessions against the new model.
+ */
+export function closeAllSessions(): number {
+  const keys = [...activeSessions.keys()];
+  for (const key of keys) {
+    closeSessionByKey(key);
+  }
+  return keys.length;
+}

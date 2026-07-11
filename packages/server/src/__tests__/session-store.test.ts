@@ -11,6 +11,7 @@ import {
   registerSession,
   getSessionByKey,
   closeSessionByKey,
+  closeAllSessions,
   withSessionLockByKey,
   listSessions,
 } from "../services/session-store.js";
@@ -161,6 +162,28 @@ describe("Session Store — ephemeral session APIs", () => {
     expect(onQueued1).not.toHaveBeenCalled();
     // Second caller waits behind the first → contention callback fires
     expect(onQueued2).toHaveBeenCalledOnce();
+  });
+
+  // ── closeAllSessions ─────────────────────────────────────────────────────
+
+  it("closeAllSessions evicts every cached session and reports the count", () => {
+    // Start from a clean slate so the count assertion is exact
+    closeAllSessions();
+
+    registerSession("key-a", stubManager("A"));
+    registerSession("key-b", stubManager("B"));
+
+    const evicted = closeAllSessions();
+
+    expect(evicted).toBe(2);
+    expect(getSessionByKey("key-a")).toBeUndefined();
+    expect(getSessionByKey("key-b")).toBeUndefined();
+    expect(listSessions()).toEqual([]);
+  });
+
+  it("closeAllSessions on an empty store returns 0", () => {
+    closeAllSessions();
+    expect(closeAllSessions()).toBe(0);
   });
 
   // ── Multiple keys are independent ────────────────────────────────────────
