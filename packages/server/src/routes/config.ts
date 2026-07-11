@@ -63,12 +63,19 @@ configRoutes.get("/source-types", (c) => {
 configRoutes.get("/plugins/ui-manifest", (c) => {
   const registry = getAgentRegistry();
   const sourceTypes = registry.getSourceTypes();
+  const seenPlugins = new Set<string>();
   const plugins = sourceTypes
     .filter((st) => st.hasUI)
     .filter((st) => {
       // Only include plugins whose UI bundles actually exist on disk
       const bundlePath = join(st.pluginDir, "ui", "dist", "plugin.js");
       return existsSync(bundlePath);
+    })
+    .filter((st) => {
+      // A plugin owning several source types still has one bundle — list it once
+      if (seenPlugins.has(st.pluginName)) return false;
+      seenPlugins.add(st.pluginName);
+      return true;
     })
     .map((st) => ({
       name: st.pluginName,

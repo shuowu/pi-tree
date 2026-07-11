@@ -48,6 +48,8 @@ export interface CrawlStats {
   error?: string;
 }
 
+export type RssItemTag = "news" | "youtube";
+
 export interface RssItemData {
   id: number;
   title: string;
@@ -58,7 +60,22 @@ export interface RssItemData {
   publishedAt: string | null;
   summary: string | null;
   author: string | null;
+  tag: string;
+  promotedSourceId: string | null;
   createdAt: string;
+}
+
+export interface RssItemUpdates {
+  tag?: RssItemTag;
+  promotedSourceId?: string | null;
+}
+
+/**
+ * Classify a crawled item by its URL. Kept consistent with the SQL backfill in
+ * drizzle/0001 (`url LIKE '%youtube.com/%' OR url LIKE '%youtu.be/%'`).
+ */
+export function detectItemTag(url: string): RssItemTag {
+  return /(?:youtube\.com|youtu\.be)\//i.test(url) ? "youtube" : "news";
 }
 
 export interface AggregatedSource {
@@ -93,7 +110,8 @@ export interface IRssService {
   updateFeed(feedId: string, updates: Partial<Pick<FeedConfig, "name" | "url" | "tags">>): Promise<boolean>;
   getFeedsByTags(filterTags: string[]): Promise<FeedConfig[]>;
   getAllFeedTags(): Promise<string[]>;
-  getLatestRss(options?: { feeds?: string[]; tags?: string[]; days?: number; limit?: number; keyword?: string }): Promise<RssItemData[]>;
+  getLatestRss(options?: { feeds?: string[]; tags?: string[]; days?: number; limit?: number; keyword?: string; itemTag?: string }): Promise<RssItemData[]>;
+  updateItem(itemId: number, updates: RssItemUpdates): Promise<boolean>;
   aggregateRss(options?: { feeds?: string[]; tags?: string[]; days?: number; similarityThreshold?: number; limit?: number; includeUrl?: boolean }): Promise<AggregatedRssGroup[]>;
   crawlAllFeeds(): Promise<CrawlStats[]>;
 }
@@ -409,6 +427,7 @@ export class RssService implements IRssService {
                 publishedAt,
                 summary,
                 author,
+                tag: detectItemTag(url),
                 createdAt: now,
                 updatedAt: now
               })
@@ -470,6 +489,7 @@ export class RssService implements IRssService {
     days?: number;
     limit?: number;
     keyword?: string;
+    itemTag?: string;
   }): Promise<RssItemData[]> {
     const db = await this.getDb();
     const days = options?.days ?? 3;
@@ -494,6 +514,8 @@ export class RssService implements IRssService {
         publishedAt: rssItems.publishedAt,
         summary: rssItems.summary,
         author: rssItems.author,
+        tag: rssItems.tag,
+        promotedSourceId: rssItems.promotedSourceId,
         createdAt: rssItems.createdAt
       })
       .from(rssItems)
@@ -521,6 +543,7 @@ export class RssService implements IRssService {
       // reliably age them out) rather than silently discarded.
       if (!Number.isNaN(ms) && ms < cutoffMs) return false;
       if (feedFilter && feedFilter.length > 0 && !feedFilter.includes(item.feedId)) return false;
+      if (options?.itemTag && item.tag !== options.itemTag) return false;
       if (options?.keyword) {
         const kw = options.keyword.toLowerCase();
         const matchesTitle = item.title.toLowerCase().includes(kw);
@@ -538,6 +561,18 @@ export class RssService implements IRssService {
     });
 
     return filtered.slice(0, limit);
+  }
+
+  public async updateItem(itemId: number, updates: RssItemUpdates): Promise<boolean> {
+    const db = await this.getDb();
+    const set: Record<string, string | null> = { updatedAt: new Date().toISOString() };
+    if (updates.tag !== undefined) set.tag = updates.tag;
+    if (updates.promotedSourceId !== undefined) set.promotedSourceId = updates.promotedSourceId;
+    const result = await db.update(rssItems)
+      .set(set)
+      .where(eq(rssItems.id, itemId))
+      .run();
+    return result.rowsAffected > 0;
   }
 
   /**

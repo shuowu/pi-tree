@@ -466,11 +466,12 @@ export class AgentRegistry {
           log.info(`Discovered plugin routes: ${name} → ${prefix}`);
         }
 
-        // Register source type from piTree.sourceType
-        const st = pkg.piTree?.sourceType;
-        if (st?.key && !this.sourceTypes.has(st.key)) {
-          this.sourceTypes.set(st.key, this.buildSourceTypeEntry(st, name, pluginDir, !!pkg.piTree?.ui));
-          log.info(`Discovered source type "${st.key}" from plugin ${name}`);
+        // Register source types from piTree.sourceType + piTree.sourceTypes
+        for (const st of [pkg.piTree?.sourceType, ...(pkg.piTree?.sourceTypes ?? [])]) {
+          if (st?.key && !this.sourceTypes.has(st.key)) {
+            this.sourceTypes.set(st.key, this.buildSourceTypeEntry(st, name, pluginDir, !!pkg.piTree?.ui));
+            log.info(`Discovered source type "${st.key}" from plugin ${name}`);
+          }
         }
       } catch (err: any) {
         if (err?.message?.includes("Route prefix collision")) throw err;
@@ -761,14 +762,15 @@ export class AgentRegistry {
             log.error(`Manifest error: ${err}`);
           }
 
-          const st = pkg.piTree?.sourceType;
-          if (!st?.key) continue;
+          for (const st of [pkg.piTree?.sourceType, ...(pkg.piTree?.sourceTypes ?? [])]) {
+            if (!st?.key) continue;
 
-          // Don't override if already discovered (first wins = core)
-          if (this.sourceTypes.has(st.key)) continue;
+            // Don't override if already discovered (first wins = core)
+            if (this.sourceTypes.has(st.key)) continue;
 
-          this.sourceTypes.set(st.key, this.buildSourceTypeEntry(st, name, pluginDir, !!pkg.piTree?.ui));
-          log.info(`Discovered source type "${st.key}" from plugin ${name}`);
+            this.sourceTypes.set(st.key, this.buildSourceTypeEntry(st, name, pluginDir, !!pkg.piTree?.ui));
+            log.info(`Discovered source type "${st.key}" from plugin ${name}`);
+          }
         } catch (err: any) {
           log.error(`Failed to read plugin in ${pluginDir}:`, err?.message ?? err);
         }

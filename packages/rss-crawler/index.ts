@@ -138,8 +138,26 @@ app.get("/api/items", async (c) => {
     days: c.req.query("days") ? Number(c.req.query("days")) : undefined,
     limit: c.req.query("limit") ? Number(c.req.query("limit")) : undefined,
     keyword: c.req.query("keyword") || undefined,
+    itemTag: c.req.query("itemTag") || undefined,
   });
   return c.json(items);
+});
+
+app.patch("/api/items/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) {
+    return c.json({ success: false, error: "Invalid item id" }, 400);
+  }
+  const body = await c.req.json<{ tag?: string; promotedSourceId?: string | null }>();
+  if (body.tag !== undefined && body.tag !== "news" && body.tag !== "youtube") {
+    return c.json({ success: false, error: "tag must be 'news' or 'youtube'" }, 400);
+  }
+  const updated = await rssService.updateItem(id, {
+    tag: body.tag as "news" | "youtube" | undefined,
+    promotedSourceId: body.promotedSourceId,
+  });
+  if (!updated) return c.json({ success: false, error: `Item ${id} not found` }, 404);
+  return c.json({ success: true, id });
 });
 
 app.get("/api/aggregate", async (c) => {

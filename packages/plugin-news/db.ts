@@ -32,6 +32,8 @@ export const rssItems = sqliteTable("rss_items", {
   publishedAt: text("published_at"),
   summary: text("summary"),
   author: text("author"),
+  tag: text("tag").notNull().default("news"),  // "news" | "youtube"
+  promotedSourceId: text("promoted_source_id"),  // core sources.id once promoted (cross-DB soft ref)
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 }, (table) => ({

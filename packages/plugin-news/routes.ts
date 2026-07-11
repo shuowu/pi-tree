@@ -189,6 +189,56 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
   });
 
   // ---------------------------------------------------------------------------
+  // Item Routes — individual crawled entries
+  // ---------------------------------------------------------------------------
+
+  /** List latest crawled items (newest first) */
+  routes.get("/items", async (c) => {
+    try {
+      const feedsParam = c.req.query("feeds");
+      const tagsParam = c.req.query("tags");
+      const items = await rssService.getLatestRss({
+        feeds: feedsParam ? feedsParam.split(",") : undefined,
+        tags: tagsParam ? tagsParam.split(",") : undefined,
+        days: c.req.query("days") ? Number(c.req.query("days")) : 7,
+        limit: c.req.query("limit") ? Number(c.req.query("limit")) : 100,
+        keyword: c.req.query("keyword") || undefined,
+        itemTag: c.req.query("itemTag") || undefined,
+      });
+      return c.json(items);
+    } catch (err: any) {
+      return c.json({ success: false, error: err.message }, 500);
+    }
+  });
+
+  /** Update an item's tag or promoted-source link */
+  routes.patch("/items/:id", async (c) => {
+    try {
+      const id = Number(c.req.param("id"));
+      if (!Number.isInteger(id)) {
+        return c.json({ success: false, error: "Invalid item id" }, 400);
+      }
+      const body = await c.req.json<{ tag?: string; promotedSourceId?: string | null }>();
+      if (body.tag !== undefined && body.tag !== "news" && body.tag !== "youtube") {
+        return c.json({ success: false, error: "tag must be 'news' or 'youtube'" }, 400);
+      }
+      if (body.tag === undefined && body.promotedSourceId === undefined) {
+        return c.json({ success: false, error: "Nothing to update" }, 400);
+      }
+      const updated = await rssService.updateItem(id, {
+        tag: body.tag as "news" | "youtube" | undefined,
+        promotedSourceId: body.promotedSourceId,
+      });
+      if (!updated) {
+        return c.json({ success: false, error: `Item ${id} not found` }, 404);
+      }
+      return c.json({ success: true, id });
+    } catch (err: any) {
+      return c.json({ success: false, error: err.message }, 500);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // Report / Saved Analysis Routes
   // ---------------------------------------------------------------------------
 

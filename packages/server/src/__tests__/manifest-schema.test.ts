@@ -136,6 +136,53 @@ describe("Manifest validation — real plugins", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests — plural sourceTypes[] (a plugin owning several source types)
+// ---------------------------------------------------------------------------
+
+describe("Manifest validation — sourceTypes array", () => {
+  it("accepts sourceType plus additional sourceTypes entries", () => {
+    const pkg = {
+      piTree: {
+        sourceType: { key: "news", sessionModes: ["news"], defaultMode: "news" },
+        sourceTypes: [
+          {
+            key: "article",
+            label: "Article",
+            sessionModes: ["reading", "custom"],
+            defaultMode: "reading",
+            systemContext: ["Title: {title}", "URL: {url}"],
+          },
+        ],
+      },
+    };
+    const result = validatePluginManifest(pkg, "news");
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("rejects invalid keys inside sourceTypes entries", () => {
+    const pkg = { piTree: { sourceTypes: [{ key: "Bad Key" }] } };
+    const result = validatePluginManifest(pkg, "test");
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("sourceTypes"))).toBe(true);
+  });
+
+  it("emits semantic warnings for sourceTypes entries too", () => {
+    const pkg = {
+      piTree: {
+        sourceTypes: [
+          { key: "article", sessionModes: ["reading"], defaultMode: "qa" },
+        ],
+      },
+    };
+    const result = validatePluginManifest(pkg, "test");
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((w) => w.includes("defaultMode"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests — structural validation errors
 // ---------------------------------------------------------------------------
 

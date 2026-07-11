@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router";
 import type { SourceSession, SessionContext } from "@pi-tree/shared";
 import { fetchSessions, createSession, updateSession, deleteSession, fetchProfiles, exportSessionUrl, importSession } from "../api";
@@ -10,6 +10,7 @@ import { Breadcrumb } from "@pi-tree/ui";
 import { Home, Settings, Plus } from "lucide-react";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { useAddSource } from "../AddSourceContext";
+import appConfig from "../pi-tree.config";
 import "./SessionsPage.css";
 
 type SessionMode = string;
@@ -23,6 +24,23 @@ export function SessionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const { openAddSource } = useAddSource();
+
+  // Plugin-contributed items panel (e.g. crawled news items). When present,
+  // the page shows a Latest/Sessions tab switcher and lands on Latest.
+  const ItemsPanel = appConfig.itemsPanels[source.type];
+  const [activeTab, setActiveTab] = useState<"items" | "sessions">(ItemsPanel ? "items" : "sessions");
+
+  const handleOpenSource = useCallback(
+    (sourceId: string, opts?: { sessionId?: number; mode?: string }) => {
+      if (opts?.sessionId) {
+        const modeParam = opts.mode ? `&new=${opts.mode}` : "";
+        navigate(`/source/${sourceId}?session=${opts.sessionId}${modeParam}`);
+      } else {
+        navigate(`/source/${sourceId}`);
+      }
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     if (!userId) return;
@@ -128,18 +146,39 @@ export function SessionsPage() {
         panelToggles={panelToggles}
       />
 
-      <SessionPicker
-        source={source}
-        sessions={sessions}
-        profiles={profiles}
-        onSelectSession={handleSelectSession}
-        onNewSession={handleNewSession}
-        onDeleteSession={handleDeleteSession}
-        onRenameSession={handleRenameSession}
-        onExportSession={handleExportSession}
-        onImportFile={handleImportFile}
-        isLoading={isLoading}
-      />
+      {ItemsPanel && (
+        <div className="sessions-page-tabs">
+          <button
+            className={`sessions-page-tab ${activeTab === "items" ? "active" : ""}`}
+            onClick={() => setActiveTab("items")}
+          >
+            Latest
+          </button>
+          <button
+            className={`sessions-page-tab ${activeTab === "sessions" ? "active" : ""}`}
+            onClick={() => setActiveTab("sessions")}
+          >
+            Sessions
+          </button>
+        </div>
+      )}
+
+      {ItemsPanel && activeTab === "items" ? (
+        <ItemsPanel source={source} userId={userId ?? ""} onOpenSource={handleOpenSource} />
+      ) : (
+        <SessionPicker
+          source={source}
+          sessions={sessions}
+          profiles={profiles}
+          onSelectSession={handleSelectSession}
+          onNewSession={handleNewSession}
+          onDeleteSession={handleDeleteSession}
+          onRenameSession={handleRenameSession}
+          onExportSession={handleExportSession}
+          onImportFile={handleImportFile}
+          isLoading={isLoading}
+        />
+      )}
 
       {showSettings && (
         <SourceSettingsModal

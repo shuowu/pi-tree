@@ -6,7 +6,7 @@
  * for what's installed. The framework reads the config and wires UI automatically.
  */
 import type { ComponentType } from "react";
-import type { ClientPlugin, ContentPanelProps, AddSourceFormProps, SourceCardProps } from "@pi-tree/ui";
+import type { ClientPlugin, ContentPanelProps, AddSourceFormProps, SourceCardProps, SourceItemsPanelProps } from "@pi-tree/ui";
 
 export type { ClientPlugin };
 
@@ -19,6 +19,8 @@ export interface ResolvedConfig {
   addSourceForms: Record<string, ComponentType<AddSourceFormProps>>;
   /** Custom source card components keyed by source type */
   sourceCards: Record<string, ComponentType<SourceCardProps>>;
+  /** Items panels (source landing page tab) keyed by source type */
+  itemsPanels: Record<string, ComponentType<SourceItemsPanelProps>>;
   /** All modals contributed by plugins, keyed by name (currently unused — reserved for future plugin commands) */
   modals: Record<string, ComponentType<{ onClose: () => void }>>;
 }
@@ -28,6 +30,7 @@ export function defineConfig(plugins: ClientPlugin[]): ResolvedConfig {
   const contentPanels: Record<string, ComponentType<ContentPanelProps>> = {};
   const addSourceForms: Record<string, ComponentType<AddSourceFormProps>> = {};
   const sourceCards: Record<string, ComponentType<SourceCardProps>> = {};
+  const itemsPanels: Record<string, ComponentType<SourceItemsPanelProps>> = {};
   const modals: Record<string, ComponentType<{ onClose: () => void }>> = {};
 
   for (const plugin of plugins) {
@@ -40,12 +43,15 @@ export function defineConfig(plugins: ClientPlugin[]): ResolvedConfig {
     if (plugin.sourceCard) {
       sourceCards[plugin.sourceType] = plugin.sourceCard;
     }
+    if (plugin.itemsPanel) {
+      itemsPanels[plugin.sourceType] = plugin.itemsPanel;
+    }
     if (plugin.modals) {
       Object.assign(modals, plugin.modals);
     }
   }
 
-  return { plugins, contentPanels, addSourceForms, sourceCards, modals };
+  return { plugins, contentPanels, addSourceForms, sourceCards, itemsPanels, modals };
 }
 
 /**
@@ -68,6 +74,9 @@ export function mergeRuntimePlugins(
     }
     if (plugin.sourceCard) {
       config.sourceCards[plugin.sourceType] = plugin.sourceCard;
+    }
+    if (plugin.itemsPanel) {
+      config.itemsPanels[plugin.sourceType] = plugin.itemsPanel;
     }
     if (plugin.modals) {
       Object.assign(config.modals, plugin.modals);

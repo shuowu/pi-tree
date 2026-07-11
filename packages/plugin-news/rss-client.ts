@@ -1,4 +1,4 @@
-import type { IRssService, FeedConfig, CrawlStats, RssItemData, AggregatedRssGroup } from "./rss-service.js";
+import type { IRssService, FeedConfig, CrawlStats, RssItemData, RssItemUpdates, AggregatedRssGroup } from "./rss-service.js";
 
 // ---------------------------------------------------------------------------
 // RemoteRssClient — proxies IRssService calls to a remote RSS crawler
@@ -69,7 +69,7 @@ export class RemoteRssClient implements IRssService {
   // -------------------------------------------------------------------------
 
   async getLatestRss(options?: {
-    feeds?: string[]; tags?: string[]; days?: number; limit?: number; keyword?: string;
+    feeds?: string[]; tags?: string[]; days?: number; limit?: number; keyword?: string; itemTag?: string;
   }): Promise<RssItemData[]> {
     const params = new URLSearchParams();
     if (options?.feeds?.length) params.set("feeds", options.feeds.join(","));
@@ -77,8 +77,14 @@ export class RemoteRssClient implements IRssService {
     if (options?.days !== undefined) params.set("days", String(options.days));
     if (options?.limit !== undefined) params.set("limit", String(options.limit));
     if (options?.keyword) params.set("keyword", options.keyword);
+    if (options?.itemTag) params.set("itemTag", options.itemTag);
     const qs = params.toString();
     return this.request("GET", `/api/items${qs ? `?${qs}` : ""}`);
+  }
+
+  async updateItem(itemId: number, updates: RssItemUpdates): Promise<boolean> {
+    const result = await this.request<{ success: boolean }>("PATCH", `/api/items/${itemId}`, updates);
+    return result.success;
   }
 
   async aggregateRss(options?: {

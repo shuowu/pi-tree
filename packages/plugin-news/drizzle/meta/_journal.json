@@ -8,6 +8,13 @@
       "when": 1782248452870,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783798215949,
+      "tag": "0001_curly_demogoblin",
+      "breakpoints": true
     }
   ]
 }

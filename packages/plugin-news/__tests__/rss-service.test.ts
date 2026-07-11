@@ -5,6 +5,7 @@ import {
   RssService,
   calculateSequenceSimilarity,
   calculateJaccardSimilarity,
+  detectItemTag,
   toEpochMs,
   toIsoOrNull
 } from "../rss-service.ts";
@@ -248,5 +249,79 @@ describe("RssService (plugin-local)", () => {
     // Newest-first ordering by parsed timestamp, not lexicographic string sort.
     expect(items[0].url).toBe("https://example.com/recent");
     expect(items[1].url).toBe("https://example.com/day-ago");
+  });
+
+  it("detectItemTag classifies URLs", () => {
+    expect(detectItemTag("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("youtube");
+    expect(detectItemTag("https://youtu.be/dQw4w9WgXcQ")).toBe("youtube");
+    expect(detectItemTag("https://www.youtube.com/shorts/abc123")).toBe("youtube");
+    expect(detectItemTag("https://example.com/news/story")).toBe("news");
+    expect(detectItemTag("https://notyoutube.example.com/article")).toBe("news");
+  });
+
+  it("getLatestRss returns per-item tag and filters by itemTag", async () => {
+    const rssService = createService();
+    await rssService.addFeed({
+      id: "t",
+      name: "Test Feed",
+      url: "https://example.com/feed.xml",
+      tags: ["test"]
+    });
+
+    const db = await getNewsDb(join(tempDir, "plugins", "news"));
+    const nowIso = new Date().toISOString();
+    const insert = async (url: string, tag: string) => {
+      await db.insert(rssItems).values({
+        title: url, feedId: "t", url, guid: url,
+        publishedAt: nowIso, summary: "", author: "", tag,
+        createdAt: nowIso, updatedAt: nowIso,
+      }).run();
+    };
+    await insert("https://example.com/story", "news");
+    await insert("https://www.youtube.com/watch?v=abc12345678", "youtube");
+
+    const all = await rssService.getLatestRss({ days: 1 });
+    expect(all).toHaveLength(2);
+    expect(all.every(i => i.tag === "news" || i.tag === "youtube")).toBe(true);
+    expect(all.every(i => i.promotedSourceId === null)).toBe(true);
+
+    const videos = await rssService.getLatestRss({ days: 1, itemTag: "youtube" });
+    expect(videos).toHaveLength(1);
+    expect(videos[0].url).toContain("youtube.com");
+  });
+
+  it("updateItem changes tag and promotedSourceId, returns false for missing items", async () => {
+    const rssService = createService();
+    await rssService.addFeed({
+      id: "t",
+      name: "Test Feed",
+      url: "https://example.com/feed.xml",
+      tags: ["test"]
+    });
+
+    const db = await getNewsDb(join(tempDir, "plugins", "news"));
+    const nowIso = new Date().toISOString();
+    await db.insert(rssItems).values({
+      title: "story", feedId: "t", url: "https://example.com/story", guid: "g",
+      publishedAt: nowIso, summary: "", author: "",
+      createdAt: nowIso, updatedAt: nowIso,
+    }).run();
+
+    const [item] = await rssService.getLatestRss({ days: 1 });
+    expect(item.tag).toBe("news");  // schema default
+
+    expect(await rssService.updateItem(item.id, { tag: "youtube" })).toBe(true);
+    expect(await rssService.updateItem(item.id, { promotedSourceId: "my-article" })).toBe(true);
+
+    const [updated] = await rssService.getLatestRss({ days: 1 });
+    expect(updated.tag).toBe("youtube");
+    expect(updated.promotedSourceId).toBe("my-article");
+
+    // Clearing the promotion link
+    expect(await rssService.updateItem(item.id, { promotedSourceId: null })).toBe(true);
+    const [cleared] = await rssService.getLatestRss({ days: 1 });
+    expect(cleared.promotedSourceId).toBeNull();
+
+    expect(await rssService.updateItem(999999, { tag: "news" })).toBe(false);
   });
 });

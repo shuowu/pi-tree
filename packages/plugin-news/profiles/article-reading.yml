@@ -1,0 +1,9 @@
+name: article.reading
+label: Article Reading
+icon: file-text
+description: Read and discuss a single news article
+defaultPrompt: Read the article and give me an orientation summary.
+source_type: article
+skills: [article-reading]
+extensions: [news, mcp, memos]
+exclude_tools: [bash, edit]

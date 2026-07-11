@@ -4,3 +4,31 @@
   height: 100vh;
   background: var(--bg-primary);
 }
+
+.sessions-page-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+}
+
+.sessions-page-tab {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #666);
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.sessions-page-tab:hover {
+  color: var(--text-primary, #222);
+}
+
+.sessions-page-tab.active {
+  color: var(--text-primary, #222);
+  border-bottom-color: var(--accent, #4a7dff);
+  font-weight: 600;
+}

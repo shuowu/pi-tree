@@ -35,6 +35,14 @@ export interface SourceCardProps {
   onToggleFinished?: () => void;
 }
 
+/** Props passed to plugin items-panel components on the source landing page */
+export interface SourceItemsPanelProps {
+  source: Source;
+  userId: string;
+  /** Host-owned navigation: open a source, optionally jumping straight into a session */
+  onOpenSource: (sourceId: string, opts?: { sessionId?: number; mode?: string }) => void;
+}
+
 /**
  * A client-side plugin that contributes UI for a source type.
  * PayloadCMS-style: each plugin is a factory function returning this descriptor.
@@ -48,6 +56,8 @@ export interface ClientPlugin {
   addSourceForm?: ComponentType<AddSourceFormProps>;
   /** Optional custom source card component for rendering this source type in the Library */
   sourceCard?: ComponentType<SourceCardProps>;
+  /** Items panel rendered as a tab on the source landing page (e.g. crawled news items) */
+  itemsPanel?: ComponentType<SourceItemsPanelProps>;
   /** Named modals contributed by this plugin (rendered at app level) */
   modals?: Record<string, ComponentType<{ onClose: () => void }>>;
 }

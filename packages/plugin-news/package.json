@@ -46,6 +46,36 @@
         "subtitle": "Configure RSS feeds and news sources"
       }
     },
+    "sourceTypes": [
+      {
+        "key": "article",
+        "label": "Article",
+        "icon": "file-text",
+        "sessionModes": [
+          "reading",
+          "custom"
+        ],
+        "defaultMode": "reading",
+        "autoStartMode": "reading",
+        "hasProcessing": false,
+        "finishable": true,
+        "searchPlaceholder": "Search articles...",
+        "chatPlaceholder": "Ask about this article…",
+        "cardSubtitle": "{author}",
+        "systemContext": [
+          "[SYSTEM CONTEXT — Article Session]",
+          "You are in a reading session scoped to ONE news article.",
+          "Article Source ID: {sourceId}",
+          "Title: {title}",
+          "Article URL: {url}",
+          "Feed: {feedName}",
+          "Published: {publishedAt}",
+          "",
+          "IMPORTANT: Use the read_article tool with the Article URL above to fetch the content.",
+          "Stay scoped to this article — never append a general news briefing to a reply here."
+        ]
+      }
+    ],
     "routes": "./routes.ts",
     "routePrefix": "/api/news",
     "ui": {

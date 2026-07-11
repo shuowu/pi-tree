@@ -127,6 +127,8 @@ export const pluginUISchema = z.object({
 export const piTreeManifestSchema = z.object({
   /** Source type registration */
   sourceType: sourceTypeManifestSchema.optional(),
+  /** Additional source type registrations (a plugin may own several types) */
+  sourceTypes: z.array(sourceTypeManifestSchema).optional(),
   /** Path to the routes module (relative to package.json), e.g. "./routes.ts" */
   routes: z.string().optional(),
   /** URL prefix for mounting routes, e.g. "/api/news". Defaults to /api/{pluginName} */
@@ -182,8 +184,9 @@ export function validatePluginManifest(
       const data = result.data;
 
       // Semantic warnings (valid structure but potentially misconfigured)
-      if (data.sourceType) {
-        const st = data.sourceType;
+      const sourceTypeEntries = [data.sourceType, ...(data.sourceTypes ?? [])]
+        .filter((st): st is NonNullable<typeof st> => Boolean(st));
+      for (const st of sourceTypeEntries) {
         if (st.autoStartMode && st.sessionModes && !st.sessionModes.includes(st.autoStartMode)) {
           warnings.push(
             `[${pluginName}] piTree.sourceType.autoStartMode "${st.autoStartMode}" is not in sessionModes [${st.sessionModes.join(", ")}]`,
