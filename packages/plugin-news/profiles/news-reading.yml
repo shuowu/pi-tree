@@ -2,6 +2,7 @@ name: news.news
 label: News Session
 icon: newspaper
 description: Browse feeds, scan topics, or get a news overview
+defaultPrompt: Give me a briefing of today's top stories from my feeds.
 source_type: news
 skills: [news-reading]
 extensions: [news, mcp, memos]
