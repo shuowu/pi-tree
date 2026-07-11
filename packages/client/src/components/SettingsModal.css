@@ -278,6 +278,79 @@
   cursor: not-allowed;
 }
 
+/* ── Model connection test ── */
+
+.model-test-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+}
+
+.model-test-row .form-help {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-test-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  flex-shrink: 0;
+  max-width: 60%;
+}
+
+.test-connection-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-secondary, #f8f8f8);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  color: var(--text-secondary, #444444);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast, 0.15s ease), color var(--transition-fast, 0.15s ease), border-color var(--transition-fast, 0.15s ease);
+}
+
+.test-connection-btn:hover:not(:disabled) {
+  color: var(--text-primary, #111111);
+  border-color: var(--text-muted, #7c7c7c);
+}
+
+.test-connection-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.test-result {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  font-size: var(--text-xs, 12px);
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.test-result svg {
+  flex-shrink: 0;
+}
+
+.test-result-ok {
+  color: var(--green, #5a7d4a);
+}
+
+.test-result-error {
+  color: var(--red, #9c4a4a);
+}
+
 /* Provider info section */
 .settings-provider-info {
   display: flex;

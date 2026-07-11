@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { X, Loader2, Save, Check, Info, Server, GitBranch, BookOpen } from "lucide-react";
-import { fetchModels, saveServerConfig, fetchServerConfig, fetchDictPrompt, saveDictPrompt } from "../api";
+import { X, Loader2, Save, Check, Info, Server, GitBranch, BookOpen, Zap, AlertCircle } from "lucide-react";
+import { fetchModels, saveServerConfig, fetchServerConfig, fetchDictPrompt, saveDictPrompt, testModelConnection } from "../api";
 import type { ModelInfo, ProviderInfo } from "../api";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { getBranchesCollapsed, setBranchesCollapsed as saveBranchesCollapsed } from "../utils/preferences";
@@ -22,6 +22,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [lookupModel, setLookupModel] = useState("");
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [testState, setTestState] = useState<
+    Record<string, { status: "testing" | "ok" | "error"; message: string }>
+  >({});
 
   // Dictionary prompt state
   const [dictPrompt, setDictPrompt] = useState("");
@@ -102,30 +105,86 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     return acc;
   }, {});
 
+  const handleTestConnection = async (id: string, model: string) => {
+    if (!model) return;
+    setTestState((s) => ({ ...s, [id]: { status: "testing", message: "" } }));
+    const result = await testModelConnection(model);
+    setTestState((s) => ({
+      ...s,
+      [id]: result.ok
+        ? {
+            status: "ok",
+            message: `Connected${result.latencyMs != null ? ` · ${(result.latencyMs / 1000).toFixed(1)}s` : ""}`,
+          }
+        : { status: "error", message: result.error || "Connection failed" },
+    }));
+  };
+
   const renderModelSelect = (
     id: string,
     label: string,
     value: string,
     onChange: (v: string) => void,
     helpText: string,
-  ) => (
-    <div className="form-group">
-      <label htmlFor={id}>{label}</label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
-        {!value && <option value="">Select a model…</option>}
-        {Object.entries(modelsByProvider).map(([provider, pModels]) => (
-          <optgroup key={provider} label={provider}>
-            {pModels.map((m) => (
-              <option key={`${m.provider}-${m.id}`} value={m.id}>
-                {m.name}{m.reasoning ? " ✦" : ""}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-      <p className="form-help">{helpText}</p>
-    </div>
-  );
+  ) => {
+    const test = testState[id];
+    return (
+      <div className="form-group">
+        <label htmlFor={id}>{label}</label>
+        <select
+          id={id}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            // A test result is only valid for the model it ran against
+            setTestState((s) => {
+              const rest = { ...s };
+              delete rest[id];
+              return rest;
+            });
+          }}
+        >
+          {!value && <option value="">Select a model…</option>}
+          {Object.entries(modelsByProvider).map(([provider, pModels]) => (
+            <optgroup key={provider} label={provider}>
+              {pModels.map((m) => (
+                <option key={`${m.provider}-${m.id}`} value={m.id}>
+                  {m.name}{m.reasoning ? " ✦" : ""}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <div className="model-test-row">
+          <p className="form-help">{helpText}</p>
+          <div className="model-test-controls">
+            {test?.status === "ok" && (
+              <span className="test-result test-result-ok" title={test.message}>
+                <Check size={12} /> {test.message}
+              </span>
+            )}
+            {test?.status === "error" && (
+              <span className="test-result test-result-error" title={test.message}>
+                <AlertCircle size={12} /> {test.message}
+              </span>
+            )}
+            <button
+              type="button"
+              className="test-connection-btn"
+              disabled={!value || test?.status === "testing"}
+              onClick={() => handleTestConnection(id, value)}
+            >
+              {test?.status === "testing" ? (
+                <><Loader2 size={12} className="spinner" /> Testing…</>
+              ) : (
+                <><Zap size={12} /> Test Connection</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="settings-overlay" onClick={onClose}>

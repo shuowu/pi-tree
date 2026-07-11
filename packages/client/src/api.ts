@@ -72,6 +72,25 @@ export async function fetchModels(): Promise<{ models: ModelInfo[]; currentModel
   return res.json();
 }
 
+export interface TestConnectionResult {
+  ok: boolean;
+  model: string;
+  latencyMs?: number;
+  response?: string;
+  error?: string;
+}
+
+export async function testModelConnection(model: string): Promise<TestConnectionResult> {
+  const res = await fetch(`${API}/models/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!data) return { ok: false, model, error: `Connection test failed: ${res.status}` };
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
@@ -850,6 +869,13 @@ export interface ClientFeedConfig {
 export async function fetchNewsFeeds(): Promise<ClientFeedConfig[]> {
   const res = await fetch(`${API}/news/feeds`);
   if (!res.ok) throw new Error(`Failed to fetch news feeds: ${res.status}`);
+  return res.json();
+}
+
+/** Named tag groups for a source type — e.g. { morning: ["ai", "tech"] } */
+export async function fetchTagGroups(sourceType: string): Promise<Record<string, string[]>> {
+  const res = await fetch(`${API}/router/tag-groups/${encodeURIComponent(sourceType)}`);
+  if (!res.ok) return {};
   return res.json();
 }
 
