@@ -7,6 +7,50 @@
   font-family: var(--font-sans, system-ui, sans-serif);
 }
 
+/* Filter bar */
+.nip-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border, #eee);
+  margin-bottom: 4px;
+}
+
+.nip-filter-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+.nip-filter-tags {
+  flex-wrap: wrap;
+}
+
+.nip-filter {
+  padding: 3px 10px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.72rem;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nip-filter:hover {
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+.nip-filter.active {
+  background: var(--accent, #4a7dff);
+  border-color: var(--accent, #4a7dff);
+  color: #fff;
+}
+
 .nip-empty {
   padding: 24px;
   text-align: center;
@@ -107,6 +151,21 @@
   color: var(--text-tertiary, #888);
 }
 
+.nip-feed-tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-secondary, #f0f0f0);
+  font-size: 0.68rem;
+  color: var(--text-tertiary, #888);
+  cursor: pointer;
+}
+
+.nip-feed-tag:hover {
+  color: var(--accent, #4a7dff);
+}
+
 .nip-link {
   grid-area: link;
   display: inline-flex;
@@ -115,4 +174,25 @@
 
 .nip-link:hover {
   color: var(--text-primary, #222);
+}
+
+.nip-load-more {
+  display: block;
+  margin: 12px auto;
+  padding: 6px 20px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #666);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.nip-load-more:hover:not(:disabled) {
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+.nip-load-more:disabled {
+  opacity: 0.6;
+  cursor: default;
 }

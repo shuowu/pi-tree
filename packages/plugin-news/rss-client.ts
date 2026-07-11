@@ -69,13 +69,14 @@ export class RemoteRssClient implements IRssService {
   // -------------------------------------------------------------------------
 
   async getLatestRss(options?: {
-    feeds?: string[]; tags?: string[]; days?: number; limit?: number; keyword?: string; itemTag?: string;
+    feeds?: string[]; tags?: string[]; days?: number; limit?: number; offset?: number; keyword?: string; itemTag?: string;
   }): Promise<RssItemData[]> {
     const params = new URLSearchParams();
     if (options?.feeds?.length) params.set("feeds", options.feeds.join(","));
     if (options?.tags?.length) params.set("tags", options.tags.join(","));
     if (options?.days !== undefined) params.set("days", String(options.days));
     if (options?.limit !== undefined) params.set("limit", String(options.limit));
+    if (options?.offset !== undefined) params.set("offset", String(options.offset));
     if (options?.keyword) params.set("keyword", options.keyword);
     if (options?.itemTag) params.set("itemTag", options.itemTag);
     const qs = params.toString();

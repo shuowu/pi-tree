@@ -8,6 +8,7 @@ interface NewsItem {
   title: string;
   feedId: string;
   feedName: string;
+  feedTags: string[];
   url: string;
   publishedAt: string | null;
   summary: string | null;
@@ -26,6 +27,11 @@ interface ResolvedVideo {
   viewCount: number;
   thumbnailUrl: string;
 }
+
+type TypeFilter = "all" | "news" | "youtube";
+
+const PAGE_SIZE = 50;
+const DAYS = 30;
 
 function relativeTime(iso: string | null): string {
   if (!iso) return "";
@@ -55,23 +61,62 @@ async function postJson<T>(url: string, method: string, body: unknown): Promise<
 
 /**
  * News items panel — lists individually crawled RSS items on the news source
- * landing page. Items can be re-tagged (news/youtube) and clicked to promote
- * into a dedicated source with a fresh session against that one article/video.
+ * landing page. Items are filterable by type (news/youtube) and feed tag,
+ * paginated, re-taggable, and clickable to promote into a dedicated source
+ * with a fresh session against that one article/video.
  */
 export function NewsItemsPanel({ userId, onOpenSource }: SourceItemsPanelProps) {
   const [items, setItems] = useState<NewsItem[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState<string[]>([]);
 
+  const buildQuery = useCallback((offset: number, type: TypeFilter, tag: string | null) => {
+    const params = new URLSearchParams({
+      days: String(DAYS),
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+    });
+    if (type !== "all") params.set("itemTag", type);
+    if (tag) params.set("tags", tag);
+    return params.toString();
+  }, []);
+
+  // Feed tags for the filter bar (from feed config, so it's the complete list)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/news/items?days=7&limit=200");
+        const res = await fetch("/api/news/feeds");
+        if (!res.ok) return;
+        const feeds: { tags: string[] }[] = await res.json();
+        if (cancelled) return;
+        setAllTags([...new Set(feeds.flatMap((f) => f.tags))].sort((a, b) => a.localeCompare(b)));
+      } catch {
+        // Filter bar just stays type-only
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // First page — refetches whenever a filter changes
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/news/items?${buildQuery(0, typeFilter, tagFilter)}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: NewsItem[] = await res.json();
-        if (!cancelled) setItems(data);
+        if (cancelled) return;
+        setItems(data);
+        setHasMore(data.length === PAGE_SIZE);
+        setError(null);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load items");
       } finally {
@@ -79,7 +124,26 @@ export function NewsItemsPanel({ userId, onOpenSource }: SourceItemsPanelProps) 
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [typeFilter, tagFilter, buildQuery]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/news/items?${buildQuery(items.length, typeFilter, tagFilter)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: NewsItem[] = await res.json();
+      setItems((prev) => {
+        const seen = new Set(prev.map((i) => i.id));
+        return [...prev, ...data.filter((i) => !seen.has(i.id))];
+      });
+      setHasMore(data.length === PAGE_SIZE);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load more");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, items.length, typeFilter, tagFilter, buildQuery]);
 
   const markPromoted = useCallback(async (item: NewsItem, sourceId: string) => {
     setItems((prev) =>
@@ -182,52 +246,95 @@ export function NewsItemsPanel({ userId, onOpenSource }: SourceItemsPanelProps) 
     }
   }, [pendingId, onOpenSource, promoteAsYoutube, promoteAsArticle]);
 
-  if (loading) {
-    return <div className="news-items-panel"><div className="nip-empty">Loading items…</div></div>;
-  }
-
   return (
     <div className="news-items-panel">
-      {error && <div className="nip-error">{error}</div>}
-      {items.length === 0 ? (
-        <div className="nip-empty">No items crawled in the last 7 days.</div>
-      ) : (
-        <ul className="nip-list">
-          {items.map((item) => (
-            <li key={item.id} className={`nip-item ${pendingId === item.id ? "pending" : ""}`}>
-              <button
-                className={`nip-tag nip-tag-${item.tag}`}
-                title="Toggle news/youtube tag"
-                onClick={() => toggleTag(item)}
-              >
-                {item.tag === "youtube" ? <CirclePlay size={12} /> : <FileText size={12} />}
-                {item.tag}
-              </button>
-              <button className="nip-title" onClick={() => openItem(item)} disabled={pendingId !== null}>
-                {item.title}
-                {item.promotedSourceId ? (
-                  <span className="nip-open"><ArrowRight size={12} /> Open</span>
-                ) : pendingId === item.id ? (
-                  <span className="nip-open">Starting…</span>
-                ) : null}
-              </button>
-              <span className="nip-meta">
-                {item.feedName}
-                {item.publishedAt && ` · ${relativeTime(item.publishedAt)}`}
-              </span>
-              <a
-                className="nip-link"
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                title="Open original"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ExternalLink size={13} />
-              </a>
-            </li>
+      <div className="nip-filters">
+        <div className="nip-filter-group">
+          {(["all", "news", "youtube"] as const).map((t) => (
+            <button
+              key={t}
+              className={`nip-filter ${typeFilter === t ? "active" : ""}`}
+              onClick={() => setTypeFilter(t)}
+            >
+              {t === "all" ? "All" : t === "news" ? "News" : "YouTube"}
+            </button>
           ))}
-        </ul>
+        </div>
+        {allTags.length > 0 && (
+          <div className="nip-filter-group nip-filter-tags">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                className={`nip-filter ${tagFilter === tag ? "active" : ""}`}
+                onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {error && <div className="nip-error">{error}</div>}
+
+      {loading ? (
+        <div className="nip-empty">Loading items…</div>
+      ) : items.length === 0 ? (
+        <div className="nip-empty">No items match in the last {DAYS} days.</div>
+      ) : (
+        <>
+          <ul className="nip-list">
+            {items.map((item) => (
+              <li key={item.id} className={`nip-item ${pendingId === item.id ? "pending" : ""}`}>
+                <button
+                  className={`nip-tag nip-tag-${item.tag}`}
+                  title="Toggle news/youtube tag"
+                  onClick={() => toggleTag(item)}
+                >
+                  {item.tag === "youtube" ? <CirclePlay size={12} /> : <FileText size={12} />}
+                  {item.tag}
+                </button>
+                <button className="nip-title" onClick={() => openItem(item)} disabled={pendingId !== null}>
+                  {item.title}
+                  {item.promotedSourceId ? (
+                    <span className="nip-open"><ArrowRight size={12} /> Open</span>
+                  ) : pendingId === item.id ? (
+                    <span className="nip-open">Starting…</span>
+                  ) : null}
+                </button>
+                <span className="nip-meta">
+                  {item.feedName}
+                  {item.publishedAt && ` · ${relativeTime(item.publishedAt)}`}
+                  {item.feedTags.map((tag) => (
+                    <button
+                      key={tag}
+                      className="nip-feed-tag"
+                      title={`Filter by #${tag}`}
+                      onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </span>
+                <a
+                  className="nip-link"
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open original"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink size={13} />
+                </a>
+              </li>
+            ))}
+          </ul>
+          {hasMore && (
+            <button className="nip-load-more" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          )}
+        </>
       )}
     </div>
   );

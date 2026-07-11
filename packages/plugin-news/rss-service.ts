@@ -55,6 +55,7 @@ export interface RssItemData {
   title: string;
   feedId: string;
   feedName: string;
+  feedTags: string[];
   url: string;
   guid: string;
   publishedAt: string | null;
@@ -76,6 +77,17 @@ export interface RssItemUpdates {
  */
 export function detectItemTag(url: string): RssItemTag {
   return /(?:youtube\.com|youtu\.be)\//i.test(url) ? "youtube" : "news";
+}
+
+/** Parse a feed's tags JSON column, tolerating null/malformed values. */
+function parseFeedTags(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export interface AggregatedSource {
@@ -110,7 +122,7 @@ export interface IRssService {
   updateFeed(feedId: string, updates: Partial<Pick<FeedConfig, "name" | "url" | "tags">>): Promise<boolean>;
   getFeedsByTags(filterTags: string[]): Promise<FeedConfig[]>;
   getAllFeedTags(): Promise<string[]>;
-  getLatestRss(options?: { feeds?: string[]; tags?: string[]; days?: number; limit?: number; keyword?: string; itemTag?: string }): Promise<RssItemData[]>;
+  getLatestRss(options?: { feeds?: string[]; tags?: string[]; days?: number; limit?: number; offset?: number; keyword?: string; itemTag?: string }): Promise<RssItemData[]>;
   updateItem(itemId: number, updates: RssItemUpdates): Promise<boolean>;
   aggregateRss(options?: { feeds?: string[]; tags?: string[]; days?: number; similarityThreshold?: number; limit?: number; includeUrl?: boolean }): Promise<AggregatedRssGroup[]>;
   crawlAllFeeds(): Promise<CrawlStats[]>;
@@ -488,12 +500,14 @@ export class RssService implements IRssService {
     tags?: string[];
     days?: number;
     limit?: number;
+    offset?: number;
     keyword?: string;
     itemTag?: string;
   }): Promise<RssItemData[]> {
     const db = await this.getDb();
     const days = options?.days ?? 3;
     const limit = options?.limit ?? 100;
+    const offset = options?.offset ?? 0;
 
     // Filter by date range
     const cutoffDate = new Date();
@@ -509,6 +523,7 @@ export class RssService implements IRssService {
         title: rssItems.title,
         feedId: rssItems.feedId,
         feedName: rssFeeds.name,
+        feedTags: rssFeeds.tags,
         url: rssItems.url,
         guid: rssItems.guid,
         publishedAt: rssItems.publishedAt,
@@ -560,7 +575,12 @@ export class RssService implements IRssService {
       return (Number.isNaN(tb) ? -Infinity : tb) - (Number.isNaN(ta) ? -Infinity : ta);
     });
 
-    return filtered.slice(0, limit);
+    // Page after filter+sort so offset/limit walk a stable newest-first order,
+    // and parse the feed's tags JSON into an array for consumers.
+    return filtered.slice(offset, offset + limit).map((item) => ({
+      ...item,
+      feedTags: parseFeedTags(item.feedTags),
+    }));
   }
 
   public async updateItem(itemId: number, updates: RssItemUpdates): Promise<boolean> {

@@ -137,6 +137,7 @@ app.get("/api/items", async (c) => {
     tags: tagsParam ? tagsParam.split(",") : undefined,
     days: c.req.query("days") ? Number(c.req.query("days")) : undefined,
     limit: c.req.query("limit") ? Number(c.req.query("limit")) : undefined,
+    offset: c.req.query("offset") ? Number(c.req.query("offset")) : undefined,
     keyword: c.req.query("keyword") || undefined,
     itemTag: c.req.query("itemTag") || undefined,
   });

@@ -202,6 +202,7 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
         tags: tagsParam ? tagsParam.split(",") : undefined,
         days: c.req.query("days") ? Number(c.req.query("days")) : 7,
         limit: c.req.query("limit") ? Number(c.req.query("limit")) : 100,
+        offset: c.req.query("offset") ? Number(c.req.query("offset")) : undefined,
         keyword: c.req.query("keyword") || undefined,
         itemTag: c.req.query("itemTag") || undefined,
       });

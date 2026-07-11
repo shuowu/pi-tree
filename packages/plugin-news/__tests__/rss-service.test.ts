@@ -284,10 +284,41 @@ describe("RssService (plugin-local)", () => {
     expect(all).toHaveLength(2);
     expect(all.every(i => i.tag === "news" || i.tag === "youtube")).toBe(true);
     expect(all.every(i => i.promotedSourceId === null)).toBe(true);
+    // Feed tags come back parsed as an array
+    expect(all.every(i => Array.isArray(i.feedTags) && i.feedTags.includes("test"))).toBe(true);
 
     const videos = await rssService.getLatestRss({ days: 1, itemTag: "youtube" });
     expect(videos).toHaveLength(1);
     expect(videos[0].url).toContain("youtube.com");
+  });
+
+  it("getLatestRss paginates with offset over a stable newest-first order", async () => {
+    const rssService = createService();
+    await rssService.addFeed({
+      id: "t",
+      name: "Test Feed",
+      url: "https://example.com/feed.xml",
+      tags: ["test"]
+    });
+
+    const db = await getNewsDb(join(tempDir, "plugins", "news"));
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    for (let i = 0; i < 5; i++) {
+      await db.insert(rssItems).values({
+        title: `item-${i}`, feedId: "t", url: `https://example.com/${i}`, guid: `g${i}`,
+        publishedAt: new Date(now - i * 3600 * 1000).toISOString(),
+        summary: "", author: "",
+        createdAt: nowIso, updatedAt: nowIso,
+      }).run();
+    }
+
+    const page1 = await rssService.getLatestRss({ days: 1, limit: 2, offset: 0 });
+    const page2 = await rssService.getLatestRss({ days: 1, limit: 2, offset: 2 });
+    const page3 = await rssService.getLatestRss({ days: 1, limit: 2, offset: 4 });
+    expect(page1.map(i => i.title)).toEqual(["item-0", "item-1"]);
+    expect(page2.map(i => i.title)).toEqual(["item-2", "item-3"]);
+    expect(page3.map(i => i.title)).toEqual(["item-4"]);
   });
 
   it("updateItem changes tag and promotedSourceId, returns false for missing items", async () => {
