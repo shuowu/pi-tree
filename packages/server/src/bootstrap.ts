@@ -176,7 +176,7 @@ export async function bootstrap(config: BootstrapConfig): Promise<BootstrapResul
     id: "discover",
     label: "Discover",
     description:
-      "Recommends NEW books, papers, and feeds (not already in the library) based on the user's reading. Route here for suggestion/recommendation requests — 'suggest new books', 'what should I read next', 'any new papers in my area', 'feeds to follow', 'discover something new' — in any language.",
+      "Recommends NEW books, papers, and feeds (not already in the library) based on the user's reading. Route here for suggestion/recommendation requests — 'suggest new books', 'what should I read next', 'any new papers in my area', 'feeds to follow', 'discover something new' — in any language. NOT for reading news, headlines, or briefings from sources the user already follows ('news for today', 'tech news') — those open a news session instead.",
     url: "/discover?run=1",
     sourceTypeFilter: true,
   });
