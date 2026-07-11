@@ -161,6 +161,7 @@ export interface SourceTypeInfo {
   staleAfterHours?: number;
   routingContextFile?: string;
   routingContextLabel?: string;
+  tagGroupsFile?: string;
 }
 
 export interface RegistryService {
@@ -378,6 +379,8 @@ export interface PluginManifest {
     routingContextFile?: string;
     /** Human-readable label for routing context (e.g. "feeds and tags") */
     routingContextLabel?: string;
+    /** Relative path from $DATA_PATH to a JSON file of named tag groups (enables #group mentions) */
+    tagGroupsFile?: string;
     /** Configuration for the "Add Source" modal tab */
     addSource?: {
       subtitle: string;

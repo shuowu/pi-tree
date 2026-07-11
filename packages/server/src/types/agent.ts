@@ -161,6 +161,8 @@ export interface SourceTypeEntry {
   routingContextFile?: string;
   /** Human-readable label describing the routing context (e.g. 'feeds and tags') */
   routingContextLabel?: string;
+  /** Relative path from $DATA_PATH to a JSON file of named tag groups (e.g. 'sources/news/tag-groups.json'). Enables #group mentions and the save_tag_group router tool. */
+  tagGroupsFile?: string;
   /** Configuration for the 'Add Source' modal tab. If absent, this type doesn't appear in the modal. */
   addSource?: {
     /** Subtitle shown below the tab header */

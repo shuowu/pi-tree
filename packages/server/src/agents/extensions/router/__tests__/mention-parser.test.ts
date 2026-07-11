@@ -232,6 +232,29 @@ describe("parseMentions", () => {
     });
   });
 
+  it("parses chained tags in one mention: @News#ai#tech#finance", async () => {
+    const result = await parseMentions("@News#ai#tech#finance", SOURCE_TYPE_CONFIGS, mockSearchSources);
+
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0]).toMatchObject({
+      sourceType: "news",
+      sourceId: "news",
+      tags: ["ai", "tech", "finance"],
+    });
+    expect(result.plainText).toBe("");
+  });
+
+  it("parses chained tags with a qualifier: @News:Tech#ai#ml", async () => {
+    const result = await parseMentions("@News:Tech#ai#ml", SOURCE_TYPE_CONFIGS, mockSearchSources);
+
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0]).toMatchObject({
+      sourceType: "news",
+      qualifier: "Tech",
+      tags: ["ai", "ml"],
+    });
+  });
+
   it("title regex captures multi-word @mentions greedily", async () => {
     // @(\w+(?:\s+\w+)*) matches "Dune please" as one mention
     const result = await parseMentions(

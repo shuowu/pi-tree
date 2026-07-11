@@ -30,6 +30,8 @@ export interface ParsedMention {
   sessionModes?: string[];
   sessionStrategy?: string;
   tags?: string[];
+  /** Named tag groups that were expanded into `tags` (e.g. ["morning"]) */
+  tagGroups?: string[];
   /** Generic qualifier from `:value` syntax (e.g. feed name, channel, database) */
   qualifier?: string;
   error?: string;
@@ -64,11 +66,12 @@ export async function parseMentions(
   const youtubeUrl = ytMatch ? ytMatch[0] : undefined;
 
   // Pass 1: keyword mentions — @Keyword, @Keyword:Qualifier, @Keyword#tag
-  const keywordRegex = /@(\w+)(?::([^#@\s][^#@]*))?(?:#(\w+))?/g;
+  // Tags chain: @Keyword#tag1#tag2 → tags: ["tag1", "tag2"]
+  const keywordRegex = /@(\w+)(?::([^#@\s][^#@]*))?((?:#\w+)+)?/g;
   let match: RegExpExecArray | null;
 
   while ((match = keywordRegex.exec(message)) !== null) {
-    const [raw, keyword, qualifier, tag] = match;
+    const [raw, keyword, qualifier, tagChain] = match;
     const keyLower = keyword.toLowerCase();
 
     const sourceType = keywordMap.get(keyLower);
@@ -80,7 +83,7 @@ export async function parseMentions(
         defaultMode: sourceType.defaultMode,
         sessionModes: sourceType.sessionModes,
       };
-      if (tag) mention.tags = [tag];
+      if (tagChain) mention.tags = tagChain.split("#").filter(Boolean);
       if (qualifier) mention.qualifier = qualifier.trim();
       if (sourceType.sessionStrategy) mention.sessionStrategy = sourceType.sessionStrategy;
       mentions.push(mention);

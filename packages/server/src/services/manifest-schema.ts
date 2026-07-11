@@ -95,6 +95,8 @@ export const sourceTypeManifestSchema = z.object({
   routingContextFile: z.string().optional(),
   /** Human-readable label describing the routing context (e.g. "feeds and tags") */
   routingContextLabel: z.string().optional(),
+  /** Relative path from $DATA_PATH to a JSON file of named tag groups (enables #group mentions) */
+  tagGroupsFile: z.string().optional(),
   /** Configuration for the "Add Source" modal tab */
   addSource: addSourceSchema.optional(),
   /** Template for the library card subtitle. Supports {field} placeholders (e.g. "{author}, {year}"). */

@@ -39,6 +39,7 @@
       "staleAfterHours": 12,
       "routingContextFile": "sources/news/feeds.json",
       "routingContextLabel": "Available news feeds and topic tags",
+      "tagGroupsFile": "sources/news/tag-groups.json",
       "tagPromptTemplate": "Focus on feeds tagged '{tags}'",
       "qualifierPromptTemplate": "Focus on the {qualifier} feed",
       "addSource": {

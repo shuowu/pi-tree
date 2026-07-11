@@ -370,6 +370,7 @@ export class AgentRegistry {
       staleAfterHours: st.staleAfterHours,
       routingContextFile: st.routingContextFile,
       routingContextLabel: st.routingContextLabel,
+      tagGroupsFile: st.tagGroupsFile,
       addSource: st.addSource,
       cardSubtitle: st.cardSubtitle,
       badges: st.badges,

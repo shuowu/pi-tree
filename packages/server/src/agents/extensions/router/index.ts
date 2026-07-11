@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseMentions } from "./mention-parser.js";
 import { RouterDestinationRegistry } from "../../../services/destination-registry.js";
+import { loadTagGroups, expandTagGroups, saveTagGroup } from "../../../services/tag-groups.js";
 
 export default definePiTreeExtension((pi, services) => {
   /**
@@ -49,6 +50,21 @@ export default definePiTreeExtension((pi, services) => {
         (query) => services.sources.list({ search: query }),
       );
 
+      // Expand named tag groups (e.g. #morning → its member tags)
+      for (const mention of result.mentions) {
+        if (!mention.tags?.length) continue;
+        const stConfig = sourceTypes.find((st) => st.key === mention.sourceType);
+        if (!stConfig?.tagGroupsFile) continue;
+        const expanded = expandTagGroups(
+          mention.tags,
+          loadTagGroups(services.dataPath, stConfig.tagGroupsFile),
+        );
+        mention.tags = expanded.tags;
+        if (expanded.groups.length) {
+          mention.tagGroups = expanded.groups;
+        }
+      }
+
       return {
         content: [{
           type: "text",
@@ -82,6 +98,12 @@ export default definePiTreeExtension((pi, services) => {
           };
         }
 
+        // Named tag groups (e.g. "morning" → ["ai", "tech"]) — usable as #group mentions
+        const groupMap = stConfig.tagGroupsFile
+          ? loadTagGroups(services.dataPath, stConfig.tagGroupsFile)
+          : {};
+        const tagGroups = Object.keys(groupMap).length ? { tagGroups: groupMap } : {};
+
         if (!stConfig.routingContextFile) {
           return {
             content: [{ type: "text", text: JSON.stringify({
@@ -90,6 +112,7 @@ export default definePiTreeExtension((pi, services) => {
               message: "This source type does not provide routing context.",
               sessionModes: stConfig.sessionModes,
               defaultMode: stConfig.defaultMode,
+              ...tagGroups,
             }, null, 2) }],
             details: undefined,
           };
@@ -101,6 +124,7 @@ export default definePiTreeExtension((pi, services) => {
             content: [{ type: "text", text: JSON.stringify({
               sourceType: stConfig.key,
               message: `Config file not found: ${stConfig.routingContextFile}`,
+              ...tagGroups,
             }, null, 2) }],
             details: undefined,
           };
@@ -130,6 +154,7 @@ export default definePiTreeExtension((pi, services) => {
             label: stConfig.routingContextLabel,
             data: raw,
             ...(tagSummary ? { tagSummary } : {}),
+            ...tagGroups,
           }, null, 2) }],
           details: undefined,
         };
@@ -425,6 +450,48 @@ export default definePiTreeExtension((pi, services) => {
         details: undefined,
       };
     }
+  });
+
+  // 6. Save Tag Group — named tag bundles for #group mentions
+  pi.registerTool({
+    name: "save_tag_group",
+    label: "Save Tag Group",
+    description: "Create, update, or delete a named tag group. A group bundles several feed tags under one name so the user can mention it as a single #tag (e.g. group 'morning' = ai + tech + finance → '@News#morning'). Pass an empty tags array to delete the group.",
+    parameters: Type.Object({
+      source_type: Type.String({ description: "The source type key the group belongs to (e.g. 'news')." }),
+      name: Type.String({ description: "Group name — becomes the #mention (lowercase, single word, e.g. 'morning')." }),
+      tags: Type.Array(Type.String(), { description: "Member tags to include. Empty array deletes the group." }),
+    }),
+    async execute(_toolCallId, params) {
+      try {
+        const stConfig = services.registry.getSourceTypes().find(
+          (st) => st.key === params.source_type,
+        );
+        if (!stConfig?.tagGroupsFile) {
+          throw new Error(`Source type "${params.source_type}" does not support tag groups.`);
+        }
+        if (!/^\w+$/.test(params.name)) {
+          throw new Error(`Group name must be a single word (letters/digits/underscore), got "${params.name}".`);
+        }
+        const groups = saveTagGroup(
+          services.dataPath,
+          stConfig.tagGroupsFile,
+          params.name,
+          params.tags,
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify({
+            saved: params.tags.length > 0,
+            deleted: params.tags.length === 0,
+            name: params.name.toLowerCase(),
+            groups,
+          }, null, 2) }],
+          details: undefined,
+        };
+      } catch (err: any) {
+        throw new Error(`Failed to save tag group: ${err.message}`);
+      }
+    },
   });
 
 });

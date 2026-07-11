@@ -19,6 +19,7 @@ import { getExtensionServices } from "../agents/context.js";
 import { getAgentRegistry } from "../services/agent-registry.js";
 import { classifyIntent } from "../services/intent-classifier.js";
 import { RouterDestinationRegistry } from "../services/destination-registry.js";
+import { loadTagGroups, expandTagGroups } from "../services/tag-groups.js";
 
 export const routerRoutes = new Hono();
 
@@ -146,6 +147,16 @@ routerRoutes.post("/route", async (c) => {
     if (!source) return c.json({ resolved: false });
 
     const stConfig = sourceTypeConfigs.find((st) => st.key === source.type);
+
+    // Expand named tag groups (e.g. #morning → its member tags)
+    let matchedGroups: string[] = [];
+    if (mention.tags?.length && stConfig?.tagGroupsFile) {
+      const groups = loadTagGroups(services.dataPath, stConfig.tagGroupsFile);
+      const expanded = expandTagGroups(mention.tags, groups);
+      mention.tags = expanded.tags;
+      matchedGroups = expanded.groups;
+    }
+
     let mode = mention.defaultMode ?? stConfig?.defaultMode ?? "reading";
     const strategy = stConfig?.sessionStrategy ?? "reuse-same-mode";
     const askAfterHrs = (stConfig as any)?.askAfterHours ?? 4;
@@ -205,6 +216,12 @@ routerRoutes.post("/route", async (c) => {
 
     // Helper: build a focus prefix from tags/qualifier for titles
     const focusLabel = (): string | null => {
+      // Prefer group names — "Morning News - Jul 11" beats listing every member tag
+      if (matchedGroups.length) {
+        return matchedGroups
+          .map((g) => g.charAt(0).toUpperCase() + g.slice(1))
+          .join(", ");
+      }
       if (mention.tags?.length) {
         // Capitalize first letter of each tag: ["ai","sports"] → "AI, Sports"
         return mention.tags
@@ -328,5 +345,24 @@ routerRoutes.post("/route", async (c) => {
   } catch (err) {
     console.error("[router/route] Deterministic routing error:", err);
     return c.json({ resolved: false });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /router/tag-groups/:sourceType — named tag groups for mention autocomplete
+// ---------------------------------------------------------------------------
+
+routerRoutes.get("/tag-groups/:sourceType", async (c) => {
+  try {
+    const sourceType = c.req.param("sourceType");
+    const stConfig = getAgentRegistry()
+      .getSourceTypes()
+      .find((st) => st.key === sourceType);
+    if (!stConfig?.tagGroupsFile) return c.json({});
+    const services = getExtensionServices();
+    return c.json(loadTagGroups(services.dataPath, stConfig.tagGroupsFile));
+  } catch (err) {
+    console.error("[router/tag-groups] error:", err);
+    return c.json({});
   }
 });

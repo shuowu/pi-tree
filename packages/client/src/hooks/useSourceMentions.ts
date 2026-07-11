@@ -10,7 +10,7 @@
  */
 import { useState, useCallback, useRef } from "react";
 import type { Source } from "@pi-tree/shared";
-import { fetchSources, fetchNewsFeeds, type ClientFeedConfig } from "../api";
+import { fetchSources, fetchNewsFeeds, fetchTagGroups, type ClientFeedConfig } from "../api";
 import { getSourceTypeConfig } from "../source-types";
 import { filterMentionItems } from "./mention-filter.js";
 import type { MentionSuggestion } from "./mention-filter.js";
@@ -37,9 +37,10 @@ export function useSourceMentions() {
     loadedRef.current = true; // prevent concurrent fetches
     try {
       let feedsFailed = false;
-      const [sources, feeds] = await Promise.all([
+      const [sources, feeds, tagGroups] = await Promise.all([
         fetchSources().catch(() => [] as Source[]),
         fetchNewsFeeds().catch(() => { feedsFailed = true; return [] as ClientFeedConfig[]; }),
+        fetchTagGroups("news").catch(() => ({}) as Record<string, string[]>),
       ]);
 
       // If feeds fetch failed (transient 500), render sources-only but allow retry
@@ -89,6 +90,18 @@ export function useSourceMentions() {
           type: "news",
           kind: "tag",
           insertText: `@News#${tag}`,
+        });
+      }
+
+      // Named tag groups → @News#group (expands to member tags at routing time)
+      for (const [group, memberTags] of Object.entries(tagGroups)) {
+        items.push({
+          id: `taggroup-${group}`,
+          label: `News #${group}`,
+          sublabel: `group: ${memberTags.join(", ")}`,
+          type: "news",
+          kind: "tag",
+          insertText: `@News#${group}`,
         });
       }
 
