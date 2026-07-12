@@ -25,10 +25,11 @@ export function SessionsPage() {
   const [showSettings, setShowSettings] = useState(false);
   const { openAddSource } = useAddSource();
 
-  // Plugin-contributed items panel (e.g. crawled news items). When present,
-  // the page shows a Latest/Sessions tab switcher and lands on Latest.
-  const ItemsPanel = appConfig.itemsPanels[source.type];
-  const [activeTab, setActiveTab] = useState<"items" | "sessions">(ItemsPanel ? "items" : "sessions");
+  // Plugin-contributed panels (e.g. crawled news items, feed browser). When
+  // present, the page shows a tab switcher and lands on the first panel.
+  const panels = appConfig.sourcePanels[source.type] ?? [];
+  const [activeTab, setActiveTab] = useState<string>(panels[0]?.key ?? "sessions");
+  const ActivePanel = panels.find((p) => p.key === activeTab)?.component;
 
   const handleOpenSource = useCallback(
     (sourceId: string, opts?: { sessionId?: number; mode?: string }) => {
@@ -146,14 +147,17 @@ export function SessionsPage() {
         panelToggles={panelToggles}
       />
 
-      {ItemsPanel && (
+      {panels.length > 0 && (
         <div className="sessions-page-tabs">
-          <button
-            className={`sessions-page-tab ${activeTab === "items" ? "active" : ""}`}
-            onClick={() => setActiveTab("items")}
-          >
-            Latest
-          </button>
+          {panels.map((panel) => (
+            <button
+              key={panel.key}
+              className={`sessions-page-tab ${activeTab === panel.key ? "active" : ""}`}
+              onClick={() => setActiveTab(panel.key)}
+            >
+              {panel.label}
+            </button>
+          ))}
           <button
             className={`sessions-page-tab ${activeTab === "sessions" ? "active" : ""}`}
             onClick={() => setActiveTab("sessions")}
@@ -163,8 +167,8 @@ export function SessionsPage() {
         </div>
       )}
 
-      {ItemsPanel && activeTab === "items" ? (
-        <ItemsPanel source={source} userId={userId ?? ""} onOpenSource={handleOpenSource} />
+      {ActivePanel ? (
+        <ActivePanel source={source} userId={userId ?? ""} onOpenSource={handleOpenSource} />
       ) : (
         <SessionPicker
           source={source}

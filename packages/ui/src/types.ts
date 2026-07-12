@@ -35,12 +35,19 @@ export interface SourceCardProps {
   onToggleFinished?: () => void;
 }
 
-/** Props passed to plugin items-panel components on the source landing page */
+/** Props passed to plugin source-panel components on the source landing page */
 export interface SourceItemsPanelProps {
   source: Source;
   userId: string;
   /** Host-owned navigation: open a source, optionally jumping straight into a session */
   onOpenSource: (sourceId: string, opts?: { sessionId?: number; mode?: string }) => void;
+}
+
+/** A named tab on the source landing page, rendered alongside the built-in Sessions tab */
+export interface SourcePanelDef {
+  key: string;
+  label: string;
+  component: ComponentType<SourceItemsPanelProps>;
 }
 
 /**
@@ -56,8 +63,8 @@ export interface ClientPlugin {
   addSourceForm?: ComponentType<AddSourceFormProps>;
   /** Optional custom source card component for rendering this source type in the Library */
   sourceCard?: ComponentType<SourceCardProps>;
-  /** Items panel rendered as a tab on the source landing page (e.g. crawled news items) */
-  itemsPanel?: ComponentType<SourceItemsPanelProps>;
+  /** Panels rendered as tabs on the source landing page (e.g. crawled news items, feed browser) */
+  sourcePanels?: SourcePanelDef[];
   /** Named modals contributed by this plugin (rendered at app level) */
   modals?: Record<string, ComponentType<{ onClose: () => void }>>;
 }
