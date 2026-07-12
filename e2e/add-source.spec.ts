@@ -74,10 +74,13 @@ test.describe("Add Source", () => {
     // Submit
     await page.click(".add-source-submit");
 
-    // Modal should close
+    // Modal should close and the app navigates straight to the created source
     await expect(page.locator(".add-source-modal")).not.toBeVisible({ timeout: 5000 });
+    await expect(page).toHaveURL(/\/source\//, { timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "Attention Is All You Need (E2E)" })).toBeVisible({ timeout: 5000 });
 
-    // Paper should appear in the library grid after reload
+    // And the paper appears in the library grid
+    await page.goto("/library");
     await expect(page.locator(".source-card", { hasText: "Attention Is All You Need" }).first()).toBeVisible({ timeout: 5000 });
   });
 
