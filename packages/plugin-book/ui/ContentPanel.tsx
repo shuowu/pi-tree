@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMermaid, SelectionToolbar } from "@pi-tree/ui";
 import { marked } from "marked";
 import { BookOpen } from "lucide-react";
-import type { ContentPanelProps } from "@pi-tree/ui";
+import type { ContentPanelProps, ContentQuote } from "@pi-tree/ui";
 import { EpubReader, type EpubInfo } from "./EpubReader.js";
 import "./ContentPanel.css";
 
@@ -24,7 +24,7 @@ export interface BookContentPanelProps extends ContentPanelProps {
 }
 
 export function ContentPanel(props: BookContentPanelProps) {
-  const { sourceId, onDefine, fetchEpubInfo, fetchEpubText, epubFileUrl } = props;
+  const { sourceId, onDefine, onQuote, fetchEpubInfo, fetchEpubText, epubFileUrl } = props;
   // undefined = still checking; null = not an EPUB → markdown view
   const [epub, setEpub] = useState<EpubInfo | null | undefined>(undefined);
 
@@ -47,6 +47,7 @@ export function ContentPanel(props: BookContentPanelProps) {
         sourceId={sourceId}
         info={epub}
         onDefine={onDefine}
+        onQuote={onQuote}
         fetchText={fetchEpubText}
         fileUrl={epubFileUrl}
       />
@@ -55,7 +56,7 @@ export function ContentPanel(props: BookContentPanelProps) {
   return <MarkdownContentPanel {...props} />;
 }
 
-function MarkdownContentPanel({ sourceId, onDefine, fetchHeadings, fetchContent }: BookContentPanelProps) {
+function MarkdownContentPanel({ sourceId, onDefine, onQuote, fetchHeadings, fetchContent }: BookContentPanelProps) {
   const [headings, setHeadings] = useState<ContentHeading[]>([]);
   const [content, setContent] = useState<string | null>(null);
   const [activeHeading, setActiveHeading] = useState<ContentHeading | null>(null);
@@ -110,6 +111,7 @@ function MarkdownContentPanel({ sourceId, onDefine, fetchHeadings, fetchContent 
           isLoading={isLoading}
           contentRef={contentRef}
           onDefine={onDefine}
+          onQuote={onQuote}
           onBack={() => {
             setContent(null);
             setActiveHeading(null);
@@ -173,6 +175,7 @@ function ContentViewer({
   isLoading,
   contentRef,
   onDefine,
+  onQuote,
   onBack,
 }: {
   heading: ContentHeading | null;
@@ -180,6 +183,7 @@ function ContentViewer({
   isLoading: boolean;
   contentRef: React.RefObject<HTMLDivElement | null>;
   onDefine?: (text: string, context?: string) => void;
+  onQuote?: (quote: ContentQuote) => void;
   onBack: () => void;
 }) {
   const html = marked.parse(content) as string;
@@ -215,6 +219,9 @@ function ContentViewer({
           <SelectionToolbar
             containerRef={contentRef}
             onDefine={onDefine}
+            onAsk={onQuote && ((text) => onQuote({ text, source: heading?.title, branch: false }))}
+            onBranch={onQuote && ((text) => onQuote({ text, source: heading?.title, branch: true }))}
+            maxLength={onQuote ? 2000 : undefined}
           />
         )}
       </div>

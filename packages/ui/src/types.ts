@@ -1,11 +1,22 @@
 import type { ComponentType, ReactNode } from "react";
 import type { Source } from "@pi-tree/shared";
 
+/** A passage quoted from a content panel into the chat input */
+export interface ContentQuote {
+  text: string;
+  /** Where it came from (e.g. the chapter title) — shown in the preview and sent with the quote */
+  source?: string;
+  /** Start a new branch from the current point instead of continuing the thread */
+  branch: boolean;
+}
+
 /** Props passed to plugin content panel components by the host RightPanel */
 export interface ContentPanelProps {
   sourceId: string;
   onDefine?: (term: string, context?: string) => void;
   onSendMessage?: (message: string) => void;
+  /** Quote a passage into the chat input; absent when there's no chat to quote into */
+  onQuote?: (quote: ContentQuote) => void;
 }
 
 /** Props passed to plugin add-source form components by the AddSourceModal */

@@ -4,6 +4,7 @@ import { AnalysisPanel } from "./AnalysisPanel";
 import { MemosPanel } from "./MemosPanel";
 import { getSourceTypeConfig } from "../source-types";
 import { X, StickyNote } from "lucide-react";
+import type { ContentQuote } from "@pi-tree/ui";
 
 interface RightPanelProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ interface RightPanelProps {
   onDismissQuickLookup: () => void;
   onResizeStart: (e: React.MouseEvent) => void;
   onSendMessage?: (message: string) => void;
+  /** Quote a passage from the content panel into the chat input */
+  onQuote?: (quote: ContentQuote) => void;
   userId: string;
   sessionId?: number;
   memoCount?: number;
@@ -38,6 +41,7 @@ export function RightPanel({
   onDismissQuickLookup,
   onResizeStart,
   onSendMessage,
+  onQuote,
   userId,
   sessionId,
   memoCount,
@@ -111,6 +115,7 @@ export function RightPanel({
                 sourceId={sourceId}
                 onDefine={onDefine}
                 onSendMessage={onSendMessage}
+                onQuote={onQuote}
               />
             </div>
           )}

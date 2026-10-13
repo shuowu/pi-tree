@@ -975,6 +975,16 @@
   text-overflow: ellipsis;
 }
 
+.pit-chat-quote-source {
+  color: var(--pit-text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 40%;
+}
+
 .pit-chat-quote-remove {
   background: none;
   border: none;

@@ -8,7 +8,16 @@ import { ModelPicker, type ModelInfo } from "./ModelPicker.js";
 import { SlashCommandMenu, type SlashCommand, type SlashCommandResult } from './SlashCommandMenu.js';
 import { BookOpen, ChevronDown, GitBranch, Loader, Square } from "lucide-react";
 import { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
+import type { ContentQuote } from "./types.js";
 import "./styles/ChatView.css";
+
+/** Format a quote as a markdown blockquote with an optional attribution line.
+ *  Each paragraph stays its own paragraph inside the blockquote. */
+export function formatQuote(text: string, source?: string | null): string {
+  const paragraphs = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (source) paragraphs.push(`— ${source}`);
+  return paragraphs.map((p) => `> ${p}`).join("\n>\n");
+}
 
 /** Distance (px) from the bottom within which the scroll-to-bottom button hides */
 const NEAR_BOTTOM_THRESHOLD = 300;
@@ -99,6 +108,10 @@ interface ChatViewProps {
   onSlashCommand?: (command: string, args: string, context: {
     lastAssistantMessage?: string;
   }) => void | SlashCommandResult | Promise<void | SlashCommandResult>;
+  /** A quote pushed in from outside the chat (e.g. a book passage from the side panel).
+   *  Applied each time a new object arrives (`id` keeps repeats of the same text distinct);
+   *  replaces any pending quote. */
+  externalQuote?: (ContentQuote & { id: number }) | null;
 }
 
 export function ChatView({
@@ -138,10 +151,13 @@ export function ChatView({
   onCancelQueued,
   slashCommands,
   onSlashCommand,
+  externalQuote,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [quotedText, setQuotedText] = useState<string | null>(null);
   const [pendingBranch, setPendingBranch] = useState(false);
+  /** Attribution for the pending quote (e.g. chapter title), sent with it */
+  const [quoteSource, setQuoteSource] = useState<string | null>(null);
   const [showAncestors, setShowAncestors] = useState(false);
   const [slashMenuIndex, setSlashMenuIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -470,8 +486,9 @@ export function ChatView({
     let finalMessage: string;
     if (quotedText) {
       const userPart = trimmed || "Explain this";
-      finalMessage = `> ${quotedText}\n\n${userPart}`;
+      finalMessage = `${formatQuote(quotedText, quoteSource)}\n\n${userPart}`;
       setQuotedText(null);
+      setQuoteSource(null);
     } else {
       finalMessage = trimmed;
     }
@@ -524,9 +541,20 @@ export function ChatView({
           ? "Continue this thread…"
           : placeholderText ?? "Ask about the book, or try: deep dive, next chapter, zoom out…";
 
+  // Quotes from outside the chat (book panel) land in the same preview
+  useEffect(() => {
+    if (!externalQuote) return;
+    setQuotedText(externalQuote.text);
+    setQuoteSource(externalQuote.source ?? null);
+    setPendingBranch(externalQuote.branch);
+    textareaRef.current?.focus();
+  }, [externalQuote]);
+
   const handleAsk = useCallback(
     (text: string) => {
       setQuotedText(text);
+      setQuoteSource(null);
+      setPendingBranch(false);
       // Focus in a timeout to let the selection toolbar unmount first
       setTimeout(() => {
         textareaRef.current?.focus();
@@ -538,6 +566,7 @@ export function ChatView({
   const handleBranch = useCallback(
     (text: string) => {
       setQuotedText(text);
+      setQuoteSource(null);
       setPendingBranch(true);
       setTimeout(() => {
         textareaRef.current?.focus();
@@ -758,10 +787,11 @@ export function ChatView({
                   <span className="pit-chat-quote-label">Quote</span>
                 )}
                 <span className="pit-chat-quote-text">"{quotedText}"</span>
+                {quoteSource && <span className="pit-chat-quote-source">— {quoteSource}</span>}
               </div>
               <button
                 className="pit-chat-quote-remove"
-                onClick={() => { setQuotedText(null); setPendingBranch(false); }}
+                onClick={() => { setQuotedText(null); setQuoteSource(null); setPendingBranch(false); }}
                 title="Remove quote"
               >
                 ×

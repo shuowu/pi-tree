@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SelectionToolbar } from "@pi-tree/ui";
+import { SelectionToolbar, type ContentQuote } from "@pi-tree/ui";
 import { ChevronLeft, ChevronRight, List, Minus, Plus, X } from "lucide-react";
 import { isNoteElement, noteBlock, processChapter, type ProcessedChapter } from "./epub-html.js";
 import "./EpubReader.css";
@@ -21,6 +21,7 @@ export interface EpubReaderProps {
   sourceId: string;
   info: EpubInfo;
   onDefine?: (text: string, context?: string) => void;
+  onQuote?: (quote: ContentQuote) => void;
   fetchText: (sourceId: string, path: string) => Promise<string>;
   fileUrl: (sourceId: string, path: string) => string;
 }
@@ -66,7 +67,10 @@ function splitTarget(target: string): [string, string] {
   return i >= 0 ? [target.slice(0, i), target.slice(i + 1)] : [target, ""];
 }
 
-export function EpubReader({ sourceId, info, onDefine, fetchText, fileUrl }: EpubReaderProps) {
+/** Selections up to this length can be quoted (Define stays limited to short terms) */
+const QUOTE_MAX_LENGTH = 2000;
+
+export function EpubReader({ sourceId, info, onDefine, onQuote, fetchText, fileUrl }: EpubReaderProps) {
   const { spine, toc } = info;
 
   const [index, setIndex] = useState(() => {
@@ -358,7 +362,15 @@ export function EpubReader({ sourceId, info, onDefine, fetchText, fileUrl }: Epu
             </div>
           </>
         )}
-        {onDefine && <SelectionToolbar containerRef={bodyRef} onDefine={onDefine} />}
+        {onDefine && (
+          <SelectionToolbar
+            containerRef={bodyRef}
+            onDefine={onDefine}
+            onAsk={onQuote && ((text) => onQuote({ text, source: title, branch: false }))}
+            onBranch={onQuote && ((text) => onQuote({ text, source: title, branch: true }))}
+            maxLength={onQuote ? QUOTE_MAX_LENGTH : undefined}
+          />
+        )}
       </div>
 
       <div className="epub-reader-footer">

@@ -6,7 +6,7 @@ import { useSourceProcessing } from "../hooks/useSourceProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView, Breadcrumb, SelectionToolbar, type ModelInfo, type SlashCommand } from "@pi-tree/ui";
+import { ChatView, Breadcrumb, SelectionToolbar, type ContentQuote, type ModelInfo, type SlashCommand } from "@pi-tree/ui";
 import { SourceSetupState } from "./SourceSetupState";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
@@ -98,6 +98,11 @@ export function Reader() {
 
   // Memo state
   const [memoCount, setMemoCount] = useState(0);
+  // Passage quoted from the content panel → chat input (id makes repeats distinct)
+  const [panelQuote, setPanelQuote] = useState<(ContentQuote & { id: number }) | null>(null);
+  const handlePanelQuote = useCallback((quote: ContentQuote) => {
+    setPanelQuote({ ...quote, id: Date.now() });
+  }, []);
 
   // Fetch memo count for badge
   useEffect(() => {
@@ -454,6 +459,7 @@ export function Reader() {
               onCancelQueued={session.handleCancelQueued}
               slashCommands={slashCommands}
               onSlashCommand={handleSlashCommand}
+              externalQuote={panelQuote}
             />
           </>
         ) : null}
@@ -472,6 +478,7 @@ export function Reader() {
         onDismissQuickLookup={dict.dismissAllQuickCards}
         onResizeStart={panel.handleRightResizeStart}
         onSendMessage={session.handleSendMessage}
+        onQuote={session.sessionId !== null && !showBookSetup ? handlePanelQuote : undefined}
         userId={userId!}
         sessionId={session.sessionId ?? undefined}
         memoCount={memoCount}

@@ -13,7 +13,12 @@ interface SelectionToolbarProps {
   onSave?: (text: string, context?: string) => void;
   /** Container element to listen for selections in */
   containerRef: React.RefObject<HTMLElement | null>;
+  /** Longest selection that shows the toolbar (default 200). Raise it to quote passages;
+   *  Define still only appears for selections up to 200 chars. */
+  maxLength?: number;
 }
+
+const DEFINE_MAX_LENGTH = 200;
 
 interface ToolbarPosition {
   top: number;
@@ -26,6 +31,7 @@ export function SelectionToolbar({
   onBranch,
   onSave,
   containerRef,
+  maxLength = DEFINE_MAX_LENGTH,
 }: SelectionToolbarProps) {
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [position, setPosition] = useState<ToolbarPosition | null>(null);
@@ -41,7 +47,7 @@ export function SelectionToolbar({
     const selection = window.getSelection();
     const text = selection?.toString().trim();
 
-    if (!text || text.length < 2 || text.length > 200) {
+    if (!text || text.length < 2 || text.length > maxLength) {
       return;
     }
 
@@ -65,7 +71,7 @@ export function SelectionToolbar({
         containerRect.width - 80,
       ),
     });
-  }, [containerRef]);
+  }, [containerRef, maxLength]);
 
   // Desktop: mouseup handler
   const handleMouseUp = useCallback(() => {
@@ -243,9 +249,11 @@ export function SelectionToolbar({
             <GitBranch size={14} /> Branch
           </button>
         )}
-        <button className="pit-selection-btn" onClick={handleDefine} title="Look up in dictionary">
-          <BookA size={14} /> Define
-        </button>
+        {selectedText.length <= DEFINE_MAX_LENGTH && (
+          <button className="pit-selection-btn" onClick={handleDefine} title="Look up in dictionary">
+            <BookA size={14} /> Define
+          </button>
+        )}
         {onSave && (
           <button className="pit-selection-btn" onClick={handleSave} title="Save as memo">
             <Pin size={14} /> Save

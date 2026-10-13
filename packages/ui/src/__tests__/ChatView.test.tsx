@@ -6,7 +6,7 @@ import type { ChatMessage, BranchOption } from "@pi-tree/core/types";
 // Mock mermaid before any component imports
 vi.mock("mermaid", () => ({ default: { initialize: vi.fn(), run: vi.fn() } }));
 
-import { ChatView } from "../ChatView.js";
+import { ChatView, formatQuote } from "../ChatView.js";
 
 const makeMessage = (overrides?: Partial<ChatMessage>): ChatMessage => ({
   id: "msg-1",
@@ -399,5 +399,52 @@ describe("ChatView", () => {
 
       expect(onSendMessage).toHaveBeenCalledWith("> important quote\n\nWhat does this mean?", undefined);
     });
+
+    it("applies an external quote as a branch, with its source", () => {
+      const onSendMessage = vi.fn();
+      const { rerender } = render(<ChatView {...defaultProps} onSendMessage={onSendMessage} />);
+      rerender(
+        <ChatView
+          {...defaultProps}
+          onSendMessage={onSendMessage}
+          externalQuote={{ id: 1, text: "他想成为一个亿万富翁", source: "第3章 永不知足", branch: true }}
+        />,
+      );
+
+      expect(screen.getByText("Branching from")).toBeInTheDocument();
+      expect(screen.getByText("— 第3章 永不知足")).toBeInTheDocument();
+
+      fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter", shiftKey: false });
+      expect(onSendMessage).toHaveBeenCalledWith(
+        "> 他想成为一个亿万富翁\n>\n> — 第3章 永不知足\n\nExplain this",
+        { forceBranch: true },
+      );
+    });
+
+    it("a later external quote replaces a pending one", () => {
+      const onSendMessage = vi.fn();
+      const { rerender } = render(
+        <ChatView {...defaultProps} onSendMessage={onSendMessage} externalQuote={{ id: 1, text: "first", branch: true }} />,
+      );
+      rerender(
+        <ChatView {...defaultProps} onSendMessage={onSendMessage} externalQuote={{ id: 2, text: "second", branch: false }} />,
+      );
+      fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter", shiftKey: false });
+      expect(onSendMessage).toHaveBeenCalledWith("> second\n\nExplain this", undefined);
+    });
+  });
+});
+
+describe("formatQuote", () => {
+  it("keeps multi-paragraph quotes inside one blockquote, one paragraph each", () => {
+    expect(formatQuote("Para one.\n\nPara two.")).toBe("> Para one.\n>\n> Para two.");
+  });
+
+  it("leaves a single-line quote unchanged", () => {
+    expect(formatQuote("important quote")).toBe("> important quote");
+  });
+
+  it("appends the source as its own attribution line", () => {
+    expect(formatQuote("Text", "Chapter 3")).toBe("> Text\n>\n> — Chapter 3");
   });
 });
