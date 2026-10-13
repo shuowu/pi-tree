@@ -3,6 +3,7 @@ import { useMermaid, SelectionToolbar } from "@pi-tree/ui";
 import { marked } from "marked";
 import { BookOpen } from "lucide-react";
 import type { ContentPanelProps } from "@pi-tree/ui";
+import { EpubReader, type EpubInfo } from "./EpubReader.js";
 import "./ContentPanel.css";
 
 /** Heading entry in a source's table of contents */
@@ -16,9 +17,45 @@ export interface ContentHeading {
 export interface BookContentPanelProps extends ContentPanelProps {
   fetchHeadings: (sourceId: string) => Promise<ContentHeading[]>;
   fetchContent: (sourceId: string, startLine: number, endLine: number) => Promise<string>;
+  /** EPUB structure for the native reader; null when the source isn't an EPUB */
+  fetchEpubInfo: (sourceId: string) => Promise<EpubInfo | null>;
+  fetchEpubText: (sourceId: string, path: string) => Promise<string>;
+  epubFileUrl: (sourceId: string, path: string) => string;
 }
 
-export function ContentPanel({ sourceId, onDefine, fetchHeadings, fetchContent }: BookContentPanelProps) {
+export function ContentPanel(props: BookContentPanelProps) {
+  const { sourceId, onDefine, fetchEpubInfo, fetchEpubText, epubFileUrl } = props;
+  // undefined = still checking; null = not an EPUB → markdown view
+  const [epub, setEpub] = useState<EpubInfo | null | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEpub(undefined);
+    fetchEpubInfo(sourceId)
+      .catch(() => null)
+      .then((info) => !cancelled && setEpub(info && info.spine.length > 0 ? info : null));
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceId, fetchEpubInfo]);
+
+  if (epub === undefined) return <div className="book-panel" />;
+  if (epub) {
+    return (
+      <EpubReader
+        key={sourceId}
+        sourceId={sourceId}
+        info={epub}
+        onDefine={onDefine}
+        fetchText={fetchEpubText}
+        fileUrl={epubFileUrl}
+      />
+    );
+  }
+  return <MarkdownContentPanel {...props} />;
+}
+
+function MarkdownContentPanel({ sourceId, onDefine, fetchHeadings, fetchContent }: BookContentPanelProps) {
   const [headings, setHeadings] = useState<ContentHeading[]>([]);
   const [content, setContent] = useState<string | null>(null);
   const [activeHeading, setActiveHeading] = useState<ContentHeading | null>(null);

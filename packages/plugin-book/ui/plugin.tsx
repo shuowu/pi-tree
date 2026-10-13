@@ -1,5 +1,6 @@
 import type { ClientPlugin, ContentPanelProps } from "@pi-tree/ui";
 import { ContentPanel, type ContentHeading } from "./ContentPanel.js";
+import type { EpubInfo } from "./EpubReader.js";
 import { BookAddSourceForm } from "./BookAddSourceForm.js";
 import { BookSourceCard } from "./BookSourceCard.js";
 
@@ -27,6 +28,22 @@ async function fetchContent(
   return data.content;
 }
 
+async function fetchEpubInfo(sourceId: string): Promise<EpubInfo | null> {
+  const res = await fetch(`/api/book/${encodeURIComponent(sourceId)}/epub`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function epubFileUrl(sourceId: string, path: string): string {
+  return `/api/book/${encodeURIComponent(sourceId)}/epub/file?path=${encodeURIComponent(path)}`;
+}
+
+async function fetchEpubText(sourceId: string, path: string): Promise<string> {
+  const res = await fetch(epubFileUrl(sourceId, path));
+  if (!res.ok) throw new Error("Failed to fetch chapter");
+  return res.text();
+}
+
 // ---------------------------------------------------------------------------
 // Adapter — injects fetch callbacks into the pure component
 // ---------------------------------------------------------------------------
@@ -37,6 +54,9 @@ function BookContentPanel(props: ContentPanelProps) {
       {...props}
       fetchHeadings={fetchHeadings}
       fetchContent={fetchContent}
+      fetchEpubInfo={fetchEpubInfo}
+      fetchEpubText={fetchEpubText}
+      epubFileUrl={epubFileUrl}
     />
   );
 }
