@@ -33,6 +33,7 @@ import type { DictEntry } from "../components/DictionaryPanel";
 import { useStream } from "../StreamContext";
 import {
   resolveSendContext,
+  resolveFocusAnchor,
   resolveStreamDoneAction,
   shouldApplyStreamResult,
 } from "./send-context";
@@ -146,6 +147,17 @@ export function useReaderSession(
   // instead of the current viewNodeId, so branching happens at the right level.
   const pendingForkScopeRef = useRef<string | null>(null);
 
+  // Reply anchor — set when the user focuses a turn in the sidebar whose answer
+  // already has replies. The next message then starts a new branch under that
+  // turn (routed through pendingForkScopeRef) instead of continuing at the end
+  // of the visible chain. Kept as state so the composer can show where the
+  // message will land.
+  const [replyAnchor, setReplyAnchor] = useState<{ nodeId: string; label: string } | null>(null);
+  const treeRef = useRef<TreeNodeView | null>(null);
+  useEffect(() => {
+    treeRef.current = tree;
+  }, [tree]);
+
   // Whether the user is still following the live stream (hasn't scrolled away
   // to read something else). Reported by ChatView via handleFollowChange.
   // When false, a completed response that branched to a new node must NOT
@@ -160,6 +172,9 @@ export function useReaderSession(
   // Keep ref in sync
   useEffect(() => {
     sessionIdRef.current = sessionId;
+    // A fork scope / anchor points into one session's tree — drop it on switch.
+    pendingForkScopeRef.current = null;
+    setReplyAnchor(null);
   }, [sessionId]);
 
   // Derive viewNodeId from URL search params — single source of truth
@@ -414,6 +429,7 @@ export function useReaderSession(
       // Use fork scope if set (routes message to the fork level, not the viewed scope)
       const forkScope = pendingForkScopeRef.current;
       pendingForkScopeRef.current = null;
+      setReplyAnchor(null);
 
       const { sendingNodeId, forceBranch: forkBranch, nextLastViewNodeId } =
         resolveSendContext(forkScope, lastViewNodeIdRef.current);
@@ -484,8 +500,9 @@ export function useReaderSession(
 
       // Navigation cancels any pending fork — if the user forked but then
       // navigated elsewhere, the fork scope is stale and shouldn't affect
-      // the next message.
+      // the next message. A sidebar focus (handleFocusNode) re-arms it.
       pendingForkScopeRef.current = null;
+      setReplyAnchor(null);
 
       // Auto-close sidebar on mobile after navigating
       if (isMobile()) {
@@ -514,6 +531,27 @@ export function useReaderSession(
     [userId, source.id, applySessionData, updateUrl, isMobile, setSidebarOpen, streams],
   );
 
+  /**
+   * Sidebar focus: view the turn AND make it the reply target. If the turn's
+   * answer already has replies, the next message starts a new branch under it.
+   */
+  const handleFocusNode = useCallback(
+    async (nodeId: string) => {
+      const anchor = resolveFocusAnchor(treeRef.current, nodeId);
+      await handleNavigate(nodeId);
+      if (anchor) {
+        pendingForkScopeRef.current = anchor.nodeId;
+        setReplyAnchor(anchor);
+      }
+    },
+    [handleNavigate],
+  );
+
+  const handleClearReplyAnchor = useCallback(() => {
+    pendingForkScopeRef.current = null;
+    setReplyAnchor(null);
+  }, []);
+
   const handleBackToRoot = useCallback(async () => {
     if (!userId) return;
     const sid = sessionIdRef.current;
@@ -521,6 +559,7 @@ export function useReaderSession(
 
     // Back-to-root cancels any pending fork — same as handleNavigate.
     pendingForkScopeRef.current = null;
+    setReplyAnchor(null);
 
     setIsLoading(true);
     try {
@@ -771,6 +810,8 @@ export function useReaderSession(
 
     // Browser navigation happened — sync state
     lastViewNodeIdRef.current = viewNodeId;
+    pendingForkScopeRef.current = null;
+    setReplyAnchor(null);
     (async () => {
       setIsLoading(true);
       try {
@@ -860,6 +901,9 @@ export function useReaderSession(
       stopStream(source.id, sid);
     }, [source.id, stopStream]),
     handleNavigate,
+    handleFocusNode,
+    replyAnchor,
+    handleClearReplyAnchor,
     handleBackToRoot,
     handleFollowChange,
     handleDeleteSession,
@@ -884,6 +928,7 @@ export function useReaderSession(
           setScrollTopTrigger((c) => c + 1);
           // Store the fork scope so the next message routes to the correct level
           pendingForkScopeRef.current = forkScopeId;
+          setReplyAnchor(null);
         } catch (err) {
           console.error("Fork failed:", err);
         } finally {

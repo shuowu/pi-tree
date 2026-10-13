@@ -751,7 +751,10 @@ export class TreeManager {
    *     the next message (so it branches at the correct level)
    */
   forkAtNode(viewNodeId: string): { state: SessionState; forkScopeId: string | null } {
-    const tree = this.buildTreeView();
+    // Resolve on the placeholder-free tree (what the user sees). In the raw
+    // tree, the grandparent of the first answer inside a ⑂ branch is that
+    // branch's placeholder, not the AI node it hangs from.
+    const tree = stripPlaceholders(this.buildTreeView());
     const forkResult = findForkPoint(tree, viewNodeId);
 
     if (forkResult) {

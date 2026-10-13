@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import type { TreeNodeView } from "@pi-tree/core/types";
 import {
+  resolveFocusAnchor,
   resolveSendContext,
   resolveStreamDoneAction,
   shouldApplyStreamResult,
@@ -219,5 +221,41 @@ describe("fork-then-continue: ref synchronization", () => {
     const fixed = resolveSendContext(pendingForkScope, "user_q2");
     const fixedGuard = shouldApplyStreamResult(fixed.nextLastViewNodeId, fixed.sendingNodeId);
     expect(fixedGuard).toBe(true); // ← Fixed
+  });
+});
+
+// =============================================================================
+// resolveFocusAnchor — sidebar focus → reply target
+// =============================================================================
+
+describe("resolveFocusAnchor", () => {
+  const n = (id: string, label: string, children: TreeNodeView[] = [], extra: Partial<TreeNodeView> = {}): TreeNodeView =>
+    ({ id, parentId: null, label, status: "active", messageCount: 1, isCurrent: false, children, ...extra });
+
+  // P1 → ✦A1 → P2 → ✦A2   (linear)
+  const linear = n("P1", "P1", [n("A1", "✦ A1", [n("P2", "P2", [n("A2", "✦ A2")])])]);
+
+  it("mid-chain question → anchors on it", () => {
+    expect(resolveFocusAnchor(linear, "P1")).toEqual({ nodeId: "P1", label: "P1" });
+  });
+
+  it("mid-chain answer → anchors, labelled by its question", () => {
+    expect(resolveFocusAnchor(linear, "A1")).toEqual({ nodeId: "A1", label: "P1" });
+  });
+
+  it("last turn → no anchor (a normal send continues it)", () => {
+    expect(resolveFocusAnchor(linear, "P2")).toBeNull();
+    expect(resolveFocusAnchor(linear, "A2")).toBeNull();
+  });
+
+  it("only an unused ⑂ placeholder below → no anchor", () => {
+    const tree = n("P1", "P1", [n("A1", "✦ A1", [n("PH", "New branch", [], { status: "placeholder", messageCount: 0 })])]);
+    expect(resolveFocusAnchor(tree, "P1")).toBeNull();
+  });
+
+  it("question with no answer yet, unknown node, or no tree → no anchor", () => {
+    expect(resolveFocusAnchor(n("P1", "P1"), "P1")).toBeNull();
+    expect(resolveFocusAnchor(linear, "nope")).toBeNull();
+    expect(resolveFocusAnchor(null, "P1")).toBeNull();
   });
 });

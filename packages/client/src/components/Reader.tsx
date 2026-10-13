@@ -379,7 +379,7 @@ export function Reader() {
         tree={session.tree}
         viewNodeId={session.viewNodeId}
         generatingNodeIds={session.generatingNodeIds}
-        onNavigate={session.handleNavigate}
+        onNavigate={session.handleFocusNode}
         onDeleteNode={session.handleDeleteNode}
         onRenameNode={session.handleRenameNode}
         onExportNode={(nodeId) => {
@@ -443,6 +443,8 @@ export function Reader() {
               availableModels={availableModels}
               onModelChange={handleModelChange}
               onFork={session.handleFork}
+              replyAnchor={session.replyAnchor}
+              onClearReplyAnchor={session.handleClearReplyAnchor}
               onStop={session.handleStopGeneration}
               parentContext={session.parentContext}
               renderAboveInput={renderUsageBadge}

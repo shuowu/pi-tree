@@ -3,6 +3,8 @@
  * unit-tested without React, routers, or DOM dependencies.
  */
 
+import type { TreeNodeView } from "@pi-tree/core/types";
+
 /**
  * Decide which node a new message should be sent from and whether
  * it should force-branch.
@@ -66,4 +68,55 @@ export function resolveStreamDoneAction(params: {
     return "stay-notify";
   }
   return "apply";
+}
+
+/**
+ * Decide whether focusing `nodeId` in the sidebar should anchor the next
+ * message as a reply to that turn.
+ *
+ * Focusing a turn (its question or its ✦ answer) means "reply here". When the
+ * turn's answer already has visible children, a reply there starts a new
+ * branch — but the chat view still shows the chain continuing below, so the
+ * reply must be routed explicitly (forceBranch from the focused turn) and
+ * surfaced in the UI. Returns null when no anchor is needed: the turn is the
+ * end of its chain (a normal send continues it) or it has no answer yet.
+ */
+export function resolveFocusAnchor(
+  tree: TreeNodeView | null,
+  nodeId: string,
+): { nodeId: string; label: string } | null {
+  if (!tree) return null;
+  const find = (n: TreeNodeView): TreeNodeView | null => {
+    if (n.id === nodeId) return n;
+    for (const c of n.children ?? []) {
+      const found = find(c);
+      if (found) return found;
+    }
+    return null;
+  };
+  const node = find(tree);
+  if (!node) return null;
+
+  const isAI = (n: TreeNodeView) => n.label.startsWith("✦");
+  const answer = isAI(node) ? node : (node.children ?? []).find(isAI);
+  if (!answer) return null;
+
+  // Unused ⑂ placeholders are hidden from the user — they don't count.
+  const replies = (answer.children ?? []).filter(
+    (c) => !(c.status === "placeholder" && (c.messageCount ?? 0) === 0),
+  );
+  if (replies.length === 0) return null;
+
+  // Label the anchor by the question, which is what the user recognises.
+  const question = isAI(node) ? findParentOf(tree, node.id) ?? node : node;
+  return { nodeId, label: question.label.replace(/^✦\s*/, "") };
+}
+
+function findParentOf(tree: TreeNodeView, id: string): TreeNodeView | null {
+  for (const c of tree.children ?? []) {
+    if (c.id === id) return tree;
+    const found = findParentOf(c, id);
+    if (found) return found;
+  }
+  return null;
 }

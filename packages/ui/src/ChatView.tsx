@@ -26,6 +26,11 @@ interface ChatViewProps {
   /** Currently executing tool call, or null when not in a tool call */
   activeToolCall: { toolName: string; args: Record<string, unknown> } | null;
   onSendMessage: (message: string, opts?: { forceBranch?: boolean }) => void;
+  /** Set when the next message will start a new branch under a focused turn
+   *  (sidebar focus) rather than continue the visible chain. */
+  replyAnchor?: { label: string } | null;
+  /** Dismiss the reply anchor — the next message continues the visible chain. */
+  onClearReplyAnchor?: () => void;
   branches: BranchOption[];
   onDrillDown: (nodeId: string) => void;
   /** Whether the user is viewing a scoped branch (not root) */
@@ -104,6 +109,8 @@ export function ChatView({
   streamingContent,
   activeToolCall,
   onSendMessage,
+  replyAnchor,
+  onClearReplyAnchor,
   branches,
   onDrillDown,
   isScoped,
@@ -511,7 +518,7 @@ export function ChatView({
       : "Press Enter to explain, or type your question…"
     : isLoading
       ? "Ask a follow-up — it sends when this response finishes…"
-      : willBranch
+      : replyAnchor || willBranch
         ? "New branch from this point…"
         : isScoped
           ? "Continue this thread…"
@@ -720,6 +727,24 @@ export function ChatView({
                 textareaRef.current?.focus();
               }}
             />
+          )}
+          {replyAnchor && (
+            <div className="pit-chat-quote-preview pit-chat-quote-branch" data-testid="reply-anchor">
+              <div className="pit-chat-quote-content">
+                <GitBranch size={12} className="pit-chat-quote-branch-icon" />
+                <span className="pit-chat-quote-label">New branch from</span>
+                <span className="pit-chat-quote-text">{replyAnchor.label}</span>
+              </div>
+              {onClearReplyAnchor && (
+                <button
+                  className="pit-chat-quote-remove"
+                  onClick={onClearReplyAnchor}
+                  title="Continue the thread below instead"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           )}
           {quotedText && (
             <div className={`pit-chat-quote-preview${pendingBranch ? " pit-chat-quote-branch" : ""}`}>

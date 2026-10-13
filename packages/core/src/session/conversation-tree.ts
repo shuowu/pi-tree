@@ -41,7 +41,9 @@ export interface AssistantNodeResult {
  * - Has only internal children that resolve to nothing → treat as leaf (active)
  * - Branch point (2+ meaningful children) → show as completed
  * - Final response (has user/outline children) → show as completed
- * - Single non-user/outline child → flatten (don't show, pass child through)
+ * - Has a ⑂ fork placeholder child → show as completed (otherwise the answer
+ *   would vanish from the tree, with the fork's messages hoisted into its place)
+ * - Single non-user/outline/fork child → flatten (don't show, pass child through)
  * - No meaningful children and no raw children → null (shouldn't display)
  */
 export function shouldShowAssistantNode(
@@ -53,7 +55,7 @@ export function shouldShowAssistantNode(
   const hasOnlyInternalChildren = rawChildCount > 0 && meaningfulChildren.length === 0;
   const isBranchPoint = meaningfulChildren.length > 1;
   const isFinalResponse = meaningfulChildren.some(
-    (c) => c.source === "user" || c.source === "outline",
+    (c) => c.source === "user" || c.source === "outline" || c.source === "fork",
   );
 
   // Show the node in these cases:
