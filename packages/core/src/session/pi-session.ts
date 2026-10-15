@@ -520,6 +520,7 @@ export class PiSession {
    */
   simpleBranch(entryId: string): void {
     this.sm.branch(entryId);
+    this.syncAgentContext();
   }
 
   /**
@@ -535,6 +536,7 @@ export class PiSession {
 
     this.topicCache.set(customId, { ...meta, kind: "topic_node" });
     this.sm.appendLabelChange(customId, meta.label);
+    this.syncAgentContext();
 
     return customId;
   }
@@ -548,6 +550,7 @@ export class PiSession {
     meta?: Omit<TopicMeta, "kind">,
   ): string {
     const summaryId = this.sm.branchWithSummary(targetEntryId, summary);
+    this.syncAgentContext();
 
     if (meta) {
       const customId = this.sm.appendCustomEntry(CUSTOM_TYPE, {
@@ -559,6 +562,20 @@ export class PiSession {
     }
 
     return summaryId;
+  }
+
+  /**
+   * Rebuild the agent's LLM context from the current leaf's path.
+   *
+   * The agent prompts from its in-memory `state.messages`, which
+   * `sm.branch()` does not touch — only the SDK's `navigateTree()` resyncs
+   * it. Without this, a branch's context would carry every turn sent so far
+   * in this process, including sibling branches.
+   */
+  private syncAgentContext(): void {
+    if (this.agent) {
+      this.agent.agent.state.messages = this.sm.buildSessionContext().messages;
+    }
   }
 
   /**
