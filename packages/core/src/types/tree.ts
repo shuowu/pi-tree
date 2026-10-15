@@ -94,4 +94,13 @@ export interface SessionState {
   branches: BranchOption[];
   /** Ancestor messages from root to the current scope (for 'Show full path' toggle) */
   parentContext?: ChatMessage[];
+  /** How full the LLM context is for the viewed branch (null when unknown) */
+  contextUsage?: ContextUsage | null;
+}
+
+/** LLM context size of a branch vs. the model's context window. */
+export interface ContextUsage {
+  /** Estimated tokens the next prompt on this branch carries; null right after compaction */
+  tokens: number | null;
+  contextWindow: number;
 }

@@ -18,6 +18,7 @@ import type {
   PiTreeData,
   AnnotatedTreeNode,
   ToolStep,
+  ContextUsage,
 } from "../types/index.js";
 import {
   createAgentSession,
@@ -25,14 +26,21 @@ import {
   DefaultResourceLoader,
   SessionManager,
   SettingsManager,
+  buildSessionContext,
+  calculateContextTokens,
+  estimateTokens,
   type AgentSession,
   type AgentSessionEvent,
   type SessionEntry,
   type CustomEntry,
+  type SessionMessageEntry,
 } from "@earendil-works/pi-coding-agent";
 import { configureModelRegistry } from "./model-setup.js";
 import { isAbandoned as checkAbandoned } from "./tree-filter.js";
 import { shouldShowAssistantNode } from "./conversation-tree.js";
+
+// pi-ai's AssistantMessage, which the SDK barrel doesn't re-export
+type AssistantMessage = Extract<SessionMessageEntry["message"], { role: "assistant" }>;
 
 // SessionTreeNode is not exported from the main barrel — define locally
 interface SessionTreeNode {
@@ -593,6 +601,38 @@ export class PiSession {
 
     const result = await this.agent.compact(customInstructions);
     return result.summary;
+  }
+
+  /**
+   * LLM context size of the branch ending at `leafId` — what the next prompt
+   * from there would carry. Mirrors AgentSession.getContextUsage(), but for
+   * any branch rather than only the SDK's current leaf.
+   */
+  getContextUsage(leafId: string): ContextUsage | null {
+    const contextWindow = this.agent?.model?.contextWindow ?? 0;
+    if (contextWindow <= 0 || !this.sm.getEntry(leafId)) return null;
+
+    // Walk back to the last reply with usable token counts. Crossing a
+    // compaction first means that usage predates it, so the size is unknown
+    // until the next reply on this branch.
+    const path = this.sm.getBranch(leafId);
+    let lastReply: AssistantMessage | undefined;
+    for (let i = path.length - 1; i >= 0 && !lastReply; i--) {
+      const e = path[i];
+      if (e.type === "compaction") return { tokens: null, contextWindow };
+      if (e.type !== "message" || e.message.role !== "assistant") continue;
+      const msg = e.message as AssistantMessage;
+      if (msg.stopReason !== "aborted" && msg.stopReason !== "error" && calculateContextTokens(msg.usage) > 0) {
+        lastReply = msg;
+      }
+    }
+
+    // Its reported prompt+output size, plus estimates for anything after it.
+    const messages = buildSessionContext(this.sm.getEntries(), leafId).messages;
+    const idx = lastReply ? messages.lastIndexOf(lastReply) : -1;
+    let tokens = lastReply ? calculateContextTokens(lastReply.usage) : 0;
+    for (let i = idx + 1; i < messages.length; i++) tokens += estimateTokens(messages[i]);
+    return { tokens, contextWindow };
   }
 
   /**

@@ -842,7 +842,19 @@ export class TreeManager {
       tree: clientTree,
       branches,
       parentContext: parentContext.length > 0 ? parentContext : undefined,
+      contextUsage: this.piSession.getContextUsage(this.nextMessageParentId(tree, viewNodeId)),
     };
+  }
+
+  /**
+   * Entry a message sent from this view would attach to — the same choice
+   * handleMessage makes without ⑂: a new branch at an existing fork, else
+   * the deepest leaf of the view.
+   */
+  private nextMessageParentId(tree: TreeNodeView, viewNodeId: string | null): string {
+    const scopeId = viewNodeId ?? tree.id;
+    const { branchId, placeholderId } = needsAutoBranch(tree, scopeId);
+    return placeholderId ?? branchId ?? findDeepestLeaf(tree, scopeId);
   }
 
   getTreeView(): TreeNodeView {

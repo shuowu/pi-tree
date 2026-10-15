@@ -71,6 +71,8 @@ function createMockPiSession(opts: {
 
     getMessageContentMap: vi.fn(() => contentMap),
 
+    getContextUsage: vi.fn((_leafId: string) => ({ tokens: 100, contextWindow: 1000 })),
+
     getBreadcrumb: vi.fn(
       () => opts.breadcrumb ?? [{ entryId: "root", label: "root" }],
     ),
@@ -2221,5 +2223,40 @@ describe("TreeManager — Phase 3: Navigation", () => {
       // viewNodeId stays at AI_c1 (no forceBranch, no redirect)
       expect(result.viewNodeId).toBe("AI_c1");
     });
+  });
+});
+
+describe("TreeManager — context usage", () => {
+  //   AI_c2 ─┬─ c3 → AI_c3
+  //           └─ c_new → AI_new (current leaf)
+  const forkedTree = () => [
+    aUserNode("p1", "msg 1", [
+      aAINode("AI_p1", "resp 1", [
+        aUserNode("c2", "msg 2", [
+          aAINode("AI_c2", "resp 2", [
+            aUserNode("c3", "msg 3", [aAINode("AI_c3", "resp 3")]),
+            aUserNode("c_new", "forked msg", [
+              aAINode("AI_new", "fork resp", [], { isCurrent: true }),
+            ], { isCurrent: true }),
+          ]),
+        ]),
+      ]),
+    ]),
+  ];
+
+  it.each([
+    ["inside a branch", "c_new"],
+    ["at a fork", "c2"],
+    ["the other branch", "c3"],
+  ])("measures the entry a message would attach to (%s)", async (_label, viewNodeId) => {
+    const mock = createMockPiSession({ annotatedTree: forkedTree() });
+    const tm = createTreeManager(mock);
+
+    const state = tm.getSessionState(viewNodeId);
+    expect(state.contextUsage).toEqual({ tokens: 100, contextWindow: 1000 });
+    const measured = mock.getContextUsage.mock.calls[0][0];
+
+    await tm.handleMessage("next", viewNodeId);
+    expect(mock.simpleBranch.mock.calls[0][0]).toBe(measured);
   });
 });

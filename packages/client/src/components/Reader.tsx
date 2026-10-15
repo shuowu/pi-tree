@@ -338,8 +338,9 @@ export function Reader() {
   const renderUsageBadge = useMemo(() => {
     if (!showUsage || session.sessionId === null) return undefined;
     const sid = session.sessionId;
-    return () => <SessionUsageBadge sessionId={sid} />;
-  }, [showUsage, session.sessionId]);
+    const ctx = session.contextUsage;
+    return () => <SessionUsageBadge sessionId={sid} contextUsage={ctx} />;
+  }, [showUsage, session.sessionId, session.contextUsage]);
 
   const panelToggles = [
     { id: "sessions", icon: <Layers size={16} />, label: "Sessions", active: false, onClick: session.handleBackToSessions },

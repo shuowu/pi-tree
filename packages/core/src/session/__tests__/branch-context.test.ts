@@ -154,4 +154,47 @@ describe("PiSession branch context", () => {
 
     expect(seen.at(-1)).toEqual(["A1", "T1"]);
   });
+
+  describe("getContextUsage", () => {
+    it("measures each branch separately", async () => {
+      await setup();
+      await piSession.sendMessage("A1");
+      await piSession.sendMessage("A2");
+      const aLeaf = sm.getLeafId()!;
+
+      piSession.simpleBranch(replyIdFor("A1"));
+      await piSession.sendMessage(`B1 ${"long passage ".repeat(400)}`);
+      const bLeaf = sm.getLeafId()!;
+
+      const a = piSession.getContextUsage(aLeaf)!;
+      const b = piSession.getContextUsage(bLeaf)!;
+      expect(a.contextWindow).toBe(faux.getModel().contextWindow);
+      expect(a.tokens!).toBeGreaterThan(0);
+      // B's long passage counts toward B only.
+      expect(b.tokens! - a.tokens!).toBeGreaterThan(1000);
+    });
+
+    it("matches the SDK's own measure at the current leaf", async () => {
+      await setup();
+      await piSession.sendMessage("A1");
+      await piSession.sendMessage("A2");
+
+      const ours = piSession.getContextUsage(sm.getLeafId()!)!;
+      const sdk = (piSession as any).agent.getContextUsage();
+      expect(ours.tokens).toBe(sdk.tokens);
+      expect(ours.contextWindow).toBe(sdk.contextWindow);
+    });
+
+    it("is unknown right after a compaction, until the next reply", async () => {
+      await setup();
+      await piSession.sendMessage("A1");
+      sm.appendCompaction("summary", replyIdFor("A1"), 100);
+      expect(piSession.getContextUsage(sm.getLeafId()!)!.tokens).toBeNull();
+    });
+
+    it("returns null for an unknown entry", async () => {
+      await setup();
+      expect(piSession.getContextUsage("no-such-entry")).toBeNull();
+    });
+  });
 });

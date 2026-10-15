@@ -12,6 +12,7 @@ import type {
   TreeNodeView,
   BranchOption,
   ToolStep,
+  ContextUsage,
 } from "@pi-tree/core/types";
 import type {
   Source,
@@ -96,6 +97,7 @@ export function useReaderSession(
   const [tree, setTree] = useState<TreeNodeView | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [parentContext, setParentContext] = useState<ChatMessage[]>([]);
+  const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
   const [isQueued, setIsQueued] = useState(false);
@@ -216,12 +218,14 @@ export function useReaderSession(
       tree: TreeNodeView;
       branches: BranchOption[];
       parentContext?: ChatMessage[];
+      contextUsage?: ContextUsage | null;
     }) => {
       setMessages(state.messages);
       setBreadcrumb(state.breadcrumb);
       setTree(state.tree);
       setBranches(state.branches);
       setParentContext(state.parentContext ?? []);
+      setContextUsage(state.contextUsage ?? null);
     },
     [],
   );
@@ -883,6 +887,7 @@ export function useReaderSession(
     tree,
     branches,
     parentContext,
+    contextUsage,
     streamingContent,
     isCompacting,
     activeToolCall,
