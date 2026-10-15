@@ -1,12 +1,31 @@
 import { useCallback, useState } from "react";
 import type { ScrollDirection } from "@pi-tree/ui";
+import { getPanelWidth, setPanelWidth } from "../utils/preferences";
+
+const DEFAULT_LEFT_WIDTH = 300;
+const DEFAULT_RIGHT_WIDTH = 320;
+/** Narrowest a panel goes, and the room the central chat always keeps */
+const MIN_PANEL_WIDTH = 200;
+const MIN_CENTER_WIDTH = 360;
+
+/** Bound a panel width so the central chat keeps at least MIN_CENTER_WIDTH. */
+function clampWidth(width: number, otherPanelWidth: number): number {
+  const maxAllowed = Math.max(MIN_PANEL_WIDTH, window.innerWidth - otherPanelWidth - MIN_CENTER_WIDTH);
+  return Math.max(MIN_PANEL_WIDTH, Math.min(maxAllowed, width));
+}
 
 export function usePanelLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 768);
-  const [sidebarWidth, setSidebarWidth] = useState(300);
+  // Saved widths apply to every session (resizing saves on release), clamped
+  // in case the window is narrower than when they were saved.
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    clampWidth(getPanelWidth("left", DEFAULT_LEFT_WIDTH), 0),
+  );
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightTab, setRightTab] = useState<"dict" | "content" | "analysis" | "memos">("content");
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(() =>
+    clampWidth(getPanelWidth("right", DEFAULT_RIGHT_WIDTH), getPanelWidth("left", DEFAULT_LEFT_WIDTH)),
+  );
 
   const [scrollDirection, setScrollDirection] = useState<ScrollDirection>(null);
 
@@ -23,16 +42,11 @@ export function usePanelLayout() {
       const onMouseMove = (ev: MouseEvent) => {
         const currentWidth = startWidth + ev.clientX - startX;
         
-        // Ensure central layout gets at least 360px
-        const activeRightWidth = rightPanelOpen ? rightSidebarWidth : 0;
-        const maxAllowed = Math.max(200, window.innerWidth - activeRightWidth - 360);
-
         if (currentWidth < 140) {
           // Visual cue for collapse: set width to 0
           setSidebarWidth(0);
         } else {
-          const boundedWidth = Math.max(200, Math.min(maxAllowed, currentWidth));
-          setSidebarWidth(boundedWidth);
+          setSidebarWidth(clampWidth(currentWidth, rightPanelOpen ? rightSidebarWidth : 0));
         }
       };
 
@@ -46,7 +60,10 @@ export function usePanelLayout() {
         const finalWidth = startWidth + ev.clientX - startX;
         if (finalWidth < 140) {
           setSidebarOpen(false);
-          setSidebarWidth(300); // Reset for next open
+          setSidebarWidth(startWidth); // Reopen at the width it had before the drag
+        } else {
+          const activeRightWidth = rightPanelOpen ? rightSidebarWidth : 0;
+          setPanelWidth("left", clampWidth(finalWidth, activeRightWidth));
         }
       };
 
@@ -69,15 +86,10 @@ export function usePanelLayout() {
       const onMouseMove = (ev: MouseEvent) => {
         const currentWidth = startWidth - (ev.clientX - startX);
 
-        // Ensure central layout gets at least 360px
-        const activeLeftWidth = sidebarOpen ? sidebarWidth : 0;
-        const maxAllowed = Math.max(200, window.innerWidth - activeLeftWidth - 360);
-
         if (currentWidth < 140) {
           setRightSidebarWidth(0);
         } else {
-          const boundedWidth = Math.max(200, Math.min(maxAllowed, currentWidth));
-          setRightSidebarWidth(boundedWidth);
+          setRightSidebarWidth(clampWidth(currentWidth, sidebarOpen ? sidebarWidth : 0));
         }
       };
 
@@ -91,7 +103,10 @@ export function usePanelLayout() {
         const finalWidth = startWidth - (ev.clientX - startX);
         if (finalWidth < 140) {
           setRightPanelOpen(false);
-          setRightSidebarWidth(320); // Reset for next open
+          setRightSidebarWidth(startWidth); // Reopen at the width it had before the drag
+        } else {
+          const activeLeftWidth = sidebarOpen ? sidebarWidth : 0;
+          setPanelWidth("right", clampWidth(finalWidth, activeLeftWidth));
         }
       };
 

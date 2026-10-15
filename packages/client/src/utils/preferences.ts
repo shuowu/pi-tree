@@ -12,6 +12,7 @@
 
 const LS_BRANCHES_COLLAPSED = "pi-tree-branches-collapsed";
 const LS_SHOW_USAGE = "pi-tree-show-usage";
+const LS_PANEL_WIDTH = { left: "pi-tree-left-panel-width", right: "pi-tree-right-panel-width" } as const;
 
 // ─── Branch Previews ────────────────────────────────────────────────────────
 
@@ -34,4 +35,26 @@ export function getShowUsage(): boolean {
 
 export function setShowUsage(show: boolean): void {
   localStorage.setItem(LS_SHOW_USAGE, String(show));
+}
+
+// ─── Panel Widths ───────────────────────────────────────────────────────────
+
+export type PanelSide = keyof typeof LS_PANEL_WIDTH;
+
+/** Last width the user dragged a side panel to, shared across sessions. */
+export function getPanelWidth(side: PanelSide, fallback: number): number {
+  try {
+    const val = Number(localStorage.getItem(LS_PANEL_WIDTH[side]));
+    return Number.isFinite(val) && val >= 200 ? val : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function setPanelWidth(side: PanelSide, width: number): void {
+  try {
+    localStorage.setItem(LS_PANEL_WIDTH[side], String(Math.round(width)));
+  } catch {
+    /* storage unavailable — keep the in-memory width */
+  }
 }
