@@ -68,12 +68,36 @@ function alignClass(style: string | null): string | null {
   return m ? `epub-align-${m[1].toLowerCase()}` : null;
 }
 
+const XHTML_NS = "http://www.w3.org/1999/xhtml";
+
+/**
+ * Parse a chapter into an HTML document. EPUB chapters are XHTML, where
+ * `<script/>` or `<a id="x"/>` are self-closing; the HTML parser ignores the
+ * slash and swallows everything after them (Kobo kepubs put `<script/>` in
+ * every <head>). So parse as XML first, falling back to HTML for chapters
+ * that aren't well-formed namespaced XHTML.
+ */
+function parseChapter(raw: string): Document {
+  const xml = new DOMParser().parseFromString(raw, "application/xhtml+xml");
+  const xmlBody = xml.getElementsByTagNameNS(XHTML_NS, "body")[0];
+  if (!xmlBody || xml.getElementsByTagName("parsererror").length > 0) {
+    return new DOMParser().parseFromString(raw, "text/html");
+  }
+  // Move the body into an HTML document so serialization and tag names
+  // behave as HTML downstream.
+  const doc = document.implementation.createHTMLDocument("");
+  for (const child of Array.from(xmlBody.childNodes)) {
+    doc.body.appendChild(doc.importNode(child, true));
+  }
+  return doc;
+}
+
 export function processChapter(
   rawHtml: string,
   chapterPath: string,
   fileUrl: (zipPath: string) => string,
 ): ProcessedChapter {
-  const doc = new DOMParser().parseFromString(rawHtml, "text/html");
+  const doc = parseChapter(rawHtml);
   const dir = dirOf(chapterPath);
   const body = doc.body;
 

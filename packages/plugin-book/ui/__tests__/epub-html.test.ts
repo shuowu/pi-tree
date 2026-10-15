@@ -78,3 +78,35 @@ describe("resolvePath", () => {
     expect(resolvePath("A/B/", "./../C/d.xhtml#x")).toBe("A/C/d.xhtml#x");
   });
 });
+
+describe("processChapter parsing", () => {
+  it("parses XHTML self-closing tags as XML (Kobo kepub chapters)", () => {
+    // HTML parsing leaves <script/> and <span/> open, swallowing the chapter.
+    const { html, heading } = processChapter(
+      `<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+       <head><title>t</title><script type="text/javascript" src="../../js/kobo.js"/></head>
+       <body><h1><span epub:type="pagebreak" id="page_5" title="5"/>STEP 1</h1>
+       <p>First <a id="x"/>paragraph.</p><p>Second paragraph.</p></body></html>`,
+      "OEBPS/text/Chapter01.xhtml",
+      fileUrl,
+    );
+    const root = document.createElement("div");
+    root.innerHTML = html;
+    expect(heading).toBe("STEP 1");
+    expect(root.querySelectorAll("p")).toHaveLength(2);
+    expect(root.querySelector("p")!.textContent).toBe("First paragraph.");
+    // The empty anchor doesn't wrap the following text
+    expect(root.querySelector("a")?.textContent ?? "").toBe("");
+    expect(html).not.toMatch(/script|xmlns/);
+  });
+
+  it("falls back to HTML parsing for malformed XHTML", () => {
+    const { html } = processChapter(
+      `<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Unclosed<br><p>Next &nbsp; para</body></html>`,
+      "text/ch.html",
+      fileUrl,
+    );
+    expect(html).toContain("Unclosed");
+    expect(html).toContain("Next");
+  });
+});
