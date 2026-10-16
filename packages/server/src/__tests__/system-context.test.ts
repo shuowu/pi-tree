@@ -39,6 +39,25 @@ describe("resolveSystemContextTemplate", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  // ── {ls:dir} ──
+
+  it("lists files in a directory as library-relative paths", () => {
+    mkdirSync(join(tmpDir, "markdown", "images"), { recursive: true });
+    writeFileSync(join(tmpDir, "markdown", "b.md"), "");
+    writeFileSync(join(tmpDir, "markdown", "a.md"), "");
+    const result = resolveSystemContextTemplate(
+      ["Content: {ls:markdown/}"], "my-book", "u", null, tmpDir,
+    );
+    expect(result).toBe("Content: `my-book/markdown/a.md`, `my-book/markdown/b.md`");
+  });
+
+  it("replaces {ls:dir} with (none) for a missing directory", () => {
+    const result = resolveSystemContextTemplate(
+      ["Analysis: {ls:analysis}"], "my-book", "u", null, tmpDir,
+    );
+    expect(result).toBe("Analysis: (none)");
+  });
+
   // ── Basic placeholder replacement ──
 
   it("replaces {sourceId} and {userId}", () => {

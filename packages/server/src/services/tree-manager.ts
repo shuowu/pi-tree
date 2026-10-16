@@ -591,8 +591,8 @@ export class TreeManager {
     callbacks: {
       onToken: (token: string) => Promise<void>;
       onTurnEnd?: () => Promise<void>;
-      onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => Promise<void>;
-      onToolResult?: (info: { toolName: string; result: unknown; isError: boolean }) => Promise<void>;
+      onToolCall?: (info: { toolCallId?: string; toolName: string; args: Record<string, unknown> }) => Promise<void>;
+      onToolResult?: (info: { toolCallId?: string; toolName: string; result: unknown; isError: boolean }) => Promise<void>;
       onTreeUpdate: (update: Record<string, unknown>) => Promise<void>;
       onCompaction?: (event: { type: string; reason: string }) => Promise<void>;
       onDone: (result: Record<string, unknown>) => Promise<void>;
@@ -979,6 +979,9 @@ export class TreeManager {
  * - `{sourceId}`, `{userId}` — always available
  * - `{title}`, `{author}`, `{year}` — from the source DB row
  * - `{<key>}` — any key from the source's `metadata` JSON column
+ * - `{ls:<dir>}` — lists the files in a directory relative to the source
+ *   directory as library-relative paths (`<sourceId>/<dir>/<name>`), so the
+ *   agent never has to guess filenames. "(none)" if empty or missing.
  * - `{file:<path>}` — reads a file relative to the source directory and
  *   inlines its content. Gracefully replaced with "(not available)" if the
  *   file doesn't exist. Max 16 KB to avoid bloating the prompt.
@@ -1028,7 +1031,21 @@ export function resolveSystemContextTemplate(
         resolved = resolved.split(`{${key}}`).join(val);
       }
 
-      // 2. Replace {file:path} placeholders with file contents
+      // 2. Replace {ls:dir} placeholders with the directory's file list
+      resolved = resolved.replace(/\{ls:([^}]+)\}/g, (_match, relDir: string) => {
+        const dir = relDir.trim().replace(/\/+$/, "");
+        try {
+          const names = readdirSync(join(sourceDir, dir))
+            .filter((name) => statSync(join(sourceDir, dir, name)).isFile())
+            .sort();
+          if (names.length === 0) return "(none)";
+          return names.map((name) => `\`${sourceId}/${dir}/${name}\``).join(", ");
+        } catch {
+          return "(none)";
+        }
+      });
+
+      // 3. Replace {file:path} placeholders with file contents
       resolved = resolved.replace(/\{file:([^}]+)\}/g, (_match, relPath: string) => {
         const filePath = join(sourceDir, relPath.trim());
         try {

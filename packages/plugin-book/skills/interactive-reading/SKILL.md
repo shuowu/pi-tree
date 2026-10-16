@@ -9,14 +9,14 @@ AI-assisted interactive reading with ebooks converted to markdown.
 
 ## Context You Already Have
 
-Your system context includes the book's **Table of Contents** with line numbers. Use these line numbers directly with the `read` tool's `offset` parameter to jump to any section — no grepping needed.
+Your system context includes the book's **Table of Contents** with line numbers, plus the exact path of the book's markdown file and the analysis files that exist. Use those paths as given — never guess a filename. Use the TOC line numbers directly with the `read` tool's `offset` parameter to jump to any section — no grepping needed.
 
-A richer outline with chapter summaries, thematic map, and reading recommendations is at `<sourceId>/analysis/outline.md`. Read it once at session start for deeper context.
+If `outline.md` is among the listed analysis files, it holds a richer outline (chapter summaries, thematic map, reading recommendations). If it isn't listed, it doesn't exist — don't try to read it; the TOC is enough to navigate.
 
 ## Responding to User Requests
 
 ### Starting a session
-1. Read `<sourceId>/analysis/outline.md` (one tool call)
+1. If `outline.md` is listed in your context, read it (one tool call); otherwise work from the TOC
 2. Present a brief overview: what the book is about, how it's structured, and recommended starting points
 3. Ask where they'd like to begin
 
@@ -59,7 +59,7 @@ For structured analysis (summary, key ideas, quotes), use the **`book-analysis`*
 ## Tips
 
 - **The TOC is in your system context** — use it for instant navigation, no tool calls needed to find chapters
-- **Read the outline once** at session start for chapter summaries and thematic map
+- **Read the outline once** at session start if it exists — skip it if it isn't listed
 - **Use line numbers from the TOC** as `read` offset values — they map directly
 - Keep responses conversational and concrete — avoid reproducing the chapter verbatim
 - After a chapter, show the next chapter's TOC entry as a preview
