@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { rm } from "node:fs/promises";
+import { copyFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestEpub } from "../../parsers/__tests__/fixtures.js";
 import { epubPath, getEpubInfo, parseNavToc, readEpubFile, resolveZipPath } from "../epub-reader.js";
@@ -35,7 +35,34 @@ describe("epub-reader", () => {
   it("rejects source ids that could escape the sources dir", () => {
     expect(epubPath("/data/sources", "..")).toBeNull();
     expect(epubPath("/data/sources", "a/b")).toBeNull();
-    expect(epubPath("/data/sources", "my-book")).toBe("/data/sources/my-book/original.epub");
+  });
+
+  describe("epubPath lookup", () => {
+    const base = join(FIXTURES_DIR, "sources");
+    const put = async (rel: string) => {
+      await mkdir(join(base, rel, ".."), { recursive: true });
+      await copyFile(epubFile, join(base, rel));
+    };
+
+    it("prefers original.epub (uploads)", async () => {
+      await put("upload/original.epub");
+      await put("upload/book/Other.epub");
+      expect(epubPath(base, "upload")).toBe(join(base, "upload/original.epub"));
+    });
+
+    it("falls back to the single EPUB under book/ (library imports)", async () => {
+      await put("library/book/Principles -- Dalio.epub");
+      expect(epubPath(base, "library")).toBe(join(base, "library/book/Principles -- Dalio.epub"));
+    });
+
+    it("returns null with no EPUB, or an ambiguous book/ dir", async () => {
+      await mkdir(join(base, "pdf-only/book"), { recursive: true });
+      expect(epubPath(base, "pdf-only")).toBeNull();
+      expect(epubPath(base, "missing")).toBeNull();
+      await put("two/book/a.epub");
+      await put("two/book/b.epub");
+      expect(epubPath(base, "two")).toBeNull();
+    });
   });
 
   it("resolves relative zip paths", () => {

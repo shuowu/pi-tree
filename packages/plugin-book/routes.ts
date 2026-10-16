@@ -62,12 +62,12 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
     // for all source types with `concepts: true` in their manifest.
   });
 
-  // In-app EPUB reader: serve structure + files straight from original.epub
+  // In-app EPUB reader: serve structure + files straight from the source's EPUB
   const routes = new Hono();
 
   routes.get("/:sourceId/epub", async (c) => {
     const file = epubPath(sourcesBasePath, c.req.param("sourceId"));
-    if (!file || !existsSync(file)) return c.json({ error: "No EPUB for this source" }, 404);
+    if (!file) return c.json({ error: "No EPUB for this source" }, 404);
     try {
       return c.json(await getEpubInfo(file));
     } catch (err) {
@@ -79,7 +79,7 @@ export function setup(ctx: PluginRouteContext): PluginSetupResult {
   routes.get("/:sourceId/epub/file", async (c) => {
     const file = epubPath(sourcesBasePath, c.req.param("sourceId"));
     const path = c.req.query("path");
-    if (!path || !file || !existsSync(file)) return c.json({ error: "Not found" }, 404);
+    if (!path || !file) return c.json({ error: "Not found" }, 404);
     try {
       const result = await readEpubFile(file, path);
       if (!result) return c.json({ error: "Not found" }, 404);

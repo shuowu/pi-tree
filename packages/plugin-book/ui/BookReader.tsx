@@ -1,29 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SelectionToolbar, type ContentQuote } from "@pi-tree/ui";
 import { ChevronLeft, ChevronRight, List, Minus, Plus, X } from "lucide-react";
-import { isNoteElement, noteBlock, processChapter, type ProcessedChapter } from "./epub-html.js";
-import "./EpubReader.css";
+import { isNoteElement, noteBlock, type ProcessedChapter } from "./epub-html.js";
+import type { BookChapters, TocEntry } from "./book-source.js";
+import "./BookReader.css";
 
-export interface EpubTocEntry {
-  title: string;
-  level: number;
-  /** Zip path, optionally with a #fragment */
-  href: string;
-}
-
-export interface EpubInfo {
-  title?: string;
-  spine: string[];
-  toc: EpubTocEntry[];
-}
-
-export interface EpubReaderProps {
+export interface BookReaderProps {
   sourceId: string;
-  info: EpubInfo;
+  book: BookChapters;
   onDefine?: (text: string, context?: string) => void;
   onQuote?: (quote: ContentQuote) => void;
-  fetchText: (sourceId: string, path: string) => Promise<string>;
-  fileUrl: (sourceId: string, path: string) => string;
 }
 
 interface SavedPosition {
@@ -70,8 +56,9 @@ function splitTarget(target: string): [string, string] {
 /** Selections up to this length can be quoted (Define stays limited to short terms) */
 const QUOTE_MAX_LENGTH = 2000;
 
-export function EpubReader({ sourceId, info, onDefine, onQuote, fetchText, fileUrl }: EpubReaderProps) {
-  const { spine, toc } = info;
+/** Paged reader for a book's chapters — EPUB or split markdown alike. */
+export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProps) {
+  const { spine, toc } = book;
 
   const [index, setIndex] = useState(() => {
     const saved = readStorage<SavedPosition>(posKey(sourceId));
@@ -101,15 +88,13 @@ export function EpubReader({ sourceId, info, onDefine, onQuote, fetchText, fileU
       const cache = cacheRef.current;
       let entry = cache.get(path);
       if (!entry) {
-        entry = fetchText(sourceId, path).then((raw) =>
-          processChapter(raw, path, (p) => fileUrl(sourceId, p)),
-        );
+        entry = book.loadChapter(path);
         entry.catch(() => cache.delete(path));
         cache.set(path, entry);
       }
       return entry;
     },
-    [sourceId, fetchText, fileUrl],
+    [book],
   );
 
   // Load the current chapter, prefetch the next
@@ -178,13 +163,16 @@ export function EpubReader({ sourceId, info, onDefine, onQuote, fetchText, fileU
       if (i < 0) return;
       setShowToc(false);
       if (i === index && chapter) {
-        if (frag) {
-          bodyRef.current
-            ?.querySelector(`[id="${CSS.escape(frag)}"]`)
-            ?.scrollIntoView({ block: "start" });
-        } else {
-          bodyRef.current?.scrollTo(0, 0);
-        }
+        // Scroll once the TOC has closed — the text is hidden while it's open
+        requestAnimationFrame(() => {
+          if (frag) {
+            bodyRef.current
+              ?.querySelector(`[id="${CSS.escape(frag)}"]`)
+              ?.scrollIntoView({ block: "start" });
+          } else {
+            bodyRef.current?.scrollTo(0, 0);
+          }
+        });
         return;
       }
       landingRef.current = frag ? { frag } : null;
@@ -268,7 +256,7 @@ export function EpubReader({ sourceId, info, onDefine, onQuote, fetchText, fileU
 
   const currentPath = spine[index];
   const title = tocByPath.get(currentPath) ?? chapter?.heading ?? `Section ${index + 1}`;
-  const tocEntries: EpubTocEntry[] =
+  const tocEntries: TocEntry[] =
     toc.length > 0 ? toc : spine.map((href, i) => ({ title: `Section ${i + 1}`, level: 0, href }));
   const minLevel = Math.min(...tocEntries.map((t) => t.level));
   const activeTocIdx = tocEntries.findIndex((t) => splitTarget(t.href)[0] === currentPath);
@@ -317,7 +305,7 @@ export function EpubReader({ sourceId, info, onDefine, onQuote, fetchText, fileU
 
       {showToc && (
         <div className="epub-reader-toc">
-          {info.title && <div className="epub-reader-toc-book">{info.title}</div>}
+          {book.title && <div className="epub-reader-toc-book">{book.title}</div>}
           {tocEntries.map((entry, i) => (
             <button
               key={`${entry.href}-${i}`}

@@ -1,6 +1,7 @@
 import { EPub } from "epub2";
 import { extname, join } from "node:path";
 import { stat } from "node:fs/promises";
+import { existsSync, readdirSync } from "node:fs";
 
 /**
  * Read-side access to a source's original.epub for the in-app reader.
@@ -45,10 +46,23 @@ const EXT_TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-/** Path to a source's original.epub, or null for an id that could escape the sources dir */
+/**
+ * Path to a source's EPUB, or null when it has none (or the id could escape
+ * the sources dir). Uploads store `original.epub`; library imports keep the
+ * file as-is under `book/`, used when it's the only EPUB there.
+ */
 export function epubPath(sourcesBasePath: string, sourceId: string): string | null {
   if (!sourceId || sourceId.startsWith(".") || /[\\/]/.test(sourceId)) return null;
-  return join(sourcesBasePath, sourceId, "original.epub");
+  const dir = join(sourcesBasePath, sourceId);
+  const original = join(dir, "original.epub");
+  if (existsSync(original)) return original;
+  try {
+    const epubs = readdirSync(join(dir, "book")).filter((f) => f.toLowerCase().endsWith(".epub"));
+    if (epubs.length === 1) return join(dir, "book", epubs[0]);
+  } catch {
+    /* no book/ dir */
+  }
+  return null;
 }
 
 async function openEpub(filePath: string): Promise<CachedEpub> {

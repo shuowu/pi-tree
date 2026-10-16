@@ -1,6 +1,6 @@
 import type { ClientPlugin, ContentPanelProps } from "@pi-tree/ui";
-import { ContentPanel, type ContentHeading } from "./ContentPanel.js";
-import type { EpubInfo } from "./EpubReader.js";
+import { ContentPanel } from "./ContentPanel.js";
+import type { EpubInfo, MarkdownHeading } from "./book-source.js";
 import { BookAddSourceForm } from "./BookAddSourceForm.js";
 import { BookSourceCard } from "./BookSourceCard.js";
 
@@ -8,7 +8,7 @@ import { BookSourceCard } from "./BookSourceCard.js";
 // Data fetching — self-contained, no @pi-tree/client imports
 // ---------------------------------------------------------------------------
 
-async function fetchHeadings(sourceId: string): Promise<ContentHeading[]> {
+async function fetchHeadings(sourceId: string): Promise<MarkdownHeading[]> {
   const res = await fetch(`/api/library/sources/${sourceId}/headings`);
   if (!res.ok) return [];
   const data = await res.json();
