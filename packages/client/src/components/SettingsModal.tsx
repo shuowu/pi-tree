@@ -19,7 +19,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
   // Model selection state
   const [readingModel, setReadingModel] = useState("");
-  const [lookupModel, setLookupModel] = useState("");
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [testState, setTestState] = useState<
@@ -45,7 +44,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         setModels(modelsData.models);
         setProviders(modelsData.providers ?? []);
         setReadingModel(configData.readingModel || modelsData.currentModel || "");
-        setLookupModel(configData.lookupModel || "");
         // Load dictionary prompt template
         try {
           const promptData = await fetchDictPrompt();
@@ -78,10 +76,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     }
 
     try {
-      await saveServerConfig({
-        readingModel,
-        lookupModel: lookupModel || readingModel,
-      });
+      await saveServerConfig({ readingModel });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -343,15 +338,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               "Reading Model",
               readingModel,
               setReadingModel,
-              "Used for conversations, reading sessions, and analysis.",
-            )}
-
-            {renderModelSelect(
-              "settings-lookup-model",
-              "Lookup Model",
-              lookupModel,
-              setLookupModel,
-              "Used for quick dictionary lookups. Defaults to the reading model if not set.",
+              "Used for conversations, reading sessions, analysis, and dictionary lookups.",
             )}
 
             {/* Provider info */}

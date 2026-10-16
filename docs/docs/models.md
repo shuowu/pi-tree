@@ -26,10 +26,6 @@ PI_API_KEY=your-api-key-here
 PI_MODEL=deepseek-v4-flash
 ```
 
-:::tip
-You can also set `PI_LOOKUP_MODEL` to a cheaper or faster model for dictionary lookups, keeping the primary model for reading sessions.
-:::
-
 ## Local Models
 
 Run models completely offline with no API costs using [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai/). Gemma 4 (12B, 256K context) and Qwen 3.6 are good starting points — explore what works for your hardware and reading language.

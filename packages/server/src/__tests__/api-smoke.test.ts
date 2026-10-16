@@ -95,7 +95,6 @@ describe("Config", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("readingModel");
-    expect(body).toHaveProperty("lookupModel");
     // Credentials should not be exposed in the config API
     expect(body).not.toHaveProperty("apiKey");
     expect(body).not.toHaveProperty("provider");

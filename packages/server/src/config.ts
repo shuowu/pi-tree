@@ -52,10 +52,6 @@ export function getServerConfig(): ServerConfigFull {
       fileConfig.readingModel ||
       process.env.PI_MODEL ||
       "",
-    lookupModel:
-      fileConfig.lookupModel ||
-      process.env.PI_LOOKUP_MODEL ||
-      "",
     dataPath: process.env.DATA_PATH,
     provider:
       fileConfig.provider ||
@@ -77,7 +73,6 @@ export function getServerConfig(): ServerConfigFull {
   };
 
   console.log(`[config] Reading model: ${_config.readingModel}`);
-  console.log(`[config] Lookup model: ${_config.lookupModel}`);
   if (_config.provider) {
     console.log(`[config] Provider: ${_config.provider}`);
   }
@@ -127,6 +122,7 @@ export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerCo
   // 3. Merge: start from existing file config, overlay new non-empty fields.
   //    This preserves credential fields when only model preferences are sent.
   const toSave: Record<string, string> = { ...existingFileConfig };
+  delete toSave.lookupModel; // retired setting — lookups use the reading model
   if (newConfig.provider !== undefined) {
     if (newConfig.provider.trim()) toSave.provider = newConfig.provider.trim();
     else delete toSave.provider;
@@ -134,10 +130,6 @@ export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerCo
   if (newConfig.readingModel !== undefined) {
     if (newConfig.readingModel.trim()) toSave.readingModel = newConfig.readingModel.trim();
     else delete toSave.readingModel;
-  }
-  if (newConfig.lookupModel !== undefined) {
-    if (newConfig.lookupModel.trim()) toSave.lookupModel = newConfig.lookupModel.trim();
-    else delete toSave.lookupModel;
   }
   if (newConfig.baseUrl !== undefined) {
     if (newConfig.baseUrl.trim()) toSave.baseUrl = newConfig.baseUrl.trim();
@@ -163,7 +155,6 @@ export function saveServerConfig(newConfig: Partial<ServerConfigFull>): ServerCo
   // 5. Update the dynamic in-memory reference using file overrides and env variables fallback
   _config = {
     readingModel: toSave.readingModel || process.env.PI_MODEL || "",
-    lookupModel: toSave.lookupModel || process.env.PI_LOOKUP_MODEL || "",
     dataPath: process.env.DATA_PATH,
     provider: toSave.provider || process.env.PI_PROVIDER || "",
     apiKey: toSave.apiKey || process.env.PI_API_KEY || "",

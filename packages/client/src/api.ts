@@ -21,7 +21,6 @@ const API = "/api";
 
 export interface ClientServerConfig {
   readingModel: string;
-  lookupModel: string;
 }
 
 let _configCache: ClientServerConfig | null = null;
@@ -29,7 +28,7 @@ let _configCache: ClientServerConfig | null = null;
 export async function fetchServerConfig(force = false): Promise<ClientServerConfig> {
   if (_configCache && !force) return _configCache;
   const res = await fetch(`${API}/config`);
-  if (!res.ok) return { readingModel: "unknown", lookupModel: "unknown" };
+  if (!res.ok) return { readingModel: "unknown" };
   _configCache = await res.json();
   return _configCache!;
 }

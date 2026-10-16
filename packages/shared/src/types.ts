@@ -371,21 +371,17 @@ export const DEFAULT_CONFIG: ReaderConfig = {
  *
  * Env vars:
  *   PI_MODEL        → readingModel  (default: "glm-5-turbo")
- *   PI_LOOKUP_MODEL → lookupModel   (default: same as readingModel)
  *   DATA_PATH       → dataPath      (default: ~/.local/share/pi-tree)
  */
 export interface ServerConfig {
-  /** Model used for main reading conversations */
+  /** Model used for reading conversations, dictionary lookups, and summaries */
   readingModel: string;
-  /** Model used for dictionary lookups (fast/cheap preferred) */
-  lookupModel: string;
   /** Path for mutable state (sessions, DB) — library lives at dataPath/library/ */
   dataPath?: string;
 }
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
   readingModel: "glm-5-turbo",
-  lookupModel: "glm-5-turbo",
 };
 
 // ---------------------------------------------------------------------------

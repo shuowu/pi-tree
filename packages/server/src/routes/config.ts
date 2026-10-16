@@ -12,7 +12,6 @@ configRoutes.get("/", (c) => {
   const cfg = getServerConfig();
   return c.json({
     readingModel: cfg.readingModel,
-    lookupModel: cfg.lookupModel,
   });
 });
 
@@ -24,8 +23,7 @@ configRoutes.put("/", async (c) => {
     // Cached sessions bind their model at creation — evict them so the next
     // request rebuilds against the new model instead of the stale one.
     if (
-      updated.readingModel !== before.readingModel ||
-      updated.lookupModel !== before.lookupModel
+      updated.readingModel !== before.readingModel
     ) {
       const evicted = closeAllSessions();
       console.log(
@@ -36,7 +34,6 @@ configRoutes.put("/", async (c) => {
       success: true,
       config: {
         readingModel: updated.readingModel,
-        lookupModel: updated.lookupModel,
       },
     });
   } catch (err: any) {

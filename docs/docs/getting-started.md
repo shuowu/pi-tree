@@ -79,7 +79,6 @@ docker logs pi-tree
 | `PI_API_KEY` | **Yes** | — | API key for your provider |
 | `PI_MODEL` | **Yes** | — | Model ID (e.g., `deepseek-v4-flash`) |
 | `PI_BASE_URL` | No | Provider default | Custom base URL (proxies, local models) |
-| `PI_LOOKUP_MODEL` | No | Same as `PI_MODEL` | Cheaper model for dictionary lookups |
 | `PORT` | No | `3847` | Server port |
 
 > **💡 Using a local model (Ollama / LM Studio)?** Docker containers can't reach `localhost` on your host machine. See [Self-Hosting — Local LLM](/docs/self-hosting#docker-local-llm) for the networking setup.
@@ -167,7 +166,6 @@ Server listening on http://localhost:3947
 | `PI_API_KEY` | **Yes** | — | API key for your provider |
 | `PI_MODEL` | **Yes** | — | Model ID (e.g., `deepseek-v4-flash`) |
 | `PI_BASE_URL` | No | Provider default | Custom base URL (proxies, local models) |
-| `PI_LOOKUP_MODEL` | No | Same as `PI_MODEL` | Cheaper model for dictionary lookups |
 | `DATA_PATH` | No | `~/.local/share/pi-tree` | Root directory for all state |
 | `PORT` | No | `3947` (via direnv) | Server port |
 

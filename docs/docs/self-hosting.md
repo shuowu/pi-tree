@@ -15,7 +15,6 @@ This guide covers everything you need to configure, customize, and extend your p
 | `PI_API_KEY` | — | API key for your provider |
 | `PI_BASE_URL` | — | Custom base URL (for proxies or self-hosted models) |
 | `PI_MODEL` | — | Model ID for reading sessions (e.g., `claude-sonnet-4-20250514`) |
-| `PI_LOOKUP_MODEL` | — | Model ID for dictionary lookups (can be a cheaper/faster model) |
 | `DATA_PATH` | `~/.local/share/pi-tree` | Root for all state: sessions, database, library, user skills |
 | `PI_TREE_DB_URL` | — | Remote sqld/libsql-server URL for the main database (`http://` or `libsql://`). Unset = local file at `<DATA_PATH>/pi-tree.db`. See [Remote Database](#remote-database) |
 | `PI_TREE_DB_AUTH_TOKEN` | — | JWT auth token for `PI_TREE_DB_URL` (if the sqld server has auth enabled) |
@@ -672,7 +671,6 @@ Feed metadata and cached articles are stored in the news plugin's own SQLite dat
 Settings can also be changed at runtime through the web UI (**Settings** page), which writes to `<DATA_PATH>/global-config.json`. This overrides environment variables for:
 
 - Reading model
-- Lookup model
 - Provider
 - API key
 - Base URL

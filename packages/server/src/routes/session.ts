@@ -433,10 +433,7 @@ sessionRoutes.post("/summarize-branch", async (c) => {
       const { join } = await import("node:path");
 
       const repoRoot = join(import.meta.dirname, "../../..");
-      const { authStorage, modelRegistry, selectedModel } = configureModelRegistry({
-        ...serverConfig,
-        readingModel: serverConfig.lookupModel || serverConfig.readingModel,
-      });
+      const { authStorage, modelRegistry, selectedModel } = configureModelRegistry(serverConfig);
 
       const { session: agent } = await createAgentSession({
         cwd: repoRoot,

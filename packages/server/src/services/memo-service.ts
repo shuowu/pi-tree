@@ -486,10 +486,7 @@ export class MemoService {
     const serverConfig = getServerConfig();
     const repoRoot = join(import.meta.dirname, "../../../..");
 
-    const { authStorage, modelRegistry, selectedModel } = configureModelRegistry({
-      ...serverConfig,
-      readingModel: serverConfig.lookupModel || serverConfig.readingModel,
-    });
+    const { authStorage, modelRegistry, selectedModel } = configureModelRegistry(serverConfig);
 
     const { session } = await createAgentSession({
       cwd: repoRoot,

@@ -121,7 +121,7 @@ Pi-tree extracts key concepts from every source — books, papers, YouTube video
 
 ## Dictionary & Glossary
 
-Select any word or phrase while reading to look it up in context — definitions appear as stacked cards you can expand, and live in a Dictionary tab in the right panel. Lookups accumulate into a per-source glossary, so the vocabulary you build while reading a book stays with that book. Set `PI_LOOKUP_MODEL` to route lookups to a cheaper, faster model than your main reading model.
+Select any word or phrase while reading to look it up in context — definitions appear as stacked cards you can expand, and live in a Dictionary tab in the right panel. Lookups accumulate into a per-source glossary, so the vocabulary you build while reading a book stays with that book. Lookups use the same model as your reading sessions.
 
 ## The Three-Panel Layout
 
