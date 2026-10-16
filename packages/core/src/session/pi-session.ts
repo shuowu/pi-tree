@@ -400,9 +400,9 @@ export class PiSession {
     message: string,
     onToken: (token: string) => Promise<void>,
     onTurnEnd?: () => Promise<void>,
-    onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => Promise<void>,
+    onToolCall?: (info: { toolCallId?: string; toolName: string; args: Record<string, unknown> }) => Promise<void>,
     onCompaction?: (event: { type: "compaction_start" | "compaction_end"; reason: string }) => Promise<void>,
-    onToolResult?: (info: { toolName: string; result: unknown; isError: boolean }) => Promise<void>,
+    onToolResult?: (info: { toolCallId?: string; toolName: string; result: unknown; isError: boolean }) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<{ response: string; entryId: string; usage?: RawTokenUsage }> {
     if (!this.agent) {
@@ -462,11 +462,11 @@ export class PiSession {
         }
         // Forward tool execution start so the client can show progress
         if (event.type === "tool_execution_start" && onToolCall) {
-          chain = chain.then(() => onToolCall({ toolName: event.toolName, args: event.args ?? {} }));
+          chain = chain.then(() => onToolCall({ toolCallId: event.toolCallId, toolName: event.toolName, args: event.args ?? {} }));
         }
         // Forward tool execution results so the client can act on structured data
         if (event.type === "tool_execution_end" && onToolResult) {
-          chain = chain.then(() => onToolResult({ toolName: event.toolName, result: event.result, isError: event.isError }));
+          chain = chain.then(() => onToolResult({ toolCallId: event.toolCallId, toolName: event.toolName, result: event.result, isError: event.isError }));
         }
         // Forward compaction events so the client can show a status indicator
         if (event.type === "compaction_start" && onCompaction) {

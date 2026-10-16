@@ -26,6 +26,8 @@ export interface TreeNodeView {
 // ---------------------------------------------------------------------------
 
 export interface ToolStep {
+  /** Pairs a step with its result when tools run in parallel */
+  toolCallId?: string;
   toolName: string;
   args: Record<string, unknown>;
   status: "running" | "done" | "error";

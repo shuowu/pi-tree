@@ -169,7 +169,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
                   activeToolCall: info,
                   completedSteps: [
                     ...stream.completedSteps,
-                    { toolName: info.toolName, args: info.args, status: "running" as const },
+                    { toolCallId: info.toolCallId, toolName: info.toolName, args: info.args, status: "running" as const },
                   ],
                 },
               };
@@ -182,10 +182,15 @@ export function StreamProvider({ children }: { children: ReactNode }) {
             setStreams((prev) => {
               const stream = prev[key];
               if (!stream || stream.gen !== nextGen) return prev;
-              // Find the last running step and mark it done/error
+              // Match the step by toolCallId — parallel tool calls finish out of
+              // order. Fall back to the last running step for id-less events.
               const updatedSteps = [...stream.completedSteps];
               for (let i = updatedSteps.length - 1; i >= 0; i--) {
-                if (updatedSteps[i].status === "running") {
+                const step = updatedSteps[i];
+                if (
+                  step.status === "running" &&
+                  (!info.toolCallId || !step.toolCallId || step.toolCallId === info.toolCallId)
+                ) {
                   updatedSteps[i] = {
                     ...updatedSteps[i],
                     status: info.isError ? "error" : "done",

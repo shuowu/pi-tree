@@ -502,8 +502,8 @@ export async function sendMessageStreaming(
   callbacks: {
     onToken: (token: string) => void;
     onTurnEnd?: () => void;
-    onToolCall?: (info: { toolName: string; args: Record<string, unknown> }) => void;
-    onToolResult?: (info: { toolName: string; result: unknown; isError: boolean }) => void;
+    onToolCall?: (info: { toolCallId?: string; toolName: string; args: Record<string, unknown> }) => void;
+    onToolResult?: (info: { toolCallId?: string; toolName: string; result: unknown; isError: boolean }) => void;
     onQueued?: () => void;
     onCompaction?: (isCompacting: boolean) => void;
     onTreeUpdate?: (tree: import("@pi-tree/core/types").TreeNodeView) => void;
@@ -565,12 +565,14 @@ export async function sendMessageStreaming(
             break;
           case "tool_call":
             callbacks.onToolCall?.({
+              toolCallId: event.toolCallId,
               toolName: event.toolName,
               args: event.args ?? {},
             });
             break;
           case "tool_result":
             callbacks.onToolResult?.({
+              toolCallId: event.toolCallId,
               toolName: event.toolName,
               result: event.result,
               isError: event.isError ?? false,

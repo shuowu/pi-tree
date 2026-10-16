@@ -164,14 +164,14 @@ sessionRoutes.post("/message/stream", async (c) => {
     onTurnEnd: async () => {
       await stream.writeSSE({ data: JSON.stringify({ type: "turn_end" }) });
     },
-    onToolCall: async (info: { toolName: string; args: Record<string, unknown> }) => {
+    onToolCall: async (info: { toolCallId?: string; toolName: string; args: Record<string, unknown> }) => {
       await stream.writeSSE({
-        data: JSON.stringify({ type: "tool_call", toolName: info.toolName, args: info.args }),
+        data: JSON.stringify({ type: "tool_call", toolCallId: info.toolCallId, toolName: info.toolName, args: info.args }),
       });
     },
-    onToolResult: async (info: { toolName: string; result: unknown; isError: boolean }) => {
+    onToolResult: async (info: { toolCallId?: string; toolName: string; result: unknown; isError: boolean }) => {
       await stream.writeSSE({
-        data: JSON.stringify({ type: "tool_result", toolName: info.toolName, result: info.result, isError: info.isError }),
+        data: JSON.stringify({ type: "tool_result", toolCallId: info.toolCallId, toolName: info.toolName, result: info.result, isError: info.isError }),
       });
     },
     onTreeUpdate: async (update: Record<string, unknown>) => {
