@@ -16,4 +16,4 @@ export { useMermaid } from "./hooks/useMermaid.js";
 export { useScrollDirection, type ScrollDirection } from "./hooks/useScrollDirection.js";
 
 // Types — shared contract for plugin content panels
-export type { ContentPanelProps, ContentQuote, AddSourceFormProps, SourceCardProps, SourceItemsPanelProps, SourcePanelDef, ClientPlugin } from "./types.js";
+export type { ContentPanelProps, ContentQuote, BookHighlight, HighlightStore, AddSourceFormProps, SourceCardProps, SourceItemsPanelProps, SourcePanelDef, ClientPlugin } from "./types.js";

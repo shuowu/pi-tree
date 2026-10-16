@@ -36,6 +36,13 @@
       "when": 1783166616313,
       "tag": "0004_content-cursors",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792111076436,
+      "tag": "0005_memo-anchor",
+      "breakpoints": true
     }
   ]
 }

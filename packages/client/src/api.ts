@@ -10,6 +10,7 @@ import type {
   SourceSession,
   SessionContext,
   UserInfo,
+  MemoAnchor,
 } from "@pi-tree/shared";
 
 const API = "/api";
@@ -1062,6 +1063,7 @@ export interface Memo {
   origin: string;
   pinned: boolean;
   tags: string[];
+  anchor: MemoAnchor | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1074,6 +1076,7 @@ export interface MemoCreate {
   nodeId?: string;
   origin?: string;
   tags?: string[];
+  anchor?: MemoAnchor;
 }
 
 export interface MemoUpdate {
@@ -1081,14 +1084,16 @@ export interface MemoUpdate {
   content?: string;
   pinned?: boolean;
   tags?: string[];
+  anchor?: MemoAnchor;
 }
 
 export async function fetchMemos(
   userId: string,
-  opts?: { sourceId?: string; pinned?: boolean; tag?: string; limit?: number; offset?: number },
+  opts?: { sourceId?: string; pinned?: boolean; tag?: string; anchored?: boolean; limit?: number; offset?: number },
 ): Promise<Memo[]> {
   const params = new URLSearchParams();
   if (opts?.sourceId) params.set('source', opts.sourceId);
+  if (opts?.anchored) params.set('anchored', 'true');
   if (opts?.pinned !== undefined) params.set('pinned', String(opts.pinned));
   if (opts?.tag) params.set('tag', opts.tag);
   if (opts?.limit) params.set('limit', String(opts.limit));

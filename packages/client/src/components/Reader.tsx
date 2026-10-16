@@ -6,7 +6,7 @@ import { useSourceProcessing } from "../hooks/useSourceProcessing";
 import { usePanelLayout } from "../hooks/usePanelLayout";
 import { useDictionary } from "../hooks/useDictionary";
 import { useReaderSession } from "../hooks/useReaderSession";
-import { ChatView, Breadcrumb, SelectionToolbar, type ContentQuote, type ModelInfo, type SlashCommand } from "@pi-tree/ui";
+import { ChatView, Breadcrumb, SelectionToolbar, type ContentQuote, type HighlightStore, type ModelInfo, type SlashCommand } from "@pi-tree/ui";
 import { SourceSetupState } from "./SourceSetupState";
 import { SourceSettingsModal } from "./SourceSettingsModal";
 import { Sidebar } from "./Sidebar";
@@ -15,7 +15,7 @@ import { DictQuickCardStack } from "./DictionaryPanel";
 import { SessionUsageBadge } from "./SessionUsageBadge";
 import { NavMenu } from "./NavMenu";
 
-import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, enrichMemo, fetchHasAnalysis, summarizeBranch, exportSessionUrl } from "../api";
+import { fetchModels, updateSession, viewScope, createMemo, searchMemos, fetchMemos, updateMemo, deleteMemo, enrichMemo, fetchHasAnalysis, summarizeBranch, exportSessionUrl } from "../api";
 import { getBranchesCollapsed, getShowUsage, setShowUsage as saveShowUsage } from "../utils/preferences";
 import { PanelLeft, PanelRight, Layers, Settings, Zap, StickyNote, Search, FileText, Plus } from "lucide-react";
 import { useAddSource } from "../AddSourceContext";
@@ -103,6 +103,41 @@ export function Reader() {
   const handlePanelQuote = useCallback((quote: ContentQuote) => {
     setPanelQuote({ ...quote, id: Date.now() });
   }, []);
+
+  // Highlights in the content panel are memos with an anchor
+  const highlightStore = useMemo<HighlightStore | undefined>(() => {
+    if (!userId) return undefined;
+    const memosChanged = () => window.dispatchEvent(new Event('pi-tree:memos-changed'));
+    return {
+      list: async () => {
+        const memos = await fetchMemos(userId, { sourceId: source.id, anchored: true, limit: 10000 });
+        return memos.flatMap((m) => (m.anchor ? [{ id: m.id, anchor: m.anchor }] : []));
+      },
+      create: async (anchor) => {
+        const text = anchor.exact;
+        const memo = await createMemo(userId, {
+          title: text.slice(0, 60).replace(/\n/g, ' ') + (text.length > 60 ? '…' : ''),
+          content: text,
+          sourceId: source.id,
+          sessionId: session.sessionId ?? undefined,
+          origin: 'selection',
+          anchor,
+        });
+        setMemoCount(c => c + 1);
+        memosChanged();
+        return { id: memo.id, anchor };
+      },
+      update: async (id, anchor) => {
+        await updateMemo(userId, id, { anchor });
+        memosChanged();
+      },
+      remove: async (id) => {
+        await deleteMemo(userId, id);
+        setMemoCount(c => Math.max(0, c - 1));
+        memosChanged();
+      },
+    };
+  }, [userId, source.id, session.sessionId]);
 
   // Fetch memo count for badge
   useEffect(() => {
@@ -479,6 +514,7 @@ export function Reader() {
         onResizeStart={panel.handleRightResizeStart}
         onSendMessage={session.handleSendMessage}
         onQuote={session.sessionId !== null && !showBookSetup ? handlePanelQuote : undefined}
+        highlights={highlightStore}
         userId={userId!}
         sessionId={session.sessionId ?? undefined}
         memoCount={memoCount}

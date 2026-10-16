@@ -169,6 +169,7 @@ export const memos = sqliteTable("memos", {
   nodeId: text("node_id"),
   origin: text("origin").notNull().default("manual"),  // 'selection' | 'message' | 'command' | 'ai_suggested' | 'manual'
   pinned: integer("pinned").notNull().default(0),
+  anchor: text("anchor"),  // JSON MemoAnchor — set when the memo is a highlight
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 }, (table) => ({

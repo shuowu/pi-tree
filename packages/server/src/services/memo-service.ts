@@ -6,7 +6,7 @@
  */
 
 import { join } from "node:path";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, isNotNull, sql } from "drizzle-orm";
 import {
   createAgentSession,
   SessionManager,
@@ -16,7 +16,7 @@ import {
 import { getServerConfig } from "../config.js";
 import { configureModelRegistry } from "@pi-tree/core";
 import { getDb, memos, memoTags, tags, users } from "../db/index.js";
-import type { Memo, MemoCreate, MemoUpdate } from "@pi-tree/shared";
+import type { Memo, MemoAnchor, MemoCreate, MemoUpdate } from "@pi-tree/shared";
 
 // Singleton instance
 let _instance: MemoService | null = null;
@@ -139,6 +139,7 @@ export class MemoService {
       origin: row.origin as Memo["origin"],
       pinned: row.pinned === 1,
       tags: tagNames,
+      anchor: parseAnchor(row.anchor),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -157,12 +158,17 @@ export class MemoService {
       sourceId?: string;
       tag?: string;
       pinned?: boolean;
+      /** Only memos with an anchor (highlights) */
+      anchored?: boolean;
       limit?: number;
       offset?: number;
     },
   ): Promise<Memo[]> {
     const db = await getDb();
     const conditions = [eq(memos.userId, userId)];
+    if (opts?.anchored) {
+      conditions.push(isNotNull(memos.anchor));
+    }
 
     if (opts?.sourceId) {
       conditions.push(eq(memos.sourceId, opts.sourceId));
@@ -249,6 +255,7 @@ export class MemoService {
         nodeId: input.nodeId ?? null,
         origin: input.origin ?? "manual",
         pinned: 0,
+        anchor: input.anchor ? JSON.stringify(input.anchor) : null,
         createdAt: now,
         updatedAt: now,
       })
@@ -284,6 +291,7 @@ export class MemoService {
     if (input.title !== undefined) updates.title = input.title;
     if (input.content !== undefined) updates.content = input.content;
     if (input.pinned !== undefined) updates.pinned = input.pinned ? 1 : 0;
+    if (input.anchor !== undefined) updates.anchor = JSON.stringify(input.anchor);
 
     await db.update(memos)
       .set(updates)
@@ -577,5 +585,14 @@ Respond in EXACTLY this JSON format, nothing else:
     } finally {
       agent?.dispose();
     }
+  }
+}
+
+function parseAnchor(raw: string | null): MemoAnchor | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as MemoAnchor;
+  } catch {
+    return null;
   }
 }

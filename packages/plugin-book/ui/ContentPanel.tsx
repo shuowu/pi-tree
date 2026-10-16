@@ -26,8 +26,17 @@ export interface BookContentPanelProps extends ContentPanelProps {
  * the source has one, otherwise from its converted markdown split at headings.
  */
 export function ContentPanel(props: BookContentPanelProps) {
-  const { sourceId, onDefine, onQuote, fetchHeadings, fetchContent, fetchEpubInfo, fetchEpubText, epubFileUrl } =
-    props;
+  const {
+    sourceId,
+    onDefine,
+    onQuote,
+    highlights,
+    fetchHeadings,
+    fetchContent,
+    fetchEpubInfo,
+    fetchEpubText,
+    epubFileUrl,
+  } = props;
   // undefined = still loading; null = no readable content
   const [book, setBook] = useState<BookChapters | null | undefined>(undefined);
 
@@ -61,5 +70,14 @@ export function ContentPanel(props: BookContentPanelProps) {
       </div>
     );
   }
-  return <BookReader key={sourceId} sourceId={sourceId} book={book} onDefine={onDefine} onQuote={onQuote} />;
+  return (
+    <BookReader
+      key={sourceId}
+      sourceId={sourceId}
+      book={book}
+      onDefine={onDefine}
+      onQuote={onQuote}
+      highlights={highlights}
+    />
+  );
 }

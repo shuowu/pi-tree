@@ -10,7 +10,7 @@ import type { MemoCreate, MemoUpdate } from "@pi-tree/shared";
 
 export const memoRoutes = new Hono();
 
-/** List memos for a user (supports ?source=&tag=&pinned=&limit=&offset=) */
+/** List memos for a user (supports ?source=&tag=&pinned=&anchored=&limit=&offset=) */
 memoRoutes.get("/:userId", async (c) => {
   const userId = c.req.param("userId");
   const sourceId = c.req.query("source") || undefined;
@@ -20,9 +20,10 @@ memoRoutes.get("/:userId", async (c) => {
   const offset = c.req.query("offset") ? parseInt(c.req.query("offset")!, 10) : undefined;
 
   const pinned = pinnedParam === "true" ? true : pinnedParam === "false" ? false : undefined;
+  const anchored = c.req.query("anchored") === "true" || undefined;
 
   const service = MemoService.getInstance();
-  const items = await service.list(userId, { sourceId, tag, pinned, limit, offset });
+  const items = await service.list(userId, { sourceId, tag, pinned, anchored, limit, offset });
   return c.json({ memos: items });
 });
 

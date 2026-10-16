@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
-import type { Source } from "@pi-tree/shared";
+import type { MemoAnchor, Source } from "@pi-tree/shared";
 
 /** A passage quoted from a content panel into the chat input */
 export interface ContentQuote {
@@ -17,6 +17,22 @@ export interface ContentPanelProps {
   onSendMessage?: (message: string) => void;
   /** Quote a passage into the chat input; absent when there's no chat to quote into */
   onQuote?: (quote: ContentQuote) => void;
+  /** The user's highlights in this source; absent when there's no user to save them for */
+  highlights?: HighlightStore;
+}
+
+/** A saved highlight (a memo with an anchor) */
+export interface BookHighlight {
+  id: number;
+  anchor: MemoAnchor;
+}
+
+/** Host-provided persistence for a source's highlights */
+export interface HighlightStore {
+  list: () => Promise<BookHighlight[]>;
+  create: (anchor: MemoAnchor) => Promise<BookHighlight>;
+  update: (id: number, anchor: MemoAnchor) => Promise<void>;
+  remove: (id: number) => Promise<void>;
 }
 
 /** Props passed to plugin add-source form components by the AddSourceModal */

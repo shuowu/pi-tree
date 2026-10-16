@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookA, GitBranch, Pin, Quote } from "lucide-react";
+import { BookA, GitBranch, Highlighter, Pin, Quote } from "lucide-react";
 import "./SelectionToolbar.css";
 
 interface SelectionToolbarProps {
@@ -11,6 +11,8 @@ interface SelectionToolbarProps {
   onBranch?: (text: string) => void;
   /** Save: saves selected text as a memo */
   onSave?: (text: string, context?: string) => void;
+  /** Highlight: receives the selected range (a copy — the selection is cleared after) */
+  onHighlight?: (range: Range) => void;
   /** Container element to listen for selections in */
   containerRef: React.RefObject<HTMLElement | null>;
   /** Longest selection that shows the toolbar (default 200). Raise it to quote passages;
@@ -30,6 +32,7 @@ export function SelectionToolbar({
   onAsk,
   onBranch,
   onSave,
+  onHighlight,
   containerRef,
   maxLength = DEFINE_MAX_LENGTH,
 }: SelectionToolbarProps) {
@@ -229,6 +232,15 @@ export function SelectionToolbar({
     dismiss();
   };
 
+  const handleHighlight = () => {
+    const selection = window.getSelection();
+    if (onHighlight && selection && selection.rangeCount > 0) {
+      onHighlight(selection.getRangeAt(0).cloneRange());
+    }
+    selection?.removeAllRanges();
+    dismiss();
+  };
+
   return (
     <div
       ref={toolbarRef}
@@ -239,6 +251,11 @@ export function SelectionToolbar({
       }}
     >
       <div className="pit-selection-toolbar-buttons">
+        {onHighlight && (
+          <button className="pit-selection-btn" onClick={handleHighlight} title="Highlight">
+            <Highlighter size={14} /> Highlight
+          </button>
+        )}
         {onAsk && (
           <button className="pit-selection-btn" onClick={handleAsk} title="Quote in chat">
             <Quote size={14} /> Quote

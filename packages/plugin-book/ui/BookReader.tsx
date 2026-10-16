@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SelectionToolbar, type ContentQuote } from "@pi-tree/ui";
-import { ChevronLeft, ChevronRight, List, Minus, Plus, X } from "lucide-react";
+import { SelectionToolbar, type BookHighlight, type ContentQuote, type HighlightStore } from "@pi-tree/ui";
+import { ChevronLeft, ChevronRight, List, Minus, Plus, Trash2, X } from "lucide-react";
 import { isNoteElement, noteBlock, type ProcessedChapter } from "./epub-html.js";
+import {
+  anchorFromRange,
+  HIGHLIGHT_COLORS,
+  highlightIdAt,
+  paintHighlights,
+  type HighlightColor,
+} from "./highlight-dom.js";
 import type { BookChapters, TocEntry } from "./book-source.js";
 import "./BookReader.css";
 
@@ -10,11 +17,19 @@ export interface BookReaderProps {
   book: BookChapters;
   onDefine?: (text: string, context?: string) => void;
   onQuote?: (quote: ContentQuote) => void;
+  highlights?: HighlightStore;
 }
 
 interface SavedPosition {
   path: string;
   ratio: number;
+}
+
+/** Menu for a clicked highlight */
+interface HighlightMenu {
+  id: number;
+  top: number;
+  left: number;
 }
 
 interface NotePopover {
@@ -57,7 +72,7 @@ function splitTarget(target: string): [string, string] {
 const QUOTE_MAX_LENGTH = 2000;
 
 /** Paged reader for a book's chapters — EPUB or split markdown alike. */
-export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProps) {
+export function BookReader({ sourceId, book, onDefine, onQuote, highlights }: BookReaderProps) {
   const { spine, toc } = book;
 
   const [index, setIndex] = useState(() => {
@@ -71,9 +86,14 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
   const [fontScale, setFontScale] = useState(() => readStorage<number>(FONT_KEY) ?? 1);
   const [note, setNote] = useState<NotePopover | null>(null);
   const [progress, setProgress] = useState(0);
+  const [saved, setSaved] = useState<BookHighlight[]>([]);
+  const [hlMenu, setHlMenu] = useState<HighlightMenu | null>(null);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<HTMLDivElement>(null);
+  // The chapter text is set and painted here, not by React, so highlights
+  // always follow the content (state, so a remounted element repaints too)
+  const [article, setArticle] = useState<HTMLElement | null>(null);
   const cacheRef = useRef(new Map<string, Promise<ProcessedChapter>>());
   /** Where to land once the next chapter renders: a fragment id, a scroll ratio, or the top */
   const landingRef = useRef<{ frag?: string; ratio?: number } | null>(
@@ -113,10 +133,35 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
     };
   }, [index, spine, loadChapter]);
 
-  // Land at the requested spot after a chapter renders
+  // The book's highlights, loaded once
+  useEffect(() => {
+    if (!highlights) return;
+    let cancelled = false;
+    highlights
+      .list()
+      .then((list) => !cancelled && setSaved(list))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [highlights]);
+
+  // Render the chapter, then paint its highlights over the text
   useLayoutEffect(() => {
+    if (article && chapter) article.innerHTML = chapter.html;
+  }, [article, chapter]);
+
+  useLayoutEffect(() => {
+    if (!article || !chapter) return;
+    paintHighlights(article, saved.filter((h) => h.anchor.chapter === spine[index]));
+  }, [article, chapter, saved, spine, index]);
+
+  // Land at the requested spot once a chapter's text is in place. The panel
+  // may be hidden (no layout) when the reader mounts, so a pending landing
+  // waits until the body has a size.
+  const land = useCallback(() => {
     const body = bodyRef.current;
-    if (!body || !chapter) return;
+    if (!body || !chapter || !article || body.clientHeight === 0) return;
     const landing = landingRef.current;
     landingRef.current = null;
     if (landing?.frag) {
@@ -131,7 +176,19 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
     } else {
       body.scrollTop = 0;
     }
-  }, [chapter]);
+  }, [article, chapter]);
+
+  useLayoutEffect(land, [land]);
+
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const observer = new ResizeObserver(() => {
+      if (landingRef.current) land();
+    });
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, [land]);
 
   // Track progress + remember position
   useEffect(() => {
@@ -139,10 +196,13 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
     if (!body) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onScroll = () => {
+      // Hidden panel: no layout to measure, and saving would clobber the position
+      if (body.clientHeight === 0) return;
       const max = body.scrollHeight - body.clientHeight;
       const ratio = max > 0 ? body.scrollTop / max : 0;
       setProgress(ratio);
       setNote(null);
+      setHlMenu(null);
       clearTimeout(timer);
       timer = setTimeout(() => writeStorage(posKey(sourceId), { path: spine[index], ratio }), 300);
     };
@@ -212,9 +272,57 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
     [spine, index, loadChapter],
   );
 
+  const handleHighlight = useCallback(
+    async (range: Range) => {
+      if (!highlights || !article) return;
+      const anchor = anchorFromRange(article, range, spine[index], "yellow");
+      if (!anchor) return;
+      try {
+        const created = await highlights.create(anchor);
+        setSaved((list) => [...list, created]);
+      } catch (err) {
+        console.error("Failed to save highlight:", err);
+      }
+    },
+    [highlights, article, spine, index],
+  );
+
+  const recolorHighlight = useCallback(
+    (id: number, color: HighlightColor) => {
+      const target = saved.find((h) => h.id === id);
+      if (!highlights || !target) return;
+      const anchor = { ...target.anchor, color };
+      setHlMenu(null);
+      setSaved((list) => list.map((h) => (h.id === id ? { ...h, anchor } : h)));
+      highlights.update(id, anchor).catch((err) => console.error("Failed to recolor highlight:", err));
+    },
+    [highlights, saved],
+  );
+
+  const removeHighlight = useCallback(
+    (id: number) => {
+      if (!highlights) return;
+      setHlMenu(null);
+      setSaved((list) => list.filter((h) => h.id !== id));
+      highlights.remove(id).catch((err) => console.error("Failed to remove highlight:", err));
+    },
+    [highlights],
+  );
+
   const handleClick = useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
       const link = (e.target as Element).closest<HTMLAnchorElement>("a[data-target]");
+      const hlId = link ? null : highlightIdAt(e.target);
+      if (hlId !== null && highlights && window.getSelection()?.isCollapsed !== false) {
+        const view = viewRef.current!.getBoundingClientRect();
+        const rect = (e.target as Element).getBoundingClientRect();
+        setHlMenu({
+          id: hlId,
+          top: rect.bottom - view.top + 6,
+          left: Math.min(Math.max(rect.left - view.left, 12), view.width - 200),
+        });
+        return;
+      }
       if (!link) return;
       e.preventDefault();
       const target = link.getAttribute("data-target")!;
@@ -231,7 +339,7 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
       }
       goTo(target);
     },
-    [resolveTarget, goTo],
+    [resolveTarget, goTo, highlights],
   );
 
   // Escape closes popovers / TOC
@@ -239,6 +347,7 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setNote(null);
+      setHlMenu(null);
       setShowToc(false);
     };
     window.addEventListener("keydown", onKey);
@@ -331,11 +440,11 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
         ) : (
           <>
             <article
+              ref={setArticle}
               className="epub-reader-text"
               style={{ fontSize: `${fontScale}rem` }}
               onClick={handleClick}
               onKeyDown={(e) => e.key === "Enter" && handleClick(e)}
-              dangerouslySetInnerHTML={{ __html: chapter.html }}
             />
             <div className="epub-reader-chapter-end">
               {nextTitle ? (
@@ -356,6 +465,7 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
             onDefine={onDefine}
             onAsk={onQuote && ((text) => onQuote({ text, source: title, branch: false }))}
             onBranch={onQuote && ((text) => onQuote({ text, source: title, branch: true }))}
+            onHighlight={highlights ? handleHighlight : undefined}
             maxLength={onQuote ? QUOTE_MAX_LENGTH : undefined}
           />
         )}
@@ -380,6 +490,32 @@ export function BookReader({ sourceId, book, onDefine, onQuote }: BookReaderProp
           Next <ChevronRight size={14} />
         </button>
       </div>
+
+      {hlMenu && (
+        <>
+          <div className="epub-reader-note-backdrop" onClick={() => setHlMenu(null)} />
+          <div className="book-hl-menu" style={{ top: hlMenu.top, left: hlMenu.left }}>
+            {HIGHLIGHT_COLORS.map((color) => (
+              <button
+                key={color}
+                className={`book-hl-swatch book-hl-${color} ${
+                  saved.find((h) => h.id === hlMenu.id)?.anchor.color === color ? "current" : ""
+                }`}
+                onClick={() => recolorHighlight(hlMenu.id, color)}
+                title={color}
+                aria-label={`Highlight ${color}`}
+              />
+            ))}
+            <button
+              className="epub-reader-icon-btn"
+              onClick={() => removeHighlight(hlMenu.id)}
+              title="Remove highlight"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </>
+      )}
 
       {note && (
         <>

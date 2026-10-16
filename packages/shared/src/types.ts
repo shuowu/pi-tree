@@ -471,8 +471,26 @@ export interface Memo {
   origin: 'selection' | 'message' | 'command' | 'ai_suggested' | 'manual';
   pinned: boolean;
   tags: string[];
+  /** Where the memo's text sits in the source — set for highlights */
+  anchor: MemoAnchor | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type HighlightColor = 'yellow' | 'green' | 'blue' | 'pink';
+
+/**
+ * Locates highlighted text in a book: the chapter (EPUB spine path or
+ * markdown chapter key) and the text itself, with a little context on each
+ * side to tell repeated passages apart.
+ */
+export interface MemoAnchor {
+  kind: 'book';
+  chapter: string;
+  exact: string;
+  prefix: string;
+  suffix: string;
+  color: HighlightColor;
 }
 
 export interface MemoCreate {
@@ -483,6 +501,7 @@ export interface MemoCreate {
   nodeId?: string;
   origin?: Memo['origin'];
   tags?: string[];
+  anchor?: MemoAnchor;
 }
 
 export interface MemoUpdate {
@@ -490,4 +509,5 @@ export interface MemoUpdate {
   content?: string;
   pinned?: boolean;
   tags?: string[];
+  anchor?: MemoAnchor;
 }
