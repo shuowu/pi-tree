@@ -30,6 +30,42 @@ export function toIsoOrNull(value?: string | null): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// Feed fetching
+//
+// Don't use rss-parser's parseURL(): on non-2xx responses, redirects, and
+// timeouts it never consumes or aborts the response, so each one leaks a
+// socket. A long-running crawler hits EMFILE after a few weeks of 403s
+// (all fetches fail, the HTTP API stops accepting). fetch() follows redirects,
+// and the abort signal tears the connection down on timeout.
+// ---------------------------------------------------------------------------
+
+const FEED_FETCH_TIMEOUT_MS = 30_000;
+
+/** Fetch a feed body as text, honoring the charset in Content-Type. */
+export async function fetchFeedXml(url: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "rss-parser",
+      Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+    },
+    redirect: "follow",
+    signal: AbortSignal.timeout(FEED_FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`Status code ${res.status}`);
+  }
+  const charset = /charset=([^;]+)/i.exec(res.headers.get("content-type") ?? "")?.[1]?.trim().replace(/["']/g, "");
+  const buf = await res.arrayBuffer();
+  try {
+    return new TextDecoder(charset || "utf-8").decode(buf);
+  } catch {
+    // Unknown charset label — fall back to UTF-8
+    return new TextDecoder("utf-8").decode(buf);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -411,7 +447,7 @@ export class RssService implements IRssService {
     for (const feed of feeds) {
       try {
         console.log(`[news] Fetching feed: ${feed.name} (${feed.url})`);
-        const parsed = await this.parser.parseURL(feed.url);
+        const parsed = await this.parser.parseString(await fetchFeedXml(feed.url));
         const db = await this.getDb();
         const now = new Date().toISOString();
         let itemsSaved = 0;
